@@ -1,0 +1,566 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// NextAuth.js Required Models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(USER)
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations to content
+  projectsCreated Project[] @relation("ProjectCreator")
+  eventsCreated   Event[]   @relation("EventCreator")
+  postsCreated    BlogPost[] @relation("PostCreator")
+  auditLogs       AuditLog[]
+  formsCreated    Form[]    @relation("FormCreator")
+  applicationsReviewed Application[] @relation("ApplicationReviewer")
+  formDrafts      FormDraft[] @relation("FormDrafts")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+// Content Models
+model Project {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  status      ProjectStatus
+  startDate   DateTime
+  endDate     DateTime?
+  budget      String?
+  progress    Int           @default(0)
+  objectives  String        // JSON string
+  outcomes    String?       // JSON string
+  technologies String       // JSON string
+  links       String?       // JSON string
+  imageUrl    String?       // Background image URL
+  featured    Boolean       @default(false)
+  published   Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  createdBy   String
+  creator     User          @relation("ProjectCreator", fields: [createdBy], references: [id])
+  
+  // Relations
+  teamMembers ProjectTeamMember[]
+  funding     ProjectFunding[]
+  partnerships ProjectPartnership[]
+}
+
+model ProjectTeamMember {
+  id        String  @id @default(cuid())
+  projectId String
+  name      String
+  role      String
+  year      String
+  email     String?
+  linkedIn  String?
+  github    String?
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ProjectFunding {
+  id        String  @id @default(cuid())
+  projectId String
+  source    String
+  amount    String?
+  type      String? // Grant, Sponsorship, Internal, etc.
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  eventDate   DateTime
+  endDate     DateTime?
+  location    String
+  venue       String?
+  capacity    Int?
+  registrationUrl String?
+  eventType   EventType
+  imageUrl    String?   // Background image URL
+  featured    Boolean   @default(false)
+  published   Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String
+  creator     User      @relation("EventCreator", fields: [createdBy], references: [id])
+  
+  // Relations
+  partnerships EventPartnership[]
+}
+
+enum EventType {
+  WORKSHOP
+  SYMPOSIUM
+  NETWORKING
+  CONFERENCE
+  MEETING
+  SOCIAL
+}
+
+model TeamMember {
+  id          String   @id @default(cuid())
+  name        String
+  role        String
+  year        String
+  major       String?
+  bio         String?
+  email       String?
+  linkedIn    String?
+  github      String?
+  imageUrl    String?  // Profile image URL
+  featured    Boolean  @default(false)
+  active      Boolean  @default(true)
+  joinDate    DateTime @default(now())
+  leaveDate   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BlogPost {
+  id        String      @id @default(cuid())
+  title     String
+  slug      String      @unique
+  content   String
+  excerpt   String?
+  status    PostStatus  @default(DRAFT)
+  featured  Boolean     @default(false)
+  tags      String?     // JSON string
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  createdBy String
+  creator   User        @relation("PostCreator", fields: [createdBy], references: [id])
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model SiteSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  type        SettingType @default(TEXT)
+  updatedAt   DateTime @updatedAt
+}
+
+enum SettingType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  JSON
+  IMAGE
+}
+
+// Site Content Models
+model HeroContent {
+  id          String   @id @default(cuid())
+  mainTitle   String   @default("AI SHAPES")
+  subTitle    String   @default("TOMORROW.")
+  thirdTitle  String   @default("WE MAKE AI")
+  description String   @default("One project at a time. We're building the bridge between artificial intelligence and real-world business impact at the University of Michigan.")
+  primaryButtonText String @default("See What's Possible")
+  primaryButtonLink String @default("#join")
+  secondaryButtonText String @default("Explore Projects")
+  secondaryButtonLink String @default("/projects")
+  backgroundImage String? // Optional background image
+  isActive    Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}
+
+model AboutContent {
+  id          String   @id @default(cuid())
+  title       String   @default("WHO WE ARE")
+  subtitle    String   @default("We're not just another student organization. We're the bridge between artificial intelligence and business impact at the University of Michigan.")
+  mainTitle   String   @default("BUILDING THE FUTURE")
+  description1 String  @default("AI Business Group brings together builders, entrepreneurs, and researchers who share one vision: transforming how businesses operate through intelligent technology.")
+  description2 String  @default("We don't just study AI — we apply it. Every project we create has real business impact, from startup solutions to enterprise innovations.")
+  primaryButtonText String @default("Explore Projects")
+  primaryButtonLink String @default("/events")
+  secondaryButtonText String @default("Meet the Team")
+  secondaryButtonLink String @default("/team")
+  
+  // Statistics
+  membersCount    String @default("25+")
+  projectsCount   String @default("12")
+  partnersCount   String @default("3")
+  missionCount    String @default("1")
+  
+  // Values
+  value1Title     String @default("AI-DRIVEN")
+  value1Desc      String @default("We leverage cutting-edge artificial intelligence to solve real business challenges.")
+  value1Icon      String @default("🧠")
+  
+  value2Title     String @default("IMPACT-FOCUSED")
+  value2Desc      String @default("Every project we build has measurable business outcomes and real-world applications.")
+  value2Icon      String @default("🚀")
+  
+  value3Title     String @default("FUTURE-READY")
+  value3Desc      String @default("Preparing the next generation of leaders for an AI-first business landscape.")
+  value3Icon      String @default("⚡")
+  
+  // Images
+  teamImage       String? // Team photo
+  backgroundImage String? // Section background
+  
+  // Carousel Content - Innovation Through Collaboration
+  collaborationDisplayMode String @default("carousel") // "carousel" or "image"
+  collaborationTitle      String @default("Innovation Through Collaboration")
+  collaborationSubtitle   String @default("Building the future together")
+  
+  // Carousel slides (JSON string)
+  carouselSlides  String @default("[{\"title\":\"Our Journey\",\"description\":\"Founded by passionate students who saw the need for practical AI application in business\",\"icon\":\"🚀\",\"duration\":30},{\"title\":\"Our Vision\",\"description\":\"Bridging the gap between artificial intelligence research and real-world business solutions\",\"icon\":\"🎯\",\"duration\":30},{\"title\":\"AI Impact\",\"description\":\"70% of businesses will use AI by 2025 - we're preparing leaders for this transformation\",\"icon\":\"📈\",\"duration\":30},{\"title\":\"What's Coming\",\"description\":\"Exciting partnerships and groundbreaking projects on the horizon\",\"icon\":\"🌟\",\"duration\":30}]")
+  
+  isActive    Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}
+
+model JoinContent {
+  id          String   @id @default(cuid())
+  title       String   @default("JOIN THE FUTURE")
+  subtitle    String   @default("Ready to shape tomorrow's business landscape? Multiple ways to get involved with ABG's mission to revolutionize how AI and business intersect.")
+  
+  // Option 1 - Membership
+  option1Title       String @default("BECOME A MEMBER")
+  option1Description String @default("Join our core team and work on cutting-edge AI projects that solve real business problems.")
+  option1Benefits    String @default("Direct project involvement\nMentorship opportunities\nIndustry networking\nSkill development")
+  option1CTA         String @default("Apply Now")
+  option1Link        String @default("#")
+  
+  // Option 2 - Partnership
+  option2Title       String @default("PARTNER WITH US")
+  option2Description String @default("Collaborate on research, sponsor events, or provide mentorship to our growing community.")
+  option2Benefits    String @default("Strategic partnerships\nTalent pipeline access\nInnovation collaboration\nBrand visibility")
+  option2CTA         String @default("Explore Partnership")
+  option2Link        String @default("mailto:partnerships@abg-umich.com")
+  
+  // Option 3 - Newsletter
+  option3Title       String @default("STAY CONNECTED")
+  option3Description String @default("Get updates on our latest projects, events, and opportunities in the AI business space.")
+  option3Benefits    String @default("Weekly insights\nEvent invitations\nProject showcases\nIndustry updates")
+  option3CTA         String @default("Subscribe")
+  
+  // Contact Section
+  contactTitle       String @default("QUESTIONS? LET'S CONNECT")
+  contactEmail1      String @default("info@abg-umich.com")
+  contactEmail2      String @default("partnerships@abg-umich.com")
+  contactEmail3      String @default("careers@abg-umich.com")
+  
+  isActive    Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}
+
+// Audit Log for tracking changes
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  userEmail String
+  action    String   // CREATE, UPDATE, DELETE
+  resource  String   // hero, about, join, team, project, event
+  resourceId String?
+  changes   String?  // JSON string of what changed
+  timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+// Company and Partnership Models
+model Company {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  logoUrl     String?
+  website     String?
+  industry    String?
+  size        String?   // Startup, Small, Medium, Large, Enterprise
+  location    String?
+  contactEmail String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  projectPartnerships ProjectPartnership[]
+  eventPartnerships   EventPartnership[]
+}
+
+model ProjectPartnership {
+  id          String    @id @default(cuid())
+  projectId   String
+  companyId   String
+  type        PartnershipType
+  description String?
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  company     Company   @relation(fields: [companyId], references: [id])
+  
+  @@unique([projectId, companyId])
+}
+
+model EventPartnership {
+  id          String    @id @default(cuid())
+  eventId     String
+  companyId   String
+  type        PartnershipType
+  description String?
+  sponsorshipLevel String? // Platinum, Gold, Silver, Bronze, etc.
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  company     Company   @relation(fields: [companyId], references: [id])
+  
+  @@unique([eventId, companyId])
+}
+
+enum PartnershipType {
+  SPONSOR
+  COLLABORATOR
+  CLIENT
+  MENTOR
+  ADVISOR
+  VENDOR
+  RESEARCH_PARTNER
+}
+
+// Form System Models
+model Form {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  slug        String    @unique // URL-friendly identifier
+  category    String    @default("general") // membership, event, general, etc.
+  isActive    Boolean   @default(true)
+  isPublic    Boolean   @default(true)
+  allowMultiple Boolean @default(false) // Allow multiple submissions per email
+  deadline    DateTime?
+  maxSubmissions Int?
+  
+  // Notification settings
+  notifyOnSubmission Boolean @default(true)
+  notificationEmail  String?
+  
+  // Authentication settings
+  requireAuth       Boolean @default(false) // Require UMich Google OAuth
+  
+  // Styling
+  backgroundColor String @default("#00274c")
+  textColor      String @default("#ffffff")
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String
+  creator     User      @relation("FormCreator", fields: [createdBy], references: [id])
+  
+  // Relations
+  questions     FormQuestion[]
+  applications  Application[]
+  drafts        FormDraft[]
+}
+
+model FormQuestion {
+  id          String       @id @default(cuid())
+  formId      String
+  title       String
+  description String?
+  type        QuestionType
+  required    Boolean      @default(false)
+  order       Int          @default(0)
+  
+  // Options for select/radio/checkbox questions (JSON array)
+  options     String?
+  
+  // Validation
+  minLength   Int?
+  maxLength   Int?
+  pattern     String? // Regex pattern for validation
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  form        Form         @relation(fields: [formId], references: [id], onDelete: Cascade)
+  responses   ApplicationResponse[]
+}
+
+enum QuestionType {
+  TEXT          // Short text input
+  TEXTAREA      // Long text input
+  EMAIL         // Email input with validation
+  PHONE         // Phone number input
+  NUMBER        // Number input
+  DATE          // Date picker
+  SELECT        // Dropdown select
+  RADIO         // Radio buttons
+  CHECKBOX      // Multiple checkboxes
+  FILE          // File upload
+  URL           // URL input
+  BOOLEAN       // Yes/No toggle
+}
+
+model Application {
+  id          String    @id @default(cuid())
+  formId      String
+  
+  // Applicant info
+  applicantName  String?
+  applicantEmail String
+  applicantPhone String?
+  
+  // Application status
+  status      ApplicationStatus @default(PENDING)
+  priority    ApplicationPriority @default(NORMAL)
+  
+  // Admin notes and feedback
+  adminNotes  String?
+  feedback    String?
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  
+  // Metadata
+  submittedAt DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  ipAddress   String?
+  userAgent   String?
+  
+  form        Form      @relation(fields: [formId], references: [id], onDelete: Cascade)
+  responses   ApplicationResponse[]
+  reviewer    User?     @relation("ApplicationReviewer", fields: [reviewedBy], references: [id])
+}
+
+model ApplicationResponse {
+  id          String       @id @default(cuid())
+  applicationId String
+  questionId  String
+  
+  // Response data
+  textValue   String?      // For text, textarea, email, phone, url
+  numberValue Float?       // For number inputs
+  dateValue   DateTime?    // For date inputs
+  booleanValue Boolean?    // For boolean/yes-no questions
+  fileUrl     String?      // For file uploads
+  
+  // For multi-select questions (JSON array)
+  selectedOptions String?
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  application Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  question    FormQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+enum ApplicationStatus {
+  PENDING     // Just submitted, awaiting review
+  REVIEWING   // Currently being reviewed
+  ACCEPTED    // Application accepted
+  REJECTED    // Application rejected
+  WAITLISTED  // On waiting list
+  WITHDRAWN   // Applicant withdrew
+  EXPIRED     // Application expired (past deadline)
+}
+
+enum ApplicationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+// Draft Form Submissions for authenticated users
+model FormDraft {
+  id          String    @id @default(cuid())
+  formId      String
+  userId      String    // Must be authenticated to save drafts
+  
+  // Draft applicant info
+  applicantName  String?
+  applicantEmail String?
+  applicantPhone String?
+  
+  // Draft responses (JSON string)
+  responses   String?   // JSON object of questionId -> value
+  
+  // Metadata
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  form        Form      @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user        User      @relation("FormDrafts", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([formId, userId]) // One draft per form per user
+}
