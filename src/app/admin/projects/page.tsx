@@ -13,9 +13,59 @@ import {
 export default function ProjectsAdmin() {
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingProject, setEditingProject] = useState(null);
+  const [editingProject, setEditingProject] = useState<any>(null);
+
+  // Restore form state on mount
+  useEffect(() => {
+    try {
+      const savedFormState = localStorage.getItem('projectsAdmin_formState');
+      if (savedFormState) {
+        const { showForm: savedShowForm, editingProjectId } = JSON.parse(savedFormState);
+        console.log('🔄 Restoring projects form state:', { savedShowForm, editingProjectId, projectsLoaded: projects.length > 0 });
+        if (savedShowForm) {
+          setShowForm(true);
+          if (editingProjectId) {
+            // We'll set the editing project after projects are loaded
+            const checkForProject = () => {
+              if (projects.length > 0) {
+                const project = projects.find(p => p.id === editingProjectId);
+                if (project) {
+                  setEditingProject(project);
+                  console.log('✓ Projects editing project restored:', project.title);
+                }
+              }
+            };
+            // Check immediately and also set up a timeout
+            checkForProject();
+            setTimeout(checkForProject, 100);
+          } else {
+            console.log('✓ Projects new form restored');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error restoring form state:', error);
+    }
+  }, [projects]);
+
+  // Save form state whenever it changes
+  useEffect(() => {
+    try {
+      const formState = {
+        showForm,
+        editingProjectId: editingProject?.id || null
+      };
+      if (showForm || editingProject) {
+        localStorage.setItem('projectsAdmin_formState', JSON.stringify(formState));
+      } else {
+        localStorage.removeItem('projectsAdmin_formState');
+      }
+    } catch (error) {
+      console.error('Error saving form state:', error);
+    }
+  }, [showForm, editingProject]);
 
   // Check authentication
   useEffect(() => {
@@ -101,7 +151,7 @@ export default function ProjectsAdmin() {
               setEditingProject(null);
               setShowForm(true);
             }}
-            className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366]"
+            className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366] admin-white-text"
           >
             <PlusIcon className="w-4 h-4" />
             Add Project
@@ -117,11 +167,15 @@ export default function ProjectsAdmin() {
             onClose={() => {
               setShowForm(false);
               setEditingProject(null);
+              // Clear form state from localStorage
+              localStorage.removeItem('projectsAdmin_formState');
             }}
             onSave={() => {
               loadProjects();
               setShowForm(false);
               setEditingProject(null);
+              // Clear form state from localStorage
+              localStorage.removeItem('projectsAdmin_formState');
             }}
           />
         </div>
@@ -233,9 +287,9 @@ export default function ProjectsAdmin() {
               setEditingProject(null);
               setShowForm(true);
             }}
-            className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366]"
-          >
-            Add Project
+                              className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
+                >
+                  Add Project
           </button>
         </div>
       )}
@@ -261,8 +315,85 @@ function ProjectForm({ project, onClose, onSave }: any) {
     published: true
   });
   const [saving, setSaving] = useState(false);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [partnerships, setPartnerships] = useState<any[]>([]);
 
+  // Autosave functionality - works for both new and editing
   useEffect(() => {
+    const autoSaveData = () => {
+      if (formData.title.trim()) {
+        try {
+          const draftKey = project ? `projectForm_draft_edit_${project.id}` : 'projectForm_draft_new';
+          const draftData = {
+            formData,
+            partnerships
+          };
+          localStorage.setItem(draftKey, JSON.stringify(draftData));
+          console.log('✓ Project form autosaved:', formData.title, project ? '(editing)' : '(new)');
+        } catch (error) {
+          console.error('Error autosaving project form:', error);
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(autoSaveData, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [formData, partnerships, project]);
+
+  // Load companies, existing partnerships, or draft
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const companiesRes = await fetch('/api/admin/companies');
+        if (companiesRes.ok) {
+          const companiesData = await companiesRes.json();
+          setCompanies(companiesData);
+        }
+
+        if (project?.id) {
+          const partnershipsRes = await fetch(`/api/admin/partnerships/project/${project.id}`);
+          if (partnershipsRes.ok) {
+            const partnershipsData = await partnershipsRes.json();
+            setPartnerships(partnershipsData);
+          }
+          
+          // Check for editing draft
+          const editDraftKey = `projectForm_draft_edit_${project.id}`;
+          const editDraft = localStorage.getItem(editDraftKey);
+          if (editDraft) {
+            try {
+              const parsedDraft = JSON.parse(editDraft);
+              setFormData(parsedDraft.formData);
+              setPartnerships(parsedDraft.partnerships || []);
+              console.log('✓ Project editing draft loaded:', parsedDraft.formData.title);
+            } catch (error) {
+              console.error('Error loading project editing draft:', error);
+              localStorage.removeItem(editDraftKey);
+            }
+          }
+        } else {
+          // Load draft for new projects
+          const draftKey = 'projectForm_draft_new';
+          const draft = localStorage.getItem(draftKey);
+          if (draft) {
+            try {
+              const parsedDraft = JSON.parse(draft);
+              setFormData(parsedDraft.formData);
+              setPartnerships(parsedDraft.partnerships || []);
+              console.log('✓ Project form draft loaded:', parsedDraft.formData.title);
+            } catch (error) {
+              console.error('Error loading project form draft:', error);
+              localStorage.removeItem(draftKey);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
+    loadData();
+
+    // Set initial form data for existing project
     if (project) {
       setFormData({
         title: project.title || '',
@@ -283,35 +414,62 @@ function ProjectForm({ project, onClose, onSave }: any) {
     }
   }, [project]);
 
+  const addPartnership = () => {
+    setPartnerships([...partnerships, { companyId: '', type: 'COLLABORATOR', description: '' }]);
+  };
+
+  const removePartnership = (index: number) => {
+    setPartnerships(partnerships.filter((_: any, i: number) => i !== index));
+  };
+
+  const updatePartnership = (index: number, field: string, value: string) => {
+    const updated = [...partnerships];
+    updated[index][field] = value;
+    setPartnerships(updated);
+  };
+
+  const handleClose = () => {
+    onClose();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
 
     try {
-      const payload = {
-        ...formData,
-        startDate: new Date(formData.startDate).toISOString(),
-        endDate: formData.endDate ? new Date(formData.endDate).toISOString() : null,
-        progress: parseInt(formData.progress.toString()),
-        objectives: formData.objectives || '[]',
-        outcomes: formData.outcomes || '[]',
-        technologies: formData.technologies || '[]',
-        links: formData.links || '[]'
-      };
-
       const url = project 
         ? `/api/admin/projects?id=${project.id}` 
         : '/api/admin/projects';
       
       const method = project ? 'PUT' : 'POST';
+      const data = project ? { ...formData, id: project.id } : formData;
 
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(data)
       });
 
       if (res.ok) {
+        const projectData = await res.json();
+        const projectId = projectData.id || project?.id;
+
+        // Save partnerships if any exist
+        if (partnerships.length > 0 && projectId) {
+          await fetch('/api/admin/partnerships/project', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              projectId: projectId,
+              partnerships: partnerships.filter(p => p.companyId) 
+            })
+          });
+        }
+
+        // Clear the draft on successful save
+        const draftKey = project ? `projectForm_draft_edit_${project.id}` : 'projectForm_draft_new';
+        localStorage.removeItem(draftKey);
+        console.log('✓ Project form saved successfully, draft cleared');
         onSave();
       } else {
         const error = await res.json();
@@ -333,11 +491,11 @@ function ProjectForm({ project, onClose, onSave }: any) {
         </h3>
         <div className="flex items-center gap-2">
           <div className="text-xs text-gray-500 bg-green-50 px-2 py-1 rounded">
-            ✓ Changes saved automatically
+            ✓ Auto-saving
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-500 hover:text-gray-700 text-sm"
           >
             Cancel
@@ -463,6 +621,84 @@ function ProjectForm({ project, onClose, onSave }: any) {
             />
           </div>
 
+          {/* Company Partnerships Section */}
+          <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-md font-medium text-gray-900">Company Partnerships</h4>
+              <button
+                type="button"
+                onClick={addPartnership}
+                className="px-3 py-1 bg-[#00274c] text-white rounded-md hover:bg-[#003366] text-sm admin-white-text"
+              >
+                Add Partnership
+              </button>
+            </div>
+            
+            {partnerships.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">No partnerships added yet</p>
+            ) : (
+              <div className="space-y-3">
+                {partnerships.map((partnership: any, index: number) => (
+                  <div key={index} className="bg-white p-3 rounded border space-y-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                        <select
+                          value={partnership.companyId}
+                          onChange={(e) => updatePartnership(index, 'companyId', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
+                          required
+                        >
+                          <option value="">Select a company</option>
+                          {companies.map((company: any) => (
+                            <option key={company.id} value={company.id}>
+                              {company.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Partnership Type</label>
+                        <select
+                          value={partnership.type}
+                          onChange={(e) => updatePartnership(index, 'type', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
+                        >
+                          <option value="SPONSOR">Sponsor</option>
+                          <option value="COLLABORATOR">Collaborator</option>
+                          <option value="CLIENT">Client</option>
+                          <option value="MENTOR">Mentor</option>
+                          <option value="ADVISOR">Advisor</option>
+                          <option value="VENDOR">Vendor</option>
+                          <option value="RESEARCH_PARTNER">Research Partner</option>
+                        </select>
+                      </div>
+                      <div className="flex items-end">
+                        <button
+                          type="button"
+                          onClick={() => removePartnership(index)}
+                          className="px-2 py-1 text-red-600 hover:text-red-800 text-sm"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <input
+                        type="text"
+                        value={partnership.description}
+                        onChange={(e) => updatePartnership(index, 'description', e.target.value)}
+                        placeholder="Describe the partnership..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center gap-6 mb-6">
             <label className="flex items-center gap-2">
               <input
@@ -488,9 +724,9 @@ function ProjectForm({ project, onClose, onSave }: any) {
           <button
             type="submit"
             disabled={saving}
-            className="px-4 py-2 bg-[#FFFFFF] text-white hover:bg-[#003366] rounded-lg disabled:opacity-50"
+            className="admin-save-btn px-4 py-2 bg-[#00274c] text-white hover:bg-[#003366] hover:text-white rounded-lg disabled:opacity-50 disabled:text-white font-medium admin-white-text"
           >
-            {saving ? 'Saving...' : (project ? 'Update Project' : 'Add Project')}
+            {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </form>

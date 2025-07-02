@@ -1,0 +1,615 @@
+/* Admin-specific styles */
+@import "tailwindcss";
+
+/* Admin page reset - ensure normal dark text on light backgrounds */
+.admin-page {
+  background: #f8f9fa;
+  color: #1f2937;
+  font-family: 'Roboto', sans-serif;
+}
+
+/* UTILITY: Force white text for buttons and icons */
+.admin-white-text,
+.admin-white-text *,
+.admin-page .admin-white-text,
+.admin-page .admin-white-text * {
+  color: white !important;
+  fill: white !important;
+}
+
+/* Override any global white text rules for admin - High specificity */
+.admin-page h1,
+.admin-page h2,
+.admin-page h3,
+.admin-page h4,
+.admin-page h5,
+.admin-page h6,
+.admin-page p,
+.admin-page span,
+.admin-page div,
+.admin-page label,
+.admin-page button,
+.admin-page a {
+  color: #1f2937 !important;
+}
+
+/* Override all Tailwind text color classes in admin */
+.admin-page .text-gray-900,
+.admin-page .text-gray-800,
+.admin-page .text-gray-700,
+.admin-page .text-gray-600,
+.admin-page .text-gray-500,
+.admin-page .text-gray-400,
+.admin-page .text-gray-300 {
+  color: #1f2937 !important;
+}
+
+/* CRITICAL: Override any specific gray colors used in components */
+.admin-page [class*="text-[#5e6472]"],
+.admin-page [class*="text-[#BBBBBB]"],
+.admin-page .text-\[#5e6472\],
+.admin-page .text-\[#BBBBBB\] {
+  color: #1f2937 !important;
+}
+
+/* Exception: Keep sidebar gray colors as white */
+.admin-page .bg-\[#00274c\] [class*="text-[#5e6472]"],
+.admin-page .bg-\[#00274c\] [class*="text-[#BBBBBB]"],
+.admin-page .bg-\[#00274c\] .text-\[#5e6472\],
+.admin-page .bg-\[#00274c\] .text-\[#BBBBBB\] {
+  color: white !important;
+}
+
+/* NUCLEAR OPTION - Force white text in sidebar with maximum specificity */
+html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] h1,
+html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] p,
+html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] span,
+html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] a,
+html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] nav,
+html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] nav *,
+html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] * {
+  color: white !important;
+  fill: white !important;
+}
+
+/* Target sidebar by structure */
+.admin-page > div.h-screen > div.w-48 *,
+.admin-page > div.h-screen > div.md\:w-64 *,
+div[class*="w-48"][class*="bg-[#00274c]"] *,
+div[class*="md:w-64"][class*="bg-[#00274c]"] * {
+  color: white !important;
+  fill: white !important;
+}
+
+/* Specific overrides for elements that commonly have text color issues */
+.admin-page .bg-white h1,
+.admin-page .bg-white h2,
+.admin-page .bg-white h3,
+.admin-page .bg-white h4,
+.admin-page .bg-white h5,
+.admin-page .bg-white h6,
+.admin-page .bg-white p,
+.admin-page .bg-white span:not(.bg-blue-100):not(.bg-green-100):not(.bg-red-100):not(.bg-yellow-100):not(.bg-purple-100):not(.bg-gray-100):not(.bg-orange-100):not(.bg-pink-100),
+.admin-page .bg-white div:not(.bg-blue-100):not(.bg-green-100):not(.bg-red-100):not(.bg-yellow-100):not(.bg-purple-100):not(.bg-gray-100):not(.bg-orange-100):not(.bg-pink-100),
+.admin-page .bg-white label,
+.admin-page .bg-white a {
+  color: #1f2937 !important;
+}
+
+/* Light background overrides */
+.admin-page .bg-gray-50 h1,
+.admin-page .bg-gray-50 h2,
+.admin-page .bg-gray-50 h3,
+.admin-page .bg-gray-50 h4,
+.admin-page .bg-gray-50 h5,
+.admin-page .bg-gray-50 h6,
+.admin-page .bg-gray-50 p,
+.admin-page .bg-gray-50 span:not(.bg-blue-100):not(.bg-green-100):not(.bg-red-100):not(.bg-yellow-100):not(.bg-purple-100):not(.bg-gray-100):not(.bg-orange-100):not(.bg-pink-100),
+.admin-page .bg-gray-50 div:not(.bg-blue-100):not(.bg-green-100):not(.bg-red-100):not(.bg-yellow-100):not(.bg-purple-100):not(.bg-gray-100):not(.bg-orange-100):not(.bg-pink-100),
+.admin-page .bg-gray-50 label,
+.admin-page .bg-gray-50 a {
+  color: #828282 !important;
+}
+
+/* Form elements in admin */
+.admin-page input[type="text"],
+.admin-page input[type="email"],
+.admin-page input[type="password"],
+.admin-page input[type="url"],
+.admin-page input[type="date"],
+.admin-page input[type="datetime-local"],
+.admin-page input[type="number"],
+.admin-page select,
+.admin-page textarea {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 0.375rem !important;
+  padding: 0.5rem 0.75rem !important;
+}
+
+.admin-page input[type="text"]:focus,
+.admin-page input[type="email"]:focus,
+.admin-page input[type="password"]:focus,
+.admin-page input[type="url"]:focus,
+.admin-page input[type="date"]:focus,
+.admin-page input[type="datetime-local"]:focus,
+.admin-page input[type="number"]:focus,
+.admin-page select:focus,
+.admin-page textarea:focus {
+  outline: none !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Placeholder text */
+.admin-page input::placeholder,
+.admin-page textarea::placeholder {
+  color: #6b7280 !important;
+  opacity: 1 !important;
+}
+
+/* Admin buttons */
+.admin-save-btn {
+  background: #00274c !important;
+  color: white !important;
+  border: none !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.375rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+}
+
+.admin-save-btn:hover {
+  background: #1a365d !important;
+  transform: translateY(-1px) !important;
+}
+
+.admin-save-btn:disabled {
+  background: #6b7280 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+/* Admin form cards */
+.admin-card {
+  background: white !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 0.5rem !important;
+  padding: 1.5rem !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+.admin-card h3,
+.admin-card h4,
+.admin-card p,
+.admin-card span,
+.admin-card label {
+  color: #1f2937 !important;
+}
+
+/* Badge colors for admin */
+.admin-page .bg-blue-100 { background-color: #dbeafe !important; }
+.admin-page .text-blue-800 { color: #1e40af !important; }
+.admin-page .bg-green-100 { background-color: #dcfce7 !important; }
+.admin-page .text-green-800 { color: #166534 !important; }
+.admin-page .bg-red-100 { background-color: #fee2e2 !important; }
+.admin-page .text-red-800 { color: #991b1b !important; }
+.admin-page .bg-yellow-100 { background-color: #fef3c7 !important; }
+.admin-page .text-yellow-800 { color: #92400e !important; }
+.admin-page .bg-purple-100 { background-color: #f3e8ff !important; }
+.admin-page .text-purple-800 { color: #6b21a8 !important; }
+.admin-page .bg-gray-100 { background-color: #f3f4f6 !important; }
+.admin-page .text-gray-800 { color: #1f2937 !important; }
+
+/* Admin navigation - Keep white text on dark backgrounds */
+.admin-nav,
+.bg-\[#00274c\] {
+  background: #00274c !important;
+  color: white !important;
+}
+
+.admin-nav a,
+.admin-nav button,
+.admin-nav span,
+.bg-\[#00274c\] a,
+.bg-\[#00274c\] button,
+.bg-\[#00274c\] span,
+.bg-\[#00274c\] h1,
+.bg-\[#00274c\] h2,
+.bg-\[#00274c\] h3,
+.bg-\[#00274c\] p {
+  color: white !important;
+}
+
+.admin-nav a:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Admin sidebar - Force white text on dark backgrounds with maximum specificity */
+.admin-page .bg-\[#00274c\],
+.admin-page .w-48,
+.admin-page .md\:w-64,
+div.bg-\[#00274c\],
+div.w-48.md\:w-64.bg-\[#00274c\] {
+  background: #00274c !important;
+  color: white !important;
+}
+
+/* Force all sidebar text to be white */
+.admin-page .bg-\[#00274c\] *,
+.admin-page .w-48 *,
+.admin-page .md\:w-64 *,
+div.bg-\[#00274c\] *,
+div.w-48.md\:w-64.bg-\[#00274c\] *,
+.admin-page .bg-\[#00274c\] h1,
+.admin-page .bg-\[#00274c\] h2,
+.admin-page .bg-\[#00274c\] h3,
+.admin-page .bg-\[#00274c\] p,
+.admin-page .bg-\[#00274c\] span,
+.admin-page .bg-\[#00274c\] a,
+.admin-page .bg-\[#00274c\] button,
+.admin-page .bg-\[#00274c\] div,
+.admin-page .bg-\[#00274c\] label {
+  color: white !important;
+}
+
+/* Specific targeting for navigation links */
+.admin-page .bg-\[#00274c\] nav a,
+.admin-page .bg-\[#00274c\] .flex.items-center,
+.admin-page .bg-\[#00274c\] .text-\[#BBBBBB\],
+.admin-page .bg-\[#00274c\] .text-sm,
+.admin-page .bg-\[#00274c\] .text-base,
+.admin-page .bg-\[#00274c\] .text-lg,
+.admin-page .bg-\[#00274c\] .text-xl {
+  color: white !important;
+}
+
+/* Override any gray text classes in sidebar */
+.admin-page .bg-\[#00274c\] .text-\[#5e6472\] {
+  color: #BBBBBB !important;
+}
+
+.admin-page .bg-\[#00274c\] a:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+}
+
+/* Keep all colored buttons with proper text colors */
+.admin-page .bg-blue-500,
+.admin-page .bg-green-500,
+.admin-page .bg-purple-500,
+.admin-page .bg-orange-500,
+.admin-page .bg-indigo-500,
+.admin-page .bg-pink-500,
+.admin-page .bg-red-500,
+.admin-page .bg-yellow-500 {
+  color: white !important;
+}
+
+.admin-page .bg-blue-500 *,
+.admin-page .bg-green-500 *,
+.admin-page .bg-purple-500 *,
+.admin-page .bg-orange-500 *,
+.admin-page .bg-indigo-500 *,
+.admin-page .bg-pink-500 *,
+.admin-page .bg-red-500 *,
+.admin-page .bg-yellow-500 * {
+  color: white !important;
+}
+
+/* Button text colors for all admin buttons */
+.admin-page .btn-primary,
+.admin-page .btn-secondary {
+  color: white !important;
+}
+
+/* Links should be styled appropriately */
+.admin-page .text-blue-600,
+.admin-page .text-green-600,
+.admin-page .text-purple-600,
+.admin-page .text-orange-600,
+.admin-page .text-indigo-600,
+.admin-page .text-pink-600 {
+  color: #2563eb !important;
+}
+
+.admin-page .hover\:text-blue-800:hover,
+.admin-page .hover\:text-green-800:hover,
+.admin-page .hover\:text-purple-800:hover,
+.admin-page .hover\:text-orange-800:hover,
+.admin-page .hover\:text-indigo-800:hover,
+.admin-page .hover\:text-pink-800:hover {
+  color: #1d4ed8 !important;
+}
+
+/* Admin table styles */
+.admin-table {
+  background: white !important;
+  color: #1f2937 !important;
+}
+
+.admin-table th,
+.admin-table td {
+  color: #1f2937 !important;
+  border-color: #e5e7eb !important;
+}
+
+.admin-table thead {
+  background: #f9fafb !important;
+}
+
+/* Modal styles for admin */
+.admin-modal,
+.admin-page .fixed .bg-white,
+.admin-page .absolute .bg-white {
+  background: white !important;
+  color: #1f2937 !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
+}
+
+.admin-modal h3,
+.admin-modal h4,
+.admin-modal p,
+.admin-modal span,
+.admin-modal label,
+.admin-page .fixed .bg-white h3,
+.admin-page .fixed .bg-white h4,
+.admin-page .fixed .bg-white p,
+.admin-page .fixed .bg-white span,
+.admin-page .fixed .bg-white label,
+.admin-page .fixed .bg-white a,
+.admin-page .absolute .bg-white h3,
+.admin-page .absolute .bg-white h4,
+.admin-page .absolute .bg-white p,
+.admin-page .absolute .bg-white span,
+.admin-page .absolute .bg-white label,
+.admin-page .absolute .bg-white a {
+  color: #1f2937 !important;
+}
+
+/* Dropdown menu specific styles */
+.admin-page .shadow-lg.border.border-gray-200 {
+  background: white !important;
+}
+
+.admin-page .shadow-lg.border.border-gray-200 a,
+.admin-page .shadow-lg.border.border-gray-200 button,
+.admin-page .shadow-lg.border.border-gray-200 p,
+.admin-page .shadow-lg.border.border-gray-200 span {
+  color: #1f2937 !important;
+}
+
+.admin-page .text-red-600 {
+  color: #dc2626 !important;
+}
+
+/* Hover states for admin elements */
+.admin-page .hover\:bg-gray-50:hover,
+.admin-page .hover\:bg-gray-100:hover {
+  background: #f9fafb !important;
+}
+
+.admin-page .hover\:bg-gray-50:hover *,
+.admin-page .hover\:bg-gray-100:hover * {
+  color: #1f2937 !important;
+}
+
+/* Border and background combination fixes */
+.admin-page .border.border-gray-200.rounded-lg {
+  background: white !important;
+}
+
+.admin-page .border.border-gray-200.rounded-lg h3,
+.admin-page .border.border-gray-200.rounded-lg h4,
+.admin-page .border.border-gray-200.rounded-lg p,
+.admin-page .border.border-gray-200.rounded-lg span:not(.bg-blue-100):not(.bg-green-100):not(.bg-red-100):not(.bg-yellow-100):not(.bg-purple-100):not(.bg-gray-100):not(.bg-orange-100):not(.bg-pink-100),
+.admin-page .border.border-gray-200.rounded-lg a {
+  color: #1f2937 !important;
+}
+
+/* Card containers */
+.admin-page .rounded-lg.shadow-sm.border,
+.admin-page .rounded-lg.shadow-md.border {
+  background: white !important;
+}
+
+.admin-page .rounded-lg.shadow-sm.border *:not(.bg-blue-100):not(.bg-green-100):not(.bg-red-100):not(.bg-yellow-100):not(.bg-purple-100):not(.bg-gray-100):not(.bg-orange-100):not(.bg-pink-100),
+.admin-page .rounded-lg.shadow-md.border *:not(.bg-blue-100):not(.bg-green-100):not(.bg-red-100):not(.bg-yellow-100):not(.bg-purple-100):not(.bg-gray-100):not(.bg-orange-100):not(.bg-pink-100) {
+  color: #1f2937 !important;
+}
+
+/* Dark background exceptions - keep white text */
+.admin-page .bg-gray-800,
+.admin-page .bg-gray-900,
+.admin-page .bg-black {
+  color: white !important;
+}
+
+.admin-page .bg-gray-800 *,
+.admin-page .bg-gray-900 *,
+.admin-page .bg-black * {
+  color: white !important;
+}
+
+/* Form preview styles */
+.form-preview {
+  background: #f8f9fa !important;
+  color: #1f2937 !important;
+  padding: 2rem !important;
+  border-radius: 0.5rem !important;
+}
+
+.form-preview h1,
+.form-preview h2,
+.form-preview h3,
+.form-preview p,
+.form-preview span,
+.form-preview label {
+  color: #1f2937 !important;
+}
+
+/* Hero preview section */
+.hero-preview {
+  background: linear-gradient(135deg, #1a2c45 0%, #00274c 50%, #0d1d35 100%) !important;
+  color: white !important;
+  padding: 3rem !important;
+  border-radius: 0.5rem !important;
+}
+
+.hero-preview h1,
+.hero-preview h2,
+.hero-preview h3,
+.hero-preview p,
+.hero-preview span {
+  color: white !important;
+}
+
+/* Content preview sections - Fix gray text visibility */
+.admin-page [class*="bg-gradient-to-br"] h1,
+.admin-page [class*="bg-gradient-to-br"] h2,
+.admin-page [class*="bg-gradient-to-br"] h3,
+.admin-page [class*="bg-gradient-to-br"] h4,
+.admin-page [class*="bg-gradient-to-br"] p,
+.admin-page [class*="bg-gradient-to-br"] span,
+.admin-page [class*="bg-gradient-to-br"] div,
+.admin-page [class*="bg-gradient-to-br"] button {
+  color: white !important;
+}
+
+/* Target specific preview containers with dark blue gradients */
+.admin-page .bg-gradient-to-br.from-\[#1a2c45\] *,
+.admin-page [style*="background: linear-gradient"] *,
+.admin-page [style*="background-image: linear-gradient"] * {
+  color: white !important;
+}
+
+/* Preview sections that show current content */
+.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"] h1,
+.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"] h2,
+.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"] h3,
+.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"] p,
+.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"] span,
+.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"] button {
+  color: white !important;
+}
+
+/* Specific targeting for dark blue preview containers */
+.admin-page .bg-\[#1a2c45\] *,
+.admin-page .from-\[#1a2c45\] *,
+.admin-page .via-\[#00274c\] *,
+.admin-page .to-\[#0d1d35\] * {
+  color: white !important;
+}
+
+/* Target any element with dark blue background colors */
+.admin-page [style*="background-color: #1a2c45"] *,
+.admin-page [style*="background-color: #00274c"] *,
+.admin-page [style*="background-color: #0d1d35"] *,
+.admin-page [style*="rgb(26, 44, 69)"] *,
+.admin-page [style*="rgb(0, 39, 76)"] *,
+.admin-page [style*="rgb(13, 29, 53)"] * {
+  color: white !important;
+}
+
+/* Force white text in any dark gradient containers */
+.admin-page [class*="glass-card"] h1,
+.admin-page [class*="glass-card"] h2, 
+.admin-page [class*="glass-card"] h3,
+.admin-page [class*="glass-card"] p,
+.admin-page [class*="glass-card"] span,
+.admin-page [class*="glass-card"] button {
+  color: white !important;
+}
+
+/* CRITICAL: Target the exact preview structure from join/page.tsx */
+.admin-page .bg-gradient-to-br.from-\[#00274c\].to-\[#1a2c45\] h2,
+.admin-page .bg-gradient-to-br.from-\[#00274c\].to-\[#1a2c45\] h4,
+.admin-page .bg-gradient-to-br.from-\[#00274c\].to-\[#1a2c45\] p,
+.admin-page .bg-gradient-to-br.from-\[#00274c\].to-\[#1a2c45\] .text-\[#BBBBBB\] {
+  color: white !important;
+}
+
+/* Target the other gradient direction used in content/page.tsx */
+.admin-page .bg-gradient-to-br.from-\[#1a2c45\].to-\[#00274c\] h2,
+.admin-page .bg-gradient-to-br.from-\[#1a2c45\].to-\[#00274c\] h3,
+.admin-page .bg-gradient-to-br.from-\[#1a2c45\].to-\[#00274c\] p,
+.admin-page .bg-gradient-to-br.from-\[#1a2c45\].to-\[#00274c\] .text-\[#BBBBBB\],
+.admin-page .bg-gradient-to-br.from-\[#1a2c45\].to-\[#00274c\] button {
+  color: white !important;
+}
+
+/* Force white text for any BBBBBB colored text in gradient containers */
+.admin-page [class*="bg-gradient"] .text-\[#BBBBBB\],
+.admin-page [class*="bg-gradient"] [class*="text-[#BBBBBB]"] {
+  color: white !important;
+}
+
+/* Nuclear option: Force white text for ANY text-[#BBBBBB] elements in admin pages */
+.admin-page .text-\[#BBBBBB\],
+.admin-page [class*="text-[#BBBBBB]"],
+.admin-page [style*="color: #BBBBBB"],
+.admin-page [style*="color: rgb(187, 187, 187)"] {
+  color: white !important;
+}
+
+/* Force white text for hero section previews specifically */
+.admin-page [class*="bg-gradient"] .text-4xl,
+.admin-page [class*="bg-gradient"] .text-5xl,
+.admin-page [class*="bg-gradient"] .text-6xl,
+.admin-page [class*="bg-gradient"] .text-7xl,
+.admin-page [class*="bg-gradient"] [class*="font-bold"],
+.admin-page [class*="bg-gradient"] [class*="heading-primary"] {
+  color: white !important;
+}
+
+/* Also target any preview containers specifically */
+.admin-page [class*="rounded-lg"][class*="p-"] [class*="bg-gradient"] *,
+.admin-page .bg-gray-50 + * [class*="bg-gradient"] * {
+  color: white !important;
+}
+
+/* COMPREHENSIVE: Force white text for ALL elements in gradient containers */
+.admin-page [class*="bg-gradient"] *:not(button):not(input):not(select):not(textarea) {
+  color: white !important;
+}
+
+/* Specific targeting for stats and numbers */
+.admin-page [class*="bg-gradient"] .text-2xl,
+.admin-page [class*="bg-gradient"] .text-3xl,
+.admin-page [class*="bg-gradient"] .text-lg,
+.admin-page [class*="bg-gradient"] .text-xl,
+.admin-page [class*="bg-gradient"] .font-semibold,
+.admin-page [class*="bg-gradient"] .font-medium {
+  color: white !important;
+}
+
+/* CRITICAL: Target the exact stats structure - font-bold numbers and text-[#BBBBBB] labels */
+.admin-page [class*="bg-gradient"] .font-bold {
+  color: white !important;
+}
+
+.admin-page [class*="bg-gradient"] div.font-bold {
+  color: white !important;
+}
+
+/* Target the grid structure specifically */
+.admin-page [class*="bg-gradient"] .grid .font-bold,
+.admin-page [class*="bg-gradient"] [class*="grid-cols-4"] .font-bold,
+.admin-page [class*="bg-gradient"] [class*="text-center"] .font-bold {
+  color: white !important;
+}
+
+/* NUCLEAR SPECIFICITY: Override the exact gray rules user mentioned */
+html body .admin-page [class*="bg-gradient"] div.font-bold,
+html body .admin-page [class*="bg-gradient"] .font-bold,
+html body .admin-page [class*="bg-gradient"] h1,
+html body .admin-page [class*="bg-gradient"] h2,
+html body .admin-page [class*="bg-gradient"] h3,
+html body .admin-page [class*="bg-gradient"] p,
+html body .admin-page [class*="bg-gradient"] span,
+html body .admin-page [class*="bg-gradient"] div {
+  color: white !important;
+} 

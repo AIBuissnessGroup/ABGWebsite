@@ -491,7 +491,7 @@ model Application {
   applicantPhone String?
   
   // Application status
-  status      ApplicationStatus @default(PENDING)
+  status      String @default("PENDING")
   priority    ApplicationPriority @default(NORMAL)
   
   // Admin notes and feedback
@@ -572,4 +572,17 @@ model FormDraft {
   user        User      @relation("FormDrafts", fields: [userId], references: [id], onDelete: Cascade)
   
   @@unique([formId, userId]) // One draft per form per user
+}
+
+// Newsletter subscription model
+model NewsletterSubscription {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  name        String?
+  isActive    Boolean   @default(true)
+  source      String?   // Where they subscribed from (website, event, etc.)
+  preferences String?   // JSON string for subscription preferences
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  unsubscribedAt DateTime?
 }

@@ -140,7 +140,7 @@ export default function TeamAdmin() {
               setEditingMember(null);
               setShowForm(true);
             }}
-            className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366]"
+            className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366] admin-white-text"
           >
             <PlusIcon className="w-4 h-4" />
             Add Team Member
@@ -261,9 +261,9 @@ export default function TeamAdmin() {
               setEditingMember(null);
               setShowForm(true);
             }}
-            className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366]"
-          >
-            Add Team Member
+                              className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
+                >
+                  Add Team Member
           </button>
         </div>
       )}
@@ -546,9 +546,9 @@ function TeamMemberForm({ member, onClose, onSave }: any) {
           <button
             type="submit"
             disabled={saving}
-            className="px-4 py-2 bg-[#FFFFFF] text-white hover:bg-[#003366] rounded-lg disabled:opacity-50"
+            className="admin-save-btn px-4 py-2 bg-[#00274c] text-white hover:bg-[#003366] hover:text-white rounded-lg disabled:opacity-50 disabled:text-white font-medium admin-white-text"
           >
-            {saving ? 'Saving...' : (member ? 'Update Member' : 'Add Member')}
+            {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </form>

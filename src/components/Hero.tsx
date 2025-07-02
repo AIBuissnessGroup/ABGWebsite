@@ -43,7 +43,7 @@ export default function Hero() {
   return (
     <section 
       id="hero" 
-      className="min-h-screen flex flex-col justify-center relative overflow-hidden px-4 sm:px-6"
+      className="min-h-screen flex flex-col justify-center relative overflow-hidden px-6 sm:px-8 md:px-6"
       style={{
         background: `linear-gradient(135deg, #00274c 0%, #1a2c45 50%, #2d3e5a 100%)`,
       }}
@@ -79,20 +79,20 @@ export default function Hero() {
         />
       </div>
 
-      <div className="max-w-7xl mx-auto md:px-6 lg:px-12 relative z-10 flex-1 flex flex-col justify-center">
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-20 items-center mb-8 sm:mb-16">
+      <div className="max-w-7xl mx-auto md:px-6 lg:px-12 relative z-10 flex-1 flex flex-col justify-center py-8 sm:py-12">
+        <div className="grid lg:grid-cols-2 gap-12 sm:gap-16 lg:gap-20 items-center mb-12 sm:mb-16">
           
           {/* Left Column - Main Content */}
-          <div className="space-y-6 sm:space-y-8 text-center lg:text-left">
+          <div className="space-y-8 sm:space-y-10 text-center lg:text-left">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="space-y-4 sm:space-y-6"
+              className="space-y-6 sm:space-y-8"
             >
               <h1 className="heading-primary text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl text-white leading-tight">
-                <span className="block mb-4 sm:mb-2">{content.mainTitle}</span>
-                <span className="block text-[#BBBBBB] mb-4 sm:mb-2">{content.subTitle}</span>
+                <span className="block mb-6 sm:mb-3">{content.mainTitle}</span>
+                <span className="block text-[#BBBBBB] mb-6 sm:mb-3">{content.subTitle}</span>
                 <span className="block">{content.thirdTitle}</span>
               </h1>
               
@@ -108,7 +108,7 @@ export default function Hero() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.8 }}
-              className="body-text text-lg sm:text-xl lg:text-2xl text-[#BBBBBB] max-w-2xl leading-relaxed mx-auto lg:mx-0"
+              className="body-text text-lg sm:text-xl lg:text-2xl text-[#BBBBBB] max-w-2xl leading-relaxed mx-auto lg:mx-0 px-2 sm:px-0"
             >
               {content.description}
             </motion.p>
@@ -117,12 +117,12 @@ export default function Hero() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 1.0 }}
-              className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start"
+              className="flex flex-col sm:flex-row gap-4 sm:gap-5 justify-center lg:justify-start pt-4"
             >
-              <a href={content.primaryButtonLink} className="btn-primary text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4 text-center">
+              <a href={content.primaryButtonLink} className="btn-primary text-base sm:text-lg px-8 sm:px-10 py-4 sm:py-5 text-center font-bold">
                 {content.primaryButtonText}
               </a>
-              <a href={content.secondaryButtonLink} className="btn-secondary text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4 text-center">
+              <a href={content.secondaryButtonLink} className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-4 sm:py-5 text-center font-bold">
                 {content.secondaryButtonText}
               </a>
             </motion.div>

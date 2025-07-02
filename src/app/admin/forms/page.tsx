@@ -28,6 +28,16 @@ export default function FormsAdmin() {
   const [activeTab, setActiveTab] = useState('review'); // 'review', 'forms', 'create'
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedReviewer, setSelectedReviewer] = useState('all');
+
+  const [selectedForm, setSelectedForm] = useState<any>(null);
+  const [formResponses, setFormResponses] = useState<any[]>([]);
+  const [selectedFormStatus, setSelectedFormStatus] = useState('all');
+  const [selectedFormReviewer, setSelectedFormReviewer] = useState('all');
+  const [customStatuses, setCustomStatuses] = useState<any[]>([]);
+  const [showCreateStatus, setShowCreateStatus] = useState(false);
+  const [newStatusName, setNewStatusName] = useState('');
+  const [newStatusColor, setNewStatusColor] = useState('#6366F1');
   const [editingForm, setEditingForm] = useState(null);
   const [expandedApplications, setExpandedApplications] = useState(new Set());
   const [copySuccess, setCopySuccess] = useState('');
@@ -42,13 +52,136 @@ export default function FormsAdmin() {
     console.log('User session:', session.user);
   }, [session, status]);
 
+
+
+  // Load custom statuses from localStorage
+  const loadCustomStatuses = () => {
+    try {
+      const saved = localStorage.getItem('admin_custom_statuses');
+      if (saved) {
+        setCustomStatuses(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('Error loading custom statuses:', error);
+    }
+  };
+
   // Load data
   useEffect(() => {
     if (session?.user) {
       loadForms();
       loadApplications();
+      loadCustomStatuses();
     }
   }, [session]);
+
+
+
+  // Load responses for a specific form
+  const loadFormResponses = async (formId: string) => {
+    try {
+      const res = await fetch(`/api/admin/applications?formId=${formId}`);
+      const data = await res.json();
+      if (data && !data.error) {
+        setFormResponses(data);
+      }
+    } catch (error) {
+      console.error('Error loading form responses:', error);
+    }
+  };
+
+  // Filter form responses
+  const filteredFormResponses = formResponses.filter((response: any) => {
+    const statusMatch = selectedFormStatus === 'all' || response.status === selectedFormStatus;
+    const reviewerMatch = selectedFormReviewer === 'all' || response.reviewedBy === selectedFormReviewer;
+    return statusMatch && reviewerMatch;
+  });
+
+  // Export form responses
+  const exportFormResponses = async (exportType: 'summary' | 'detailed') => {
+    if (!selectedForm) return;
+    
+    try {
+      const response = await fetch('/api/admin/applications/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formId: selectedForm.id,
+          status: selectedFormStatus,
+          reviewer: selectedFormReviewer,
+          exportType
+        })
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${selectedForm.title}-${exportType}-${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Failed to export form responses');
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Failed to export form responses');
+    }
+  };
+
+
+
+  // Save custom statuses to localStorage
+  const saveCustomStatuses = (statuses: any[]) => {
+    try {
+      localStorage.setItem('admin_custom_statuses', JSON.stringify(statuses));
+      setCustomStatuses(statuses);
+    } catch (error) {
+      console.error('Error saving custom statuses:', error);
+    }
+  };
+
+  // Create new custom status
+  const createCustomStatus = () => {
+    if (!newStatusName.trim()) return;
+    
+    const newStatus = {
+      id: Date.now().toString(),
+      name: newStatusName.toUpperCase().replace(/\s+/g, '_'),
+      label: newStatusName,
+      color: newStatusColor,
+      createdAt: new Date().toISOString()
+    };
+    
+    const updatedStatuses = [...customStatuses, newStatus];
+    saveCustomStatuses(updatedStatuses);
+    setNewStatusName('');
+    setNewStatusColor('#6366F1');
+    setShowCreateStatus(false);
+  };
+
+  // Delete custom status
+  const deleteCustomStatus = (statusId: string) => {
+    const updatedStatuses = customStatuses.filter(s => s.id !== statusId);
+    saveCustomStatuses(updatedStatuses);
+  };
+
+  // Get all available statuses (default + custom)
+  const getAllStatuses = () => {
+    const defaultStatuses = [
+      { name: 'PENDING', label: 'Pending', color: '#EAB308' },
+      { name: 'REVIEWING', label: 'Reviewing', color: '#3B82F6' },
+      { name: 'ACCEPTED', label: 'Accepted', color: '#10B981' },
+      { name: 'REJECTED', label: 'Rejected', color: '#EF4444' },
+      { name: 'WAITLISTED', label: 'Waitlisted', color: '#8B5CF6' },
+      { name: 'WITHDRAWN', label: 'Withdrawn', color: '#6B7280' }
+    ];
+    
+    return [...defaultStatuses, ...customStatuses];
+  };
 
   const loadForms = async () => {
     try {
@@ -120,17 +253,115 @@ export default function FormsAdmin() {
     setExpandedApplications(newExpanded);
   };
 
+  // Get reviewer colors
+  const getReviewerColor = (reviewerId: string) => {
+    const colors = [
+      'bg-blue-100 text-blue-800',
+      'bg-green-100 text-green-800', 
+      'bg-purple-100 text-purple-800',
+      'bg-orange-100 text-orange-800',
+      'bg-pink-100 text-pink-800',
+      'bg-indigo-100 text-indigo-800',
+      'bg-teal-100 text-teal-800',
+      'bg-red-100 text-red-800'
+    ];
+    const hash = reviewerId?.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0);
+      return a & a;
+    }, 0) || 0;
+    return colors[Math.abs(hash) % colors.length];
+  };
+
   // Filter applications
   const filteredApplications = applications.filter((app: any) => {
     const categoryMatch = selectedCategory === 'all' || app.form.category === selectedCategory;
     const statusMatch = selectedStatus === 'all' || app.status === selectedStatus;
-    return categoryMatch && statusMatch;
+    const reviewerMatch = selectedReviewer === 'all' || app.reviewedBy === selectedReviewer;
+    return categoryMatch && statusMatch && reviewerMatch;
   });
 
-  // Get unique categories
+  // Get unique categories and reviewers
   const categories = [...new Set(forms.map((form: any) => form.category))];
+  const uniqueReviewers = [...new Set(applications.filter((app: any) => app.reviewedBy).map((app: any) => ({
+    id: app.reviewedBy,
+    name: app.reviewer?.name,
+    email: app.reviewer?.email
+  })))];
+
+  // Excel export function
+  const exportToExcel = async () => {
+    try {
+      const response = await fetch('/api/admin/applications/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: selectedCategory,
+          status: selectedStatus,
+          reviewer: selectedReviewer,
+          exportType: 'summary'
+        })
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `applications-summary-${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Failed to export data');
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Failed to export data');
+    }
+  };
+
+  // Detailed responses export function
+  const exportDetailedResponses = async () => {
+    try {
+      const response = await fetch('/api/admin/applications/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: selectedCategory,
+          status: selectedStatus,
+          reviewer: selectedReviewer,
+          exportType: 'detailed'
+        })
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `applications-detailed-responses-${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Failed to export detailed responses');
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Failed to export detailed responses');
+    }
+  };
 
   const getStatusColor = (status: string) => {
+    // Check if it's a custom status first
+    const customStatus = customStatuses.find(s => s.name === status);
+    if (customStatus) {
+      return `text-white font-semibold`;
+    }
+    
+    // Default status colors
     switch (status) {
       case 'PENDING': return 'bg-yellow-100 text-yellow-800';
       case 'REVIEWING': return 'bg-blue-100 text-blue-800';
@@ -140,6 +371,17 @@ export default function FormsAdmin() {
       case 'WITHDRAWN': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getStatusStyle = (status: string) => {
+    const customStatus = customStatuses.find(s => s.name === status);
+    if (customStatus) {
+      return {
+        backgroundColor: customStatus.color,
+        color: 'white'
+      };
+    }
+    return {};
   };
 
   const getCategoryIcon = (category: string) => {
@@ -192,7 +434,7 @@ export default function FormsAdmin() {
             onClick={() => setActiveTab('review')}
             className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
               activeTab === 'review' 
-                ? 'bg-[#00274c] text-white' 
+                ? 'bg-[#00274c] text-white admin-white-text' 
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -203,12 +445,25 @@ export default function FormsAdmin() {
             onClick={() => setActiveTab('forms')}
             className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
               activeTab === 'forms' 
-                ? 'bg-[#00274c] text-white' 
+                ? 'bg-[#00274c] text-white admin-white-text' 
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
             <DocumentTextIcon className="w-4 h-4" />
             Manage Forms
+          </button>
+          <button
+            onClick={() => setActiveTab('statuses')}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+              activeTab === 'statuses' 
+                ? 'bg-[#00274c] text-white admin-white-text' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            Custom Statuses
           </button>
           <button
             onClick={() => setActiveTab('create')}
@@ -275,6 +530,8 @@ export default function FormsAdmin() {
             })}
           </div>
 
+
+
           {/* Filters */}
           <div className="bg-white p-4 rounded-lg shadow-sm border">
             <div className="flex flex-wrap items-center gap-4">
@@ -289,18 +546,58 @@ export default function FormsAdmin() {
                 className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#00274c]"
               >
                 <option value="all">All Status</option>
-                <option value="PENDING">Pending</option>
-                <option value="REVIEWING">Reviewing</option>
-                <option value="ACCEPTED">Accepted</option>
-                <option value="REJECTED">Rejected</option>
-                <option value="WAITLISTED">Waitlisted</option>
+                {getAllStatuses().map((status) => (
+                  <option key={status.name} value={status.name}>
+                    {status.label}
+                  </option>
+                ))}
               </select>
+
+              <select
+                value={selectedReviewer}
+                onChange={(e) => setSelectedReviewer(e.target.value)}
+                className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#00274c]"
+              >
+                <option value="all">All Reviewers</option>
+                {uniqueReviewers.map((reviewer: any) => (
+                  <option key={reviewer.id} value={reviewer.id}>
+                    {reviewer.email || reviewer.name}
+                  </option>
+                ))}
+              </select>
+
+
+
+              <div className="flex gap-1">
+                <button
+                  onClick={exportToExcel}
+                  className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 flex items-center gap-2"
+                  title="Export summary with basic info and response values"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Summary
+                </button>
+                <button
+                  onClick={exportDetailedResponses}
+                  className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 flex items-center gap-2"
+                  title="Export detailed responses with full question/answer pairs"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Detailed
+                </button>
+              </div>
 
               <div className="text-sm text-gray-600">
                 Showing {filteredApplications.length} of {applications.length} applications
               </div>
             </div>
           </div>
+
+
 
           {/* Applications List */}
           <div className="space-y-4">
@@ -323,9 +620,18 @@ export default function FormsAdmin() {
                     </div>
                     
                     <div className="flex items-center gap-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(app.status)}`}>
-                        {app.status}
+                      <span 
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(app.status)}`}
+                        style={getStatusStyle(app.status)}
+                      >
+                        {getAllStatuses().find(s => s.name === app.status)?.label || app.status}
                       </span>
+                      
+                      {app.reviewedBy && (
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getReviewerColor(app.reviewedBy)}`}>
+                          👤 {app.reviewer?.email?.split('@')[0] || 'Reviewer'}
+                        </span>
+                      )}
                       
                       {/* Quick Action Buttons */}
                       <div className="flex gap-1">
@@ -404,12 +710,11 @@ export default function FormsAdmin() {
                               onChange={(e) => updateApplicationStatus(app.id, e.target.value, app.adminNotes)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
                             >
-                              <option value="PENDING">Pending Review</option>
-                              <option value="REVIEWING">Under Review</option>
-                              <option value="ACCEPTED">Accepted</option>
-                              <option value="REJECTED">Rejected</option>
-                              <option value="WAITLISTED">Waitlisted</option>
-                              <option value="WITHDRAWN">Withdrawn</option>
+                              {getAllStatuses().map((status) => (
+                                <option key={status.name} value={status.name}>
+                                  {status.label}
+                                </option>
+                              ))}
                             </select>
                           </div>
 
@@ -430,7 +735,7 @@ export default function FormsAdmin() {
 
                           {app.reviewedBy && (
                             <div className="text-sm text-gray-600">
-                              <p>Reviewed by: {app.reviewer?.name || app.reviewer?.email}</p>
+                              <p>Reviewed by: {app.reviewer?.email || app.reviewer?.name}</p>
                               <p>Review date: {new Date(app.reviewedAt).toLocaleDateString()}</p>
                             </div>
                           )}
@@ -513,6 +818,19 @@ export default function FormsAdmin() {
                     </a>
                     <button
                       onClick={() => {
+                        setSelectedForm(form);
+                        setActiveTab('responses');
+                        loadFormResponses(form.id);
+                      }}
+                      className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded"
+                      title="View Responses"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => {
                         setEditingForm(form);
                         setActiveTab('edit');
                       }}
@@ -579,12 +897,381 @@ export default function FormsAdmin() {
               <p className="text-gray-600 mb-4">Create your first application form to get started.</p>
               <button
                 onClick={() => setActiveTab('create')}
-                className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366]"
+                className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
               >
                 Create Form
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Form Responses Tab */}
+      {activeTab === 'responses' && selectedForm && (
+        <div className="space-y-6">
+          {/* Header with Back Button */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => {
+                setActiveTab('forms');
+                setSelectedForm(null);
+                setFormResponses([]);
+              }}
+              className="text-gray-600 hover:text-gray-800 p-2 hover:bg-gray-100 rounded"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Responses: {selectedForm.title}</h2>
+              <p className="text-gray-600">{formResponses.length} total submissions</p>
+            </div>
+          </div>
+
+
+
+          {/* Form Response Filters */}
+          <div className="bg-white p-4 rounded-lg shadow-sm border">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <FunnelIcon className="w-4 h-4 text-gray-500" />
+                <span className="text-sm font-medium text-gray-700">Filters:</span>
+              </div>
+              
+                             <select
+                 value={selectedFormStatus}
+                 onChange={(e) => setSelectedFormStatus(e.target.value)}
+                 className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#00274c]"
+               >
+                 <option value="all">All Status</option>
+                 {getAllStatuses().map((status) => (
+                   <option key={status.name} value={status.name}>
+                     {status.label}
+                   </option>
+                 ))}
+               </select>
+
+              <select
+                value={selectedFormReviewer}
+                onChange={(e) => setSelectedFormReviewer(e.target.value)}
+                className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#00274c]"
+              >
+                <option value="all">All Reviewers</option>
+                {[...new Set(formResponses.filter((r: any) => r.reviewedBy).map((r: any) => ({
+                  id: r.reviewedBy,
+                  email: r.reviewer?.email
+                })))].map((reviewer: any) => (
+                  <option key={reviewer.id} value={reviewer.id}>
+                    {reviewer.email}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex gap-1">
+                <button
+                  onClick={() => exportFormResponses('summary')}
+                  className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 flex items-center gap-2"
+                  title="Export summary of responses"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Summary
+                </button>
+                <button
+                  onClick={() => exportFormResponses('detailed')}
+                  className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 flex items-center gap-2"
+                  title="Export detailed responses with full question/answer pairs"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Detailed
+                </button>
+              </div>
+
+              <div className="text-sm text-gray-600">
+                Showing {filteredFormResponses.length} of {formResponses.length} responses
+              </div>
+            </div>
+          </div>
+
+          {/* Form Responses List */}
+          <div className="space-y-4">
+            {filteredFormResponses.map((response) => (
+              <div key={response.id} className="bg-white rounded-lg shadow-sm border">
+                <div className="p-4 border-b">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="text-[#00274c]">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900">{response.applicantName || response.applicantEmail}</h4>
+                        <p className="text-xs text-gray-500">
+                          Submitted {new Date(response.submittedAt).toLocaleDateString()} at {new Date(response.submittedAt).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(response.status)}`}>
+                        {response.status}
+                      </span>
+                      
+                      {response.reviewedBy && (
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getReviewerColor(response.reviewedBy)}`}>
+                          👤 {response.reviewer?.email?.split('@')[0] || 'Reviewer'}
+                        </span>
+                      )}
+                      
+                      <button
+                        onClick={() => toggleApplicationExpanded(response.id)}
+                        className="p-1 text-gray-600 hover:bg-gray-50 rounded"
+                        title="View Details"
+                      >
+                        <EyeIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded Response Details */}
+                {expandedApplications.has(response.id) && (
+                  <div className="p-4 bg-gray-50">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Response Answers */}
+                      <div>
+                        <h5 className="font-medium text-gray-900 mb-3">Response Details</h5>
+                        <div className="space-y-3">
+                          {response.responses.map((answer: any) => (
+                            <div key={answer.id} className="text-sm">
+                              <span className="font-medium text-gray-900 block">{answer.question.title}:</span>
+                              <span className="text-gray-700 mt-1 block pl-2 border-l-2 border-gray-200">
+                                {answer.textValue || 
+                                 answer.numberValue || 
+                                 (answer.dateValue && new Date(answer.dateValue).toLocaleDateString()) ||
+                                 (answer.booleanValue !== null ? (answer.booleanValue ? 'Yes' : 'No') : '') ||
+                                 (answer.selectedOptions && JSON.parse(answer.selectedOptions).join(', ')) ||
+                                 answer.fileUrl || 
+                                 'No answer provided'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Status Management */}
+                      <div>
+                        <h5 className="font-medium text-gray-900 mb-3">Response Management</h5>
+                        
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <select
+                              value={response.status}
+                              onChange={(e) => updateApplicationStatus(response.id, e.target.value, response.adminNotes)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                            >
+                              <option value="PENDING">Pending Review</option>
+                              <option value="REVIEWING">Under Review</option>
+                              <option value="ACCEPTED">Accepted</option>
+                              <option value="REJECTED">Rejected</option>
+                              <option value="WAITLISTED">Waitlisted</option>
+                              <option value="WITHDRAWN">Withdrawn</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Admin Notes</label>
+                            <textarea
+                              defaultValue={response.adminNotes || ''}
+                              placeholder="Add notes about this response..."
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                              rows={3}
+                              onBlur={(e) => {
+                                if (e.target.value !== (response.adminNotes || '')) {
+                                  updateApplicationStatus(response.id, response.status, e.target.value);
+                                }
+                              }}
+                            />
+                          </div>
+
+                          {response.reviewedBy && (
+                            <div className="text-sm text-gray-600">
+                              <p>Reviewed by: {response.reviewer?.email || response.reviewer?.name}</p>
+                              <p>Review date: {new Date(response.reviewedAt).toLocaleDateString()}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {filteredFormResponses.length === 0 && (
+              <div className="text-center py-12">
+                <ClipboardDocumentListIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No responses found</h3>
+                <p className="text-gray-600">
+                  {formResponses.length === 0 
+                    ? 'No responses have been submitted for this form yet.'
+                    : 'Try adjusting your filters to see more responses.'
+                  }
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Custom Status Management Tab */}
+      {activeTab === 'statuses' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Custom Status Management</h2>
+              <p className="text-gray-600">Create and manage custom statuses for applications</p>
+            </div>
+            <button
+              onClick={() => setShowCreateStatus(true)}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-700"
+            >
+              <PlusIcon className="w-4 h-4" />
+              Create Status
+            </button>
+          </div>
+
+          {/* Current Custom Statuses */}
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Current Custom Statuses</h3>
+            
+            {customStatuses.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {customStatuses.map((status) => (
+                  <div key={status.id} className="border rounded-lg p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span 
+                        className="px-3 py-1 rounded-full text-xs font-medium text-white"
+                        style={{ backgroundColor: status.color }}
+                      >
+                        {status.label}
+                      </span>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{status.label}</p>
+                        <p className="text-xs text-gray-500">ID: {status.name}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteCustomStatus(status.id)}
+                      className="text-red-500 hover:text-red-700 p-1"
+                      title="Delete status"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No custom statuses yet</h3>
+                <p className="text-gray-600 mb-4">Create custom statuses to better organize your application workflow.</p>
+                <button
+                  onClick={() => setShowCreateStatus(true)}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
+                >
+                  Create Your First Status
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Default Statuses Reference */}
+          <div className="bg-gray-50 rounded-lg p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Default Statuses</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              {getAllStatuses().filter(s => !customStatuses.find(cs => cs.name === s.name)).map((status) => (
+                <div key={status.name} className="flex items-center gap-2">
+                  <span 
+                    className="px-2 py-1 rounded-full text-xs font-medium"
+                    style={{ backgroundColor: status.color + '20', color: status.color }}
+                  >
+                    {status.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Custom Status Modal */}
+      {showCreateStatus && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-full">
+            <h3 className="text-lg font-semibold mb-4">Create Custom Status</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status Name</label>
+                <input
+                  type="text"
+                  value={newStatusName}
+                  onChange={(e) => setNewStatusName(e.target.value)}
+                  placeholder="e.g., Under Committee Review, Needs Interview..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status Color</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={newStatusColor}
+                    onChange={(e) => setNewStatusColor(e.target.value)}
+                    className="w-12 h-8 border border-gray-300 rounded cursor-pointer"
+                  />
+                  <div 
+                    className="px-3 py-1 rounded-full text-xs font-medium text-white"
+                    style={{ backgroundColor: newStatusColor }}
+                  >
+                    {newStatusName || 'Preview'}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded">
+                <strong>Note:</strong> The status ID will be: <code className="bg-white px-1 rounded">{newStatusName.toUpperCase().replace(/\s+/g, '_')}</code>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => setShowCreateStatus(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createCustomStatus}
+                disabled={!newStatusName.trim()}
+                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Create Status
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1004,7 +1691,7 @@ function FormEditor({ form, onClose, onSave }: any) {
             <button
               type="button"
               onClick={addQuestion}
-              className="bg-[#00274c] text-white px-3 py-2 rounded-lg text-sm hover:bg-[#003366]"
+              className="admin-save-btn bg-[#00274c] text-white px-3 py-2 rounded-lg text-sm hover:bg-[#003366] admin-white-text"
             >
               Add Question
             </button>
@@ -1126,7 +1813,7 @@ function FormEditor({ form, onClose, onSave }: any) {
           <button
             type="submit"
             disabled={saving}
-            className="px-4 py-2 bg-[#FFFFFF] text-white hover:bg-[#003366] rounded-lg disabled:opacity-50"
+            className="px-4 py-2 bg-[#00274c] text-white hover:bg-[#003366] rounded-lg disabled:opacity-50 admin-white-text"
           >
             {saving ? 'Saving...' : (form ? 'Update Form' : 'Create Form')}
           </button>

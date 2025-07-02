@@ -558,7 +558,7 @@ export default function FormPage() {
 
   return (
     <div 
-      className="min-h-screen bg-gradient-to-br from-[#00274c] to-[#5e6472] py-12 px-4"
+      className="form-page min-h-screen bg-gradient-to-br from-[#00274c] to-[#5e6472] py-12 px-4"
       style={{ 
         backgroundColor: form.backgroundColor,
         color: form.textColor 

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import AdminHeader from '@/components/admin/AdminHeader';
+import './admin.css';
 
 // Mobile restriction component
 function MobileRestriction() {
@@ -100,7 +101,7 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex overflow-hidden">
+    <div className="admin-page h-screen bg-gray-50 flex overflow-hidden">
       <AdminSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <AdminHeader />

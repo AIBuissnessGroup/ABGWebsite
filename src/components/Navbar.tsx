@@ -27,7 +27,7 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 bg-[#00274c]/95 backdrop-blur-md border-b border-white/10 shadow-lg">
-      <div className="px-4 sm:px-6 lg:px-12 py-3">
+      <div className="px-6 sm:px-8 lg:px-12 py-4 sm:py-3">
         <div className="flex items-center justify-between">
           {/* Logo Section */}
           <Link href="/" className="flex items-center">
@@ -103,28 +103,28 @@ export default function Navbar() {
           {/* Mobile menu button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-200"
+            className="md:hidden p-3 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-200 min-h-[48px] min-w-[48px] flex items-center justify-center"
             aria-label="Toggle mobile menu"
           >
             {mobileMenuOpen ? (
-              <XMarkIcon className="w-6 h-6" />
+              <XMarkIcon className="w-7 h-7" />
             ) : (
-              <Bars3Icon className="w-6 h-6" />
+              <Bars3Icon className="w-7 h-7" />
             )}
           </button>
         </div>
 
         {/* Mobile Navigation Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden mt-4 pb-4 border-t border-white/10">
-            <div className="flex flex-col space-y-3 pt-4">
+          <div className="md:hidden mt-6 pb-6 border-t border-white/10">
+            <div className="flex flex-col space-y-1 pt-6">
               {navigationItems.map((item) => {
                 // Handle admin link specially on mobile
                 if (item.label === "Admin") {
                   return (
-                    <div key={item.label} className="py-2 px-1">
-                      <div className="text-yellow-300/60 text-sm font-bold mb-1">Admin Panel</div>
-                      <div className="text-white/50 text-xs">
+                    <div key={item.label} className="py-3 px-2">
+                      <div className="text-yellow-300/60 text-base font-bold mb-2">Admin Panel</div>
+                      <div className="text-white/50 text-sm">
                         📱 Tablet+ required (screen width ≥ 768px)
                       </div>
                     </div>
@@ -138,7 +138,7 @@ export default function Navbar() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="text-white/80 hover:text-white transition-colors duration-200 py-2 px-1 font-bold"
+                    className="text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 py-4 px-2 font-bold text-lg rounded-lg min-h-[56px] flex items-center"
                   >
                     {item.label}
                   </a>
@@ -147,7 +147,7 @@ export default function Navbar() {
                     key={item.label}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="text-white/80 hover:text-white transition-colors duration-200 py-2 px-1 font-bold"
+                    className="text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 py-4 px-2 font-bold text-lg rounded-lg min-h-[56px] flex items-center"
                   >
                     {item.label}
                   </Link>

@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import FloatingShapes from './FloatingShapes';
 import { CheckCircleIcon } from '@heroicons/react/24/outline';
+import NewsletterSignup from './NewsletterSignup';
 
 interface JoinContent {
   title: string;
@@ -231,16 +232,14 @@ export default function Join() {
                   className="mt-auto"
                 >
                   {option.type === 'newsletter' ? (
-                    <div className="space-y-3 sm:space-y-4">
-                      <input
-                        type="email"
-                        placeholder="Enter your email"
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-[#BBBBBB] focus:outline-none focus:border-white/50 text-sm sm:text-base"
-                      />
-                      <button className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 rounded-lg py-2 sm:py-3 text-white font-medium transition-all duration-300 text-sm sm:text-base">
-                        {option.cta}
-                      </button>
-                    </div>
+                    <NewsletterSignup 
+                      source="join_section"
+                      className="bg-transparent border-0 p-0"
+                      title=""
+                      subtitle=""
+                      placeholder="Enter your email"
+                      buttonText={option.cta}
+                    />
                   ) : (
                     <a
                       href={option.link}

@@ -314,7 +314,7 @@ export default function FormsManager({
     <div className="flex items-center gap-2 mb-6 text-sm">
       <button
         onClick={() => setActiveView('list')}
-        className={`px-3 py-1 rounded ${activeView === 'list' ? 'bg-[#00274c] text-white' : 'text-gray-600 hover:text-gray-800'}`}
+        className={`px-3 py-1 rounded ${activeView === 'list' ? 'bg-[#00274c] text-white admin-white-text' : 'text-gray-600 hover:text-gray-800'}`}
       >
         Forms List
       </button>
@@ -510,7 +510,7 @@ export default function FormsManager({
         <button
           onClick={isEditing ? updateForm : createForm}
           disabled={saving || !formData.title}
-          className="bg-[#00274c] text-white px-6 py-2 rounded-lg hover:bg-[#00274c]/90 transition-colors disabled:opacity-50 font-medium"
+          className="bg-[#00274c] text-white px-6 py-2 rounded-lg hover:bg-[#00274c]/90 transition-colors disabled:opacity-50 font-medium admin-white-text"
         >
           {saving ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update Form' : 'Create Form')}
         </button>
@@ -554,7 +554,7 @@ export default function FormsManager({
             <h2 className="text-xl font-semibold text-gray-900">Forms & Applications</h2>
             <button
               onClick={() => setActiveView('create')}
-              className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#00274c]/90 transition-colors"
+              className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#00274c]/90 transition-colors admin-white-text"
             >
               Create New Form
             </button>
@@ -621,7 +621,7 @@ export default function FormsManager({
                 <p>No forms created yet.</p>
                 <button
                   onClick={() => setActiveView('create')}
-                  className="mt-4 bg-[#00274c] text-white px-6 py-2 rounded-lg hover:bg-[#00274c]/90 transition-colors"
+                  className="mt-4 bg-[#00274c] text-white px-6 py-2 rounded-lg hover:bg-[#00274c]/90 transition-colors admin-white-text"
                 >
                   Create Your First Form
                 </button>
@@ -724,7 +724,7 @@ export default function FormsManager({
             </h3>
             <button
               onClick={() => setShowAddQuestion(true)}
-              className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#00274c]/90 transition-colors"
+              className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#00274c]/90 transition-colors admin-white-text"
             >
               Add Question
             </button>
@@ -801,7 +801,7 @@ export default function FormsManager({
                 <button
                   onClick={addQuestion}
                   disabled={saving || !newQuestion.title}
-                  className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#00274c]/90 transition-colors disabled:opacity-50"
+                  className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#00274c]/90 transition-colors disabled:opacity-50 admin-white-text"
                 >
                   {saving ? 'Adding...' : 'Add Question'}
                 </button>

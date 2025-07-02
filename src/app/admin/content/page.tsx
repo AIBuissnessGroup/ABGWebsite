@@ -673,7 +673,7 @@ function HeroContentSection({ content, onSave, saving }) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="w-full bg-[#00274c] text-white px-6 py-3 rounded-lg hover:bg-[#003366] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#00274c] text-white px-6 py-3 rounded-lg hover:bg-[#003366] disabled:opacity-50 disabled:cursor-not-allowed admin-white-text"
           >
             {saving ? 'Saving...' : 'Save Hero Content'}
           </button>
@@ -953,7 +953,7 @@ function JoinContentSection({ content, onSave, saving }: any) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="w-full bg-[#00274c] text-white px-6 py-3 rounded-lg hover:bg-[#003366] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#00274c] text-white px-6 py-3 rounded-lg hover:bg-[#003366] disabled:opacity-50 disabled:cursor-not-allowed admin-white-text"
           >
             {saving ? 'Saving...' : 'Save Join Content'}
           </button>
@@ -1270,7 +1270,7 @@ function AboutContentSection({ content, onSave, saving }) {
                     <button
                       type="button"
                       onClick={addSlide}
-                      className="bg-[#00274c] text-white px-3 py-1 rounded text-sm hover:bg-[#003366]"
+                      className="bg-[#00274c] text-white px-3 py-1 rounded text-sm hover:bg-[#003366] admin-white-text"
                     >
                       + Add Slide
                     </button>
@@ -1362,7 +1362,7 @@ function AboutContentSection({ content, onSave, saving }) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="w-full bg-[#00274c] text-white px-6 py-3 rounded-lg hover:bg-[#003366] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#00274c] text-white px-6 py-3 rounded-lg hover:bg-[#003366] disabled:opacity-50 disabled:cursor-not-allowed admin-white-text"
           >
             {saving ? 'Saving...' : 'Save About Content'}
           </button>
@@ -1430,7 +1430,7 @@ function TeamMembersSection({ members, onReload, showForm, setShowForm, editingM
         {!showForm && (
           <button
             onClick={handleAddNew}
-            className="bg-[#00274c] text-white px-3 md:px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-[#003366] text-sm md:text-base transition-colors"
+            className="bg-[#00274c] text-white px-3 md:px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-[#003366] text-sm md:text-base transition-colors admin-white-text"
           >
             <PlusIcon className="w-4 h-4" />
             <span>Add Team Member</span>
@@ -1591,7 +1591,7 @@ function ProjectsSection({ projects, onReload, showForm, setShowForm, editingPro
         {!showForm && (
           <button
             onClick={handleAddNew}
-            className="bg-[#00274c] text-white px-3 md:px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-[#003366] text-sm md:text-base transition-colors"
+            className="bg-[#00274c] text-white px-3 md:px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-[#003366] text-sm md:text-base transition-colors admin-white-text"
           >
             <PlusIcon className="w-4 h-4" />
             <span>Add Project</span>
@@ -1759,7 +1759,7 @@ function EventsSection({ events, onReload, showForm, setShowForm, editingEvent, 
         {!showForm && (
           <button
             onClick={handleAddNew}
-            className="bg-[#00274c] text-white px-3 md:px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-[#003366] text-sm md:text-base transition-colors"
+            className="bg-[#00274c] text-white px-3 md:px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-[#003366] text-sm md:text-base transition-colors admin-white-text"
           >
             <PlusIcon className="w-4 h-4" />
             <span>Add Event</span>
@@ -2360,7 +2360,7 @@ function ProjectForm({ project, onClose, onSave }: any) {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366]"
+              className="px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366] admin-white-text"
             >
               {project ? 'Update' : 'Add'} Project
             </button>
@@ -2627,7 +2627,7 @@ function TeamMemberForm({ member, onClose, onSave }: any) {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366]"
+              className="px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366] admin-white-text"
             >
               {member ? 'Update' : 'Add'} Team Member
             </button>
@@ -3067,7 +3067,7 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366]"
+              className="px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366] admin-white-text"
             >
               {event ? 'Update' : 'Add'} Event
             </button>
@@ -3434,7 +3434,7 @@ function FormEditor({ form, onClose, onSave }: any) {
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366]"
+            className="px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366] admin-white-text"
           >
             {form ? 'Update Form' : 'Create Form'}
           </button>
@@ -3839,7 +3839,7 @@ function CompanyForm({ company, onClose, onSave }: any) {
             </button>
             <button
               type="submit"
-              className="bg-[#FFFFFF] text-white px-4 py-2 rounded-md hover:bg-[#003366]"
+              className="bg-[#00274c] text-white px-4 py-2 rounded-md hover:bg-[#003366] admin-white-text"
             >
               {company ? 'Update Company' : 'Add Company'}
             </button>

@@ -73,7 +73,7 @@ export default function Events() {
     <section 
       id="events" 
       ref={ref}
-      className="min-h-screen py-24 px-6 md:px-12 relative overflow-hidden"
+      className="min-h-screen py-12 sm:py-16 md:py-24 px-4 sm:px-6 md:px-12 relative overflow-hidden"
       style={{
         background: `linear-gradient(135deg, #0d1d35 0%, #00274c 50%, #1a2c45 100%)`,
       }}
@@ -115,26 +115,26 @@ export default function Events() {
           initial={{ opacity: 0, y: 50 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.8 }}
-          className="text-center mb-20"
+          className="text-center mb-12 sm:mb-16 md:mb-20"
         >
-          <h2 className="heading-primary text-5xl md:text-6xl lg:text-7xl text-white mb-6">
+          <h2 className="heading-primary text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl text-white mb-4 sm:mb-6">
             EVENTS
           </h2>
           <motion.div
             initial={{ width: 0 }}
             animate={isInView ? { width: "160px" } : {}}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="h-1 bg-gradient-to-r from-[#BBBBBB] to-white mx-auto mb-8"
+            className="h-1 bg-gradient-to-r from-[#BBBBBB] to-white mx-auto mb-6 sm:mb-8"
           />
-          <p className="body-text text-xl md:text-2xl text-[#BBBBBB] max-w-4xl mx-auto leading-relaxed">
+          <p className="body-text text-base sm:text-lg md:text-xl lg:text-2xl text-[#BBBBBB] max-w-4xl mx-auto leading-relaxed px-4 sm:px-0">
             Where innovation happens. Join us for immersive experiences that shape the future of AI in business.
           </p>
         </motion.div>
 
         {/* Timeline Layout */}
-        <div className="relative">
-          {/* Timeline Line */}
-          <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#BBBBBB] via-[#5e6472] to-[#BBBBBB] transform md:-translate-x-0.5"></div>
+        <div className="relative px-2 sm:px-0">
+          {/* Timeline Line - Hidden on mobile */}
+          <div className="hidden md:block absolute left-6 sm:left-8 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#BBBBBB] via-[#5e6472] to-[#BBBBBB] transform md:-translate-x-0.5"></div>
 
           {/* Events */}
           {loading ? (
@@ -148,7 +148,7 @@ export default function Events() {
               <p className="text-[#5e6472] mt-2">Add events through the admin panel.</p>
             </div>
           ) : (
-            <div className="space-y-16">
+            <div className="space-y-8 sm:space-y-12 md:space-y-16">
               {events.map((event: any, index: number) => (
               <motion.div
                 key={index}
@@ -159,17 +159,17 @@ export default function Events() {
                   index % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'
                 }`}
               >
-                {/* Timeline Dot */}
-                <div className="absolute left-4 md:left-1/2 w-4 h-4 bg-white border-4 border-[#00274c] rounded-full transform md:-translate-x-2 z-10 ripple-effect"></div>
+                {/* Timeline Dot - Hidden on mobile */}
+                <div className="hidden md:block absolute left-6 sm:left-8 md:left-1/2 w-4 h-4 bg-white border-4 border-[#00274c] rounded-full transform -translate-x-2 z-10 ripple-effect"></div>
 
                 {/* Event Card */}
-                <div className={`ml-12 md:ml-0 w-full md:w-5/12 ${
+                <div className={`px-4 sm:px-6 md:pl-0 md:pr-0 md:w-5/12 ${
                   index % 2 === 0 ? 'md:mr-auto md:pr-12' : 'md:ml-auto md:pl-12'
                 }`}>
                   <motion.div
                     whileHover={{ scale: 1.02, y: -4 }}
                     onClick={() => setSelectedEvent(selectedEvent === index ? null : index)}
-                    className="glass-card p-8 cursor-pointer glow-on-hover relative overflow-hidden"
+                    className="glass-card p-4 sm:p-6 md:p-8 cursor-pointer glow-on-hover relative overflow-hidden"
                   >
                     {/* Background Image */}
                     {event.imageUrl && (
@@ -202,7 +202,7 @@ export default function Events() {
 
                     {/* Event Details */}
                     <div className="space-y-3 mb-4 relative z-10">
-                      <div className="flex items-center gap-4 text-[#BBBBBB] text-sm">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[#BBBBBB] text-xs sm:text-sm">
                         <span>📅 {new Date(event.eventDate || event.date).toLocaleDateString()}</span>
                         {(event.time || event.eventDate) && <span>🕔 {event.time || new Date(event.eventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
                         {event.location && <span>📍 {event.location}</span>}
@@ -216,22 +216,22 @@ export default function Events() {
                       {event.partnerships && event.partnerships.length > 0 && (
                         <div className="mt-4">
                           <h4 className="text-white font-semibold mb-2 text-sm">Event Partners</h4>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1 sm:gap-2">
                             {event.partnerships.map((partnership: any, idx: number) => (
-                              <div key={idx} className="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20">
+                              <div key={idx} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 bg-white/10 rounded-full border border-white/20">
                                 {partnership.company.logoUrl && (
                                   <img 
                                     src={partnership.company.logoUrl} 
                                     alt={partnership.company.name}
-                                    className="w-5 h-5 object-contain"
+                                    className="w-4 h-4 sm:w-5 sm:h-5 object-contain"
                                     onError={(e) => {
                                       const target = e.target as HTMLImageElement;
                                       target.style.display = 'none';
                                     }}
                                   />
                                 )}
-                                <span className="text-white text-sm font-medium">{partnership.company.name}</span>
-                                <span className={`px-2 py-1 rounded-full text-xs ${
+                                <span className="text-white text-xs sm:text-sm font-medium">{partnership.company.name}</span>
+                                <span className={`hidden sm:inline px-2 py-1 rounded-full text-xs ${
                                   partnership.type === 'SPONSOR' ? 'bg-purple-400/30 text-purple-300' :
                                   partnership.type === 'COLLABORATOR' ? 'bg-green-400/30 text-green-300' :
                                   partnership.type === 'MENTOR' ? 'bg-blue-400/30 text-blue-300' :
@@ -240,7 +240,7 @@ export default function Events() {
                                   {partnership.type}
                                 </span>
                                 {partnership.sponsorshipLevel && (
-                                  <span className="bg-yellow-400/30 text-yellow-300 px-2 py-1 rounded-full text-xs">
+                                  <span className="hidden sm:inline bg-yellow-400/30 text-yellow-300 px-2 py-1 rounded-full text-xs">
                                     {partnership.sponsorshipLevel}
                                   </span>
                                 )}
@@ -255,14 +255,14 @@ export default function Events() {
                     <div className="flex justify-between items-center relative z-10">
                       <motion.button
                         whileHover={{ scale: 1.05 }}
-                        className="btn-secondary text-sm px-6 py-2"
+                        className="btn-secondary text-xs sm:text-sm px-4 sm:px-6 py-2"
                       >
                         {selectedEvent === index ? 'Show Less' : 'See What\'s Possible'}
                       </motion.button>
                       
                       <motion.div
                         animate={{ rotate: selectedEvent === index ? 180 : 0 }}
-                        className="w-6 h-6 text-[#BBBBBB]"
+                        className="w-6 h-6 text-[#BBBBBB] flex-shrink-0"
                       >
                         ↓
                       </motion.div>

@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "npm run clean && next dev",
     "dev:clean": "npm run clean && next dev",
-    "clean": "rm -rf .next",
-    "clean:force": "pkill -f 'node' || true && rm -rf .next",
+    "clean": "rimraf .next",
+    "clean:force": "rimraf .next",
     "build": "npm run clean && next build",
     "start": "next start",
     "lint": "next lint"
@@ -30,7 +30,8 @@
     "react-hot-toast": "^2.5.2",
     "react-icons": "^5.5.0",
     "react-toastify": "^11.0.5",
-    "tsx": "^4.20.3"
+    "tsx": "^4.20.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -43,5 +44,9 @@
     "rimraf": "^6.0.1",
     "tailwindcss": "^4.1.11",
     "typescript": "^5"
-  }
+  },
+  "main": "ecosystem.config.js",
+  "author": "",
+  "license": "ISC",
+  "description": ""
 }

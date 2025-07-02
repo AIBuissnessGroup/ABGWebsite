@@ -15,7 +15,8 @@ import {
   InformationCircleIcon,
   HandRaisedIcon,
   RocketLaunchIcon,
-  BuildingOfficeIcon
+  BuildingOfficeIcon,
+  EnvelopeIcon
 } from '@heroicons/react/24/outline';
 
 const navigation = [
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'Events', href: '/admin/events', icon: CalendarIcon },
   { name: 'Companies', href: '/admin/companies', icon: BuildingOfficeIcon },
   { name: 'Forms', href: '/admin/forms', icon: DocumentTextIcon },
+  { name: 'Newsletter', href: '/admin/newsletter', icon: EnvelopeIcon },
   { name: 'Site Settings', href: '/admin/settings', icon: CogIcon },
   { name: 'Internships', href: '/admin/internships', icon: BriefcaseIcon },
   { name: 'Changelog', href: '/admin/changelog', icon: ClockIcon },
@@ -37,11 +39,11 @@ export default function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="w-48 md:w-64 bg-[#00274c] text-white h-full flex flex-col border-r border-gray-200">
+    <div className="w-48 md:w-64 bg-[#00274c] text-white h-full flex flex-col border-r border-gray-200" style={{backgroundColor: '#00274c', color: 'white'}}>
       {/* Logo */}
       <div className="p-3 md:p-6 border-b border-white/10">
-        <h1 className="text-lg md:text-xl font-bold text-white">ABG Admin</h1>
-        <p className="text-xs md:text-sm text-[#BBBBBB] mt-1 hidden sm:block">Content Management</p>
+        <h1 className="text-lg md:text-xl font-bold" style={{color: 'white', fontSize: '1.125rem', fontWeight: 'bold'}}>ABG Admin</h1>
+        <p className="text-xs md:text-sm mt-1 hidden sm:block" style={{color: 'white', fontSize: '0.75rem'}}>Content Management</p>
       </div>
 
       {/* Navigation */}
@@ -54,12 +56,13 @@ export default function AdminSidebar() {
               href={item.href}
               className={`flex items-center gap-2 md:gap-3 px-2 md:px-4 py-2 md:py-3 rounded-lg transition-all duration-200 ${
                 isActive
-                  ? 'bg-white/10 text-white border-l-4 border-[#BBBBBB]'
-                  : 'text-[#BBBBBB] hover:bg-white/5 hover:text-white'
+                  ? 'bg-white/10 border-l-4 border-white'
+                  : 'hover:bg-white/5'
               }`}
+              style={{color: 'white', textDecoration: 'none'}}
             >
-              <item.icon className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
-              <span className="text-sm md:text-base truncate">{item.name}</span>
+              <item.icon className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" style={{color: 'white'}} />
+              <span className="truncate" style={{color: 'white', fontSize: '0.875rem'}}>{item.name}</span>
             </Link>
           );
         })}
@@ -67,7 +70,7 @@ export default function AdminSidebar() {
 
       {/* Footer */}
       <div className="p-2 md:p-4 border-t border-white/10">
-        <p className="text-xs text-[#5e6472] text-center md:text-left">
+        <p className="text-center md:text-left" style={{color: 'white', fontSize: '0.75rem'}}>
           © 2025 ABG
         </p>
       </div>

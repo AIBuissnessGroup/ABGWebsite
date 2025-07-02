@@ -167,7 +167,7 @@ export default function SettingsAdmin() {
           <button
             onClick={saveChanges}
             disabled={saving}
-            className="w-full bg-[#00274c] text-white px-6 py-3 rounded-lg hover:bg-[#003366] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#00274c] text-white px-6 py-3 rounded-lg hover:bg-[#003366] disabled:opacity-50 disabled:cursor-not-allowed admin-white-text"
           >
             {saving ? 'Saving...' : 'Save All Settings'}
           </button>

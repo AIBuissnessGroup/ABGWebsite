@@ -25,6 +25,29 @@ body {
   padding: 0;
   min-height: 100vh;
   overflow-x: hidden;
+  line-height: 1.6;
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  body {
+    line-height: 1.7;
+  }
+  
+  .heading-primary {
+    letter-spacing: 0.05em;
+    line-height: 1.15;
+  }
+  
+  .body-text {
+    line-height: 1.7;
+  }
+  
+  /* Improve touch targets on mobile */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* Typography Hierarchy */
@@ -71,17 +94,21 @@ body {
   background: linear-gradient(135deg, var(--white) 0%, #f8f9fa 100%);
   color: var(--deep-blue);
   font-weight: 700;
-  padding: 12px 32px;
+  padding: 16px 32px;
   border-radius: 50px;
   transition: all 0.3s ease;
   border: none;
   cursor: pointer;
   text-decoration: none;
   display: inline-block;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-primary:hover {
-  transform: scale(1.05) translateY(-2px);
+  transform: scale(1.02) translateY(-1px);
   box-shadow: 0 15px 35px rgba(255, 255, 255, 0.2);
   background: linear-gradient(135deg, #f8f9fa 0%, var(--white) 100%);
 }
@@ -91,19 +118,39 @@ body {
   color: var(--white);
   border: 2px solid rgba(255, 255, 255, 0.3);
   font-weight: 700;
-  padding: 12px 32px;
+  padding: 16px 32px;
   border-radius: 50px;
   transition: all 0.3s ease;
   cursor: pointer;
   text-decoration: none;
   display: inline-block;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.5);
-  transform: scale(1.05) translateY(-2px);
+  transform: scale(1.02) translateY(-1px);
   box-shadow: 0 15px 35px rgba(255, 255, 255, 0.1);
+}
+
+/* Mobile-specific button adjustments */
+@media (max-width: 640px) {
+  .btn-primary, .btn-secondary {
+    padding: 18px 24px;
+    min-height: 60px;
+    font-size: 16px;
+    width: 100%;
+    max-width: 280px;
+    margin: 0 auto;
+  }
+  
+  .btn-primary:hover, .btn-secondary:hover {
+    transform: scale(1.01) translateY(-1px);
+  }
 }
 
 /* Scroll Animations */
@@ -331,16 +378,16 @@ body {
 .delay-4 { animation-delay: -4s; }
 .delay-5 { animation-delay: -5s; }
 
-/* Form Input Styles */
-input[type="text"],
-input[type="email"],
-input[type="password"],
-input[type="url"],
-input[type="date"],
-input[type="datetime-local"],
-input[type="number"],
-select,
-textarea {
+/* Form Input Styles - Only for public forms */
+.form-page input[type="text"],
+.form-page input[type="email"],
+.form-page input[type="password"],
+.form-page input[type="url"],
+.form-page input[type="date"],
+.form-page input[type="datetime-local"],
+.form-page input[type="number"],
+.form-page select,
+.form-page textarea {
   color: #000000 !important;
   background-color: #ffffff !important;
   border: 1px solid #d1d5db !important;
@@ -348,68 +395,75 @@ textarea {
   padding: 0.5rem 0.75rem !important;
 }
 
-input[type="text"]:focus,
-input[type="email"]:focus,
-input[type="password"]:focus,
-input[type="url"]:focus,
-input[type="date"]:focus,
-input[type="datetime-local"]:focus,
-input[type="number"]:focus,
-select:focus,
-textarea:focus {
+.form-page input[type="text"]:focus,
+.form-page input[type="email"]:focus,
+.form-page input[type="password"]:focus,
+.form-page input[type="url"]:focus,
+.form-page input[type="date"]:focus,
+.form-page input[type="datetime-local"]:focus,
+.form-page input[type="number"]:focus,
+.form-page select:focus,
+.form-page textarea:focus {
   outline: none !important;
   border-color: #3b82f6 !important;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
 }
 
 /* Placeholder text */
-input::placeholder,
-textarea::placeholder {
+.form-page input::placeholder,
+.form-page textarea::placeholder {
   color: #6b7280 !important;
   opacity: 1 !important;
 }
 
-/* Select dropdown options */
-select option {
-  color: #000000 !important;
-  background-color: #ffffff !important;
-}
-
-/* Form Labels and Text */
-label,
-.form-label,
-.question-title {
+/* Form Labels and Text - Only for public forms */
+.form-page label,
+.form-page .form-label,
+.form-page .question-title {
   color: #000000 !important;
   font-weight: 600 !important;
 }
 
-/* Form question titles in forms */
-.form-question label,
-.form-question .question-title {
+.form-page .form-question label,
+.form-page .form-question .question-title {
   color: #0c0c0c !important;
   font-weight: 600 !important;
 }
 
-/* Admin Form Modal Fixes - Only target specific modal form elements that have white text issues */
-/* Target modal forms specifically - those with black overlay background */
-.fixed.inset-0.bg-black h3,
-.fixed.inset-0.bg-black label,
-.fixed.inset-0.bg-opacity-50 h3,  
-.fixed.inset-0.bg-opacity-50 label {
-  color: #1f2937 !important;
-}
-
-/* Make h1, h2, h3, h4, h5, h6 black by default */
-h1, h2, h3, h4, h5, h6 {
-  color: #000000 !important;
-}
-
-/* Keep hero preview text white on gradients */
+/* Main site styling - white text on gradient backgrounds */
 [class*="bg-gradient"] h1,
 [class*="bg-gradient"] h2, 
 [class*="bg-gradient"] p,
 [class*="bg-gradient"] div,
-[class*="text-white"] {
+[class*="text-white"],
+.text-white,
+.text-white h1,
+.text-white h2,
+.text-white h3,
+.text-white h4,
+.text-white h5,
+.text-white h6 {
+  color: white !important;
+}
+
+/* Main pages hero section styling */
+.bg-gradient-to-br h1,
+.bg-gradient-to-br h2,
+.bg-gradient-to-br h3,
+.bg-gradient-to-br p,
+.bg-gradient-to-br span {
+  color: white !important;
+}
+
+/* Badge text styling for main pages - make white for visibility on dark backgrounds */
+.main-page .text-blue-800,
+.main-page .text-green-800,
+.main-page .text-red-800,
+.main-page .text-yellow-800,
+.main-page .text-purple-800,
+.main-page .text-orange-800,
+.main-page .text-pink-800,
+.main-page .text-gray-800 {
   color: white !important;
 }
 
@@ -424,176 +478,5 @@ h1, h2, h3, h4, h5, h6 {
   scrollbar-width: none;  /* Firefox */
 }
 
-/* Fix white text on white background ONLY in form creation interface */
-/* Target the specific form editor component */
-.bg-white.rounded-lg.shadow-md p,
-.bg-white.rounded-lg.shadow-md span,
-.bg-white.rounded-lg.shadow-md div:not(.bg-gradient-to-r):not([class*="bg-"]),
-.bg-white.rounded-lg.shadow-md label,
-.bg-white.rounded-lg.shadow-md h2,
-.bg-white.rounded-lg.shadow-md h3,
-.bg-white.rounded-lg.shadow-md h4 {
-  color: #1f2937 !important;
-}
-
-/* Form settings section - only in the blue gradient container */
-.bg-gradient-to-r.from-blue-50.to-indigo-50 h3,
-.bg-gradient-to-r.from-blue-50.to-indigo-50 h4,
-.bg-gradient-to-r.from-blue-50.to-indigo-50 p,
-.bg-gradient-to-r.from-blue-50.to-indigo-50 span:not(.bg-blue-100),
-.bg-gradient-to-r.from-blue-50.to-indigo-50 label {
-  color: #1f2937 !important;
-}
-
-/* Question description boxes - only the green highlighted ones */
-.p-3.border-2.border-green-200.bg-green-50 span,
-.p-3.border-2.border-green-200.bg-green-50 p,
-.p-3.border-2.border-green-200.bg-green-50 label {
-  color: #1f2937 !important;
-}
-
-/* Deadline section - only the orange highlighted ones */
-.p-3.border-2.border-orange-200.bg-orange-50 span,
-.p-3.border-2.border-orange-200.bg-orange-50 p,
-.p-3.border-2.border-orange-200.bg-orange-50 label {
-  color: #1f2937 !important;
-}
-
-/* Email notification section - only the blue highlighted ones */
-.p-3.border-2.border-blue-200.bg-blue-50 span,
-.p-3.border-2.border-blue-200.bg-blue-50 p,
-.p-3.border-2.border-blue-200.bg-blue-50 label {
-  color: #1f2937 !important;
-}
-
-/* Settings cards within form editor */
-.bg-white.p-4.rounded-lg.border.border-blue-200 h4,
-.bg-white.p-4.rounded-lg.border.border-blue-200 span,
-.bg-white.p-4.rounded-lg.border.border-blue-200 p,
-.bg-white.p-4.rounded-lg.border.border-blue-200 label {
-  color: #1f2937 !important;
-}
-
-/* Checkbox/radio labels in form settings */
-.bg-white.p-3.border label span,
-.bg-green-50.p-3.border label span {
-  color: #1f2937 !important;
-}
-
-/* Badge text in form creation */
-.px-2.py-1.bg-blue-100.text-blue-800 {
-  color: #1e3a8a !important;
-}
-
-/* Fix font-medium class text visibility on white backgrounds */
-.font-medium {
-  color: #1f2937 !important;
-}
-
-/* Keep font-medium white on gradient backgrounds and dark blue buttons */
-[class*="bg-gradient"] .font-medium,
-[class*="text-white"] .font-medium,
-.bg-\[#00274c\] .font-medium,
-button.bg-\[#00274c\] {
-  color: white !important;
-}
-
-/* Fix questions section text in FormEditor */
-.bg-white.rounded-lg.shadow-md .space-y-4 h4,
-.bg-white.rounded-lg.shadow-md .space-y-4 label,
-.bg-white.rounded-lg.shadow-md .space-y-4 button,
-.bg-white.rounded-lg.shadow-md .space-y-4 span,
-.bg-white.rounded-lg.shadow-md .border.border-gray-200.rounded-lg h4,
-.bg-white.rounded-lg.shadow-md .border.border-gray-200.rounded-lg label,
-.bg-white.rounded-lg.shadow-md .border.border-gray-200.rounded-lg button {
-  color: #1f2937 !important;
-}
-
-/* Specific targeting for questions section */
-.bg-white.rounded-lg.shadow-md h3,
-.bg-white.rounded-lg.shadow-md h4 {
-  color: #1f2937 !important;
-}
-
-/* Form question cards */
-.border.border-gray-200.rounded-lg.p-4 h4,
-.border.border-gray-200.rounded-lg.p-4 label,
-.border.border-gray-200.rounded-lg.p-4 button,
-.border.border-gray-200.rounded-lg.p-4 .text-sm {
-  color: #1f2937 !important;
-}
-
-/* Fix category overview cards numbers and statistics */
-.p-4.rounded-lg.border-2 .space-y-2 span.font-medium,
-.p-4.rounded-lg.border-2 span.font-medium,
-.border-2.cursor-pointer .space-y-2 span.font-medium,
-.border-2.cursor-pointer span.font-medium {
-  color: #1f2937 !important;
-}
-
-/* Fix application status badges - make text visible */
-.px-2.py-1.rounded-full.text-xs.font-medium {
-  color: inherit !important;
-}
-
-/* Specific status color fixes */
-.bg-yellow-100.text-yellow-800 {
-  color: #92400e !important;
-}
-
-.bg-blue-100.text-blue-800 {
-  color: #1e3a8a !important;
-}
-
-.bg-green-100.text-green-800 {
-  color: #065f46 !important;
-}
-
-.bg-red-100.text-red-800 {
-  color: #991b1b !important;
-}
-
-.bg-purple-100.text-purple-800 {
-  color: #581c87 !important;
-}
-
-.bg-gray-100.text-gray-800 {
-  color: #1f2937 !important;
-}
-
-/* Companies admin page fixes */
-.bg-white.p-6.rounded-lg.border.border-gray-200.shadow-sm h3,
-.bg-white.p-6.rounded-lg.border.border-gray-200.shadow-sm p,
-.bg-white.p-6.rounded-lg.border.border-gray-200.shadow-sm span,
-.bg-white.p-6.rounded-lg.border.border-gray-200.shadow-sm a,
-.bg-white.p-6.rounded-lg.border.border-gray-200.shadow-sm .text-sm,
-.bg-white.p-6.rounded-lg.border.border-gray-200.shadow-sm .font-medium {
-  color: #1f2937 !important;
-}
-
-/* Company size badges */
-.bg-gray-100.px-2.py-1.rounded.text-xs.font-medium {
-  color: #1f2937 !important;
-  background-color: #f3f4f6 !important;
-}
-
-/* Events admin page fixes */
-.bg-white.rounded-lg.shadow-md.p-6 h3,
-.bg-white.rounded-lg.shadow-md.p-6 p,
-.bg-white.rounded-lg.shadow-md.p-6 span,
-.bg-white.rounded-lg.shadow-md.p-6 .font-medium,
-.bg-white.rounded-lg.shadow-md.p-6 .text-sm {
-  color: #1f2937 !important;
-}
-
-/* Subevent cards in events admin */
-.bg-gray-50.rounded-lg.p-4 h5,
-.bg-gray-50.rounded-lg.p-4 h6,
-.bg-gray-50.rounded-lg.p-4 p,
-.bg-gray-50.rounded-lg.p-4 span,
-.bg-white.rounded-lg.p-3.border.border-gray-200 h6,
-.bg-white.rounded-lg.p-3.border.border-gray-200 p,
-.bg-white.rounded-lg.p-3.border.border-gray-200 span {
-  color: #1f2937 !important;
-}
+/* Main site only - no admin-specific styles */
 

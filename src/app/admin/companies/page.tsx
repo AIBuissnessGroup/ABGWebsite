@@ -13,9 +13,59 @@ import {
 export default function CompaniesAdmin() {
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
-  const [companies, setCompanies] = useState([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingCompany, setEditingCompany] = useState(null);
+  const [editingCompany, setEditingCompany] = useState<any>(null);
+
+  // Restore form state on mount
+  useEffect(() => {
+    try {
+      const savedFormState = localStorage.getItem('companiesAdmin_formState');
+      if (savedFormState) {
+        const { showForm: savedShowForm, editingCompanyId } = JSON.parse(savedFormState);
+        console.log('🔄 Restoring companies form state:', { savedShowForm, editingCompanyId, companiesLoaded: companies.length > 0 });
+        if (savedShowForm) {
+          setShowForm(true);
+          if (editingCompanyId) {
+            // We'll set the editing company after companies are loaded
+            const checkForCompany = () => {
+              if (companies.length > 0) {
+                const company = companies.find(c => c.id === editingCompanyId);
+                if (company) {
+                  setEditingCompany(company);
+                  console.log('✓ Companies editing company restored:', company.name);
+                }
+              }
+            };
+            // Check immediately and also set up a timeout
+            checkForCompany();
+            setTimeout(checkForCompany, 100);
+          } else {
+            console.log('✓ Companies new form restored');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error restoring form state:', error);
+    }
+  }, [companies]);
+
+  // Save form state whenever it changes
+  useEffect(() => {
+    try {
+      const formState = {
+        showForm,
+        editingCompanyId: editingCompany?.id || null
+      };
+      if (showForm || editingCompany) {
+        localStorage.setItem('companiesAdmin_formState', JSON.stringify(formState));
+      } else {
+        localStorage.removeItem('companiesAdmin_formState');
+      }
+    } catch (error) {
+      console.error('Error saving form state:', error);
+    }
+  }, [showForm, editingCompany]);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -73,19 +123,47 @@ export default function CompaniesAdmin() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Companies</h1>
-          <p className="text-gray-600">Manage partner companies ({companies.length} total)</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Companies</h1>
+          <p className="text-gray-600 mt-1">Manage partner companies ({companies.length} total)</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2"
-        >
-          <PlusIcon className="w-4 h-4" />
-          Add Company
-        </button>
+        {!showForm && (
+          <button
+            onClick={() => {
+              setEditingCompany(null);
+              setShowForm(true);
+            }}
+            className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366] admin-white-text"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Add Company
+          </button>
+        )}
       </div>
+
+      {/* Inline Form */}
+      {showForm && (
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 mb-6">
+          <CompanyForm
+            company={editingCompany}
+            onClose={() => {
+              setShowForm(false);
+              setEditingCompany(null);
+              // Clear form state from localStorage
+              localStorage.removeItem('companiesAdmin_formState');
+            }}
+            onSave={() => {
+              loadCompanies();
+              setShowForm(false);
+              setEditingCompany(null);
+              // Clear form state from localStorage
+              localStorage.removeItem('companiesAdmin_formState');
+            }}
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {companies.map((company: any) => (
@@ -110,16 +188,21 @@ export default function CompaniesAdmin() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setEditingCompany(company)}
-                  className="text-[#00274c] hover:text-[#003366] p-1"
+                  onClick={() => {
+                    setEditingCompany(company);
+                    setShowForm(true);
+                  }}
+                  className="text-green-600 hover:text-green-900 p-2"
                   title="Edit Company"
+                  disabled={showForm}
                 >
                   <PencilIcon className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => deleteCompany(company.id)}
-                  className="text-red-600 hover:text-red-800 p-1"
+                  className="text-red-600 hover:text-red-900 p-2"
                   title="Delete Company"
+                  disabled={showForm}
                 >
                   <TrashIcon className="w-4 h-4" />
                 </button>
@@ -160,228 +243,278 @@ export default function CompaniesAdmin() {
         ))}
       </div>
 
-             {companies.length === 0 && (
-         <div className="text-center py-12">
-           <BuildingOfficeIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-           <h3 className="text-lg font-medium text-gray-900 mb-2">No companies yet</h3>
-           <button onClick={() => setShowForm(true)} className="bg-[#00274c] text-white px-4 py-2 rounded-lg">
-             Add Company
-           </button>
-         </div>
-       )}
-
-       {/* Company Form */}
-       {(showForm || editingCompany) && (
-         <CompanyForm
-           company={editingCompany}
-           onClose={() => {
-             setShowForm(false);
-             setEditingCompany(null);
-           }}
-           onSave={() => {
-             loadCompanies();
-             setShowForm(false);
-             setEditingCompany(null);
-           }}
-         />
-       )}
+      {companies.length === 0 && !showForm && (
+        <div className="text-center py-12">
+          <BuildingOfficeIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No companies yet</h3>
+          <p className="text-gray-600 mb-4">Add your first partner company to get started.</p>
+          <button
+            onClick={() => {
+              setEditingCompany(null);
+              setShowForm(true);
+            }}
+                              className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
+                >
+                  Add Company
+          </button>
+        </div>
+      )}
      </div>
    );
  }
 
- function CompanyForm({ company, onClose, onSave }: any) {
-   const [formData, setFormData] = useState({
-     name: '',
-     description: '',
-     logoUrl: '',
-     website: '',
-     industry: '',
-     size: '',
-     location: '',
-     contactEmail: '',
-     active: true
-   });
-   const [saving, setSaving] = useState(false);
+function CompanyForm({ company, onClose, onSave }: any) {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    logoUrl: '',
+    website: '',
+    industry: '',
+    size: '',
+    location: '',
+    contactEmail: '',
+    active: true
+  });
+  const [saving, setSaving] = useState(false);
 
-   useEffect(() => {
-     if (company) {
-       setFormData({
-         name: company.name || '',
-         description: company.description || '',
-         logoUrl: company.logoUrl || '',
-         website: company.website || '',
-         industry: company.industry || '',
-         size: company.size || '',
-         location: company.location || '',
-         contactEmail: company.contactEmail || '',
-         active: company.active ?? true
-       });
-     }
-   }, [company]);
+  // Autosave functionality - works for both new and editing
+  useEffect(() => {
+    const autoSaveData = () => {
+      if (formData.name.trim()) {
+        try {
+          const draftKey = company ? `companyForm_draft_edit_${company.id}` : 'companyForm_draft_new';
+          localStorage.setItem(draftKey, JSON.stringify(formData));
+          console.log('✓ Company form autosaved:', formData.name, company ? '(editing)' : '(new)');
+        } catch (error) {
+          console.error('Error autosaving company form:', error);
+        }
+      }
+    };
 
-   const handleSubmit = async (e: React.FormEvent) => {
-     e.preventDefault();
-     setSaving(true);
+    const timeoutId = setTimeout(autoSaveData, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [formData, company]);
 
-     try {
-       const url = company 
-         ? `/api/admin/companies?id=${company.id}` 
-         : '/api/admin/companies';
-       
-       const method = company ? 'PUT' : 'POST';
+  // Load draft on mount or set company data - works for both new and editing
+  useEffect(() => {
+    if (company) {
+      // For editing, first set the company data, then check for editing draft
+      setFormData({
+        name: company.name || '',
+        description: company.description || '',
+        logoUrl: company.logoUrl || '',
+        website: company.website || '',
+        industry: company.industry || '',
+        size: company.size || '',
+        location: company.location || '',
+        contactEmail: company.contactEmail || '',
+        active: company.active ?? true
+      });
+      
+      // Check for editing draft (modifications to existing company)
+      const editDraftKey = `companyForm_draft_edit_${company.id}`;
+      const editDraft = localStorage.getItem(editDraftKey);
+      if (editDraft) {
+        try {
+          const parsedDraft = JSON.parse(editDraft);
+          setFormData(parsedDraft);
+          console.log('✓ Company editing draft loaded:', parsedDraft.name);
+        } catch (error) {
+          console.error('Error loading company editing draft:', error);
+          localStorage.removeItem(editDraftKey);
+        }
+      }
+    } else {
+      // Load draft for new companies
+      const draftKey = 'companyForm_draft_new';
+      const draft = localStorage.getItem(draftKey);
+      if (draft) {
+        try {
+          const parsedDraft = JSON.parse(draft);
+          setFormData(parsedDraft);
+          console.log('✓ Company form draft loaded:', parsedDraft.name);
+        } catch (error) {
+          console.error('Error loading company form draft:', error);
+          localStorage.removeItem(draftKey);
+        }
+      }
+    }
+  }, [company]);
 
-       const res = await fetch(url, {
-         method,
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify(formData)
-       });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
 
-       if (res.ok) {
-         onSave();
-       } else {
-         const error = await res.json();
-         alert(error.message || 'Error saving company');
-       }
-     } catch (error) {
-       console.error('Error saving company:', error);
-       alert('Error saving company');
-     } finally {
-       setSaving(false);
-     }
-   };
+    try {
+      const url = company 
+        ? `/api/admin/companies?id=${company.id}` 
+        : '/api/admin/companies';
+      
+      const method = company ? 'PUT' : 'POST';
+      const data = company ? { ...formData, id: company.id } : formData;
 
-   return (
-     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-         <form onSubmit={handleSubmit} className="p-6">
-           <h2 className="text-xl font-semibold mb-6">
-             {company ? 'Edit Company' : 'Add New Company'}
-           </h2>
-           
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">Company Name *</label>
-               <input
-                 type="text"
-                 value={formData.name}
-                 onChange={(e) => setFormData({...formData, name: e.target.value})}
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-                 required
-               />
-             </div>
-             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">Industry</label>
-               <input
-                 type="text"
-                 value={formData.industry}
-                 onChange={(e) => setFormData({...formData, industry: e.target.value})}
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-                 placeholder="e.g., Technology"
-               />
-             </div>
-           </div>
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
 
-           <div className="mb-4">
-             <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-             <textarea
-               value={formData.description}
-               onChange={(e) => setFormData({...formData, description: e.target.value})}
-               rows={3}
-               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-               placeholder="Brief description of the company"
-             />
-           </div>
+      if (res.ok) {
+        // Clear the draft on successful save
+        const draftKey = company ? `companyForm_draft_edit_${company.id}` : 'companyForm_draft_new';
+        localStorage.removeItem(draftKey);
+        console.log('✓ Company form saved successfully, draft cleared');
+        onSave();
+      } else {
+        const error = await res.json();
+        alert(error.message || 'Error saving company');
+      }
+    } catch (error) {
+      console.error('Error saving company:', error);
+      alert('Error saving company');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">Website</label>
-               <input
-                 type="url"
-                 value={formData.website}
-                 onChange={(e) => setFormData({...formData, website: e.target.value})}
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-                 placeholder="https://company.com"
-               />
-             </div>
-             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">Logo URL</label>
-               <input
-                 type="url"
-                 value={formData.logoUrl}
-                 onChange={(e) => setFormData({...formData, logoUrl: e.target.value})}
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-                 placeholder="https://company.com/logo.png"
-               />
-             </div>
-           </div>
+  return (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">
+          {company ? 'Edit Company' : 'Add Company'}
+        </h3>
+        <div className="flex items-center gap-2">
+          <div className="text-xs text-gray-500 bg-green-50 px-2 py-1 rounded">
+            ✓ Auto-saving
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="space-y-4">
+          
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Company Name *</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+            <input
+              type="text"
+              value={formData.industry}
+              onChange={(e) => setFormData({...formData, industry: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+              placeholder="e.g., Technology"
+            />
+          </div>
+        </div>
 
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">Company Size</label>
-               <select
-                 value={formData.size}
-                 onChange={(e) => setFormData({...formData, size: e.target.value})}
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-               >
-                 <option value="">Select Size</option>
-                 <option value="Startup">Startup (1-10)</option>
-                 <option value="Small">Small (11-50)</option>
-                 <option value="Medium">Medium (51-200)</option>
-                 <option value="Large">Large (201-1000)</option>
-                 <option value="Enterprise">Enterprise (1000+)</option>
-               </select>
-             </div>
-             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-               <input
-                 type="text"
-                 value={formData.location}
-                 onChange={(e) => setFormData({...formData, location: e.target.value})}
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-                 placeholder="e.g., San Francisco, CA"
-               />
-             </div>
-           </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({...formData, description: e.target.value})}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+            placeholder="Brief description of the company"
+          />
+        </div>
 
-           <div className="mb-4">
-             <label className="block text-sm font-medium text-gray-700 mb-2">Contact Email</label>
-             <input
-               type="email"
-               value={formData.contactEmail}
-               onChange={(e) => setFormData({...formData, contactEmail: e.target.value})}
-               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-               placeholder="contact@company.com"
-             />
-           </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Website</label>
+            <input
+              type="url"
+              value={formData.website}
+              onChange={(e) => setFormData({...formData, website: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+              placeholder="https://company.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Logo URL</label>
+            <input
+              type="url"
+              value={formData.logoUrl}
+              onChange={(e) => setFormData({...formData, logoUrl: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+              placeholder="https://company.com/logo.png"
+            />
+          </div>
+        </div>
 
-           <div className="flex items-center gap-2 mb-6">
-             <input
-               type="checkbox"
-               checked={formData.active}
-               onChange={(e) => setFormData({...formData, active: e.target.checked})}
-               className="rounded border-gray-300 text-[#00274c] focus:ring-[#00274c]"
-             />
-             <span className="text-sm text-gray-700">Active Partner</span>
-           </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Company Size</label>
+            <select
+              value={formData.size}
+              onChange={(e) => setFormData({...formData, size: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+            >
+              <option value="">Select Size</option>
+              <option value="Startup">Startup (1-10)</option>
+              <option value="Small">Small (11-50)</option>
+              <option value="Medium">Medium (51-200)</option>
+              <option value="Large">Large (201-1000)</option>
+              <option value="Enterprise">Enterprise (1000+)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+            <input
+              type="text"
+              value={formData.location}
+              onChange={(e) => setFormData({...formData, location: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+              placeholder="e.g., San Francisco, CA"
+            />
+          </div>
+        </div>
 
-           <div className="flex justify-end gap-3">
-             <button
-               type="button"
-               onClick={onClose}
-               className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
-             >
-               Cancel
-             </button>
-             <button
-               type="submit"
-               disabled={saving}
-               className="px-4 py-2 bg-[#FFFFFF] text-white hover:bg-[#003366] rounded-lg disabled:opacity-50"
-             >
-               {saving ? 'Saving...' : (company ? 'Update Company' : 'Add Company')}
-             </button>
-           </div>
-         </form>
-       </div>
-     </div>
-   );
- } 
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Contact Email</label>
+          <input
+            type="email"
+            value={formData.contactEmail}
+            onChange={(e) => setFormData({...formData, contactEmail: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+            placeholder="contact@company.com"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 mb-6">
+          <input
+            type="checkbox"
+            checked={formData.active}
+            onChange={(e) => setFormData({...formData, active: e.target.checked})}
+            className="rounded border-gray-300 text-[#00274c] focus:ring-[#00274c]"
+          />
+          <span className="text-sm text-gray-700">Active Partner</span>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <button
+            type="submit"
+            disabled={saving}
+            className="admin-save-btn px-4 py-2 bg-[#00274c] text-white hover:bg-[#003366] hover:text-white rounded-lg disabled:opacity-50 disabled:text-white font-medium admin-white-text"
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+} 
