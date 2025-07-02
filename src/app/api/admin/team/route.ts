@@ -11,6 +11,7 @@ export async function GET() {
       where: { active: true },
       orderBy: [
         { featured: 'desc' },
+        { sortOrder: 'asc' } as any,
         { joinDate: 'asc' }
       ]
     });
@@ -38,6 +39,12 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
     
+    // Get the highest sortOrder to add new member at the end
+    const maxSortOrder = await prisma.teamMember.findFirst({
+      select: { sortOrder: true } as any,
+      orderBy: { sortOrder: 'desc' } as any
+    });
+
     const teamMember = await prisma.teamMember.create({
       data: {
         name: data.name,
@@ -50,8 +57,9 @@ export async function POST(request: NextRequest) {
         github: data.github || null,
         imageUrl: data.imageUrl || null,
         featured: data.featured || false,
-        active: true
-      }
+        active: true,
+        sortOrder: (maxSortOrder?.sortOrder || 0) + 1
+      } as any
     });
 
     return NextResponse.json(teamMember);
@@ -90,8 +98,9 @@ export async function PUT(request: NextRequest) {
         github: data.github || null,
         imageUrl: data.imageUrl || null,
         featured: data.featured || false,
-        active: data.active !== undefined ? data.active : true
-      }
+        active: data.active !== undefined ? data.active : true,
+        sortOrder: data.sortOrder !== undefined ? data.sortOrder : undefined
+      } as any
     });
 
     return NextResponse.json(teamMember);

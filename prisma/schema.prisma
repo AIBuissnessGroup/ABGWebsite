@@ -187,6 +187,7 @@ model TeamMember {
   imageUrl    String?  // Profile image URL
   featured    Boolean  @default(false)
   active      Boolean  @default(true)
+  sortOrder   Int      @default(0)  // For drag-and-drop ordering
   joinDate    DateTime @default(now())
   leaveDate   DateTime?
   createdAt   DateTime @default(now())

@@ -6,9 +6,135 @@ import {
   PlusIcon, 
   PencilIcon, 
   TrashIcon, 
-  EyeIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  Bars3Icon
 } from '@heroicons/react/24/outline';
+
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// Sortable Team Member Card Component
+function SortableTeamMemberCard({ member, onEdit, onDelete, showForm }: any) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: member.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style}
+      className={`bg-white rounded-lg shadow-md p-6 border ${isDragging ? 'border-blue-500 shadow-lg' : 'border-gray-200'}`}
+    >
+      <div className="flex items-center gap-3 mb-4">
+        {/* Drag Handle */}
+        <button
+          className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 transition-colors p-1"
+          {...attributes}
+          {...listeners}
+          title="Drag to reorder"
+        >
+          <Bars3Icon className="w-5 h-5" />
+        </button>
+
+        {member.imageUrl ? (
+          <img 
+            src={member.imageUrl} 
+            alt={member.name}
+            className="w-12 h-12 rounded-full object-cover"
+          />
+        ) : (
+          <div className="w-12 h-12 bg-[#00274c] rounded-full flex items-center justify-center text-white font-bold">
+            {member.name.split(' ').map((n: string) => n[0]).join('')}
+          </div>
+        )}
+        <div className="flex-1">
+          <h4 className="font-semibold text-gray-900">{member.name}</h4>
+          <p className="text-sm text-gray-600">{member.role}</p>
+          <p className="text-xs text-gray-500">{member.year} • {member.major}</p>
+        </div>
+      </div>
+      
+      <p className="text-sm text-gray-700 mb-4 line-clamp-3">{member.bio || 'No bio available'}</p>
+      
+      <div className="flex justify-between items-center mb-4">
+        <span className={`px-2 py-1 rounded text-xs ${
+          member.featured ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+        }`}>
+          {member.featured ? 'Featured' : 'Regular'}
+        </span>
+        
+        <div className="flex gap-2">
+          {member.linkedIn && (
+            <a 
+              href={member.linkedIn} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 text-xs"
+            >
+              LinkedIn
+            </a>
+          )}
+          {member.github && (
+            <a 
+              href={member.github} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-gray-600 hover:text-gray-800 text-xs"
+            >
+              GitHub
+            </a>
+          )}
+        </div>
+      </div>
+      
+      <div className="flex justify-end space-x-2">
+        <button
+          onClick={() => onEdit(member)}
+          className="text-green-600 hover:text-green-900 p-2"
+          title="Edit Member"
+          disabled={showForm}
+        >
+          <PencilIcon className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => onDelete(member.id)}
+          className="text-red-600 hover:text-red-900 p-2"
+          title="Delete Member"
+          disabled={showForm}
+        >
+          <TrashIcon className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function TeamAdmin() {
   const { data: session, status } = useSession();
@@ -16,6 +142,14 @@ export default function TeamAdmin() {
   const [members, setMembers] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Restore form state on mount
   useEffect(() => {
@@ -118,6 +252,47 @@ export default function TeamAdmin() {
     }
   };
 
+  const handleDragEnd = async (event: any) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const oldIndex = members.findIndex(member => member.id === active.id);
+      const newIndex = members.findIndex(member => member.id === over.id);
+      
+      const newMembers = arrayMove(members, oldIndex, newIndex);
+      
+      // Update local state immediately for responsiveness
+      setMembers(newMembers);
+      
+      // Update sort order in database
+      setIsSaving(true);
+      try {
+        const reorderData = newMembers.map((member, index) => ({
+          id: member.id,
+          sortOrder: index
+        }));
+
+        const res = await fetch('/api/admin/team/reorder', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: reorderData })
+        });
+
+        if (!res.ok) {
+          console.error('Failed to save new order');
+          // Reload to get correct order from server
+          loadMembers();
+        }
+      } catch (error) {
+        console.error('Error saving new order:', error);
+        // Reload to get correct order from server
+        loadMembers();
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  };
+
   if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -132,7 +307,13 @@ export default function TeamAdmin() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Team Members</h1>
-          <p className="text-gray-600 mt-1">Manage team member profiles ({members.length} total)</p>
+          <p className="text-gray-600 mt-1">
+            Manage team member profiles ({members.length} total)
+            {isSaving && <span className="text-blue-600 ml-2">• Saving order...</span>}
+          </p>
+          <p className="text-sm text-gray-500 mt-1">
+            💡 Drag the <Bars3Icon className="w-4 h-4 inline" /> icon to reorder team members
+          </p>
         </div>
         {!showForm && (
           <button
@@ -170,88 +351,31 @@ export default function TeamAdmin() {
         </div>
       )}
 
-      {/* Team Members Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {members.map((member: any) => (
-          <div key={member.id} className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center gap-3 mb-4">
-              {member.imageUrl ? (
-                <img 
-                  src={member.imageUrl} 
-                  alt={member.name}
-                  className="w-12 h-12 rounded-full object-cover"
+      {/* Sortable Team Members Grid */}
+      {members.length > 0 ? (
+        <DndContext 
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={members.map(m => m.id)} strategy={verticalListSortingStrategy}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {members.map((member: any) => (
+                <SortableTeamMemberCard
+                  key={member.id}
+                  member={member}
+                  onEdit={(member: any) => {
+                    setEditingMember(member);
+                    setShowForm(true);
+                  }}
+                  onDelete={deleteMember}
+                  showForm={showForm}
                 />
-              ) : (
-                <div className="w-12 h-12 bg-[#00274c] rounded-full flex items-center justify-center text-white font-bold">
-                  {member.name.split(' ').map((n: string) => n[0]).join('')}
-                </div>
-              )}
-              <div>
-                <h4 className="font-semibold text-gray-900">{member.name}</h4>
-                <p className="text-sm text-gray-600">{member.role}</p>
-                <p className="text-xs text-gray-500">{member.year} • {member.major}</p>
-              </div>
+              ))}
             </div>
-            
-            <p className="text-sm text-gray-700 mb-4 line-clamp-3">{member.bio || 'No bio available'}</p>
-            
-            <div className="flex justify-between items-center mb-4">
-              <span className={`px-2 py-1 rounded text-xs ${
-                member.featured ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-              }`}>
-                {member.featured ? 'Featured' : 'Regular'}
-              </span>
-              
-              <div className="flex gap-2">
-                {member.linkedIn && (
-                  <a 
-                    href={member.linkedIn} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 text-xs"
-                  >
-                    LinkedIn
-                  </a>
-                )}
-                {member.github && (
-                  <a 
-                    href={member.github} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-gray-600 hover:text-gray-800 text-xs"
-                  >
-                    GitHub
-                  </a>
-                )}
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => {
-                  setEditingMember(member);
-                  setShowForm(true);
-                }}
-                className="text-green-600 hover:text-green-900 p-2"
-                title="Edit Member"
-                disabled={showForm}
-              >
-                <PencilIcon className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => deleteMember(member.id)}
-                className="text-red-600 hover:text-red-900 p-2"
-                title="Delete Member"
-                disabled={showForm}
-              >
-                <TrashIcon className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {members.length === 0 && !showForm && (
+          </SortableContext>
+        </DndContext>
+      ) : !showForm && (
         <div className="text-center py-12">
           <UserGroupIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No team members yet</h3>
@@ -261,9 +385,9 @@ export default function TeamAdmin() {
               setEditingMember(null);
               setShowForm(true);
             }}
-                              className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
-                >
-                  Add Team Member
+            className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
+          >
+            Add Team Member
           </button>
         </div>
       )}
@@ -510,13 +634,13 @@ function TeamMemberForm({ member, onClose, onSave }: any) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Profile Image URL</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Image URL</label>
               <input
                 type="url"
                 value={formData.imageUrl}
                 onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-                placeholder="https://example.com/photo.jpg"
+                placeholder="https://example.com/image.jpg"
               />
             </div>
           </div>

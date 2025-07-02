@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { CogIcon } from '@heroicons/react/24/outline';
-
 export default function SettingsAdmin() {
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
