@@ -147,6 +147,11 @@ model Event {
   imageUrl    String?   // Background image URL
   featured    Boolean   @default(false)
   published   Boolean   @default(true)
+  
+  // Subevent support
+  parentEventId String?  // ID of parent event if this is a subevent
+  isMainEvent   Boolean  @default(true) // false for subevents
+  
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   createdBy   String
@@ -154,6 +159,10 @@ model Event {
   
   // Relations
   partnerships EventPartnership[]
+  
+  // Parent-child event relationships
+  parentEvent Event?   @relation("EventSubevents", fields: [parentEventId], references: [id])
+  subevents   Event[]  @relation("EventSubevents")
 }
 
 enum EventType {
@@ -302,7 +311,7 @@ model JoinContent {
   option2Description String @default("Collaborate on research, sponsor events, or provide mentorship to our growing community.")
   option2Benefits    String @default("Strategic partnerships\nTalent pipeline access\nInnovation collaboration\nBrand visibility")
   option2CTA         String @default("Explore Partnership")
-  option2Link        String @default("mailto:partnerships@abg-umich.com")
+  option2Link        String @default("mailto:ABGPartnerships@umich.edu")
   
   // Option 3 - Newsletter
   option3Title       String @default("STAY CONNECTED")
@@ -312,9 +321,9 @@ model JoinContent {
   
   // Contact Section
   contactTitle       String @default("QUESTIONS? LET'S CONNECT")
-  contactEmail1      String @default("info@abg-umich.com")
-  contactEmail2      String @default("partnerships@abg-umich.com")
-  contactEmail3      String @default("careers@abg-umich.com")
+  contactEmail1      String @default("aibusinessgroup@umich.edu")
+  contactEmail2      String @default("ABGPartnerships@umich.edu")
+  contactEmail3      String @default("ABGRecruitment@umich.edu")
   
   isActive    Boolean  @default(true)
   updatedAt   DateTime @updatedAt

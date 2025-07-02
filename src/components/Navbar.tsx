@@ -15,9 +15,10 @@ export default function Navbar() {
     { href: "/#about", label: "About" },
     { href: "/projects", label: "Projects" },
     { href: "/events", label: "Events" },
+    { href: "/internships", label: "Internships" },
     { href: "/team", label: "Team" },
     { href: "/#join", label: "Join" },
-    { href: "https://www.linkedin.com/company/abg-umich", label: "LinkedIn", external: true },
+    { href: "https://www.linkedin.com/company/michigan-ai-business-group", label: "LinkedIn", external: true },
   ];
 
   if (isAdmin) {
@@ -124,7 +125,7 @@ export default function Navbar() {
                     <div key={item.label} className="py-2 px-1">
                       <div className="text-yellow-300/60 text-sm font-bold mb-1">Admin Panel</div>
                       <div className="text-white/50 text-xs">
-                        🖥️ Desktop required (screen width ≥ 1024px)
+                        📱 Tablet+ required (screen width ≥ 768px)
                       </div>
                     </div>
                   );

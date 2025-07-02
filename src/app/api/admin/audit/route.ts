@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
+import { isAdminEmail } from '@/lib/admin';
 
 const authOptions = {
   providers: [
@@ -22,8 +23,7 @@ const authOptions = {
     },
     async jwt({ token, user }: any) {
       if (user) {
-        const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-        token.role = user.email && adminEmails.includes(user.email) ? 'ADMIN' : 'USER';
+        token.role = user.email && isAdminEmail(user.email) ? 'ADMIN' : 'USER';
       }
       return token;
     },

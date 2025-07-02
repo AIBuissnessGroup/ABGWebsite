@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { PrismaClient } from '@prisma/client';
+import { authOptions } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
@@ -19,7 +20,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -67,10 +68,19 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Get ID from URL parameter or request body
+    const { searchParams } = new URL(request.url);
+    const urlId = searchParams.get('id');
+    
     const data = await request.json();
+    const id = urlId || data.id;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Company ID is required' }, { status: 400 });
+    }
     
     const company = await prisma.company.update({
-      where: { id: data.id },
+      where: { id },
       data: {
         name: data.name,
         description: data.description || '',
@@ -92,7 +102,7 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

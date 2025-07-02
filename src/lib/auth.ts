@@ -1,5 +1,9 @@
 import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
+import { PrismaClient } from '@prisma/client';
+import { isAdminEmail } from './admin';
+
+const prisma = new PrismaClient();
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -12,7 +16,29 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       // Only allow UofM email addresses
       if (user.email && user.email.endsWith('@umich.edu')) {
+        try {
+          // Check if user exists
+          let dbUser = await prisma.user.findUnique({
+            where: { email: user.email }
+          });
+
+          // If user doesn't exist, create them
+          if (!dbUser) {
+            dbUser = await prisma.user.create({
+              data: {
+                email: user.email,
+                name: user.name,
+                image: user.image,
+                role: isAdminEmail(user.email) ? 'ADMIN' : 'USER'
+              }
+            });
+          }
+
         return true;
+        } catch (error) {
+          console.error('Error in signIn callback:', error);
+          return false;
+        }
       }
       return false;
     },
@@ -27,8 +53,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account }) {
       if (user && account) {
         // Check if user should be admin based on email
-        const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-        if (user.email && adminEmails.includes(user.email)) {
+        if (user.email && isAdminEmail(user.email)) {
           token.role = 'ADMIN';
         } else {
           token.role = 'USER';

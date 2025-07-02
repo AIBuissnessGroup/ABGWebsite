@@ -287,7 +287,7 @@ export default function Team() {
               <a href="/#join" className="btn-primary text-lg px-8 py-4">
                 See What's Possible
               </a>
-              <a href="mailto:careers@abg-umich.com" className="btn-secondary text-lg px-8 py-4">
+                              <a href="mailto:ABGRecruitment@umich.edu" className="btn-secondary text-lg px-8 py-4">
                 Explore Opportunities
               </a>
             </div>

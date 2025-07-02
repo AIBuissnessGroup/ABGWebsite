@@ -35,43 +35,53 @@ interface Question {
   pattern: string;
 }
 
-export default function FormsManager({ forms, onReload }: { forms: any[], onReload: () => void }) {
+interface FormsManagerProps {
+  forms: any[];
+  onReload: () => void;
+  activeView: 'list' | 'create' | 'edit' | 'applications' | 'questions';
+  setActiveView: (view: 'list' | 'create' | 'edit' | 'applications' | 'questions') => void;
+  selectedForm: any;
+  setSelectedForm: (form: any) => void;
+  editingForm: FormData | null;
+  setEditingForm: (form: FormData | null) => void;
+  showAddQuestion: boolean;
+  setShowAddQuestion: (show: boolean) => void;
+  newForm: FormData;
+  setNewForm: (form: FormData) => void;
+  newQuestion: Question;
+  setNewQuestion: (question: Question) => void;
+}
+
+export default function FormsManager({ 
+  forms, 
+  onReload, 
+  activeView, 
+  setActiveView, 
+  selectedForm, 
+  setSelectedForm, 
+  editingForm, 
+  setEditingForm, 
+  showAddQuestion, 
+  setShowAddQuestion, 
+  newForm, 
+  setNewForm, 
+  newQuestion, 
+  setNewQuestion 
+}: FormsManagerProps) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [activeView, setActiveView] = useState<'list' | 'create' | 'edit' | 'applications' | 'questions'>('list');
-  const [selectedForm, setSelectedForm] = useState<any>(null);
-  const [editingForm, setEditingForm] = useState<FormData | null>(null);
   const [applications, setApplications] = useState<any[]>([]);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
-  const [showAddQuestion, setShowAddQuestion] = useState(false);
 
-  const [newForm, setNewForm] = useState<FormData>({
-    title: '',
-    description: '',
-    category: 'general',
-    isActive: true,
-    isPublic: true,
-    allowMultiple: false,
-    deadline: '',
-    maxSubmissions: '',
-    notifyOnSubmission: true,
-    notificationEmail: '',
-    requireAuth: false,
-    backgroundColor: '#00274c',
-    textColor: '#ffffff'
-  });
-
-  const [newQuestion, setNewQuestion] = useState<Question>({
-    title: '',
-    description: '',
-    type: 'TEXT',
-    required: false,
-    order: 0,
-    options: '',
-    minLength: '',
-    maxLength: '',
-    pattern: ''
-  });
+  // Debug logging to track state persistence
+  useEffect(() => {
+    console.log('FormsManager mounted/updated with:', {
+      activeView,
+      newFormTitle: newForm.title,
+      editingFormId: editingForm?.id,
+      showAddQuestion
+    });
+  }, [activeView, newForm.title, editingForm?.id, showAddQuestion]);
 
   const questionTypes = [
     { value: 'TEXT', label: 'Short Text' },
@@ -523,6 +533,12 @@ export default function FormsManager({ forms, onReload }: { forms: any[], onRelo
 
   return (
     <div className="space-y-6">
+      {/* Debug state indicator */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+        <strong>Debug State:</strong> activeView={activeView} | newForm.title="{newForm.title}" | 
+        editingForm={editingForm ? `ID:${editingForm.id}` : 'null'} | showAddQuestion={showAddQuestion.toString()}
+      </div>
+
       {message && (
         <div className={`p-4 rounded-lg ${message.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
           {message}

@@ -43,15 +43,15 @@ export default function Join() {
     option2Description: "Collaborate on research, sponsor events, or provide mentorship to our growing community.",
     option2Benefits: "Strategic partnerships\nTalent pipeline access\nInnovation collaboration\nBrand visibility",
     option2CTA: "Explore Partnership",
-    option2Link: "mailto:partnerships@abg-umich.com",
+    option2Link: "mailto:ABGPartnerships@umich.edu",
     option3Title: "STAY CONNECTED",
     option3Description: "Get updates on our latest projects, events, and opportunities in the AI business space.",
     option3Benefits: "Weekly insights\nEvent invitations\nProject showcases\nIndustry updates",
     option3CTA: "Subscribe",
     contactTitle: "QUESTIONS? LET'S CONNECT",
-    contactEmail1: "info@abg-umich.com",
-    contactEmail2: "partnerships@abg-umich.com",
-    contactEmail3: "careers@abg-umich.com"
+    contactEmail1: "aibusinessgroup@umich.edu",
+    contactEmail2: "ABGPartnerships@umich.edu",
+    contactEmail3: "ABGRecruitment@umich.edu"
   });
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true });
@@ -300,7 +300,7 @@ export default function Join() {
                 <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 bg-white/10 rounded-full flex items-center justify-center">
                   <span className="text-lg sm:text-xl">💼</span>
                 </div>
-                <h4 className="text-white font-bold mb-2 text-sm sm:text-base">Careers</h4>
+                <h4 className="text-white font-bold mb-2 text-sm sm:text-base">Recruitment</h4>
                 <a href={`mailto:${content.contactEmail3}`} className="text-[#BBBBBB] hover:text-white transition text-xs sm:text-sm break-all">
                   {content.contactEmail3}
                 </a>
