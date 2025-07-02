@@ -3,7 +3,10 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { PlusIcon, PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline';
-import FormsManager from '@/components/admin/FormsManager';
+
+import CSVUploader from '@/components/admin/CSVUploader';
+import { toast } from 'react-toastify';
+import MetadataSettings from '@/components/admin/MetadataSettings';
 
 export default function UnifiedContentManagement() {
   const { data: session, status } = useSession();
@@ -22,6 +25,156 @@ export default function UnifiedContentManagement() {
   const [companies, setCompanies] = useState<any[]>([]);
   const [settings, setSettings] = useState<any[]>([]);
   const [forms, setForms] = useState<any[]>([]);
+
+  // Persistent form states - these survive tab switches
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<any>(null);
+  const [showSubeventForm, setShowSubeventForm] = useState<any>(null);
+  const [showProjectForm, setShowProjectForm] = useState(false);
+  const [editingProject, setEditingProject] = useState<any>(null);
+  const [showTeamForm, setShowTeamForm] = useState(false);
+  const [editingTeamMember, setEditingTeamMember] = useState<any>(null);
+  const [showCompanyForm, setShowCompanyForm] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<any>(null);
+
+  // Persistent Forms state - simplified to match other sections
+  const [formsActiveView, setFormsActiveView] = useState<'list' | 'create'>('list');
+  const [formsEditingForm, setFormsEditingForm] = useState<any>(null);
+
+  // Restore form states based on active tab
+  useEffect(() => {
+    if (!activeTab || loading || saving) return;
+    
+    try {
+      const stateKey = `contentAdmin_${activeTab}_formState`;
+      const savedState = localStorage.getItem(stateKey);
+      
+      if (savedState) {
+        const state = JSON.parse(savedState);
+        console.log('🔄 Restoring content form state for', activeTab, ':', state);
+        
+        switch (activeTab) {
+          case 'team':
+            if (state.showForm) {
+              setShowTeamForm(true);
+              if (state.editingId && teamMembers.length > 0) {
+                const member = teamMembers.find(m => m.id === state.editingId);
+                if (member) {
+                  setEditingTeamMember(member);
+                  console.log('✓ Team editing member restored:', member.name);
+                }
+              } else if (!state.editingId) {
+                console.log('✓ Team new form restored');
+              }
+            }
+            break;
+          case 'projects':
+            if (state.showForm) {
+              setShowProjectForm(true);
+              if (state.editingId && projects.length > 0) {
+                const project = projects.find(p => p.id === state.editingId);
+                if (project) {
+                  setEditingProject(project);
+                  console.log('✓ Project editing form restored:', project.title);
+                }
+              } else if (!state.editingId) {
+                console.log('✓ Project new form restored');
+              }
+            }
+            break;
+          case 'events':
+            if (state.showForm) {
+              setShowEventForm(true);
+              if (state.editingId && events.length > 0) {
+                const event = events.find(e => e.id === state.editingId);
+                if (event) {
+                  setEditingEvent(event);
+                  console.log('✓ Event editing form restored:', event.title);
+                }
+              } else if (state.subeventParentId && events.length > 0) {
+                const parentEvent = events.find(e => e.id === state.subeventParentId);
+                if (parentEvent) {
+                  setShowSubeventForm(parentEvent);
+                  console.log('✓ Event subevent form restored for parent:', parentEvent.title);
+                }
+              } else if (!state.editingId && !state.subeventParentId) {
+                console.log('✓ Event new form restored');
+              }
+            }
+            break;
+          case 'companies':
+            if (state.showForm) {
+              setShowCompanyForm(true);
+              if (state.editingId && companies.length > 0) {
+                const company = companies.find(c => c.id === state.editingId);
+                if (company) {
+                  setEditingCompany(company);
+                  console.log('✓ Company editing form restored:', company.name);
+                }
+              } else if (!state.editingId) {
+                console.log('✓ Company new form restored');
+              }
+            }
+            break;
+        }
+      }
+    } catch (error) {
+      console.error('Error restoring form state for', activeTab, error);
+    }
+  }, [activeTab, teamMembers, projects, events, companies, loading, saving]);
+
+  // Save form states whenever they change
+  useEffect(() => {
+    if (loading || saving) return;
+    
+    try {
+      // Save team form state
+      const teamState = {
+        showForm: showTeamForm,
+        editingId: editingTeamMember?.id || null
+      };
+      if (showTeamForm || editingTeamMember) {
+        localStorage.setItem('contentAdmin_team_formState', JSON.stringify(teamState));
+      } else {
+        localStorage.removeItem('contentAdmin_team_formState');
+      }
+
+      // Save project form state
+      const projectState = {
+        showForm: showProjectForm,
+        editingId: editingProject?.id || null
+      };
+      if (showProjectForm || editingProject) {
+        localStorage.setItem('contentAdmin_projects_formState', JSON.stringify(projectState));
+      } else {
+        localStorage.removeItem('contentAdmin_projects_formState');
+      }
+
+      // Save event form state
+      const eventState = {
+        showForm: showEventForm,
+        editingId: editingEvent?.id || null
+      };
+      if (showEventForm || editingEvent) {
+        localStorage.setItem('contentAdmin_events_formState', JSON.stringify(eventState));
+      } else {
+        localStorage.removeItem('contentAdmin_events_formState');
+      }
+
+      // Save company form state
+      const companyState = {
+        showForm: showCompanyForm,
+        editingId: editingCompany?.id || null
+      };
+      if (showCompanyForm || editingCompany) {
+        localStorage.setItem('contentAdmin_companies_formState', JSON.stringify(companyState));
+      } else {
+        localStorage.removeItem('contentAdmin_companies_formState');
+      }
+    } catch (error) {
+      console.error('Error saving form states:', error);
+    }
+  }, [showTeamForm, editingTeamMember, showProjectForm, editingProject, showEventForm, editingEvent, showCompanyForm, editingCompany, loading, saving]);
 
   // Check authentication
   useEffect(() => {
@@ -111,6 +264,18 @@ export default function UnifiedContentManagement() {
     }
   };
 
+  // Helper function to check if a tab has an open form
+  const hasOpenForm = (tabId: string) => {
+    switch (tabId) {
+      case 'team': return showTeamForm || editingTeamMember;
+      case 'projects': return showProjectForm || editingProject;
+      case 'events': return showEventForm || editingEvent;
+      case 'companies': return showCompanyForm || editingCompany;
+      case 'forms': return formsActiveView === 'create' || formsEditingForm;
+      default: return false;
+    }
+  };
+
   const tabs = [
     { id: 'hero', name: 'Hero Section', icon: '🏠' },
     { id: 'about', name: 'About Section', icon: '📋' },
@@ -132,14 +297,104 @@ export default function UnifiedContentManagement() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Unified Site Content Management</h1>
-        <p className="text-gray-600">Edit all website content, images, team members, projects, and events from one place</p>
+    <div className="space-y-4 md:space-y-6">
+      <h1 className="text-xl md:text-2xl font-bold">Content Management</h1>
+
+      {/* Add CSV Uploaders */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <CSVUploader
+          title="Import Team Members"
+          description="Bulk import team members from a CSV file. Download the template to see the required format."
+          endpoint="/api/admin/team/import"
+          templateFields={[
+            'name',
+            'role',
+            'year',
+            'major',
+            'bio',
+            'email',
+            'linkedIn',
+            'github',
+            'imageUrl',
+            'featured',
+            'active'
+          ]}
+          requiredFields={['name', 'role', 'year']}
+          examples={{
+            'name': 'John Doe',
+            'role': 'Technical Lead',
+            'year': 'Senior',
+            'major': 'Computer Science',
+            'bio': 'Expert in AI and machine learning',
+            'email': 'johndoe@umich.edu',
+            'linkedIn': 'https://linkedin.com/in/johndoe',
+            'github': 'https://github.com/johndoe',
+            'imageUrl': 'https://example.com/photo.jpg',
+            'featured': 'true',
+            'active': 'true'
+          }}
+          specialInstructions={{
+            'featured': 'Use true or false',
+            'active': 'Use true or false',
+            'email': 'Must be a valid email address',
+            'year': 'Freshman, Sophomore, Junior, Senior, or Graduate'
+          }}
+          onSuccess={() => {
+            toast.success('Team members imported successfully');
+            loadAllContent();
+          }}
+        />
+
+        <CSVUploader
+          title="Import Events"
+          description="Bulk import events from a CSV file. Download the template to see the required format."
+          endpoint="/api/admin/events/import"
+          templateFields={[
+            'title',
+            'description',
+            'eventDate',
+            'endDate',
+            'location',
+            'venue',
+            'capacity',
+            'registrationUrl',
+            'eventType',
+            'imageUrl',
+            'featured',
+            'published'
+          ]}
+          requiredFields={['title', 'description', 'eventDate', 'location', 'eventType']}
+          examples={{
+            'title': 'AI Workshop Spring 2024',
+            'description': 'Learn about machine learning applications',
+            'eventDate': '2024-03-15T14:00:00',
+            'endDate': '2024-03-15T16:00:00',
+            'location': 'Ann Arbor',
+            'venue': 'Ross School of Business',
+            'capacity': '50',
+            'registrationUrl': 'https://register.com/workshop',
+            'eventType': 'WORKSHOP',
+            'imageUrl': 'https://example.com/event.jpg',
+            'featured': 'true',
+            'published': 'true'
+          }}
+          specialInstructions={{
+            'eventType': 'Must be one of: WORKSHOP, SYMPOSIUM, NETWORKING, CONFERENCE, MEETING, SOCIAL',
+            'eventDate': 'Use format: YYYY-MM-DDTHH:mm:ss',
+            'endDate': 'Use format: YYYY-MM-DDTHH:mm:ss',
+            'capacity': 'Must be a number',
+            'featured': 'Use true or false',
+            'published': 'Use true or false'
+          }}
+          onSuccess={() => {
+            toast.success('Events imported successfully');
+            loadAllContent();
+          }}
+        />
       </div>
 
       {message && (
-        <div className={`mb-6 p-4 rounded-lg ${
+        <div className={`p-3 md:p-4 rounded-lg ${
           message.includes('successfully') 
             ? 'bg-green-50 text-green-700 border border-green-200'
             : 'bg-red-50 text-red-700 border border-red-200'
@@ -149,20 +404,25 @@ export default function UnifiedContentManagement() {
       )}
 
       {/* Tabs */}
-      <div className="mb-8">
-        <nav className="flex space-x-2 overflow-x-auto">
+      <div>
+        <nav className="flex space-x-1 md:space-x-2 overflow-x-auto pb-2 scrollbar-hide">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium whitespace-nowrap ${
+              className={`flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 rounded-lg font-medium whitespace-nowrap relative text-sm md:text-base transition-colors ${
                 activeTab === tab.id
                   ? 'bg-[#00274c] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              <span>{tab.icon}</span>
-              {tab.name}
+              <span className="text-sm md:text-base">{tab.icon}</span>
+              <span className="hidden sm:inline">{tab.name}</span>
+              <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
+              {hasOpenForm(tab.id) && (
+                <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse absolute -top-1 -right-1" 
+                      title="Form is open - you can switch tabs safely" />
+              )}
             </button>
           ))}
         </nav>
@@ -197,6 +457,10 @@ export default function UnifiedContentManagement() {
         <TeamMembersSection 
           members={teamMembers} 
           onReload={loadAllContent}
+          showForm={showTeamForm}
+          setShowForm={setShowTeamForm}
+          editingMember={editingTeamMember}
+          setEditingMember={setEditingTeamMember}
         />
       )}
 
@@ -204,6 +468,10 @@ export default function UnifiedContentManagement() {
         <ProjectsSection 
           projects={projects} 
           onReload={loadAllContent}
+          showForm={showProjectForm}
+          setShowForm={setShowProjectForm}
+          editingProject={editingProject}
+          setEditingProject={setEditingProject}
         />
       )}
 
@@ -211,6 +479,12 @@ export default function UnifiedContentManagement() {
         <EventsSection 
           events={events} 
           onReload={loadAllContent}
+          showForm={showEventForm}
+          setShowForm={setShowEventForm}
+          editingEvent={editingEvent}
+          setEditingEvent={setEditingEvent}
+          showSubeventForm={showSubeventForm}
+          setShowSubeventForm={setShowSubeventForm}
         />
       )}
 
@@ -218,13 +492,21 @@ export default function UnifiedContentManagement() {
         <CompaniesSection 
           companies={companies} 
           onReload={loadAllContent}
+          showForm={showCompanyForm}
+          setShowForm={setShowCompanyForm}
+          editingCompany={editingCompany}
+          setEditingCompany={setEditingCompany}
         />
       )}
 
       {activeTab === 'forms' && (
-        <FormsManager 
+        <FormsSection 
           forms={forms} 
           onReload={loadAllContent}
+          showForm={formsActiveView === 'create'}
+          setShowForm={(show) => setFormsActiveView(show ? 'create' : 'list')}
+          editingForm={formsEditingForm}
+          setEditingForm={setFormsEditingForm}
         />
       )}
 
@@ -589,7 +871,7 @@ function JoinContentSection({ content, onSave, saving }: any) {
               value={formData.option2Link}
               onChange={(e) => setFormData({...formData, option2Link: e.target.value})}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c] mt-2"
-              placeholder="Link URL (e.g., mailto:partnerships@abg-umich.com)"
+                                    placeholder="Link URL (e.g., mailto:ABGPartnerships@umich.edu)"
             />
             <textarea
               value={formData.option2Benefits}
@@ -663,7 +945,7 @@ function JoinContentSection({ content, onSave, saving }: any) {
                 value={formData.contactEmail3}
                 onChange={(e) => setFormData({...formData, contactEmail3: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-                placeholder="Careers Email"
+                placeholder="Recruitment Email"
               />
             </div>
           </div>
@@ -1091,9 +1373,7 @@ function AboutContentSection({ content, onSave, saving }) {
 }
 
 // Team Members Section Component
-function TeamMembersSection({ members, onReload }) {
-  const [showForm, setShowForm] = useState(false);
-  const [editingMember, setEditingMember] = useState(null);
+function TeamMembersSection({ members, onReload, showForm, setShowForm, editingMember, setEditingMember }) {
 
   const deleteMember = async (id) => {
     if (confirm('Are you sure you want to delete this team member?')) {
@@ -1108,20 +1388,68 @@ function TeamMembersSection({ members, onReload }) {
     }
   };
 
+  const handleAddNew = () => {
+    setEditingMember(null);
+    setShowForm(true);
+    // Save form state to localStorage
+    localStorage.setItem('contentAdmin_team_formState', JSON.stringify({
+      showForm: true,
+      editingId: null
+    }));
+  };
+
+  const handleEdit = (member) => {
+    setEditingMember(member);
+    setShowForm(true);
+    // Save form state to localStorage
+    localStorage.setItem('contentAdmin_team_formState', JSON.stringify({
+      showForm: true,
+      editingId: member.id
+    }));
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingMember(null);
+    // Clear form state from localStorage
+    localStorage.removeItem('contentAdmin_team_formState');
+  };
+
+  const handleSaveForm = () => {
+    onReload();
+    setShowForm(false);
+    setEditingMember(null);
+    // Clear form state from localStorage
+    localStorage.removeItem('contentAdmin_team_formState');
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Team Members ({members.length})</h3>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366]"
-        >
-          <PlusIcon className="w-4 h-4" />
-          Add Team Member
-        </button>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h3 className="text-base md:text-lg font-semibold">Team Members ({members.length})</h3>
+        {!showForm && (
+          <button
+            onClick={handleAddNew}
+            className="bg-[#00274c] text-white px-3 md:px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-[#003366] text-sm md:text-base transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            <span>Add Team Member</span>
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Inline Form */}
+      {showForm && (
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 mb-6">
+          <TeamMemberForm 
+            member={editingMember}
+            onClose={handleCloseForm}
+            onSave={handleSaveForm}
+          />
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {members.map((member) => (
           <div key={member.id} className="bg-white rounded-lg shadow-md p-4">
             <div className="flex items-center gap-3 mb-3">
@@ -1175,9 +1503,10 @@ function TeamMembersSection({ members, onReload }) {
             
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setEditingMember(member)}
+                onClick={() => handleEdit(member)}
                 className="text-blue-600 hover:text-blue-800 p-1"
                 title="Edit team member"
+                disabled={showForm}
               >
                 <PencilIcon className="w-4 h-4" />
               </button>
@@ -1185,6 +1514,7 @@ function TeamMembersSection({ members, onReload }) {
                 onClick={() => deleteMember(member.id)}
                 className="text-red-600 hover:text-red-800 p-1"
                 title="Delete team member"
+                disabled={showForm}
               >
                 <TrashIcon className="w-4 h-4" />
               </button>
@@ -1192,37 +1522,19 @@ function TeamMembersSection({ members, onReload }) {
           </div>
         ))}
         
-        {members.length === 0 && (
+        {members.length === 0 && !showForm && (
           <div className="col-span-full text-center py-12 text-gray-500">
             <h4 className="text-lg font-medium mb-2">No team members yet</h4>
             <p>Add your first team member to get started!</p>
           </div>
         )}
       </div>
-
-      {showForm && (
-        <TeamMemberForm 
-          member={null}
-          onClose={() => setShowForm(false)}
-          onSave={onReload}
-        />
-      )}
-
-      {editingMember && (
-        <TeamMemberForm 
-          member={editingMember}
-          onClose={() => setEditingMember(null)}
-          onSave={onReload}
-        />
-      )}
     </div>
   );
 }
 
-// Projects Section Component  
-function ProjectsSection({ projects, onReload }) {
-  const [showForm, setShowForm] = useState(false);
-  const [editingProject, setEditingProject] = useState(null);
+// Projects Section Component
+function ProjectsSection({ projects, onReload, showForm, setShowForm, editingProject, setEditingProject }) {
 
   const deleteProject = async (id) => {
     if (confirm('Are you sure you want to delete this project?')) {
@@ -1237,18 +1549,66 @@ function ProjectsSection({ projects, onReload }) {
     }
   };
 
+  const handleAddNew = () => {
+    setEditingProject(null);
+    setShowForm(true);
+    // Save form state to localStorage
+    localStorage.setItem('contentAdmin_projects_formState', JSON.stringify({
+      showForm: true,
+      editingId: null
+    }));
+  };
+
+  const handleEdit = (project) => {
+    setEditingProject(project);
+    setShowForm(true);
+    // Save form state to localStorage
+    localStorage.setItem('contentAdmin_projects_formState', JSON.stringify({
+      showForm: true,
+      editingId: project.id
+    }));
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingProject(null);
+    // Clear form state from localStorage
+    localStorage.removeItem('contentAdmin_projects_formState');
+  };
+
+  const handleSaveForm = () => {
+    onReload();
+    setShowForm(false);
+    setEditingProject(null);
+    // Clear form state from localStorage
+    localStorage.removeItem('contentAdmin_projects_formState');
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Projects ({projects.length})</h3>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366]"
-        >
-          <PlusIcon className="w-4 h-4" />
-          Add Project
-        </button>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h3 className="text-base md:text-lg font-semibold">Projects ({projects.length})</h3>
+        {!showForm && (
+          <button
+            onClick={handleAddNew}
+            className="bg-[#00274c] text-white px-3 md:px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-[#003366] text-sm md:text-base transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            <span>Add Project</span>
+          </button>
+        )}
       </div>
+
+      {/* Inline Form */}
+      {showForm && (
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 mb-6">
+          <ProjectForm 
+            project={editingProject}
+            onClose={handleCloseForm}
+            onSave={handleSaveForm}
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {projects.map((project) => (
@@ -1257,14 +1617,16 @@ function ProjectsSection({ projects, onReload }) {
               <h4 className="font-semibold text-lg">{project.title}</h4>
               <div className="flex gap-2">
                 <button 
-                  onClick={() => setEditingProject(project)}
+                  onClick={() => handleEdit(project)}
                   className="text-blue-600 hover:text-blue-800"
+                  disabled={showForm}
                 >
                   <PencilIcon className="w-4 h-4" />
                 </button>
                 <button 
                   onClick={() => deleteProject(project.id)}
                   className="text-red-600 hover:text-red-800"
+                  disabled={showForm}
                 >
                   <TrashIcon className="w-4 h-4" />
                 </button>
@@ -1310,32 +1672,19 @@ function ProjectsSection({ projects, onReload }) {
           </div>
         ))}
         
-        {projects.length === 0 && (
+        {projects.length === 0 && !showForm && (
           <div className="col-span-full text-center py-12 text-gray-500">
             <h4 className="text-lg font-medium mb-2">No projects yet</h4>
             <p>Add your first project to get started!</p>
           </div>
         )}
       </div>
-
-      {(showForm || editingProject) && (
-        <ProjectForm 
-          project={editingProject}
-          onClose={() => {
-            setShowForm(false);
-            setEditingProject(null);
-          }}
-          onSave={onReload}
-        />
-      )}
     </div>
   );
 }
 
 // Events Section Component
-function EventsSection({ events, onReload }: any) {
-  const [showForm, setShowForm] = useState(false);
-  const [editingEvent, setEditingEvent] = useState(null);
+function EventsSection({ events, onReload, showForm, setShowForm, editingEvent, setEditingEvent, showSubeventForm, setShowSubeventForm }: any) {
 
   const deleteEvent = async (id: string) => {
     if (confirm('Are you sure you want to delete this event?')) {
@@ -1350,120 +1699,242 @@ function EventsSection({ events, onReload }: any) {
     }
   };
 
+  const handleAddNew = () => {
+    setEditingEvent(null);
+    setShowSubeventForm(null);
+    setShowForm(true);
+    // Save form state to localStorage
+    localStorage.setItem('contentAdmin_events_formState', JSON.stringify({
+      showForm: true,
+      editingId: null,
+      subeventParentId: null
+    }));
+  };
+
+  const handleEdit = (event) => {
+    setEditingEvent(event);
+    setShowSubeventForm(null);
+    setShowForm(true);
+    // Save form state to localStorage
+    localStorage.setItem('contentAdmin_events_formState', JSON.stringify({
+      showForm: true,
+      editingId: event.id,
+      subeventParentId: null
+    }));
+  };
+
+  const handleAddSubevent = (parentEvent) => {
+    setEditingEvent(null);
+    setShowSubeventForm(parentEvent);
+    setShowForm(true);
+    // Save form state to localStorage
+    localStorage.setItem('contentAdmin_events_formState', JSON.stringify({
+      showForm: true,
+      editingId: null,
+      subeventParentId: parentEvent.id
+    }));
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingEvent(null);
+    setShowSubeventForm(null);
+    // Clear form state from localStorage
+    localStorage.removeItem('contentAdmin_events_formState');
+  };
+
+  const handleSaveForm = () => {
+    onReload();
+    setShowForm(false);
+    setEditingEvent(null);
+    setShowSubeventForm(null);
+    // Clear form state from localStorage
+    localStorage.removeItem('contentAdmin_events_formState');
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Events ({events.length})</h3>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366]"
-        >
-          <PlusIcon className="w-4 h-4" />
-          Add Event
-        </button>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h3 className="text-base md:text-lg font-semibold">Events ({events.length})</h3>
+        {!showForm && (
+          <button
+            onClick={handleAddNew}
+            className="bg-[#00274c] text-white px-3 md:px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-[#003366] text-sm md:text-base transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            <span>Add Event</span>
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Inline Form */}
+      {showForm && (
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 mb-6">
+          <EventForm 
+            event={editingEvent}
+            parentEvent={showSubeventForm}
+            onClose={handleCloseForm}
+            onSave={handleSaveForm}
+          />
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-6">
         {events.map((event: any) => (
-          <div key={event.id} className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-start mb-4">
-              <h4 className="font-semibold text-lg">{event.title}</h4>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => setEditingEvent(event)}
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  <PencilIcon className="w-4 h-4" />
-                </button>
-                <button 
-                  onClick={() => deleteEvent(event.id)}
-                  className="text-red-600 hover:text-red-800"
-                >
-                  <TrashIcon className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            
-            <p className="text-gray-600 mb-3 line-clamp-2">{event.description}</p>
-            
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <span>📅</span>
-                <span>{new Date(event.eventDate).toLocaleDateString()} at {new Date(event.eventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <span>📍</span>
-                <span>{event.location}</span>
-              </div>
-              {event.venue && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <span>🏢</span>
-                  <span>{event.venue}</span>
+          <div key={event.id} className="bg-white rounded-lg shadow-md border-2 border-gray-200">
+            {/* Main Event */}
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-semibold text-lg">{event.title}</h4>
+                    {event.subevents && event.subevents.length > 0 && (
+                      <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                        {event.subevents.length} subevents
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-600 text-sm mt-1">
+                    {new Date(event.eventDate).toLocaleDateString()} • {event.location}
+                  </p>
+                  {event.featured && (
+                    <span className="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full mt-2">
+                      Featured
+                    </span>
+                  )}
                 </div>
-              )}
-              {event.capacity && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <span>👥</span>
-                  <span>Capacity: {event.capacity}</span>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleAddSubevent(event)}
+                    className="text-green-600 hover:text-green-800 text-xs bg-green-50 px-2 py-1 rounded"
+                    title="Add Subevent"
+                    disabled={showForm}
+                  >
+                    + Subevent
+                  </button>
+                  <button 
+                    onClick={() => handleEdit(event)}
+                    className="text-blue-600 hover:text-blue-800"
+                    disabled={showForm}
+                  >
+                    <PencilIcon className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => deleteEvent(event.id)}
+                    className="text-red-600 hover:text-red-800"
+                    disabled={showForm}
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
                 </div>
-              )}
+              </div>
+              
+              <p className="text-gray-600 mb-3 line-clamp-2">{event.description}</p>
+              
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span>📅</span>
+                  <span>{new Date(event.eventDate).toLocaleDateString()} at {new Date(event.eventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span>📍</span>
+                  <span>{event.location}</span>
+                </div>
+                {event.venue && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <span>🏢</span>
+                    <span>{event.venue}</span>
+                  </div>
+                )}
+                {event.capacity && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <span>👥</span>
+                    <span>Capacity: {event.capacity}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className={`px-3 py-1 rounded-full text-sm ${
+                  event.eventType === 'SYMPOSIUM' ? 'bg-purple-100 text-purple-800' : 
+                  event.eventType === 'WORKSHOP' ? 'bg-green-100 text-green-800' :
+                  event.eventType === 'NETWORKING' ? 'bg-blue-100 text-blue-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {event.eventType}
+                </span>
+                
+                {event.registrationUrl && (
+                  <a 
+                    href={event.registrationUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[#00274c] hover:underline text-sm"
+                  >
+                    Register →
+                  </a>
+                )}
+              </div>
             </div>
 
-            <div className="flex justify-between items-center">
-              <span className={`px-3 py-1 rounded-full text-sm ${
-                event.eventType === 'SYMPOSIUM' ? 'bg-purple-100 text-purple-800' : 
-                event.eventType === 'WORKSHOP' ? 'bg-green-100 text-green-800' :
-                event.eventType === 'NETWORKING' ? 'bg-blue-100 text-blue-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
-                {event.eventType}
-              </span>
-              
-              {event.registrationUrl && (
-                <a 
-                  href={event.registrationUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-[#00274c] hover:underline text-sm"
-                >
-                  Register →
-                </a>
-              )}
-            </div>
-            
-            {event.featured && (
-              <div className="mt-2">
-                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
-                  Featured
-                </span>
+            {/* Subevents */}
+            {event.subevents && event.subevents.length > 0 && (
+              <div className="border-t border-gray-200 bg-gray-50">
+                <div className="p-4">
+                  <h5 className="font-medium text-sm text-gray-700 mb-3">Subevents</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {event.subevents.map((subevent: any) => (
+                      <div key={subevent.id} className="bg-white rounded-lg p-3 border border-gray-200">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <h6 className="font-medium text-sm">{subevent.title}</h6>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {new Date(subevent.eventDate).toLocaleDateString()} • {subevent.location}
+                            </p>
+                          </div>
+                          <div className="flex gap-1">
+                            <button 
+                              onClick={() => handleEdit(subevent)}
+                              className="text-blue-600 hover:text-blue-800"
+                              disabled={showForm}
+                            >
+                              <PencilIcon className="w-3 h-3" />
+                            </button>
+                            <button 
+                              onClick={() => deleteEvent(subevent.id)}
+                              className="text-red-600 hover:text-red-800"
+                              disabled={showForm}
+                            >
+                              <TrashIcon className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600">{subevent.description}</p>
+                        <div className="flex justify-between items-center text-xs text-gray-500 mt-2">
+                          <span>{subevent.eventType}</span>
+                          <span>{subevent.capacity ? `${subevent.capacity} capacity` : 'No limit'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
         ))}
         
-        {events.length === 0 && (
+        {events.length === 0 && !showForm && (
           <div className="col-span-full text-center py-12 text-gray-500">
             <h4 className="text-lg font-medium mb-2">No events yet</h4>
             <p>Add your first event to get started!</p>
           </div>
         )}
       </div>
-
-      {(showForm || editingEvent) && (
-        <EventForm 
-          event={editingEvent}
-          onClose={() => {
-            setShowForm(false);
-            setEditingEvent(null);
-          }}
-          onSave={onReload}
-        />
-      )}
     </div>
   );
 }
 
-// Project Form Component
+// Project Form Component (Inline with Autosave)
 function ProjectForm({ project, onClose, onSave }: any) {
   const [formData, setFormData] = useState({
     title: project?.title || '',
@@ -1483,8 +1954,32 @@ function ProjectForm({ project, onClose, onSave }: any) {
 
   const [companies, setCompanies] = useState<any[]>([]);
   const [partnerships, setPartnerships] = useState<any[]>([]);
+  const [lastSaved, setLastSaved] = useState<string>('');
 
-  // Load companies and existing partnerships
+  // Autosave functionality - works for both new and editing
+  useEffect(() => {
+    const autoSaveData = () => {
+      if (formData.title.trim()) {
+        try {
+          const draftKey = project ? `projectForm_draft_edit_${project.id}` : 'projectForm_draft_new';
+          localStorage.setItem(draftKey, JSON.stringify({
+            formData,
+            partnerships
+          }));
+          const now = new Date().toLocaleTimeString();
+          setLastSaved(now);
+          console.log('✓ Project form autosaved at', now, ':', formData.title, project ? '(editing)' : '(new)');
+        } catch (error) {
+          console.error('❌ Error autosaving project form:', error);
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(autoSaveData, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [formData, partnerships, project]);
+
+  // Load companies, existing partnerships, or draft
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -1499,6 +1994,36 @@ function ProjectForm({ project, onClose, onSave }: any) {
           if (partnershipsRes.ok) {
             const partnershipsData = await partnershipsRes.json();
             setPartnerships(partnershipsData);
+          }
+          
+          // Check for editing draft
+          const editDraftKey = `projectForm_draft_edit_${project.id}`;
+          const editDraft = localStorage.getItem(editDraftKey);
+          if (editDraft) {
+            try {
+              const parsedDraft = JSON.parse(editDraft);
+              setFormData(parsedDraft.formData);
+              setPartnerships(parsedDraft.partnerships || []);
+              console.log('✓ Project editing draft loaded:', parsedDraft.formData.title);
+            } catch (error) {
+              console.error('Error loading project editing draft:', error);
+              localStorage.removeItem(editDraftKey);
+            }
+          }
+        } else {
+          // Load draft for new projects
+          const draftKey = 'projectForm_draft_new';
+          const draft = localStorage.getItem(draftKey);
+          if (draft) {
+            try {
+              const parsedDraft = JSON.parse(draft);
+              setFormData(parsedDraft.formData);
+              setPartnerships(parsedDraft.partnerships || []);
+              console.log('✓ Project form draft loaded:', parsedDraft.formData.title);
+            } catch (error) {
+              console.error('Error loading project form draft:', error);
+              localStorage.removeItem(draftKey);
+            }
           }
         }
       } catch (error) {
@@ -1555,6 +2080,9 @@ function ProjectForm({ project, onClose, onSave }: any) {
           });
         }
         
+        // Clear draft on successful save
+        const draftKey = project ? `projectForm_draft_edit_${project.id}` : 'projectForm_draft_new';
+        localStorage.removeItem(draftKey);
         onSave();
         onClose();
       }
@@ -1564,11 +2092,24 @@ function ProjectForm({ project, onClose, onSave }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-4">
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">
           {project ? 'Edit Project' : 'Add Project'}
         </h3>
+        <div className="flex items-center gap-2">
+          <div className="text-xs text-gray-500 bg-green-50 px-2 py-1 rounded">
+            {lastSaved ? `✓ Saved at ${lastSaved}` : '⏰ Auto-saving...'}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -1736,7 +2277,7 @@ function ProjectForm({ project, onClose, onSave }: any) {
               <button
                 type="button"
                 onClick={addPartnership}
-                className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-md"
+                className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded-md"
               >
                 + Add Partnership
               </button>
@@ -1825,7 +2366,6 @@ function ProjectForm({ project, onClose, onSave }: any) {
             </button>
           </div>
         </form>
-      </div>
     </div>
   );
 }
@@ -1845,6 +2385,71 @@ function TeamMemberForm({ member, onClose, onSave }: any) {
     featured: member?.featured || false
   });
 
+  // Autosave functionality - works for both new and editing
+  useEffect(() => {
+    const autoSaveData = () => {
+      if (formData.name.trim()) {
+        try {
+          const draftKey = member ? `teamForm_draft_edit_${member.id}` : 'teamForm_draft_new';
+          localStorage.setItem(draftKey, JSON.stringify(formData));
+          console.log('✓ Team form autosaved:', formData.name, member ? '(editing)' : '(new)');
+        } catch (error) {
+          console.error('Error autosaving team form:', error);
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(autoSaveData, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [formData, member]);
+
+  // Load member data on mount, then check for drafts
+  useEffect(() => {
+    if (member) {
+      // Set member data first
+      setFormData({
+        name: member.name || '',
+        role: member.role || '',
+        year: member.year || '',
+        major: member.major || '',
+        bio: member.bio || '',
+        email: member.email || '',
+        linkedIn: member.linkedIn || '',
+        github: member.github || '',
+        imageUrl: member.imageUrl || '',
+        featured: member.featured || false
+      });
+      
+      // Check for editing draft
+      const editDraftKey = `teamForm_draft_edit_${member.id}`;
+      const editDraft = localStorage.getItem(editDraftKey);
+      if (editDraft) {
+        try {
+          const parsedDraft = JSON.parse(editDraft);
+          setFormData(parsedDraft);
+          console.log('✓ Team editing draft loaded:', parsedDraft.name);
+        } catch (error) {
+          console.error('Error loading team editing draft:', error);
+          localStorage.removeItem(editDraftKey);
+        }
+      }
+    } else {
+      // Load draft for new members
+      const draftKey = 'teamForm_draft_new';
+      const draft = localStorage.getItem(draftKey);
+      if (draft) {
+        try {
+          const parsedDraft = JSON.parse(draft);
+          setFormData(parsedDraft);
+          console.log('✓ Team form draft loaded:', parsedDraft.name);
+        } catch (error) {
+          console.error('Error loading team form draft:', error);
+          localStorage.removeItem(draftKey);
+        }
+      }
+    }
+  }, [member]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -1860,6 +2465,9 @@ function TeamMemberForm({ member, onClose, onSave }: any) {
       });
 
       if (res.ok) {
+        const draftKey = member ? `teamForm_draft_edit_${member.id}` : 'teamForm_draft_new';
+        localStorage.removeItem(draftKey);
+        console.log('✓ Team form saved successfully, draft cleared');
         onSave();
         onClose();
       }
@@ -1869,11 +2477,24 @@ function TeamMemberForm({ member, onClose, onSave }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-4">
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">
           {member ? 'Edit Team Member' : 'Add Team Member'}
         </h3>
+        <div className="flex items-center gap-2">
+          <div className="text-xs text-gray-500 bg-green-50 px-2 py-1 rounded">
+            ✓ Auto-saving
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -2012,31 +2633,55 @@ function TeamMemberForm({ member, onClose, onSave }: any) {
             </button>
           </div>
         </form>
-      </div>
     </div>
   );
 }
 
 // Event Form Component
-function EventForm({ event, onClose, onSave }: any) {
+function EventForm({ event, onClose, onSave, parentEvent }: any) {
   const [formData, setFormData] = useState({
     title: event?.title || '',
     description: event?.description || '',
     eventDate: event?.eventDate ? new Date(event.eventDate).toISOString().slice(0, 16) : '',
     endDate: event?.endDate ? new Date(event.endDate).toISOString().slice(0, 16) : '',
-    location: event?.location || '',
+    location: event?.location || parentEvent?.location || '',
     venue: event?.venue || '',
     capacity: event?.capacity || '',
     registrationUrl: event?.registrationUrl || '',
     eventType: event?.eventType || 'MEETING',
     imageUrl: event?.imageUrl || '',
-    featured: event?.featured || false
+    featured: event?.featured || false,
+    parentEventId: event?.parentEventId || parentEvent?.id || null
   });
 
   const [companies, setCompanies] = useState<any[]>([]);
   const [partnerships, setPartnerships] = useState<any[]>([]);
+  const [lastSaved, setLastSaved] = useState<string>('');
 
-  // Load companies and existing partnerships
+  // Autosave functionality - works for both new and editing
+  useEffect(() => {
+    const autoSaveData = () => {
+      if (formData.title.trim()) {
+        try {
+          const draftKey = event ? `eventForm_draft_edit_${event.id}` : 'eventForm_draft_new';
+          localStorage.setItem(draftKey, JSON.stringify({
+            formData,
+            partnerships
+          }));
+          const now = new Date().toLocaleTimeString();
+          setLastSaved(now);
+          console.log('✓ Event form autosaved at', now, ':', formData.title, event ? '(editing)' : '(new)');
+        } catch (error) {
+          console.error('❌ Error autosaving event form:', error);
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(autoSaveData, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [formData, partnerships, event]);
+
+  // Load companies, existing partnerships, or draft
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -2051,6 +2696,36 @@ function EventForm({ event, onClose, onSave }: any) {
           if (partnershipsRes.ok) {
             const partnershipsData = await partnershipsRes.json();
             setPartnerships(partnershipsData);
+          }
+          
+          // Check for editing draft
+          const editDraftKey = `eventForm_draft_edit_${event.id}`;
+          const editDraft = localStorage.getItem(editDraftKey);
+          if (editDraft) {
+            try {
+              const parsedDraft = JSON.parse(editDraft);
+              setFormData(parsedDraft.formData);
+              setPartnerships(parsedDraft.partnerships || []);
+              console.log('✓ Event editing draft loaded:', parsedDraft.formData.title);
+            } catch (error) {
+              console.error('Error loading event editing draft:', error);
+              localStorage.removeItem(editDraftKey);
+            }
+          }
+        } else {
+          // Load draft for new events
+          const draftKey = 'eventForm_draft_new';
+          const draft = localStorage.getItem(draftKey);
+          if (draft) {
+            try {
+              const parsedDraft = JSON.parse(draft);
+              setFormData(parsedDraft.formData);
+              setPartnerships(parsedDraft.partnerships || []);
+              console.log('✓ Event form draft loaded:', parsedDraft.formData.title);
+            } catch (error) {
+              console.error('Error loading event form draft:', error);
+              localStorage.removeItem(draftKey);
+            }
           }
         }
       } catch (error) {
@@ -2082,8 +2757,15 @@ function EventForm({ event, onClose, onSave }: any) {
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     
-    const endpoint = '/api/admin/events';
-    const method = event ? 'PUT' : 'POST';
+    let endpoint = '/api/admin/events';
+    let method = event ? 'PUT' : 'POST';
+    
+    // If this is a subevent, use the subevent endpoint
+    if (parentEvent && !event) {
+      endpoint = `/api/admin/events/${parentEvent.id}/subevents`;
+      method = 'POST';
+    }
+    
     const data = event ? { ...formData, id: event.id } : formData;
 
     try {
@@ -2108,6 +2790,9 @@ function EventForm({ event, onClose, onSave }: any) {
           });
         }
         
+        // Clear draft on successful save
+        const draftKey = event ? `eventForm_draft_edit_${event.id}` : 'eventForm_draft_new';
+        localStorage.removeItem(draftKey);
         onSave();
         onClose();
       }
@@ -2117,11 +2802,29 @@ function EventForm({ event, onClose, onSave }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-4">
-          {event ? 'Edit Event' : 'Add Event'}
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">
+          {event ? 'Edit Event' : parentEvent ? 'Add Subevent' : 'Add Event'}
+          {parentEvent && (
+            <span className="text-sm font-normal text-gray-600 ml-2">
+              for "{parentEvent.title}"
+            </span>
+          )}
         </h3>
+        <div className="flex items-center gap-2">
+          <div className="text-xs text-gray-500 bg-green-50 px-2 py-1 rounded">
+            {lastSaved ? `✓ Saved at ${lastSaved}` : '⏰ Auto-saving...'}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -2267,7 +2970,7 @@ function EventForm({ event, onClose, onSave }: any) {
               <button
                 type="button"
                 onClick={addPartnership}
-                className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-md"
+                className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded-md"
               >
                 + Add Partnership
               </button>
@@ -2370,15 +3073,378 @@ function EventForm({ event, onClose, onSave }: any) {
             </button>
           </div>
         </form>
-      </div>
     </div>
   );
 } 
 
 // Companies Section Component
-function CompaniesSection({ companies, onReload }: any) {
-  const [showForm, setShowForm] = useState(false);
-  const [editingCompany, setEditingCompany] = useState<any>(null);
+// Forms Section Component
+function FormsSection({ forms, onReload, showForm, setShowForm, editingForm, setEditingForm }) {
+
+  const deleteForm = async (id) => {
+    if (confirm('Are you sure you want to delete this form? This will also delete all applications.')) {
+      try {
+        const res = await fetch(`/api/admin/forms?id=${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          onReload();
+        }
+      } catch (error) {
+        console.error('Error deleting form:', error);
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Forms & Applications ({forms.length})</h3>
+        <button
+          onClick={() => setShowForm(true)}
+          className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366]"
+        >
+          <PlusIcon className="w-4 h-4" />
+          Add Form
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {forms.map((form) => (
+          <div key={form.id} className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex justify-between items-start mb-4">
+              <h4 className="font-semibold text-lg">{form.title}</h4>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setEditingForm(form)}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={() => deleteForm(form.id)}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            
+            <p className="text-gray-600 mb-4 line-clamp-2">{form.description}</p>
+            
+            <div className="space-y-2 mb-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Category:</span>
+                <span className="font-medium capitalize">{form.category}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Questions:</span>
+                <span className="font-medium">{form._count?.questions || 0}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Applications:</span>
+                <span className="font-medium">{form._count?.applications || 0}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center mb-3">
+              <span className={`px-3 py-1 rounded-full text-sm ${
+                form.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+              }`}>
+                {form.isActive ? 'Active' : 'Inactive'}
+              </span>
+              
+              <span className={`px-2 py-1 rounded text-xs ${
+                form.isPublic ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
+              }`}>
+                {form.isPublic ? 'Public' : 'Private'}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <a 
+                href={`/forms/${form.slug}`}
+                target="_blank"
+                className="text-[#00274c] hover:underline text-sm"
+              >
+                View Form →
+              </a>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={() => window.open(`/admin/forms/${form.id}/questions`, '_blank')}
+                  className="text-green-600 hover:text-green-800 text-xs px-2 py-1 border border-green-300 rounded"
+                >
+                  Questions
+                </button>
+                <button
+                  onClick={() => window.open(`/admin/forms/${form.id}/applications`, '_blank')}
+                  className="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 border border-blue-300 rounded"
+                >
+                  Applications
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+        
+        {forms.length === 0 && (
+          <div className="col-span-full text-center py-12 text-gray-500">
+            <h4 className="text-lg font-medium mb-2">No forms yet</h4>
+            <p>Add your first form to get started!</p>
+          </div>
+        )}
+      </div>
+
+      {/* Inline Form */}
+      {(showForm || editingForm) && (
+        <FormEditor 
+          form={editingForm}
+          onClose={() => {
+            setShowForm(false);
+            setEditingForm(null);
+          }}
+          onSave={onReload}
+        />
+      )}
+    </div>
+  );
+}
+
+// Form Editor Component (Inline with Autosave)
+function FormEditor({ form, onClose, onSave }: any) {
+  const [formData, setFormData] = useState({
+    title: form?.title || '',
+    description: form?.description || '',
+    category: form?.category || 'general',
+    isActive: form?.isActive ?? true,
+    isPublic: form?.isPublic ?? true,
+    allowMultiple: form?.allowMultiple ?? false,
+    deadline: form?.deadline ? new Date(form.deadline).toISOString().slice(0, 16) : '',
+    maxSubmissions: form?.maxSubmissions?.toString() || '',
+    notifyOnSubmission: form?.notifyOnSubmission ?? true,
+    notificationEmail: form?.notificationEmail || '',
+    requireAuth: form?.requireAuth ?? false,
+    backgroundColor: form?.backgroundColor || '#00274c',
+    textColor: form?.textColor || '#ffffff'
+  });
+
+  // Autosave functionality - works for both new and editing
+  useEffect(() => {
+    const autoSaveData = () => {
+      if (formData.title.trim()) {
+        const draftKey = form ? `formEditor_draft_edit_${form.id}` : 'formEditor_draft_new';
+        localStorage.setItem(draftKey, JSON.stringify(formData));
+        console.log('✓ Form editor autosaved:', formData.title, form ? '(editing)' : '(new)');
+      }
+    };
+
+    const timeoutId = setTimeout(autoSaveData, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [formData, form]);
+
+  // Load draft on mount - works for both new and editing
+  useEffect(() => {
+    const draftKey = 'formEditor_draft_new';
+    if (!form) { // Only load draft for new forms to avoid overriding edit data
+      const draft = localStorage.getItem(draftKey);
+      if (draft) {
+        try {
+          const parsedDraft = JSON.parse(draft);
+          setFormData(parsedDraft);
+          console.log('✓ Form editor draft loaded:', parsedDraft.title);
+        } catch (error) {
+          console.error('Error loading form editor draft:', error);
+          localStorage.removeItem(draftKey);
+        }
+      }
+    }
+  }, [form]);
+
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
+    
+    const endpoint = '/api/admin/forms';
+    const method = form ? 'PUT' : 'POST';
+    const data = form ? { ...formData, id: form.id } : formData;
+
+    try {
+      const res = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (res.ok) {
+        // Clear draft on successful save
+        const draftKey = form ? `formEditor_draft_edit_${form.id}` : 'formEditor_draft_new';
+        localStorage.removeItem(draftKey);
+        onSave();
+        onClose();
+      }
+    } catch (error) {
+      console.error('Error saving form:', error);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6 border-2 border-[#00274c] mb-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">
+          {form ? 'Edit Form' : 'Add Form'}
+        </h3>
+        <div className="text-xs text-gray-500 bg-green-50 px-2 py-1 rounded">
+          ✓ Auto-saving
+        </div>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+          <input
+            type="text"
+            required
+            value={formData.title}
+            onChange={(e) => setFormData({...formData, title: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+            placeholder="e.g., Membership Application"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({...formData, description: e.target.value})}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+            placeholder="Brief description of this form..."
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+            <select
+              value={formData.category}
+              onChange={(e) => setFormData({...formData, category: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+            >
+              <option value="general">General</option>
+              <option value="membership">Membership</option>
+              <option value="event">Event Registration</option>
+              <option value="partnership">Partnership</option>
+              <option value="internship">Internship</option>
+              <option value="feedback">Feedback</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Deadline</label>
+            <input
+              type="datetime-local"
+              value={formData.deadline}
+              onChange={(e) => setFormData({...formData, deadline: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Max Submissions</label>
+            <input
+              type="number"
+              value={formData.maxSubmissions}
+              onChange={(e) => setFormData({...formData, maxSubmissions: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+              placeholder="Leave empty for no limit"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Notification Email</label>
+            <input
+              type="email"
+              value={formData.notificationEmail}
+              onChange={(e) => setFormData({...formData, notificationEmail: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+              placeholder="admin@example.com"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.isActive}
+              onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
+              className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <span className="text-sm text-gray-700">Form is active</span>
+          </label>
+          
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.isPublic}
+              onChange={(e) => setFormData({...formData, isPublic: e.target.checked})}
+              className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <span className="text-sm text-gray-700">Publicly accessible</span>
+          </label>
+          
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.allowMultiple}
+              onChange={(e) => setFormData({...formData, allowMultiple: e.target.checked})}
+              className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <span className="text-sm text-gray-700">Allow multiple submissions per email</span>
+          </label>
+
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.requireAuth}
+              onChange={(e) => setFormData({...formData, requireAuth: e.target.checked})}
+              className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <span className="text-sm text-gray-700">Require UMich authentication</span>
+          </label>
+
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.notifyOnSubmission}
+              onChange={(e) => setFormData({...formData, notifyOnSubmission: e.target.checked})}
+              className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <span className="text-sm text-gray-700">Send email notifications on new submissions</span>
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366]"
+          >
+            {form ? 'Update Form' : 'Create Form'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function CompaniesSection({ companies, onReload, showForm, setShowForm, editingCompany, setEditingCompany }: any) {
 
   const deleteCompany = async (id: string) => {
     if (confirm('Are you sure you want to delete this company?')) {
@@ -2393,17 +3459,65 @@ function CompaniesSection({ companies, onReload }: any) {
     }
   };
 
+  const handleAddNew = () => {
+    setEditingCompany(null);
+    setShowForm(true);
+    // Save form state to localStorage
+    localStorage.setItem('contentAdmin_companies_formState', JSON.stringify({
+      showForm: true,
+      editingId: null
+    }));
+  };
+
+  const handleEdit = (company) => {
+    setEditingCompany(company);
+    setShowForm(true);
+    // Save form state to localStorage
+    localStorage.setItem('contentAdmin_companies_formState', JSON.stringify({
+      showForm: true,
+      editingId: company.id
+    }));
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingCompany(null);
+    // Clear form state from localStorage
+    localStorage.removeItem('contentAdmin_companies_formState');
+  };
+
+  const handleSaveForm = () => {
+    onReload();
+    setShowForm(false);
+    setEditingCompany(null);
+    // Clear form state from localStorage
+    localStorage.removeItem('contentAdmin_companies_formState');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium text-gray-900">Companies & Partnerships</h3>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-[#00274c] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#00274c]/90"
-        >
-          Add Company
-        </button>
+        {!showForm && (
+          <button
+            onClick={handleAddNew}
+            className="bg-[#00274c] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#00274c]/90"
+          >
+            Add Company
+          </button>
+        )}
       </div>
+
+      {/* Inline Form */}
+      {showForm && (
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 mb-6">
+          <CompanyForm
+            company={editingCompany}
+            onClose={handleCloseForm}
+            onSave={handleSaveForm}
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {companies.map((company: any) => (
@@ -2428,14 +3542,16 @@ function CompaniesSection({ companies, onReload }: any) {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setEditingCompany(company)}
+                  onClick={() => handleEdit(company)}
                   className="text-[#00274c] hover:text-[#003366] p-1"
+                  disabled={showForm}
                 >
                   <PencilIcon className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => deleteCompany(company.id)}
                   className="text-red-600 hover:text-red-800 p-1"
+                  disabled={showForm}
                 >
                   <TrashIcon className="w-4 h-4" />
                 </button>
@@ -2476,40 +3592,24 @@ function CompaniesSection({ companies, onReload }: any) {
         ))}
       </div>
 
-      {companies.length === 0 && (
+      {companies.length === 0 && !showForm && (
         <div className="text-center py-12 text-gray-500">
           <div className="text-4xl mb-4">🏢</div>
           <h3 className="text-lg font-medium mb-2">No companies yet</h3>
           <p className="mb-4">Add companies to manage partnerships with projects and events.</p>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={handleAddNew}
             className="bg-[#00274c] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#00274c]/90"
           >
             Add First Company
           </button>
         </div>
       )}
-
-      {/* Company Form Modal */}
-      {(showForm || editingCompany) && (
-        <CompanyForm
-          company={editingCompany}
-          onClose={() => {
-            setShowForm(false);
-            setEditingCompany(null);
-          }}
-          onSave={() => {
-            setShowForm(false);
-            setEditingCompany(null);
-            onReload();
-          }}
-        />
-      )}
     </div>
   );
 }
 
-// Company Form Component
+// Company Form Component (Inline with Autosave)
 function CompanyForm({ company, onClose, onSave }: any) {
   const [formData, setFormData] = useState({
     id: '',
@@ -2523,9 +3623,51 @@ function CompanyForm({ company, onClose, onSave }: any) {
     contactEmail: ''
   });
 
+  // Autosave functionality - works for both new and editing
+  useEffect(() => {
+    const autoSaveData = () => {
+      if (formData.name.trim()) {
+        const draftKey = company ? `companyForm_draft_edit_${company.id}` : 'companyForm_draft_new';
+        localStorage.setItem(draftKey, JSON.stringify(formData));
+        console.log('✓ Company form autosaved:', formData.name, company ? '(editing)' : '(new)');
+      }
+    };
+
+    const timeoutId = setTimeout(autoSaveData, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [formData, company]);
+
+  // Load draft on mount or set company data - works for both new and editing
   useEffect(() => {
     if (company) {
       setFormData(company);
+      
+      // Check for editing draft
+      const editDraftKey = `companyForm_draft_edit_${company.id}`;
+      const editDraft = localStorage.getItem(editDraftKey);
+      if (editDraft) {
+        try {
+          const parsedDraft = JSON.parse(editDraft);
+          setFormData(parsedDraft);
+          console.log('✓ Company editing draft loaded:', parsedDraft.name);
+        } catch (error) {
+          console.error('Error loading company editing draft:', error);
+          localStorage.removeItem(editDraftKey);
+        }
+      }
+    } else {
+      const draftKey = 'companyForm_draft_new';
+      const draft = localStorage.getItem(draftKey);
+      if (draft) {
+        try {
+          const parsedDraft = JSON.parse(draft);
+          setFormData(parsedDraft);
+          console.log('✓ Company form draft loaded:', parsedDraft.name);
+        } catch (error) {
+          console.error('Error loading company form draft:', error);
+          localStorage.removeItem(draftKey);
+        }
+      }
     }
   }, [company]);
 
@@ -2541,6 +3683,9 @@ function CompanyForm({ company, onClose, onSave }: any) {
       });
 
       if (res.ok) {
+        const draftKey = company ? `companyForm_draft_edit_${company.id}` : 'companyForm_draft_new';
+        localStorage.removeItem(draftKey);
+        console.log('✓ Company form saved successfully, draft cleared');
         onSave();
       } else {
         const error = await res.json();
@@ -2553,11 +3698,24 @@ function CompanyForm({ company, onClose, onSave }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-4">
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">
           {company ? 'Edit Company' : 'Add Company'}
         </h3>
+        <div className="flex items-center gap-2">
+          <div className="text-xs text-gray-500 bg-green-50 px-2 py-1 rounded">
+            ✓ Auto-saving
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -2681,42 +3839,62 @@ function CompanyForm({ company, onClose, onSave }: any) {
             </button>
             <button
               type="submit"
-              className="bg-[#00274c] text-white px-4 py-2 rounded-md hover:bg-[#003366]"
+              className="bg-[#FFFFFF] text-white px-4 py-2 rounded-md hover:bg-[#003366]"
             >
               {company ? 'Update Company' : 'Add Company'}
             </button>
           </div>
         </form>
-      </div>
     </div>
   );
 } 
 
 // Settings Section Component
-function SettingsSection({ settings, onReload }: any) {
+function OtherSettings({ settings, onReload }: any) {
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [localSettings, setLocalSettings] = useState<any[]>([]);
+  const [hasChanges, setHasChanges] = useState(false);
 
-  const updateSetting = async (key: string, value: string) => {
+  useEffect(() => {
+    setLocalSettings(settings.filter(s => 
+      !['site_title', 'site_description', 'site_favicon', 'site_keywords', 'site_author', 'site_theme_color'].includes(s.key)
+    ));
+  }, [settings]);
+
+  const handleChange = (key: string, value: string) => {
+    setLocalSettings(prev => 
+      prev.map(setting => 
+        setting.key === key ? { ...setting, value } : setting
+      )
+    );
+    setHasChanges(true);
+  };
+
+  const saveChanges = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, value })
-      });
+      // Find changed settings
+      const changedSettings = localSettings.filter(
+        local => settings.find(s => s.key === local.key)?.value !== local.value
+      );
 
-      if (res.ok) {
-        setMessage('Setting updated successfully!');
-        onReload();
-        setTimeout(() => setMessage(''), 3000);
-      } else {
-        const error = await res.json();
-        setMessage(error.error || 'Error updating setting');
-      }
+      // Save all changed settings
+      await Promise.all(
+        changedSettings.map(setting =>
+          fetch('/api/admin/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: setting.key, value: setting.value })
+          })
+        )
+      );
+
+      toast.success('Settings saved successfully!');
+      onReload();
+      setHasChanges(false);
     } catch (error) {
-      console.error('Error updating setting:', error);
-      setMessage('Error updating setting');
+      console.error('Error saving settings:', error);
+      toast.error('Error saving settings');
     } finally {
       setSaving(false);
     }
@@ -2726,23 +3904,24 @@ function SettingsSection({ settings, onReload }: any) {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium text-gray-900">Site Settings</h3>
-          <p className="text-sm text-gray-600">Manage global site configuration and behavior</p>
+          <h3 className="text-lg font-medium text-gray-900">Other Settings</h3>
+          <p className="text-sm text-gray-600">Manage additional site configuration</p>
         </div>
+        <button
+          onClick={saveChanges}
+          disabled={!hasChanges || saving}
+          className={`px-4 py-2 rounded-md text-white ${
+            hasChanges
+              ? 'bg-blue-600 hover:bg-blue-700'
+              : 'bg-gray-400 cursor-not-allowed'
+          } transition-colors`}
+        >
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
       </div>
 
-      {message && (
-        <div className={`p-4 rounded-lg ${
-          message.includes('successfully') 
-            ? 'bg-green-50 text-green-700 border border-green-200'
-            : 'bg-red-50 text-red-700 border border-red-200'
-        }`}>
-          {message}
-        </div>
-      )}
-
       <div className="grid grid-cols-1 gap-6">
-        {settings.map((setting: any) => (
+        {localSettings.map((setting) => (
           <div key={setting.id} className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -2757,729 +3936,67 @@ function SettingsSection({ settings, onReload }: any) {
 
             <div className="space-y-3">
               {setting.key === 'countdown_display_mode' ? (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Countdown Display Mode
-                  </label>
-                  <select
-                    value={setting.value}
-                    onChange={(e) => updateSetting(setting.key, e.target.value)}
-                    disabled={saving}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c] text-black bg-white"
-                  >
-                    <option value="next_event">Next Event (any upcoming event)</option>
-                    <option value="next_featured">Next Featured Event (only featured events)</option>
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Controls which event is shown in the countdown timer on the homepage
-                  </p>
-                </div>
+                <select
+                  value={setting.value}
+                  onChange={(e) => handleChange(setting.key, e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="next_event">Next Event (any upcoming event)</option>
+                  <option value="next_featured">Next Featured Event (only featured events)</option>
+                </select>
               ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Value
-                  </label>
-                  <input
-                    type="text"
-                    value={setting.value}
-                    onChange={(e) => updateSetting(setting.key, e.target.value)}
-                    disabled={saving}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c] text-black bg-white"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={setting.value}
+                  onChange={(e) => handleChange(setting.key, e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder={`Enter ${setting.key.replace(/_/g, ' ')}`}
+                />
               )}
             </div>
           </div>
         ))}
       </div>
-
-      {settings.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
-          <div className="text-4xl mb-4">⚙️</div>
-          <h3 className="text-lg font-medium mb-2">No settings configured</h3>
-          <p>Site settings will appear here when they are added to the database.</p>
-        </div>
-      )}
     </div>
   );
 }
 
-// Forms Section Component
-function FormsSection({ forms, onReload }: any) {
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingForm, setEditingForm] = useState<any>(null);
-  const [selectedForm, setSelectedForm] = useState<any>(null);
-  const [applications, setApplications] = useState<any[]>([]);
-  const [showApplications, setShowApplications] = useState(false);
-  const [activeView, setActiveView] = useState<'list' | 'edit' | 'applications' | 'questions'>('list');
+// Settings Section Component
+function SettingsSection({ settings, onReload }: any) {
+  const [activeSettingsTab, setActiveSettingsTab] = useState('metadata');
 
-  const [newForm, setNewForm] = useState({
-    title: '',
-    description: '',
-    category: 'general',
-    isActive: true,
-    isPublic: true,
-    allowMultiple: false,
-    deadline: '',
-    maxSubmissions: '',
-    notifyOnSubmission: true,
-    notificationEmail: '',
-    requireAuth: false,
-    backgroundColor: '#00274c',
-    textColor: '#ffffff'
-  });
-
-  const [newQuestion, setNewQuestion] = useState({
-    title: '',
-    description: '',
-    type: 'TEXT',
-    required: false,
-    options: '',
-    minLength: '',
-    maxLength: '',
-    pattern: ''
-  });
-
-  const createForm = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch('/api/admin/forms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newForm,
-          deadline: newForm.deadline ? new Date(newForm.deadline) : null,
-          maxSubmissions: newForm.maxSubmissions ? parseInt(newForm.maxSubmissions) : null
-        })
-      });
-
-      if (res.ok) {
-        setMessage('Form created successfully!');
-        setShowCreateForm(false);
-        setActiveView('list');
-        setNewForm({
-          title: '',
-          description: '',
-          category: 'general',
-          isActive: true,
-          isPublic: true,
-          allowMultiple: false,
-          deadline: '',
-          maxSubmissions: '',
-          notifyOnSubmission: true,
-          notificationEmail: '',
-          requireAuth: false,
-          backgroundColor: '#00274c',
-          textColor: '#ffffff'
-        });
-        onReload();
-        setTimeout(() => setMessage(''), 3000);
-      } else {
-        const error = await res.json();
-        setMessage(error.error || 'Error creating form');
-      }
-    } catch (error) {
-      console.error('Error creating form:', error);
-      setMessage('Error creating form');
-    }
-    setSaving(false);
-  };
-
-  const updateForm = async (formData: any) => {
-    setSaving(true);
-    try {
-      const res = await fetch('/api/admin/forms', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          deadline: formData.deadline ? new Date(formData.deadline) : null,
-          maxSubmissions: formData.maxSubmissions ? parseInt(formData.maxSubmissions) : null
-        })
-      });
-
-      if (res.ok) {
-        setMessage('Form updated successfully!');
-        setEditingForm(null);
-        setActiveView('list');
-        onReload();
-        setTimeout(() => setMessage(''), 3000);
-      } else {
-        const error = await res.json();
-        setMessage(error.error || 'Error updating form');
-      }
-    } catch (error) {
-      console.error('Error updating form:', error);
-      setMessage('Error updating form');
-    }
-    setSaving(false);
-  };
-
-  const startEditingForm = (form: any) => {
-    setEditingForm({
-      ...form,
-      deadline: form.deadline ? new Date(form.deadline).toISOString().slice(0, 16) : '',
-      maxSubmissions: form.maxSubmissions?.toString() || ''
-    });
-    setActiveView('edit');
-  };
-
-  const deleteForm = async (formId: string) => {
-    if (!confirm('Are you sure you want to delete this form? This will also delete all applications.')) return;
-    
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/admin/forms?id=${formId}`, {
-        method: 'DELETE'
-      });
-
-      if (res.ok) {
-        setMessage('Form deleted successfully!');
-        onReload();
-        setTimeout(() => setMessage(''), 3000);
-      } else {
-        const error = await res.json();
-        setMessage(error.error || 'Error deleting form');
-      }
-    } catch (error) {
-      console.error('Error deleting form:', error);
-      setMessage('Error deleting form');
-    }
-    setSaving(false);
-  };
-
-  const addQuestion = async (formId: string) => {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/admin/forms/${formId}/questions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newQuestion,
-          options: newQuestion.options ? JSON.stringify(newQuestion.options.split('\n').filter(Boolean)) : null,
-          minLength: newQuestion.minLength ? parseInt(newQuestion.minLength) : null,
-          maxLength: newQuestion.maxLength ? parseInt(newQuestion.maxLength) : null
-        })
-      });
-
-      if (res.ok) {
-        setMessage('Question added successfully!');
-        setNewQuestion({
-          title: '',
-          description: '',
-          type: 'TEXT',
-          required: false,
-          options: '',
-          minLength: '',
-          maxLength: '',
-          pattern: ''
-        });
-        onReload();
-        setTimeout(() => setMessage(''), 3000);
-      } else {
-        const error = await res.json();
-        setMessage(error.error || 'Error adding question');
-      }
-    } catch (error) {
-      console.error('Error adding question:', error);
-      setMessage('Error adding question');
-    }
-    setSaving(false);
-  };
-
-  const loadApplications = async (formId: string) => {
-    try {
-      const res = await fetch(`/api/admin/applications?formId=${formId}`);
-      if (res.ok) {
-        const apps = await res.json();
-        setApplications(apps);
-        setActiveView('applications');
-      }
-    } catch (error) {
-      console.error('Error loading applications:', error);
-    }
-  };
-
-  const updateApplicationStatus = async (applicationId: string, status: string, adminNotes?: string) => {
-    try {
-      const res = await fetch('/api/admin/applications', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: applicationId,
-          status,
-          adminNotes
-        })
-      });
-
-      if (res.ok) {
-        setMessage('Application status updated!');
-        // Reload applications for the current form
-        if (selectedForm) {
-          loadApplications(selectedForm.id);
-        }
-        setTimeout(() => setMessage(''), 3000);
-      }
-    } catch (error) {
-      console.error('Error updating application:', error);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    const colors = {
-      PENDING: 'bg-yellow-100 text-yellow-800',
-      REVIEWING: 'bg-blue-100 text-blue-800',
-      ACCEPTED: 'bg-green-100 text-green-800',
-      REJECTED: 'bg-red-100 text-red-800',
-      WAITLISTED: 'bg-purple-100 text-purple-800',
-      WITHDRAWN: 'bg-gray-100 text-gray-800',
-      EXPIRED: 'bg-gray-100 text-gray-800'
-    };
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
-  };
-
-  const questionTypes = [
-    { value: 'TEXT', label: 'Short Text' },
-    { value: 'TEXTAREA', label: 'Long Text' },
-    { value: 'EMAIL', label: 'Email' },
-    { value: 'PHONE', label: 'Phone Number' },
-    { value: 'NUMBER', label: 'Number' },
-    { value: 'DATE', label: 'Date' },
-    { value: 'SELECT', label: 'Dropdown' },
-    { value: 'RADIO', label: 'Radio Buttons' },
-    { value: 'CHECKBOX', label: 'Checkboxes' },
-    { value: 'BOOLEAN', label: 'Yes/No' },
-    { value: 'URL', label: 'Website URL' },
-    { value: 'FILE', label: 'File Upload' }
+  const settingsTabs = [
+    { id: 'metadata', name: 'Site Metadata', icon: '🌐' },
+    { id: 'other', name: 'Other Settings', icon: '⚙️' }
   ];
 
   return (
     <div className="space-y-6">
-      {message && (
-        <div className={`p-4 rounded-lg ${message.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-          {message}
-        </div>
-      )}
-
-      {/* Applications View */}
-      {showApplications && selectedForm && (
-        <div className="bg-white rounded-lg border p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Applications for "{selectedForm.title}"
-            </h3>
+      <div className="border-b border-gray-200">
+        <nav className="flex space-x-4 pb-4" aria-label="Settings tabs">
+          {settingsTabs.map((tab) => (
             <button
-              onClick={() => setShowApplications(false)}
-              className="text-gray-500 hover:text-gray-700"
+              key={tab.id}
+              onClick={() => setActiveSettingsTab(tab.id)}
+              className={`px-3 py-2 text-sm font-medium rounded-md ${
+                activeSettingsTab === tab.id
+                  ? 'bg-[#00274c] text-white'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
             >
-              ← Back to Forms
+              <span className="mr-2">{tab.icon}</span>
+              {tab.name}
             </button>
-          </div>
+          ))}
+        </nav>
+      </div>
 
-          <div className="space-y-4">
-            {applications.map((app) => (
-              <div key={app.id} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h4 className="font-medium text-gray-900">
-                      {app.applicantName || app.applicantEmail}
-                    </h4>
-                    <p className="text-sm text-gray-500">
-                      Submitted: {new Date(app.submittedAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(app.status)}`}>
-                      {app.status}
-                    </span>
-                    <select
-                      value={app.status}
-                      onChange={(e) => updateApplicationStatus(app.id, e.target.value)}
-                      className="text-sm border rounded px-2 py-1"
-                    >
-                      <option value="PENDING">Pending</option>
-                      <option value="REVIEWING">Reviewing</option>
-                      <option value="ACCEPTED">Accepted</option>
-                      <option value="REJECTED">Rejected</option>
-                      <option value="WAITLISTED">Waitlisted</option>
-                      <option value="WITHDRAWN">Withdrawn</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Application Responses */}
-                <div className="space-y-2">
-                  {app.responses.map((response: any) => (
-                    <div key={response.id} className="text-sm">
-                      <span className="font-medium">{response.question.title}:</span>
-                      <span className="ml-2 text-gray-600">
-                        {response.textValue || response.numberValue || response.dateValue || 
-                         (response.booleanValue !== null ? (response.booleanValue ? 'Yes' : 'No') : '') ||
-                         response.selectedOptions || response.fileUrl || 'No answer'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Admin Notes */}
-                <div className="mt-3 pt-3 border-t">
-                  <textarea
-                    placeholder="Add admin notes..."
-                    className="w-full text-sm border rounded px-3 py-2"
-                    rows={2}
-                    defaultValue={app.adminNotes || ''}
-                    onBlur={(e) => {
-                      if (e.target.value !== (app.adminNotes || '')) {
-                        updateApplicationStatus(app.id, app.status, e.target.value);
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-
-            {applications.length === 0 && (
-              <p className="text-gray-500 text-center py-8">No applications submitted yet.</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Forms List */}
-      {!showApplications && (
-        <>
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Forms & Applications</h2>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#00274c]/90 transition-colors"
-            >
-              Create New Form
-            </button>
-          </div>
-
-          {/* Create Form Modal */}
-          {showCreateForm && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-lg border p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Create New Form</h3>
-                
-                {/* Basic Information */}
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                  <h4 className="text-md font-medium text-gray-900 mb-4">Basic Information</h4>
-                  
-                  <div className="grid md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
-                      <input
-                        type="text"
-                        value={newForm.title}
-                        onChange={(e) => setNewForm({...newForm, title: e.target.value})}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="e.g., Membership Application"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                      <select
-                        value={newForm.category}
-                        onChange={(e) => setNewForm({...newForm, category: e.target.value})}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="general">General</option>
-                        <option value="membership">Membership</option>
-                        <option value="event">Event Registration</option>
-                        <option value="partnership">Partnership</option>
-                        <option value="internship">Internship</option>
-                        <option value="feedback">Feedback</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                    <textarea
-                      value={newForm.description}
-                      onChange={(e) => setNewForm({...newForm, description: e.target.value})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      rows={3}
-                      placeholder="Brief description of this form..."
-                    />
-                  </div>
-                </div>
-
-                {/* Access & Limits */}
-                <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                  <h4 className="text-md font-medium text-gray-900 mb-4">Access & Limits</h4>
-                  
-                  <div className="grid md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Deadline (Optional)</label>
-                      <input
-                        type="datetime-local"
-                        value={newForm.deadline}
-                        onChange={(e) => setNewForm({...newForm, deadline: e.target.value})}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Max Submissions (Optional)</label>
-                      <input
-                        type="number"
-                        value={newForm.maxSubmissions}
-                        onChange={(e) => setNewForm({...newForm, maxSubmissions: e.target.value})}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Leave empty for unlimited"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <h5 className="text-sm font-medium text-gray-700">Form Settings</h5>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={newForm.isActive}
-                          onChange={(e) => setNewForm({...newForm, isActive: e.target.checked})}
-                          className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="text-sm text-gray-700">Form is active</span>
-                      </label>
-                      
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={newForm.isPublic}
-                          onChange={(e) => setNewForm({...newForm, isPublic: e.target.checked})}
-                          className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="text-sm text-gray-700">Publicly accessible</span>
-                      </label>
-                      
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={newForm.allowMultiple}
-                          onChange={(e) => setNewForm({...newForm, allowMultiple: e.target.checked})}
-                          className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="text-sm text-gray-700">Allow multiple submissions per email</span>
-                      </label>
-                      
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={newForm.requireAuth}
-                          onChange={(e) => setNewForm({...newForm, requireAuth: e.target.checked})}
-                          className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="text-sm text-gray-700">Require UMich Google sign-in</span>
-                      </label>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Notification Email</label>
-                      <input
-                        type="email"
-                        value={newForm.notificationEmail}
-                        onChange={(e) => setNewForm({...newForm, notificationEmail: e.target.value})}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="admin@abg-umich.com"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Get notified when someone submits this form</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3 pt-4 border-t border-gray-200">
-                  <button
-                    onClick={createForm}
-                    disabled={saving || !newForm.title}
-                    className="bg-[#00274c] text-white px-6 py-2 rounded-lg hover:bg-[#00274c]/90 transition-colors disabled:opacity-50 font-medium"
-                  >
-                    {saving ? 'Creating...' : 'Create Form'}
-                  </button>
-                  <button
-                    onClick={() => setShowCreateForm(false)}
-                    className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Forms List */}
-          <div className="grid gap-4">
-            {forms.map((form: any) => (
-              <div key={form.id} className="bg-white rounded-lg border p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{form.title}</h3>
-                    <p className="text-sm text-gray-600">{form.description}</p>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                      <span>Category: {form.category}</span>
-                      <span>Questions: {form._count?.questions || 0}</span>
-                      <span>Applications: {form._count?.applications || 0}</span>
-                      <span className={form.isActive ? 'text-green-600' : 'text-red-600'}>
-                        {form.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedForm(form);
-                        loadApplications(form.id);
-                      }}
-                      className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded hover:bg-blue-100"
-                    >
-                      View Applications ({form._count?.applications || 0})
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        const url = `${window.location.origin}/forms/${form.slug}`;
-                        navigator.clipboard.writeText(url);
-                        setMessage('Form URL copied to clipboard!');
-                        setTimeout(() => setMessage(''), 3000);
-                      }}
-                      className="text-sm bg-green-50 text-green-600 px-3 py-1 rounded hover:bg-green-100"
-                    >
-                      Copy URL
-                    </button>
-                    
-                    <button
-                      onClick={() => deleteForm(form.id)}
-                      className="text-sm bg-red-50 text-red-600 px-3 py-1 rounded hover:bg-red-100"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-
-                {/* Questions List */}
-                <div className="border-t pt-4">
-                  <h4 className="font-medium text-gray-900 mb-3">Questions ({form.questions?.length || 0})</h4>
-                  
-                  {form.questions && form.questions.length > 0 ? (
-                    <div className="space-y-2 mb-4">
-                      {form.questions.map((question: any, index: number) => (
-                        <div key={question.id} className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded">
-                          <span>
-                            {index + 1}. {question.title} 
-                            <span className="text-gray-500 ml-2">({question.type})</span>
-                            {question.required && <span className="text-red-500 ml-1">*</span>}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm mb-4">No questions added yet.</p>
-                  )}
-
-                  {/* Add Question */}
-                  <div className="border-t pt-4">
-                    <div className="bg-green-50 rounded-lg p-4">
-                      <h5 className="font-medium text-gray-900 mb-4">Add New Question</h5>
-                      
-                      <div className="grid md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Question Title *</label>
-                          <input
-                            type="text"
-                            value={newQuestion.title}
-                            onChange={(e) => setNewQuestion({...newQuestion, title: e.target.value})}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                            placeholder="Enter your question"
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Question Type</label>
-                          <select
-                            value={newQuestion.type}
-                            onChange={(e) => setNewQuestion({...newQuestion, type: e.target.value})}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                          >
-                            {questionTypes.map(type => (
-                              <option key={type.value} value={type.value}>{type.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
-                        <textarea
-                          value={newQuestion.description}
-                          onChange={(e) => setNewQuestion({...newQuestion, description: e.target.value})}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                          rows={2}
-                          placeholder="Additional context or instructions for this question"
-                        />
-                      </div>
-
-                      {(['SELECT', 'RADIO', 'CHECKBOX'].includes(newQuestion.type)) && (
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Options (one per line)</label>
-                          <textarea
-                            value={newQuestion.options}
-                            onChange={(e) => setNewQuestion({...newQuestion, options: e.target.value})}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                            rows={3}
-                            placeholder="Option 1&#10;Option 2&#10;Option 3"
-                          />
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between">
-                        <label className="flex items-center text-sm">
-                          <input
-                            type="checkbox"
-                            checked={newQuestion.required}
-                            onChange={(e) => setNewQuestion({...newQuestion, required: e.target.checked})}
-                            className="mr-2 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                          />
-                          <span className="text-gray-700">Required question</span>
-                        </label>
-
-                        <button
-                          onClick={() => addQuestion(form.id)}
-                          disabled={saving || !newQuestion.title}
-                          className="bg-[#00274c] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#00274c]/90 transition-colors disabled:opacity-50 font-medium"
-                        >
-                          {saving ? 'Adding...' : 'Add Question'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {forms.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-500 mb-4">No forms created yet.</p>
-                <button
-                  onClick={() => setShowCreateForm(true)}
-                  className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#00274c]/90 transition-colors"
-                >
-                  Create Your First Form
-                </button>
-              </div>
-            )}
-          </div>
-        </>
+      {activeSettingsTab === 'metadata' ? (
+        <MetadataSettings settings={settings} onReload={onReload} />
+      ) : (
+        <OtherSettings settings={settings} onReload={onReload} />
       )}
     </div>
   );
 }
+

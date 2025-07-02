@@ -118,7 +118,7 @@ export default function Events() {
           className="text-center mb-20"
         >
           <h2 className="heading-primary text-5xl md:text-6xl lg:text-7xl text-white mb-6">
-            EVENTS & EXPERIENCES
+            EVENTS
           </h2>
           <motion.div
             initial={{ width: 0 }}
@@ -155,7 +155,7 @@ export default function Events() {
                 initial={{ opacity: 0, y: 50 }}
                 animate={isInView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.8, delay: 0.4 + (index * 0.2) }}
-                className={`relative flex items-center ${
+                className={`relative flex flex-col md:flex-row items-start ${
                   index % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'
                 }`}
               >
@@ -183,11 +183,16 @@ export default function Events() {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <span className="px-3 py-1 bg-[#5e6472] text-white text-xs uppercase tracking-wider rounded-full">
-                            {event.type}
+                            {event.eventType || event.type}
                           </span>
                           <span className="text-[#BBBBBB] text-sm">
-                            {event.maxAttendees ? `${event.maxAttendees} max` : 'Open'}
+                            {event.capacity || event.maxAttendees ? `${event.capacity || event.maxAttendees} max` : 'Open'}
                           </span>
+                          {event.subevents && event.subevents.length > 0 && (
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full">
+                              {event.subevents.length} subevents
+                            </span>
+                          )}
                         </div>
                         <h3 className="heading-secondary text-xl md:text-2xl text-white mb-2">
                           {event.title}
@@ -198,9 +203,10 @@ export default function Events() {
                     {/* Event Details */}
                     <div className="space-y-3 mb-4 relative z-10">
                       <div className="flex items-center gap-4 text-[#BBBBBB] text-sm">
-                        <span>📅 {new Date(event.date).toLocaleDateString()}</span>
-                        {event.time && <span>🕔 {event.time}</span>}
+                        <span>📅 {new Date(event.eventDate || event.date).toLocaleDateString()}</span>
+                        {(event.time || event.eventDate) && <span>🕔 {event.time || new Date(event.eventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
                         {event.location && <span>📍 {event.location}</span>}
+                        {event.venue && <span>🏢 {event.venue}</span>}
                       </div>
                       <p className="body-text text-[#BBBBBB] leading-relaxed">
                         {event.description}
@@ -274,6 +280,55 @@ export default function Events() {
                         <p className="body-text text-[#BBBBBB] leading-relaxed mb-4">
                           {event.description}
                         </p>
+                        
+                        {/* Subevents Section */}
+                        {event.subevents && event.subevents.length > 0 && (
+                          <div className="mb-6">
+                            <h4 className="text-white font-semibold mb-3 text-sm">Event Schedule</h4>
+                            <div className="space-y-3">
+                              {event.subevents.map((subevent: any, idx: number) => (
+                                <div key={idx} className="flex items-start gap-3 p-3 bg-white/5 rounded-lg border border-white/10">
+                                  <div className="flex-shrink-0 mt-1">
+                                    <div className="w-2 h-2 bg-white/60 rounded-full"></div>
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-start justify-between mb-1">
+                                      <h5 className="text-white text-sm font-medium">{subevent.title}</h5>
+                                      <span className={`px-2 py-1 rounded text-xs ml-2 ${
+                                        subevent.eventType === 'WORKSHOP' ? 'bg-green-400/20 text-green-400' :
+                                        subevent.eventType === 'NETWORKING' ? 'bg-blue-400/20 text-blue-400' :
+                                        subevent.eventType === 'MEETING' ? 'bg-purple-400/20 text-purple-400' :
+                                        'bg-gray-400/20 text-gray-400'
+                                      }`}>
+                                        {subevent.eventType}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-4 text-[#BBBBBB] text-xs mb-2">
+                                      <span>📅 {new Date(subevent.eventDate).toLocaleDateString()}</span>
+                                      <span>🕔 {new Date(subevent.eventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                      {subevent.venue && <span>🏢 {subevent.venue}</span>}
+                                      {subevent.capacity && <span>👥 {subevent.capacity}</span>}
+                                    </div>
+                                    <p className="text-[#BBBBBB] text-xs">{subevent.description}</p>
+                                    
+                                    {/* Subevent Partnerships */}
+                                    {subevent.partnerships && subevent.partnerships.length > 0 && (
+                                      <div className="mt-2">
+                                        <div className="flex flex-wrap gap-1">
+                                          {subevent.partnerships.map((partnership: any, pidx: number) => (
+                                            <span key={pidx} className="text-xs px-2 py-1 bg-white/10 rounded text-white/80">
+                                              {partnership.company.name}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         
                         {/* Partnership Details - Show more detailed info in expanded view */}
                         {event.partnerships && event.partnerships.length > 0 && (
@@ -372,7 +427,7 @@ export default function Events() {
               <a href="/#join" className="btn-primary">
                 Propose an Event
               </a>
-              <a href="mailto:partnerships@abg-umich.com" className="btn-secondary">
+                                  <a href="mailto:ABGPartnerships@umich.edu" className="btn-secondary">
                 Partner With Us
               </a>
             </div>

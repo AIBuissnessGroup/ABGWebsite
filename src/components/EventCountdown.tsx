@@ -12,6 +12,14 @@ interface Event {
   venue?: string;
   registrationUrl?: string;
   partnerships?: any[];
+  subevents?: {
+    id: string;
+    title: string;
+    description: string;
+    eventDate: string;
+    venue?: string;
+    eventType: string;
+  }[];
 }
 
 interface EventCountdownProps {
@@ -109,7 +117,7 @@ export default function EventCountdown({
 
   if (!isClient) {
     return (
-      <div className="glass-card p-6 sm:p-12 h-[500px] sm:h-[600px] lg:h-[650px] flex items-center justify-center">
+      <div className="glass-card p-6 sm:p-12 h-[550px] sm:h-[650px] lg:h-[750px] flex items-center justify-center">
         <div className="animate-pulse text-[#BBBBBB]">Loading event...</div>
       </div>
     );
@@ -123,7 +131,7 @@ export default function EventCountdown({
   ];
 
   return (
-    <div className="glass-card p-4 sm:p-6 lg:p-8 h-[500px] sm:h-[600px] lg:h-[650px] flex flex-col justify-between relative overflow-hidden">
+    <div className="glass-card p-4 sm:p-6 lg:p-8 h-[550px] sm:h-[650px] lg:h-[750px] flex flex-col justify-between relative overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute top-4 sm:top-6 right-4 sm:right-6 w-6 sm:w-10 h-6 sm:h-10 border border-white/20 rounded-full"></div>
       <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 w-4 sm:w-8 h-4 sm:h-8 border border-white/10 rounded-full"></div>
@@ -193,6 +201,49 @@ export default function EventCountdown({
             </div>
           </motion.div>
         )}
+
+        {/* Upcoming Subevents */}
+        {nextEvent?.subevents && nextEvent.subevents.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.35 }}
+            className="pt-2"
+          >
+            <div className="text-xs text-[#BBBBBB] mb-2 sm:mb-3 uppercase tracking-wider">Event Schedule</div>
+            <div className="space-y-2 px-2">
+              {nextEvent.subevents.slice(0, 2).map((subevent, idx) => (
+                <div key={subevent.id} className="flex items-center justify-between p-2 sm:p-3 bg-white/5 rounded-lg border border-white/10">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-white text-xs sm:text-sm font-medium truncate">{subevent.title}</span>
+                      <span className={`px-2 py-0.5 rounded text-xs flex-shrink-0 ${
+                        subevent.eventType === 'WORKSHOP' ? 'bg-green-400/20 text-green-400' :
+                        subevent.eventType === 'NETWORKING' ? 'bg-blue-400/20 text-blue-400' :
+                        subevent.eventType === 'MEETING' ? 'bg-purple-400/20 text-purple-400' :
+                        'bg-gray-400/20 text-gray-400'
+                      }`}>
+                        {subevent.eventType}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[#BBBBBB] text-xs">
+                      <span>📅 {new Date(subevent.eventDate).toLocaleDateString()}</span>
+                      <span>🕔 {new Date(subevent.eventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      {subevent.venue && <span>🏢 {subevent.venue}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {nextEvent.subevents.length > 2 && (
+                <div className="text-center pt-1">
+                  <span className="text-[#BBBBBB] text-xs">
+                    +{nextEvent.subevents.length - 2} more sessions
+                  </span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* Countdown Timer */}
@@ -235,9 +286,42 @@ export default function EventCountdown({
         transition={{ duration: 0.6, delay: 0.8 }}
         className="space-y-3 sm:space-y-4 relative z-10"
       >
-        <div className="flex items-center justify-center gap-2 text-[#BBBBBB] text-xs sm:text-sm">
-          <MapPinIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-          <span className="text-center">{nextEvent?.location || eventLocation}</span>
+        {/* Location and Venue */}
+        <div className="text-center space-y-1">
+          <div className="flex items-center justify-center gap-2 text-[#BBBBBB] text-xs sm:text-sm">
+            <MapPinIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="text-center font-medium">{nextEvent?.location || eventLocation}</span>
+          </div>
+          {nextEvent?.venue && (
+            <div className="text-[#5e6472] text-xs">
+              📍 {nextEvent.venue}
+            </div>
+          )}
+        </div>
+        
+        {/* Event Date */}
+        <div className="text-center">
+          <div className="flex items-center justify-center gap-2 text-[#BBBBBB] text-xs sm:text-sm">
+            <CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span>
+              {nextEvent?.eventDate ? 
+                new Date(nextEvent.eventDate).toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) : 
+                new Date(eventDate).toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })
+              }
+            </span>
+          </div>
         </div>
         
         <div className="flex items-center justify-center gap-2 text-[#BBBBBB] text-xs sm:text-sm">

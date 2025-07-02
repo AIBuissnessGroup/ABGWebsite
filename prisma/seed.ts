@@ -1,4 +1,4 @@
-import { PrismaClient, ProjectStatus, EventType } from '@prisma/client';
+import { PrismaClient, ProjectStatus, EventType, SettingType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -86,7 +86,7 @@ async function main() {
     {
       title: 'Supply Chain Optimization Engine',
       description: 'Machine learning solution to optimize supply chain logistics and reduce costs for manufacturing companies.',
-      status: 'PLANNING',
+      status: ProjectStatus.PLANNING,
       startDate: new Date('2025-01-15'),
       endDate: new Date('2025-08-15'),
       budget: '$20,000',
@@ -104,7 +104,7 @@ async function main() {
     {
       title: 'Customer Behavior Prediction Model',
       description: 'AI system to predict customer purchasing behavior and optimize marketing campaigns for e-commerce.',
-      status: 'COMPLETED',
+      status: ProjectStatus.COMPLETED,
       startDate: new Date('2024-02-01'),
       endDate: new Date('2024-08-30'),
       budget: '$8,500',
@@ -141,7 +141,7 @@ async function main() {
       venue: 'Robertson Auditorium',
       capacity: 200,
       registrationUrl: 'https://umich.edu/events/ai-symposium',
-      eventType: 'SYMPOSIUM',
+      eventType: EventType.SYMPOSIUM,
       featured: true,
       createdBy: user.id
     },
@@ -153,7 +153,7 @@ async function main() {
       location: 'EECS Building',
       venue: 'Room 1200',
       capacity: 50,
-      eventType: 'WORKSHOP',
+      eventType: EventType.WORKSHOP,
       featured: true,
       createdBy: user.id
     },
@@ -165,7 +165,7 @@ async function main() {
       location: 'Michigan Union',
       venue: 'Rogel Ballroom',
       capacity: 150,
-      eventType: 'NETWORKING',
+      eventType: EventType.NETWORKING,
       featured: false,
       createdBy: user.id
     },
@@ -177,7 +177,7 @@ async function main() {
       location: 'Ross School of Business',
       venue: 'Room B0560',
       capacity: 80,
-      eventType: 'MEETING',
+      eventType: EventType.MEETING,
       featured: false,
       createdBy: user.id
     }
@@ -185,6 +185,60 @@ async function main() {
 
   for (const event of events) {
     await prisma.event.create({ data: event });
+  }
+
+  // Add site settings
+  const siteSettings = [
+    {
+      key: 'site_title',
+      value: 'AI Business Group - University of Michigan',
+      description: 'Main site title shown in browser tab',
+      type: SettingType.TEXT
+    },
+    {
+      key: 'site_description',
+      value: 'Building the bridge between artificial intelligence and real-world business impact at the University of Michigan.',
+      description: 'Site meta description for search engines',
+      type: SettingType.TEXT
+    },
+    {
+      key: 'site_favicon',
+      value: '/favicon.ico',
+      description: 'Path to the favicon file',
+      type: SettingType.TEXT
+    },
+    {
+      key: 'site_keywords',
+      value: 'AI, Business, University of Michigan, Machine Learning, Technology, Innovation',
+      description: 'Keywords for search engines (comma-separated)',
+      type: SettingType.TEXT
+    },
+    {
+      key: 'site_author',
+      value: 'AI Business Group at University of Michigan',
+      description: 'Author metadata for the site',
+      type: SettingType.TEXT
+    },
+    {
+      key: 'site_theme_color',
+      value: '#00274c',
+      description: 'Theme color for browser UI',
+      type: SettingType.TEXT
+    },
+    {
+      key: 'countdown_display_mode',
+      value: 'next_event',
+      description: 'Choose whether to display next event or next featured event in countdown. Options: next_event, next_featured',
+      type: SettingType.TEXT
+    }
+  ];
+
+  for (const setting of siteSettings) {
+    await prisma.siteSettings.upsert({
+      where: { key: setting.key },
+      update: setting,
+      create: setting
+    });
   }
 
   console.log('Database seeded successfully!');

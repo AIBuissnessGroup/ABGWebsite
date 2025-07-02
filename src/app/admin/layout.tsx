@@ -19,7 +19,7 @@ function MobileRestriction() {
             The admin dashboard is optimized for desktop use and requires a larger screen to function properly.
           </p>
           <p className="text-white/60 text-sm mb-6">
-            Please access the admin panel from a desktop or laptop computer with a screen width of at least 1024px.
+            Please access the admin panel from a tablet or desktop device with a screen width of at least 768px.
           </p>
           <div className="space-y-3">
             <button
@@ -56,7 +56,7 @@ export default function AdminLayout({
     setIsClient(true);
     
     const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 1024); // Less than lg breakpoint
+      setIsMobile(window.innerWidth < 768); // Less than md breakpoint
     };
 
     checkScreenSize();
@@ -100,11 +100,11 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
       <AdminSidebar />
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         <AdminHeader />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-3 md:p-6 overflow-y-auto">
           {children}
         </main>
       </div>

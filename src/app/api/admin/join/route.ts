@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { PrismaClient } from '@prisma/client';
+import { isAdminEmail } from '@/lib/admin';
 
 const prisma = new PrismaClient();
 
@@ -25,8 +26,7 @@ const authOptions = {
     },
     async jwt({ token, user }: any) {
       if (user) {
-        const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-        token.role = user.email && adminEmails.includes(user.email) ? 'ADMIN' : 'USER';
+        token.role = user.email && isAdminEmail(user.email) ? 'ADMIN' : 'USER';
       }
       return token;
     },
@@ -66,15 +66,15 @@ export async function GET() {
       option2Description: "Collaborate on research, sponsor events, or provide mentorship to our growing community.",
       option2Benefits: "Strategic partnerships\nTalent pipeline access\nInnovation collaboration\nBrand visibility",
       option2CTA: "Explore Partnership",
-      option2Link: "mailto:partnerships@abg-umich.com",
+      option2Link: "mailto:ABGPartnerships@umich.edu",
       option3Title: "STAY CONNECTED",
       option3Description: "Get updates on our latest projects, events, and opportunities in the AI business space.",
       option3Benefits: "Weekly insights\nEvent invitations\nProject showcases\nIndustry updates",
       option3CTA: "Subscribe",
       contactTitle: "QUESTIONS? LET'S CONNECT",
-      contactEmail1: "info@abg-umich.com",
-      contactEmail2: "partnerships@abg-umich.com",
-      contactEmail3: "careers@abg-umich.com",
+      contactEmail1: "aibusinessgroup@umich.edu",
+      contactEmail2: "ABGPartnerships@umich.edu",
+      contactEmail3: "ABGRecruitment@umich.edu",
       isActive: true,
       updatedAt: new Date()
     };

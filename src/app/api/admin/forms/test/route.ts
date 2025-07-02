@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
+import { getAdminEmails, isAdminEmail } from '@/lib/admin';
 
 export async function GET() {
   try {
@@ -16,8 +17,8 @@ export async function GET() {
     }
 
     // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    const isAdmin = adminEmails.includes(session.user.email);
+    const adminEmails = getAdminEmails();
+    const isAdmin = isAdminEmail(session.user.email);
     
     return NextResponse.json({ 
       success: true,

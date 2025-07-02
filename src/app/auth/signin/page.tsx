@@ -1,10 +1,10 @@
 'use client';
 import { signIn, getSession } from 'next-auth/react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { FaGoogle } from 'react-icons/fa';
 
-export default function SignIn() {
+function SignInContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams?.get('callbackUrl') || '/admin';
@@ -42,9 +42,9 @@ export default function SignIn() {
 
           <button
             onClick={handleSignIn}
-            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-medium py-4 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 !text-gray-900 font-medium py-4 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
           >
-            <FaGoogle className="text-xl" />
+            <FaGoogle className="text-xl !text-gray-900" />
             Sign in with Google
           </button>
 
@@ -67,4 +67,16 @@ export default function SignIn() {
       </div>
     </div>
   );
-} 
+}
+
+export default function SignIn() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-[#00274c] to-[#1a2c45] flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    }>
+      <SignInContent />
+    </Suspense>
+  );
+}
