@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { PrismaClient } from '@prisma/client';
+import { MongoClient } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 
-const prisma = new PrismaClient();
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
+const client = new MongoClient(uri);
 
 // GET - Load user's draft for this form
 export async function GET(
@@ -18,32 +19,30 @@ export async function GET(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
+    await client.connect();
+    const db = client.db('abg-website');
+    const formsCollection = db.collection('Form');
+    const usersCollection = db.collection('User');
+    const draftsCollection = db.collection('FormDraft');
+
     // Find the form
-    const form = await prisma.form.findUnique({
-      where: { slug }
-    });
+    const form = await formsCollection.findOne({ slug });
 
     if (!form) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
     // Find the user
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
+    const user = await usersCollection.findOne({ email: session.user.email });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Find existing draft
-    const draft = await prisma.formDraft.findUnique({
-      where: {
-        formId_userId: {
-          formId: form.id,
-          userId: user.id
-        }
-      }
+    const draft = await draftsCollection.findOne({
+      formId: form.id,
+      userId: user.id
     });
 
     if (!draft) {
@@ -62,6 +61,8 @@ export async function GET(
   } catch (error) {
     console.error('Error loading draft:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 }
 
@@ -81,56 +82,52 @@ export async function POST(
     const data = await request.json();
     const { applicantName, applicantEmail, applicantPhone, responses } = data;
 
+    await client.connect();
+    const db = client.db('abg-website');
+    const formsCollection = db.collection('Form');
+    const usersCollection = db.collection('User');
+    const draftsCollection = db.collection('FormDraft');
+
     // Find the form
-    const form = await prisma.form.findUnique({
-      where: { slug }
-    });
+    const form = await formsCollection.findOne({ slug });
 
     if (!form) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
     // Find the user
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
+    const user = await usersCollection.findOne({ email: session.user.email });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Upsert draft (create or update)
-    const draft = await prisma.formDraft.upsert({
-      where: {
-        formId_userId: {
-          formId: form.id,
-          userId: user.id
-        }
-      },
-      create: {
-        formId: form.id,
-        userId: user.id,
-        applicantName,
-        applicantEmail,
-        applicantPhone,
-        responses: JSON.stringify(responses)
-      },
-      update: {
-        applicantName,
-        applicantEmail,
-        applicantPhone,
-        responses: JSON.stringify(responses),
-        updatedAt: new Date()
-      }
-    });
+    const updateData = {
+      formId: form.id,
+      userId: user.id,
+      applicantName,
+      applicantEmail,
+      applicantPhone,
+      responses: JSON.stringify(responses),
+      updatedAt: new Date()
+    };
+
+    const draft = await draftsCollection.findOneAndUpdate(
+      { formId: form.id, userId: user.id },
+      { $set: updateData, $setOnInsert: { createdAt: new Date() } },
+      { upsert: true, returnDocument: 'after' }
+    );
 
     return NextResponse.json({ 
       success: true, 
-      updatedAt: draft.updatedAt 
+      updatedAt: draft?.updatedAt 
     });
   } catch (error) {
     console.error('Error saving draft:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 }
 
@@ -147,35 +144,37 @@ export async function DELETE(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
+    await client.connect();
+    const db = client.db('abg-website');
+    const formsCollection = db.collection('Form');
+    const usersCollection = db.collection('User');
+    const draftsCollection = db.collection('FormDraft');
+
     // Find the form
-    const form = await prisma.form.findUnique({
-      where: { slug }
-    });
+    const form = await formsCollection.findOne({ slug });
 
     if (!form) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
     // Find the user
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
+    const user = await usersCollection.findOne({ email: session.user.email });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Delete draft if it exists
-    await prisma.formDraft.deleteMany({
-      where: {
-        formId: form.id,
-        userId: user.id
-      }
+    await draftsCollection.deleteMany({
+      formId: form.id,
+      userId: user.id
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting draft:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 } 

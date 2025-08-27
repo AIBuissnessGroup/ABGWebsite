@@ -13,7 +13,7 @@ export default function Footer() {
               University of Michigan • Est. 2025
             </p>
             <p className="text-xs text-[#5e6472] mt-1">
-              Shaping the future of AI in business
+            Equipping the next generation to lead with AI
             </p>
           </div>
 
@@ -41,6 +41,22 @@ export default function Footer() {
               className="text-[#BBBBBB] hover:text-white transition text-sm"
             >
               LinkedIn
+            </a>
+            <a 
+              href="https://www.instagram.com/umichaibusiness/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-[#BBBBBB] hover:text-white transition text-sm"
+            >
+              Instagram
+            </a>
+            <a 
+              href="https://x.com/AiBusinessUmich" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-[#BBBBBB] hover:text-white transition text-sm"
+            >
+              X/Twitter
             </a>
           </div>
         </div>

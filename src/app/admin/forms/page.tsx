@@ -41,6 +41,17 @@ export default function FormsAdmin() {
   const [editingForm, setEditingForm] = useState(null);
   const [expandedApplications, setExpandedApplications] = useState(new Set());
   const [copySuccess, setCopySuccess] = useState('');
+  // Attendance config for forms
+  const [attendanceConfig, setAttendanceConfig] = useState({
+    isAttendanceForm: false,
+    attendanceLatitude: '',
+    attendanceLongitude: '',
+    attendanceRadiusMeters: ''
+  });
+  const [showImport, setShowImport] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
 
   // Check authentication
   useEffect(() => {
@@ -766,6 +777,55 @@ export default function FormsAdmin() {
       {/* Forms Management Tab */}
       {activeTab === 'forms' && (
         <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Manage Forms</h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowImport(v => !v)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Bulk Upload CSV
+              </button>
+              <button
+                onClick={() => setActiveTab('create')}
+                className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
+              >
+                Create Form
+              </button>
+            </div>
+          </div>
+
+          {showImport && (
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium text-gray-900">Bulk Upload Forms (CSV)</h4>
+                <button className="text-sm text-gray-500 hover:text-gray-700" onClick={() => setShowImport(false)}>Close</button>
+              </div>
+              <p className="text-sm text-gray-600 mb-3">
+                Required: <code className="bg-gray-100 px-1 rounded">title</code>. Optional: description, category, isActive, isPublic, allowMultiple, requireAuth, deadline, maxSubmissions, notifyOnSubmission, notificationEmail, backgroundColor, textColor.
+              </p>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <input type="file" accept=".csv" onChange={(e)=>setImportFile(e.target.files?.[0]||null)}
+                  className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-[#00274c] file:text-white hover:file:bg-[#003366]" />
+                <button
+                  disabled={!importFile || importing}
+                  onClick={async ()=>{
+                    if(!importFile) return; setImporting(true); setImportResult(null);
+                    try{
+                      const fd=new FormData(); fd.append('file', importFile);
+                      const res=await fetch('/api/admin/forms/import',{method:'POST', body:fd});
+                      const json=await res.json(); setImportResult(json);
+                      if(res.ok && json.success){ await loadForms(); }
+                    }catch(e){ setImportResult({error:'Upload failed'}); } finally{ setImporting(false); }
+                  }}
+                  className="px-4 py-2 rounded-md bg-[#00274c] text-white hover:bg-[#003366] disabled:opacity-50">
+                  {importing ? 'Uploading…' : 'Upload CSV'}
+                </button>
+              </div>
+              {importResult && <pre className="bg-gray-50 p-3 rounded border overflow-auto max-h-64 mt-3 text-sm">{JSON.stringify(importResult,null,2)}</pre>}
+            </div>
+          )}
+
           <div className="grid gap-6">
             {forms.map((form) => (
               <div key={form.id} className="bg-white rounded-lg shadow-md p-6">
@@ -1429,6 +1489,11 @@ function FormEditor({ form, onClose, onSave }: any) {
     try {
       const payload = {
         ...formData,
+        // attendance options
+        isAttendanceForm: Boolean((formData as any).isAttendanceForm),
+        attendanceLatitude: (formData as any).attendanceLatitude ? Number((formData as any).attendanceLatitude) : null,
+        attendanceLongitude: (formData as any).attendanceLongitude ? Number((formData as any).attendanceLongitude) : null,
+        attendanceRadiusMeters: (formData as any).attendanceRadiusMeters ? Number((formData as any).attendanceRadiusMeters) : null,
         deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
         maxSubmissions: formData.maxSubmissions ? parseInt(formData.maxSubmissions) : null,
         questions: questions.map((q, index) => ({
@@ -1575,6 +1640,51 @@ function FormEditor({ form, onClose, onSave }: any) {
                       </p>
                     </div>
                   </label>
+
+                  {/* Attendance / Geo-Fence Settings */}
+                  <div className="mt-4 p-3 rounded-lg border-2 border-purple-200 bg-purple-50">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.isAttendanceForm || false}
+                        onChange={(e)=> setFormData({ ...formData, isAttendanceForm: e.target.checked })}
+                        className="mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      />
+                      <div>
+                        <span className="text-sm font-bold text-gray-900">📍 Attendance Form (Geo‑fenced)</span>
+                        <p className="text-xs text-gray-600 mt-1">Require users to be within a radius of a specified location when submitting.</p>
+                      </div>
+                    </label>
+
+                    {formData.isAttendanceForm && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Latitude</label>
+                          <input type="number" step="any"
+                            value={(formData.attendanceLatitude as any) || ''}
+                            onChange={(e)=> setFormData({ ...formData, attendanceLatitude: parseFloat(e.target.value) })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded"
+                            placeholder="42.2780" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Longitude</label>
+                          <input type="number" step="any"
+                            value={(formData.attendanceLongitude as any) || ''}
+                            onChange={(e)=> setFormData({ ...formData, attendanceLongitude: parseFloat(e.target.value) })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded"
+                            placeholder="-83.7382" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Radius (meters)</label>
+                          <input type="number"
+                            value={(formData.attendanceRadiusMeters as any) || ''}
+                            onChange={(e)=> setFormData({ ...formData, attendanceRadiusMeters: parseInt(e.target.value) })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded"
+                            placeholder="100" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   <label className="flex items-start gap-3 p-3 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 cursor-pointer">
                     <input

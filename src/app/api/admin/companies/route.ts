@@ -1,20 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { PrismaClient } from '@prisma/client';
+import { MongoClient, ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 
-const prisma = new PrismaClient();
+const client = new MongoClient(process.env.DATABASE_URL!);
+
+// Helper function to handle BigInt serialization
+function safeJson(obj: any) {
+  return JSON.parse(JSON.stringify(obj, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ));
+}
 
 export async function GET() {
   try {
-    const companies = await prisma.company.findMany({
-      orderBy: { name: 'asc' }
-    });
+    await client.connect();
+    const db = client.db('abg-website');
+    const companies = await db.collection('Company').find({}).sort({ name: 1 }).toArray();
 
-    return NextResponse.json(companies);
+    return NextResponse.json(safeJson(companies));
   } catch (error) {
     console.error('Error fetching companies:', error);
     return NextResponse.json({ error: 'Failed to fetch companies' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 }
 
@@ -34,23 +43,31 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
     
-    const company = await prisma.company.create({
-      data: {
-        name: data.name,
-        description: data.description || '',
-        logoUrl: data.logoUrl || '',
-        website: data.website || '',
-        industry: data.industry || '',
-        size: data.size || '',
-        location: data.location || '',
-        contactEmail: data.contactEmail || ''
-      }
-    });
+    await client.connect();
+    const db = client.db('abg-website');
+    
+    const company = {
+      id: `company-${Date.now()}`,
+      name: data.name,
+      description: data.description || '',
+      logoUrl: data.logoUrl || '',
+      website: data.website || '',
+      industry: data.industry || '',
+      size: data.size || '',
+      location: data.location || '',
+      contactEmail: data.contactEmail || '',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
 
-    return NextResponse.json(company);
+    const result = await db.collection('Company').insertOne(company);
+    
+    return NextResponse.json(safeJson({ ...company, _id: result.insertedId }));
   } catch (error) {
     console.error('Error creating company:', error);
     return NextResponse.json({ error: 'Failed to create company' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 }
 
@@ -68,7 +85,6 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get ID from URL parameter or request body
     const { searchParams } = new URL(request.url);
     const urlId = searchParams.get('id');
     
@@ -79,24 +95,37 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Company ID is required' }, { status: 400 });
     }
     
-    const company = await prisma.company.update({
-      where: { id },
-      data: {
-        name: data.name,
-        description: data.description || '',
-        logoUrl: data.logoUrl || '',
-        website: data.website || '',
-        industry: data.industry || '',
-        size: data.size || '',
-        location: data.location || '',
-        contactEmail: data.contactEmail || ''
-      }
-    });
+    await client.connect();
+    const db = client.db('abg-website');
+    
+    const updateData = {
+      name: data.name,
+      description: data.description || '',
+      logoUrl: data.logoUrl || '',
+      website: data.website || '',
+      industry: data.industry || '',
+      size: data.size || '',
+      location: data.location || '',
+      contactEmail: data.contactEmail || '',
+      updatedAt: Date.now()
+    };
 
-    return NextResponse.json(company);
+    const result = await db.collection('Company').findOneAndUpdate(
+      { id: id },
+      { $set: updateData },
+      { returnDocument: 'after' }
+    );
+
+    if (!result.value) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(safeJson(result.value));
   } catch (error) {
     console.error('Error updating company:', error);
     return NextResponse.json({ error: 'Failed to update company' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 }
 
@@ -121,28 +150,29 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
     }
 
+    await client.connect();
+    const db = client.db('abg-website');
+
     // Check if company has partnerships before deleting
-    const partnerships = await prisma.projectPartnership.count({
-      where: { companyId: id }
-    });
+    const partnerships = await db.collection('ProjectPartnership').countDocuments({ companyId: id });
 
-    const eventPartnerships = await prisma.eventPartnership.count({
-      where: { companyId: id }
-    });
-
-    if (partnerships > 0 || eventPartnerships > 0) {
+    if (partnerships > 0) {
       return NextResponse.json({ 
         error: 'Cannot delete company with existing partnerships. Remove partnerships first.' 
       }, { status: 400 });
     }
 
-    await prisma.company.delete({
-      where: { id }
-    });
+    const result = await db.collection('Company').deleteOne({ id: id });
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting company:', error);
     return NextResponse.json({ error: 'Failed to delete company' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 } 

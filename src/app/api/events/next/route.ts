@@ -1,107 +1,119 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { MongoClient, ObjectId } from 'mongodb';
 
-const prisma = new PrismaClient();
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
+const client = new MongoClient(uri);
+
+// Safely serialize BigInt values
+function safeJson(obj: any) {
+  return JSON.parse(JSON.stringify(obj, (_, v) =>
+    typeof v === 'bigint' ? v.toString() : v
+  ));
+}
 
 export async function GET() {
   try {
+    await client.connect();
+    const db = client.db('abg-website');
+    
     const now = new Date();
     
-    // Get the countdown display mode setting
-    const displayModeSetting = await prisma.siteSettings.findUnique({
-      where: { key: 'countdown_display_mode' }
-    });
-    
-    const displayMode = displayModeSetting?.value || 'next_event';
-    
-    // Build the where clause based on display mode
-    const whereClause: any = {
-      eventDate: {
-        gte: now
+    // Get the next upcoming main event with partnerships and subevents
+    const nextEventResults = await db.collection('Event').aggregate([
+      { 
+        $match: { 
+          eventDate: { $gte: now },
+          published: true,
+          $or: [
+            { isMainEvent: true },
+            { isMainEvent: 1 },
+            { isMainEvent: { $exists: false } }
+          ]
+        } 
       },
-      published: true
-    };
-    
-    if (displayMode === 'next_featured') {
-      whereClause.featured = true;
-    }
-    
-    // First, get all upcoming events (main events with their subevents)
-    const upcomingEvents = await prisma.event.findMany({
-      where: {
-        ...whereClause,
-        isMainEvent: true
-      },
-      include: {
-        partnerships: {
-          include: {
-            company: true
-          }
-        },
-        subevents: {
-          where: {
-            eventDate: { gte: now },
-            published: true
-          },
-          include: {
-            partnerships: {
-              include: {
-                company: true
-              }
-            }
-          },
-          orderBy: { eventDate: 'asc' }
+      {
+        $lookup: {
+          from: 'EventPartnership',
+          localField: 'id',
+          foreignField: 'eventId',
+          as: 'partnerships'
         }
       },
-      orderBy: {
-        eventDate: 'asc'
-      }
-    });
+      {
+        $lookup: {
+          from: 'Company',
+          localField: 'partnerships.companyId',
+          foreignField: 'id',
+          as: 'partnershipCompanies'
+        }
+      },
+      {
+        $addFields: {
+          partnerships: {
+            $map: {
+              input: '$partnerships',
+              as: 'partnership',
+              in: {
+                $mergeObjects: [
+                  '$$partnership',
+                  {
+                    company: {
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: '$partnershipCompanies',
+                            cond: { $eq: ['$$this.id', '$$partnership.companyId'] }
+                          }
+                        },
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: 'Event',
+          localField: 'id',
+          foreignField: 'parentEventId',
+          as: 'subevents'
+        }
+      },
+      { $unset: 'partnershipCompanies' },
+      { $sort: { featured: -1, eventDate: 1 } },
+      { $limit: 1 }
+    ]).toArray();
 
-    // Find the next event to display in countdown
-    let nextEvent = null;
+    const nextEvent = nextEventResults[0] || null;
     
-    for (const event of upcomingEvents) {
-      // Always use the main event for countdown, include subevents as additional info
-      if (new Date(event.eventDate) >= now) {
-        nextEvent = {
-          ...event,
-          // Include all subevents for this main event
-          subevents: event.subevents || []
-        };
-        break;
-      }
-    }
-
     if (!nextEvent) {
       return NextResponse.json(null);
     }
 
-    // Format the event data for the countdown component
+    // Format the event data for the countdown component including partnerships and subevents
     const formattedEvent = {
       id: nextEvent.id,
       title: nextEvent.title,
       description: nextEvent.description,
-      eventDate: nextEvent.eventDate.toISOString(),
+      eventDate: nextEvent.eventDate,
       location: nextEvent.location || 'TBD',
       venue: nextEvent.venue,
       registrationUrl: nextEvent.registrationUrl || '/events',
-      partnerships: (nextEvent as any).partnerships || [],
-      // Include subevents for this main event (limit to next 2 upcoming)
-      subevents: (nextEvent as any).subevents ? 
-        (nextEvent as any).subevents.slice(0, 2).map((sub: any) => ({
-          id: sub.id,
-          title: sub.title,
-          description: sub.description,
-          eventDate: sub.eventDate.toISOString(),
-          venue: sub.venue,
-          eventType: sub.eventType
-        })) : []
+      registrationEnabled: nextEvent.registrationEnabled,
+      registrationCtaLabel: nextEvent.registrationCtaLabel,
+      partnerships: nextEvent.partnerships || [],
+      subevents: nextEvent.subevents || []
     };
 
-    return NextResponse.json(formattedEvent);
+    return NextResponse.json(safeJson(formattedEvent));
   } catch (error) {
     console.error('Error fetching next event:', error);
     return NextResponse.json({ error: 'Failed to fetch next event' }, { status: 500 });
+  } finally {
+    await client.close();
   }
-} 
+}

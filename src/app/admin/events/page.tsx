@@ -17,6 +17,10 @@ export default function EventsAdmin() {
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [showSubeventForm, setShowSubeventForm] = useState<any>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
 
   // Restore form state on mount
   useEffect(() => {
@@ -163,19 +167,79 @@ export default function EventsAdmin() {
           <p className="text-gray-600 mt-1">Manage events and workshops ({events.length} total)</p>
         </div>
         {!showForm && !showSubeventForm && (
-          <button
-            onClick={() => {
-              setEditingEvent(null);
-              setShowSubeventForm(null);
-              setShowForm(true);
-            }}
-            className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366] admin-white-text"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Add Event
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowImport((v) => !v)}
+              className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              title="Upload a CSV of events"
+            >
+              Bulk Upload CSV
+            </button>
+            <button
+              onClick={() => {
+                setEditingEvent(null);
+                setShowSubeventForm(null);
+                setShowForm(true);
+              }}
+              className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366] admin-white-text"
+            >
+              <PlusIcon className="w-4 h-4" />
+              Add Event
+            </button>
+          </div>
         )}
       </div>
+
+      {/* Import Panel */}
+      {showImport && !showForm && !showSubeventForm && (
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-gray-900">Bulk Upload Events (CSV)</h3>
+            <button className="text-sm text-gray-500 hover:text-gray-700" onClick={() => setShowImport(false)}>Close</button>
+          </div>
+          <div className="text-sm text-gray-700 mb-3">
+            Required headers: <code className="bg-gray-100 px-1 rounded">title</code>, <code className="bg-gray-100 px-1 rounded">description</code>, <code className="bg-gray-100 px-1 rounded">eventDate</code>, <code className="bg-gray-100 px-1 rounded">location</code>, <code className="bg-gray-100 px-1 rounded">eventType</code>. Optional: <code className="bg-gray-100 px-1 rounded">endDate</code>, <code className="bg-gray-100 px-1 rounded">venue</code>, <code className="bg-gray-100 px-1 rounded">capacity</code>, <code className="bg-gray-100 px-1 rounded">registrationUrl</code>, <code className="bg-gray-100 px-1 rounded">imageUrl</code>, <code className="bg-gray-100 px-1 rounded">featured</code>, <code className="bg-gray-100 px-1 rounded">published</code>. Event types: WORKSHOP, SYMPOSIUM, NETWORKING, CONFERENCE, MEETING, SOCIAL.
+          </div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+              className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-[#00274c] file:text-white hover:file:bg-[#003366]"
+            />
+            <button
+              disabled={!importFile || importing}
+              onClick={async () => {
+                if (!importFile) return;
+                setImporting(true);
+                setImportResult(null);
+                try {
+                  const form = new FormData();
+                  form.append('file', importFile);
+                  const res = await fetch('/api/admin/events/import', { method: 'POST', body: form });
+                  const json = await res.json();
+                  setImportResult(json);
+                  if (res.ok && json.success) {
+                    await loadEvents();
+                  }
+                } catch (err) {
+                  setImportResult({ error: 'Upload failed' });
+                } finally {
+                  setImporting(false);
+                }
+              }}
+              className="px-4 py-2 rounded-md bg-[#00274c] text-white hover:bg-[#003366] disabled:opacity-50"
+            >
+              {importing ? 'Uploading…' : 'Upload CSV'}
+            </button>
+          </div>
+          {importResult && (
+            <div className="mt-3 text-sm">
+              <pre className="bg-gray-50 p-3 rounded border overflow-auto max-h-64">{JSON.stringify(importResult, null, 2)}</pre>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Inline Form */}
       {(showForm || showSubeventForm) && (

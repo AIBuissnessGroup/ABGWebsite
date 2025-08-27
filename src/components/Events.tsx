@@ -54,7 +54,7 @@ export default function Events() {
   useEffect(() => {
     const loadEvents = async () => {
       try {
-        const res = await fetch('/api/admin/events');
+        const res = await fetch('/api/events');
         if (res.ok) {
           const data = await res.json();
           setEvents(data);
@@ -67,9 +67,7 @@ export default function Events() {
     };
 
     loadEvents();
-  }, []);
-
-  return (
+  }, []);  return (
     <section 
       id="events" 
       ref={ref}
@@ -387,9 +385,14 @@ export default function Events() {
                         )}
                         
                         <div className="flex flex-col sm:flex-row gap-3">
-                          <a href="/#join" className="btn-secondary text-sm px-6 py-2">
-                            Reserve Your Spot
-                          </a>
+                          {event.registrationEnabled && (
+                            <a
+                              href={event.registrationUrl || '/#join'}
+                              className="btn-secondary text-sm px-6 py-2"
+                            >
+                              {event.registrationCtaLabel || 'Reserve Your Spot'}
+                            </a>
+                          )}
                           <a 
                             href={generateGoogleCalendarUrl(event)}
                             target="_blank"

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { PrismaClient, EventType } from '@prisma/client';
+import { MongoClient } from 'mongodb';
 import { parse } from 'csv-parse/sync';
+import crypto from 'crypto';
 
-const prisma = new PrismaClient();
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
+const client = new MongoClient(uri);
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,10 +21,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    await client.connect();
+    const db = client.db('abg-website');
+    const usersCollection = db.collection('User');
+    const eventsCollection = db.collection('Event');
+
     // Find the user to get their ID
-    let user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
+    const user = await usersCollection.findOne({ email: session.user.email });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -53,32 +58,38 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Validate event type
-        if (!Object.values(EventType).includes(record.eventType)) {
+        // Validate event type (simplified validation)
+        const validEventTypes = ['MEETING', 'WORKSHOP', 'CONFERENCE', 'NETWORKING', 'OTHER'];
+        if (!validEventTypes.includes(record.eventType)) {
           errors.push(`Invalid event type "${record.eventType}" for record: ${JSON.stringify(record)}`);
           continue;
         }
 
-        const event = await prisma.event.create({
-          data: {
-            title: record.title,
-            description: record.description,
-            eventDate: new Date(record.eventDate),
-            endDate: record.endDate ? new Date(record.endDate) : null,
-            location: record.location,
-            venue: record.venue || null,
-            capacity: record.capacity ? parseInt(record.capacity) : null,
-            registrationUrl: record.registrationUrl || null,
-            eventType: record.eventType as EventType,
-            imageUrl: record.imageUrl || null,
-            featured: record.featured === 'true' || false,
-            published: record.published !== 'false',
-            createdBy: user.id
-          }
-        });
+        const eventData = {
+          id: crypto.randomUUID(),
+          title: record.title,
+          description: record.description,
+          eventDate: new Date(record.eventDate),
+          endDate: record.endDate ? new Date(record.endDate) : null,
+          location: record.location,
+          venue: record.venue || null,
+          capacity: record.capacity ? parseInt(record.capacity) : null,
+          registrationUrl: record.registrationUrl || null,
+          eventType: record.eventType,
+          imageUrl: record.imageUrl || null,
+          featured: record.featured === 'true' ? 1 : 0,
+          published: record.published !== 'false',
+          isMainEvent: 1,
+          createdBy: user.id,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        const result = await eventsCollection.insertOne(eventData);
+        const event = { ...eventData, _id: result.insertedId };
 
         results.push(event);
-      } catch (error) {
+      } catch (error: any) {
         errors.push(`Error processing record ${JSON.stringify(record)}: ${error.message}`);
       }
     }
@@ -90,11 +101,13 @@ export async function POST(request: NextRequest) {
       results
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error importing events:', error);
     return NextResponse.json({ 
       error: 'Failed to import events',
       details: error.message
     }, { status: 500 });
+  } finally {
+    await client.close();
   }
 } 

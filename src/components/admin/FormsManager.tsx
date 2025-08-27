@@ -657,6 +657,11 @@ export default function FormsManager({
                     <p className="text-sm text-gray-500">
                       Submitted: {new Date(app.submittedAt).toLocaleDateString()}
                     </p>
+                    <div className="mt-2 space-y-1">
+                      <div className="text-xs text-gray-700"><span className="font-semibold">Email:</span> {app.applicantEmail}</div>
+                      <div className="text-xs text-gray-700"><span className="font-semibold">IP Address:</span> {app.ipAddress || 'N/A'}</div>
+                      <div className="text-xs text-gray-700"><span className="font-semibold">Device/User Agent:</span> {app.userAgent || 'N/A'}</div>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(app.status)}`}>
@@ -774,14 +779,21 @@ export default function FormsManager({
 
               {(newQuestion.type === 'SELECT' || newQuestion.type === 'RADIO' || newQuestion.type === 'CHECKBOX') && (
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-900 mb-2">Options (one per line)</label>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Options (enter as a JSON array)
+                  </label>
                   <textarea
                     value={newQuestion.options}
                     onChange={(e) => setNewQuestion({...newQuestion, options: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
                     rows={4}
-                    placeholder="Option 1&#10;Option 2&#10;Option 3"
+                    placeholder='["Option 1", "Option 2", "Option 3"]'
                   />
+                  <p className="text-xs text-gray-600 mt-2">
+                    Example: <span className="font-mono">["Option 1", "Option 2", "Option 3"]</span><br/>
+                    For dropdowns, radio buttons, and checkboxes, enter your options as a JSON array.<br/>
+                    <span className="font-semibold text-red-500">Do not use comma-separated values.</span>
+                  </p>
                 </div>
               )}
 

@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { PrismaClient } from '@prisma/client';
+import { MongoClient } from 'mongodb';
 import { isAdminEmail } from '@/lib/admin';
 import * as XLSX from 'xlsx';
-
-const prisma = new PrismaClient();
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,40 +19,87 @@ export async function POST(request: NextRequest) {
 
     const { category, status, reviewer, formId, exportType = 'summary' } = await request.json();
 
-    // Build filter conditions
-    const whereClause: any = {};
+    const client = new MongoClient(process.env.DATABASE_URL!);
+    await client.connect();
+    const db = client.db();
+
+    // Build filter conditions for application aggregation
+    const matchStage: any = {};
     if (formId) {
-      whereClause.formId = formId;
-    } else if (category && category !== 'all') {
-      whereClause.form = { category };
+      matchStage.formId = formId;
     }
     if (status && status !== 'all') {
-      whereClause.status = status;
+      matchStage.status = status;
     }
     if (reviewer && reviewer !== 'all') {
-      whereClause.reviewedBy = reviewer;
+      matchStage.reviewedBy = reviewer;
     }
 
-    // Fetch applications with all related data
-    const applications = await prisma.application.findMany({
-      where: whereClause,
-      include: {
-        form: {
-          select: { title: true, slug: true, category: true }
-        },
-        responses: {
-          include: {
-            question: {
-              select: { title: true, type: true, order: true }
-            }
-          },
-          orderBy: { question: { order: 'asc' } }
-        },
-        reviewer: {
-          select: { name: true, email: true }
+    // Aggregation pipeline to get applications with all related data
+    const pipeline = [
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: 'Form',
+          localField: 'formId',
+          foreignField: 'id',
+          as: 'form'
         }
       },
-      orderBy: { submittedAt: 'desc' }
+      { $unwind: { path: '$form', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'FormResponse',
+          localField: 'id',
+          foreignField: 'applicationId',
+          as: 'responses'
+        }
+      },
+      {
+        $lookup: {
+          from: 'User',
+          localField: 'reviewedBy',
+          foreignField: 'email',
+          as: 'reviewer'
+        }
+      },
+      { $unwind: { path: '$reviewer', preserveNullAndEmptyArrays: true } },
+      { $sort: { submittedAt: -1 } }
+    ];
+
+    // Add category filter if specified
+    if (category && category !== 'all') {
+      pipeline.splice(2, 0, { $match: { 'form.category': category } });
+    }
+
+    const applications = await db.collection('Application').aggregate(pipeline).toArray();
+
+    // Get all form questions for response processing
+    const formIds = [...new Set(applications.map(app => app.formId))];
+    const formQuestions = await db.collection('FormQuestion').find({
+      formId: { $in: formIds }
+    }).sort({ order: 1 }).toArray();
+
+    // Process applications to include question data with responses
+    const processedApplications = applications.map(app => {
+      const appQuestions = formQuestions.filter(q => q.formId === app.formId);
+      
+      const processedResponses = app.responses.map((response: any) => {
+        const question = appQuestions.find(q => q.id === response.questionId);
+        return {
+          ...response,
+          question: question ? {
+            title: question.title,
+            type: question.type,
+            order: question.order
+          } : { title: 'Unknown Question', type: 'text', order: 999 }
+        };
+      }).sort((a: any, b: any) => a.question.order - b.question.order);
+
+      return {
+        ...app,
+        responses: processedResponses
+      };
     });
 
     // Create workbook
@@ -62,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     if (exportType === 'detailed') {
       // Detailed export: One sheet per form, detailed Q&A format
-      const formGroups = applications.reduce((groups, app) => {
+      const formGroups = processedApplications.reduce((groups: any, app: any) => {
         const formTitle = app.form.title;
         if (!groups[formTitle]) {
           groups[formTitle] = [];
@@ -153,7 +198,7 @@ export async function POST(request: NextRequest) {
 
     } else {
       // Summary export: All applications in one sheet with response columns
-      const summaryData = applications.map(app => {
+      const summaryData = processedApplications.map((app: any) => {
         const baseData = {
           'Application ID': app.id,
           'Form Title': app.form.title,
@@ -203,6 +248,8 @@ export async function POST(request: NextRequest) {
 
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Applications Summary');
     }
+
+    await client.close();
 
     // Generate Excel buffer
     const excelBuffer = XLSX.write(workbook, { 

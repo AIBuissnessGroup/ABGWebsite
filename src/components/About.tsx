@@ -43,8 +43,8 @@ export default function About() {
     title: "WHO WE ARE",
     subtitle: "We're not just another student organization. We're the bridge between artificial intelligence and business impact at the University of Michigan.",
     mainTitle: "BUILDING THE FUTURE",
-    description1: "AI Business Group brings together builders, entrepreneurs, and researchers who share one vision: transforming how businesses operate through intelligent technology.",
-    description2: "We don't just study AI — we apply it. Every project we create has real business impact, from startup solutions to enterprise innovations.",
+    description1: "AI Business Group is a platform for students from all backgrounds to explore and apply AI to their work, goals, and careers, equipping every member with the tools to adapt and innovate in their field.",
+    description2: "We are not just another student org, we’re redefining career readiness in an AI-driven world by turning ideas into real-world projects with measurable impact.",    
     primaryButtonText: "Explore Projects",
     primaryButtonLink: "/events",
     secondaryButtonText: "Meet the Team",
@@ -70,7 +70,7 @@ export default function About() {
   });
 
   useEffect(() => {
-    fetch('/api/admin/about')
+    fetch('/api/about')
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
@@ -102,7 +102,7 @@ export default function About() {
     <section 
       id="about" 
       ref={ref}
-      className="min-h-screen py-16 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-12 relative overflow-hidden"
+      className="min-h-screen pt-8 sm:pt-12 lg:pt-16 pb-16 sm:pb-20 lg:pb-24 px-4 sm:px-6 lg:px-12 relative overflow-hidden"
       style={{
         background: `linear-gradient(135deg, #1a2c45 0%, #00274c 50%, #0d1d35 100%)`,
       }}

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { MongoClient } from 'mongodb';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,24 +18,32 @@ export async function POST(request: NextRequest) {
 
     const { eventId, partnerships } = await request.json();
 
+    const client = new MongoClient(process.env.DATABASE_URL!);
+    await client.connect();
+    const db = client.db();
+
     // Delete existing partnerships for this event
-    await prisma.eventPartnership.deleteMany({
-      where: { eventId }
+    await db.collection('EventPartnership').deleteMany({
+      eventId
     });
 
     // Create new partnerships
     if (partnerships && partnerships.length > 0) {
-      await prisma.eventPartnership.createMany({
-        data: partnerships.map((p: any) => ({
+      await db.collection('EventPartnership').insertMany(
+        partnerships.map((p: any) => ({
+          id: `ep-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           eventId,
           companyId: p.companyId,
           type: p.type,
           description: p.description || '',
-          sponsorshipLevel: p.sponsorshipLevel || null
+          sponsorshipLevel: p.sponsorshipLevel || null,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }))
-      });
+      );
     }
 
+    await client.close();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error managing event partnerships:', error);

@@ -30,6 +30,7 @@ interface FormData {
   textColor: string;
   questions: Question[];
   submissionCount: number;
+  isAttendanceForm?: boolean;
 }
 
 export default function FormPage() {
@@ -42,6 +43,10 @@ export default function FormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  // Geo / attendance state
+  const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
+  const [geoError, setGeoError] = useState('');
+  const [requestingGeo, setRequestingGeo] = useState(false);
   
   // Draft-related state
   const [isDraftLoading, setIsDraftLoading] = useState(false);
@@ -81,6 +86,36 @@ export default function FormPage() {
       loadDraft();
     }
   }, [form, session, submitted]);
+
+  // Auto-request location for attendance forms when form loads
+  useEffect(() => {
+    if (form?.isAttendanceForm && coords.lat == null && coords.lng == null) {
+      requestLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form?.isAttendanceForm]);
+
+  // Geolocation request helper for attendance forms
+  const requestLocation = () => {
+    if (!form?.requireAuth && !form?.isAttendanceForm) return;
+    if (!('geolocation' in navigator)) {
+      setGeoError('Geolocation not supported by this browser.');
+      return;
+    }
+    setRequestingGeo(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGeoError('');
+        setRequestingGeo(false);
+      },
+      (err) => {
+        setGeoError(err.message || 'Failed to get your location.');
+        setRequestingGeo(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   // Auto-save functionality
   useEffect(() => {
@@ -225,7 +260,7 @@ export default function FormPage() {
     setError('');
 
     try {
-      const submissionData = {
+      const submissionData: any = {
         applicantName: applicantInfo.name,
         applicantEmail: applicantInfo.email,
         applicantPhone: applicantInfo.phone,
@@ -234,6 +269,17 @@ export default function FormPage() {
           value
         }))
       };
+
+      // Attach location if attendance form requires it
+      if (form.isAttendanceForm) {
+        if (coords.lat == null || coords.lng == null) {
+          setSubmitting(false);
+          setError('Location required to submit this attendance form. Please allow location access.');
+          return;
+        }
+        submissionData.latitude = coords.lat;
+        submissionData.longitude = coords.lng;
+      }
 
       const res = await fetch(`/api/forms/${slug}/submit`, {
         method: 'POST',
@@ -489,39 +535,47 @@ export default function FormPage() {
 
   // Check authentication requirement
   if (form.requireAuth && (!session?.user?.email || !session.user.email.endsWith('@umich.edu'))) {
+    const callbackUrl = typeof window !== 'undefined' ? window.location.href : '';
+    if (typeof window !== 'undefined') {
+      console.log('Form sign-in callbackUrl:', callbackUrl);
+    }
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
-          <div className="text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-[#00274c] mb-4">
-              <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <h1 className="text-xl font-bold text-gray-900 mb-2">Authentication Required</h1>
-            <p className="text-gray-600 mb-4">
-              This form requires you to sign in with your University of Michigan email address.
-            </p>
-            {!session?.user ? (
-              <button
-                onClick={() => signIn('google')}
-                className="w-full bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] transition-colors"
-              >
-                Sign In with UMich Google
-              </button>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-sm text-red-600">
-                  You are signed in as {session.user.email}, but this form requires a @umich.edu email address.
-                </p>
-                <button
-                  onClick={() => signOut()}
-                  className="w-full bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Sign Out & Try Different Account
-                </button>
+      <div className="min-h-screen bg-gradient-to-br from-[#00274c] to-[#1a2c45] flex items-center justify-center px-4">
+        <div className="max-w-md w-full">
+          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-8 shadow-2xl">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-[#00274c]/80 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
               </div>
-            )}
+              <h1 className="text-2xl font-bold text-white mb-3">Authentication Required</h1>
+              <p className="text-[#BBBBBB] mb-6 leading-relaxed">
+                This form requires you to sign in with your University of Michigan email address.
+              </p>
+              {!session?.user ? (
+                <button
+                  onClick={() => signIn('google', { callbackUrl })}
+                  className="w-full bg-white hover:bg-gray-50 text-gray-900 font-medium py-3 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                  Sign In with UMich Google
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 bg-red-500/20 rounded-lg border border-red-500/30">
+                    <p className="text-red-200 text-sm">
+                      You are signed in as <span className="font-medium">{session.user.email}</span>, but this form requires a @umich.edu email address.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => signOut()}
+                    className="w-full bg-gray-600 hover:bg-gray-500 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200"
+                  >
+                    Sign Out & Try Different Account
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -627,6 +681,30 @@ export default function FormPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {form.isAttendanceForm && (
+              <div className="border border-blue-400/30 bg-blue-900/30 rounded-lg p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm text-blue-100">
+                    {coords.lat != null && coords.lng != null ? (
+                      <span>Location captured ✓</span>
+                    ) : requestingGeo ? (
+                      <span>Requesting your location…</span>
+                    ) : (
+                      <span>Location required to submit this attendance form.</span>
+                    )}
+                    {geoError && <div className="text-red-200 mt-1">{geoError}</div>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={requestLocation}
+                    className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm"
+                    disabled={requestingGeo}
+                  >
+                    {coords.lat != null ? 'Refresh Location' : 'Share Location'}
+                  </button>
+                </div>
+              </div>
+            )}
             {/* Applicant Information */}
             <div className="border-b border-white/20 pb-6">
               <h2 className="text-xl font-semibold text-white mb-4">Your Information</h2>

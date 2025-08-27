@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { MongoClient } from 'mongodb';
 
 export async function GET(
   request: NextRequest,
@@ -24,13 +22,30 @@ export async function GET(
     const { id } = await params;
     const eventId = id;
 
-    const partnerships = await prisma.eventPartnership.findMany({
-      where: { eventId },
-      include: {
-        company: true
-      }
-    });
+    const client = new MongoClient(process.env.DATABASE_URL!);
+    await client.connect();
+    const db = client.db();
 
+    // Get partnerships with company data
+    const partnerships = await db.collection('EventPartnership').aggregate([
+      { $match: { eventId } },
+      {
+        $lookup: {
+          from: 'Company',
+          localField: 'companyId',
+          foreignField: 'id',
+          as: 'company'
+        }
+      },
+      {
+        $unwind: {
+          path: '$company',
+          preserveNullAndEmptyArrays: true
+        }
+      }
+    ]).toArray();
+
+    await client.close();
     return NextResponse.json(partnerships);
   } catch (error) {
     console.error('Error fetching event partnerships:', error);

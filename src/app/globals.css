@@ -6,6 +6,8 @@
   --light-gray: #BBBBBB;
   --dark-gray: #5e6472;
   --white: #ffffff;
+  --brand-blue: #0e2a4a;
+  --brand-blue-hover: #134a7a;
   }
 
 /* Font Integration - Using Google Fonts fallback */
@@ -26,6 +28,94 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   line-height: 1.6;
+}
+
+/* Global utility classes extracted from components */
+.text-muted { color: var(--light-gray); }
+.text-dark-gray { color: var(--dark-gray); }
+.text-brand { color: var(--brand-blue); }
+.bg-brand { background-color: var(--brand-blue); }
+.hover-brand:hover { background-color: var(--brand-blue-hover); }
+
+/* Newsletter signup extracted styles */
+.newsletter-card {
+  background-color: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+}
+
+.newsletter-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.newsletter-icon {
+  width: 1.25rem; /* 20px */
+  height: 1.25rem; /* 20px */
+  color: var(--white);
+}
+
+.newsletter-title {
+  font-size: 1.125rem; /* text-lg */
+  font-weight: 600; /* font-semibold */
+  color: var(--white);
+}
+
+.newsletter-subtitle {
+  color: var(--light-gray);
+  font-size: 0.875rem; /* text-sm */
+  text-align: center;
+}
+
+.newsletter-form > * + * {
+  margin-top: 0.75rem; /* space-y-3 */
+}
+
+.newsletter-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem; /* px-3 py-2 */
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.25rem;
+  color: var(--white);
+}
+.newsletter-input::placeholder {
+  color: var(--light-gray);
+}
+.newsletter-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+.newsletter-button {
+  width: 100%;
+  background-color: var(--white);
+  color: var(--deep-blue);
+  padding: 0.5rem 1rem; /* px-4 py-2 */
+  border-radius: 0.375rem;
+  font-weight: 500; /* font-medium */
+  transition-property: all;
+  transition-duration: 200ms;
+}
+.newsletter-button:hover {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+.newsletter-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.newsletter-disclaimer {
+  font-size: 0.75rem; /* text-xs */
+  color: var(--light-gray);
+  margin-top: 0.75rem; /* mt-3 */
+  text-align: center;
 }
 
 /* Mobile-specific improvements */
@@ -416,18 +506,26 @@ body {
   opacity: 1 !important;
 }
 
-/* Form Labels and Text - Only for public forms */
-.form-page label,
-.form-page .form-label,
-.form-page .question-title {
+/* Form Labels and Text - Only for public forms with light backgrounds */
+.form-page label:not(.text-white),
+.form-page .form-label:not(.text-white),
+.form-page .question-title:not(.text-white) {
   color: #000000 !important;
   font-weight: 600 !important;
 }
 
-.form-page .form-question label,
-.form-page .form-question .question-title {
+.form-page .form-question label:not(.text-white),
+.form-page .form-question .question-title:not(.text-white) {
   color: #0c0c0c !important;
   font-weight: 600 !important;
+}
+
+/* Ensure white text works on dark form backgrounds */
+.form-page .text-white,
+.form-page label.text-white,
+.form-page .form-label.text-white,
+.form-page .question-title.text-white {
+  color: white !important;
 }
 
 /* Main site styling - white text on gradient backgrounds */

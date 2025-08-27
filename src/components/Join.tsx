@@ -36,10 +36,10 @@ export default function Join() {
     title: "JOIN THE FUTURE",
     subtitle: "Ready to shape tomorrow's business landscape? Multiple ways to get involved with ABG's mission to revolutionize how AI and business intersect.",
     option1Title: "BECOME A MEMBER",
-    option1Description: "Join our core team and work on cutting-edge AI projects that solve real business problems.",
-    option1Benefits: "Direct project involvement\nMentorship opportunities\nIndustry networking\nSkill development",
-    option1CTA: "Apply Now",
-    option1Link: "#",
+    option1Description: "Join our core team and apply AI to create innovative solutions that prepare students to lead in an AI-driven world.",
+    option1Benefits: "Hands-on project experience\nOne-on-one mentorship from industry professionals\nOpportunities to connect with top companies\nPractical skills to stay ahead in your field",
+    option1CTA: "Fall 25 Interest Form",
+    option1Link: "https://abgumich.org/forms/abg-interest-form-fall-2025",
     option2Title: "PARTNER WITH US",
     option2Description: "Collaborate on research, sponsor events, or provide mentorship to our growing community.",
     option2Benefits: "Strategic partnerships\nTalent pipeline access\nInnovation collaboration\nBrand visibility",
@@ -48,9 +48,9 @@ export default function Join() {
     option3Title: "STAY CONNECTED",
     option3Description: "Get updates on our latest projects, events, and opportunities in the AI business space.",
     option3Benefits: "Weekly insights\nEvent invitations\nProject showcases\nIndustry updates",
-    option3CTA: "Subscribe",
+    option3CTA: "Join Newsletter",
     contactTitle: "QUESTIONS? LET'S CONNECT",
-    contactEmail1: "aibusinessgroup@umich.edu",
+    contactEmail1: "ABGContact@umich.edu",
     contactEmail2: "ABGPartnerships@umich.edu",
     contactEmail3: "ABGRecruitment@umich.edu"
   });
@@ -59,7 +59,7 @@ export default function Join() {
 
   // Load join content from API
   useEffect(() => {
-    fetch('/api/admin/join')
+    fetch('/api/join')
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
@@ -69,26 +69,8 @@ export default function Join() {
       .catch(err => console.error('Failed to load join content:', err));
   }, []);
 
-  // Create joinOptions from content
+  // Create joinOptions from content - only showing Stay Connected option
   const joinOptions = [
-    {
-      title: content.option1Title,
-      description: content.option1Description,
-      benefits: content.option1Benefits.split('\n'),
-      cta: content.option1CTA,
-      link: content.option1Link,
-      type: "primary",
-      icon: "🚀"
-    },
-    {
-      title: content.option2Title,
-      description: content.option2Description,
-      benefits: content.option2Benefits.split('\n'),
-      cta: content.option2CTA,
-      link: content.option2Link,
-      type: "secondary",
-      icon: "🤝"
-    },
     {
       title: content.option3Title,
       description: content.option3Description,
@@ -175,8 +157,9 @@ export default function Join() {
         </motion.div>
 
         {/* Join Options Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-16 sm:mb-20">
-          {joinOptions.map((option, index) => (
+        <div className="flex justify-center mb-16 sm:mb-20">
+          <div className="w-full max-w-2xl">
+            {joinOptions.map((option, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, y: 30 }}
@@ -192,12 +175,6 @@ export default function Join() {
                   option.type === 'primary' ? 'border-white/30' : ''
                 }`}
               >
-                {/* Premium Badge for Primary Option */}
-                {option.type === 'primary' && (
-                  <div className="absolute top-3 sm:top-4 right-3 sm:right-4 px-2 sm:px-3 py-1 bg-white text-[#00274c] text-xs font-bold rounded-full uppercase">
-                    Most Popular
-                  </div>
-                )}
 
                 {/* Icon */}
                 <div className="text-center mb-6 sm:mb-8">
@@ -231,27 +208,14 @@ export default function Join() {
                   whileTap={{ scale: 0.95 }}
                   className="mt-auto"
                 >
-                  {option.type === 'newsletter' ? (
-                    <NewsletterSignup 
-                      source="join_section"
-                      className="bg-transparent border-0 p-0"
-                      title=""
-                      subtitle=""
-                      placeholder="Enter your email"
-                      buttonText={option.cta}
-                    />
-                  ) : (
-                    <a
-                      href={option.link}
-                      className={`block w-full text-center py-3 sm:py-4 px-4 sm:px-6 rounded-lg font-bold text-sm sm:text-base transition-all duration-300 ${
-                        option.type === 'primary' 
-                          ? 'bg-white text-[#00274c] hover:bg-white/90 hover:scale-105' 
-                          : 'bg-white/20 text-white border border-white/30 hover:bg-white/30 hover:scale-105'
-                      }`}
-                    >
-                      {option.cta}
-                    </a>
-                  )}
+                  <NewsletterSignup 
+                    source="join_section"
+                    className="bg-transparent border-0 p-0"
+                    title=""
+                    subtitle=""
+                    placeholder="Enter your email"
+                    buttonText={option.cta}
+                  />
                 </motion.div>
 
                 {/* Hover Glow Effect */}
@@ -263,6 +227,7 @@ export default function Join() {
               </motion.div>
             </motion.div>
           ))}
+          </div>
         </div>
 
         {/* Contact Section */}

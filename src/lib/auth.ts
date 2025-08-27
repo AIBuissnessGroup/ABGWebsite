@@ -61,6 +61,13 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
+      async redirect({ url, baseUrl }) {
+        // Only allow redirects to same-origin URLs
+        if (url.startsWith(baseUrl)) {
+          return url;
+        }
+        return baseUrl;
+      },
   },
   pages: {
     signIn: '/auth/signin',

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { PrismaClient } from '@prisma/client';
+import { MongoClient, ObjectId } from 'mongodb';
 
-const prisma = new PrismaClient();
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
+const client = new MongoClient(uri);
 
 export async function POST(
   request: NextRequest,
@@ -18,13 +19,11 @@ export async function POST(
     const ipAddress = forwarded ? forwarded.split(',')[0] : 'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
+    await client.connect();
+    const db = client.db();
+
     // Find the form
-    const form = await prisma.form.findUnique({
-      where: { slug },
-      include: {
-        questions: true
-      }
-    });
+    const form = await db.collection('Form').findOne({ slug });
 
     if (!form) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
@@ -37,6 +36,11 @@ export async function POST(
     if (form.deadline && new Date() > form.deadline) {
       return NextResponse.json({ error: 'The submission deadline has passed' }, { status: 403 });
     }
+
+    // Get form questions
+    const questions = await db.collection('FormQuestion')
+      .find({ formId: form._id.toString() })
+      .toArray();
 
     // Check authentication requirement
     if (form.requireAuth) {
@@ -63,13 +67,62 @@ export async function POST(
       data.applicantName = authenticatedName;
     }
 
+    // Attendance geo-fence check (if enabled)
+    if (form.isAttendanceForm && form.attendanceLatitude && form.attendanceLongitude && form.attendanceRadiusMeters) {
+      const toRad = (v: number) => (v * Math.PI) / 180;
+      const getDistanceMeters = (latA: number, lonA: number, latB: number, lonB: number) => {
+        const R = 6371000;
+        const dLat = toRad(latA - latB);
+        const dLon = toRad(lonA - lonB);
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(toRad(latB)) * Math.cos(toRad(latA));
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+      };
+
+      const { latitude, longitude } = data || {};
+
+      let verified = false;
+      if (typeof latitude === 'number' && typeof longitude === 'number') {
+        const distance = getDistanceMeters(latitude, longitude, form.attendanceLatitude, form.attendanceLongitude);
+        verified = distance <= form.attendanceRadiusMeters;
+      }
+
+      if (!verified) {
+        // Fallback: approximate IP geolocation (coarse). Only attempt if we have a plausible client IP.
+        try {
+          const fwd = forwarded || request.headers.get('x-forwarded-for');
+          const ip = fwd ? fwd.split(',')[0].trim() : null;
+          if (ip && ip !== '127.0.0.1' && ip !== '::1') {
+            // Try ipapi.co (no key, rate limited). Alternative: ip-api.com/json
+            const ipRes = await fetch(`https://ipapi.co/${ip}/json/`, { cache: 'no-store' });
+            if (ipRes.ok) {
+              const ipJson: any = await ipRes.json();
+              const ipLat = ipJson.latitude ?? ipJson.lat;
+              const ipLon = ipJson.longitude ?? ipJson.lon;
+              if (typeof ipLat === 'number' && typeof ipLon === 'number') {
+                const distance = getDistanceMeters(ipLat, ipLon, form.attendanceLatitude, form.attendanceLongitude);
+                // Note: IP geolocation is coarse; you may want to use a larger radius or separate fallback threshold
+                if (distance <= form.attendanceRadiusMeters) {
+                  verified = true;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // ignore fallback errors
+        }
+      }
+
+      if (!verified) {
+        return NextResponse.json({ error: 'Location required to submit attendance form. Please enable location services.' }, { status: 400 });
+      }
+    }
+
     // Check if multiple submissions are allowed
     if (!form.allowMultiple) {
-      const existingApplication = await prisma.application.findFirst({
-        where: {
-          formId: form.id,
-          applicantEmail: data.applicantEmail || applicantEmail
-        }
+      const existingApplication = await db.collection('Application').findOne({
+        formId: form.id,
+        applicantEmail: data.applicantEmail || applicantEmail
       });
 
       if (existingApplication) {
@@ -81,8 +134,8 @@ export async function POST(
 
     // Check max submissions limit
     if (form.maxSubmissions) {
-      const submissionCount = await prisma.application.count({
-        where: { formId: form.id }
+      const submissionCount = await db.collection('Application').countDocuments({
+        formId: form.id
       });
 
       if (submissionCount >= form.maxSubmissions) {
@@ -93,7 +146,7 @@ export async function POST(
     }
 
     // Validate required fields
-    const requiredQuestions = form.questions.filter(q => q.required);
+    const requiredQuestions = questions.filter((q: any) => q.required);
     for (const question of requiredQuestions) {
       const response = responses.find((r: any) => r.questionId === question.id);
       if (!response || !response.value) {
@@ -104,81 +157,72 @@ export async function POST(
     }
 
     // Create application with responses
-    const application = await prisma.application.create({
-      data: {
-        formId: form.id,
-        applicantName: data.applicantName || applicantName,
-        applicantEmail: data.applicantEmail || applicantEmail,
-        applicantPhone,
-        ipAddress,
-        userAgent,
-        responses: {
-          create: responses.map((response: any) => {
-            const question = form.questions.find(q => q.id === response.questionId);
-            if (!question) return null;
+    const applicationData = {
+      formId: form.id,
+      applicantName: data.applicantName || applicantName,
+      applicantEmail: data.applicantEmail || applicantEmail,
+      applicantPhone,
+      ipAddress,
+      userAgent,
+      submittedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      responses: responses.map((response: any) => {
+        const question = questions.find((q: any) => q.id === response.questionId);
+        if (!question) return null;
 
-            const responseData: any = {
-              questionId: response.questionId
-            };
+        const responseData: any = {
+          questionId: response.questionId
+        };
 
-            // Store response based on question type
-            switch (question.type) {
-              case 'TEXT':
-              case 'TEXTAREA':
-              case 'EMAIL':
-              case 'PHONE':
-              case 'URL':
-                responseData.textValue = response.value;
-                break;
-              case 'NUMBER':
-                responseData.numberValue = parseFloat(response.value);
-                break;
-              case 'DATE':
-                responseData.dateValue = new Date(response.value);
-                break;
-              case 'BOOLEAN':
-                responseData.booleanValue = Boolean(response.value);
-                break;
-              case 'SELECT':
-              case 'RADIO':
-                responseData.textValue = response.value;
-                break;
-              case 'CHECKBOX':
-                responseData.selectedOptions = JSON.stringify(response.value);
-                break;
-              case 'FILE':
-                responseData.fileUrl = response.value;
-                break;
-              default:
-                responseData.textValue = response.value;
-            }
-
-            return responseData;
-          }).filter(Boolean)
+        // Store response based on question type
+        switch (question.type) {
+          case 'TEXT':
+          case 'TEXTAREA':
+          case 'EMAIL':
+          case 'PHONE':
+          case 'URL':
+            responseData.textValue = response.value;
+            break;
+          case 'NUMBER':
+            responseData.numberValue = parseFloat(response.value);
+            break;
+          case 'DATE':
+            responseData.dateValue = new Date(response.value);
+            break;
+          case 'BOOLEAN':
+            responseData.booleanValue = Boolean(response.value);
+            break;
+          case 'SELECT':
+          case 'RADIO':
+            responseData.textValue = response.value;
+            break;
+          case 'CHECKBOX':
+            responseData.selectedOptions = JSON.stringify(response.value);
+            break;
+          case 'FILE':
+            responseData.fileUrl = response.value;
+            break;
+          default:
+            responseData.textValue = response.value;
         }
-      },
-      include: {
-        form: {
-          select: { title: true, category: true }
-        },
-        responses: {
-          include: {
-            question: {
-              select: { title: true, type: true }
-            }
-          }
-        }
-      }
-    });
 
+        return responseData;
+      }).filter(Boolean)
+    };
+
+    const result = await db.collection('Application').insertOne(applicationData);
+    
     return NextResponse.json({ 
       success: true, 
       message: 'Application submitted successfully!',
-      applicationId: application.id
+      applicationId: result.insertedId.toString()
     });
 
   } catch (error) {
     console.error('Error submitting application:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 } 

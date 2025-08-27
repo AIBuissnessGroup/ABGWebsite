@@ -12,12 +12,13 @@ export default function Navbar() {
 
   const navigationItems = [
     { href: "/", label: "Home" },
-    { href: "/#about", label: "About" },
     { href: "/projects", label: "Projects" },
     { href: "/events", label: "Events" },
     { href: "/internships", label: "Internships" },
     { href: "/team", label: "Team" },
     { href: "/#join", label: "Join" },
+    { href: "https://www.instagram.com/umichaibusiness/", label: "Instagram", external: true },
+    { href: "https://x.com/AiBusinessUmich", label: "X/Twitter", external: true },
     { href: "https://www.linkedin.com/company/michigan-ai-business-group", label: "LinkedIn", external: true },
   ];
 
@@ -31,7 +32,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between">
           {/* Logo Section */}
           <Link href="/" className="flex items-center">
-            <div className="backdrop-blur-sm bg-white border border-white/20 rounded-xl px-2 sm:px-3 py-1 shadow-2xl hover:scale-[1.02] hover:bg-white transition-all duration-300 flex items-center gap-2 sm:gap-3 h-10 sm:h-12">
+            <div className="backdrop-blur-sm bg-white border border-white/20 rounded-xl px-2 sm:px-3 py-1 shadow-2xl hover:scale-[1.02] hover:bg-white transition-all duration-300 flex items-center gap-2 sm:gap-3 h-10 sm:h-12 mr-2 sm:mr-4 lg:mr-6">
               {/* ABG Logo */}
               <div className="flex items-center">
                 <Image 
@@ -80,7 +81,7 @@ export default function Navbar() {
                   href={item.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-white/80 hover:text-white border-b-2 border-transparent hover:border-white/60 transition-all duration-300 pb-1 text-sm lg:text-base font-bold"
+                  className="text-white/80 hover:text-white border-b-2 border-transparent hover:border-white/60 transition-all duration-300 pb-1 text-xs lg:text-sm font-bold"
                 >
                   {item.label}
                 </a>
@@ -88,7 +89,7 @@ export default function Navbar() {
                 <Link
                   key={item.label}
                   href={item.href}
-                  className={`border-b-2 border-transparent hover:border-white/60 transition-all duration-300 pb-1 text-sm lg:text-base font-bold ${
+                  className={`border-b-2 border-transparent hover:border-white/60 transition-all duration-300 pb-1 text-xs lg:text-sm font-bold ${
                     item.label === "Admin" 
                       ? "text-yellow-300 hover:text-yellow-100 hover:border-yellow-300/60" 
                       : "text-white/80 hover:text-white"
@@ -138,7 +139,7 @@ export default function Navbar() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 py-4 px-2 font-bold text-lg rounded-lg min-h-[56px] flex items-center"
+                    className="text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 py-4 px-2 font-bold text-base rounded-lg min-h-[56px] flex items-center"
                   >
                     {item.label}
                   </a>
@@ -147,7 +148,7 @@ export default function Navbar() {
                     key={item.label}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 py-4 px-2 font-bold text-lg rounded-lg min-h-[56px] flex items-center"
+                    className="text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 py-4 px-2 font-bold text-base rounded-lg min-h-[56px] flex items-center"
                   >
                     {item.label}
                   </Link>

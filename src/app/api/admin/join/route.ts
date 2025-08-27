@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import { PrismaClient } from '@prisma/client';
+import { MongoClient, ObjectId } from 'mongodb';
 import { isAdminEmail } from '@/lib/admin';
 
-const prisma = new PrismaClient();
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
+const client = new MongoClient(uri);
 
 const authOptions = {
   providers: [
@@ -44,45 +45,42 @@ async function logChange(userId: string, userEmail: string, action: string, reso
   }
 }
 
+// Safely serialize BigInt values
+function safeJson(obj: any) {
+  return JSON.parse(JSON.stringify(obj, (_, v) =>
+    typeof v === 'bigint' ? v.toString() : v
+  ));
+}
+
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    await client.connect();
+    const db = client.db();
     
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Fetch the latest join content from the database
+    const joinContent = await db.collection('joinContent').findOne(
+      { isActive: true },
+      { sort: { updatedAt: -1 } }
+    );
+
+    if (!joinContent) {
+      // Return default content if none found
+      const defaultContent = {
+        id: 'default',
+        title: 'Join Us',
+        description: 'Content not found in database.',
+        isActive: true,
+        updatedAt: Date.now()
+      };
+      return NextResponse.json(safeJson(defaultContent));
     }
 
-    // Return default join content for now
-    const defaultJoinContent = {
-      id: 'default',
-      title: "JOIN THE FUTURE",
-      subtitle: "Ready to shape tomorrow's business landscape? Multiple ways to get involved with ABG's mission to revolutionize how AI and business intersect.",
-      option1Title: "BECOME A MEMBER",
-      option1Description: "Join our core team and work on cutting-edge AI projects that solve real business problems.",
-      option1Benefits: "Direct project involvement\nMentorship opportunities\nIndustry networking\nSkill development",
-      option1CTA: "Apply Now",
-      option1Link: "#",
-      option2Title: "PARTNER WITH US",
-      option2Description: "Collaborate on research, sponsor events, or provide mentorship to our growing community.",
-      option2Benefits: "Strategic partnerships\nTalent pipeline access\nInnovation collaboration\nBrand visibility",
-      option2CTA: "Explore Partnership",
-      option2Link: "mailto:ABGPartnerships@umich.edu",
-      option3Title: "STAY CONNECTED",
-      option3Description: "Get updates on our latest projects, events, and opportunities in the AI business space.",
-      option3Benefits: "Weekly insights\nEvent invitations\nProject showcases\nIndustry updates",
-      option3CTA: "Subscribe",
-      contactTitle: "QUESTIONS? LET'S CONNECT",
-      contactEmail1: "aibusinessgroup@umich.edu",
-      contactEmail2: "ABGPartnerships@umich.edu",
-      contactEmail3: "ABGRecruitment@umich.edu",
-      isActive: true,
-      updatedAt: new Date()
-    };
-
-    return NextResponse.json(defaultJoinContent);
+    return NextResponse.json(safeJson(joinContent));
   } catch (error) {
     console.error('Error fetching join content:', error);
     return NextResponse.json({ error: 'Failed to fetch join content' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 }
 
@@ -94,9 +92,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
+    await client.connect();
+    const db = client.db();
+
+    const user = await db.collection('User').findOne({ email: session.user.email });
 
     if (!user || user.role === 'USER') {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
@@ -104,7 +103,7 @@ export async function PUT(request: NextRequest) {
 
     const data = await request.json();
 
-    // For now, just return the updated data (we'll implement database storage after Prisma is fixed)
+    // Update or create join content
     const updatedContent = {
       id: 'default',
       ...data,
@@ -112,9 +111,15 @@ export async function PUT(request: NextRequest) {
       updatedAt: new Date()
     };
 
+    await db.collection('joinContent').updateOne(
+      { id: 'default' },
+      { $set: updatedContent },
+      { upsert: true }
+    );
+
     // Log the change
     await logChange(
-      user.id,
+      user._id.toString(),
       user.email,
       'UPDATE',
       'join',
@@ -122,9 +127,11 @@ export async function PUT(request: NextRequest) {
       { updated: data }
     );
 
-    return NextResponse.json(updatedContent);
+    return NextResponse.json(safeJson(updatedContent));
   } catch (error) {
     console.error('Error updating join content:', error);
     return NextResponse.json({ error: 'Failed to update join content' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 } 

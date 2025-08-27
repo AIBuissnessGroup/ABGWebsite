@@ -1,20 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { MongoClient, ObjectId } from 'mongodb';
 
-const prisma = new PrismaClient();
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
+const client = new MongoClient(uri);
 
 // GET - Get all newsletter subscriptions (admin only)
 export async function GET(request: NextRequest) {
   try {
-    const subscriptions = await prisma.newsletterSubscription.findMany({
-      where: { isActive: true },
-      orderBy: { createdAt: 'desc' }
-    });
+    await client.connect();
+    const db = client.db();
+    
+    const subscriptions = await db.collection('NewsletterSubscriber')
+      .find({ isActive: true })
+      .sort({ createdAt: -1 })
+      .toArray();
 
     return NextResponse.json(subscriptions);
   } catch (error) {
     console.error('Error fetching newsletter subscriptions:', error);
     return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 }
 
@@ -27,43 +33,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
+    await client.connect();
+    const db = client.db();
+
     // Check if email already exists
-    const existingSubscription = await prisma.newsletterSubscription.findUnique({
-      where: { email }
-    });
+    const existingSubscription = await db.collection('NewsletterSubscriber').findOne({ email });
 
     if (existingSubscription) {
       if (existingSubscription.isActive) {
         return NextResponse.json({ message: 'Email already subscribed' }, { status: 200 });
       } else {
         // Reactivate subscription
-        const updated = await prisma.newsletterSubscription.update({
-          where: { email },
-          data: {
-            isActive: true,
-            name: name || existingSubscription.name,
-            source: source || existingSubscription.source,
-            unsubscribedAt: null,
-            updatedAt: new Date()
-          }
-        });
+        const updateData = {
+          isActive: true,
+          name: name || existingSubscription.name,
+          source: source || existingSubscription.source,
+          unsubscribedAt: null,
+          updatedAt: new Date()
+        };
+        
+        await db.collection('NewsletterSubscriber').updateOne(
+          { email },
+          { $set: updateData }
+        );
+        
+        const updated = await db.collection('NewsletterSubscriber').findOne({ email });
         return NextResponse.json({ message: 'Successfully resubscribed!', subscription: updated });
       }
     }
 
     // Create new subscription
-    const subscription = await prisma.newsletterSubscription.create({
-      data: {
-        email,
-        name,
-        source: source || 'website'
-      }
-    });
+    const subscription = {
+      email,
+      name,
+      source: source || 'website',
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    await db.collection('NewsletterSubscriber').insertOne(subscription);
 
     return NextResponse.json({ message: 'Successfully subscribed!', subscription });
   } catch (error) {
     console.error('Error subscribing to newsletter:', error);
     return NextResponse.json({ error: 'Failed to subscribe' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 }
 
@@ -76,18 +92,27 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    const subscription = await prisma.newsletterSubscription.update({
-      where: { email },
-      data: {
-        isActive: false,
-        unsubscribedAt: new Date(),
-        updatedAt: new Date()
-      }
-    });
+    await client.connect();
+    const db = client.db();
+
+    const updateData = {
+      isActive: false,
+      unsubscribedAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    await db.collection('NewsletterSubscriber').updateOne(
+      { email },
+      { $set: updateData }
+    );
+
+    const subscription = await db.collection('NewsletterSubscriber').findOne({ email });
 
     return NextResponse.json({ message: 'Successfully unsubscribed', subscription });
   } catch (error) {
     console.error('Error unsubscribing from newsletter:', error);
     return NextResponse.json({ error: 'Failed to unsubscribe' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 } 

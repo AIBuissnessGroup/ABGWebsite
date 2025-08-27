@@ -1,0 +1,7 @@
+[{"id":"cmcdtrjmp000ji6v1ekdn5g17","key":"site_title","value":"AI Business Group - University of Michigan","description":"Main site title shown in browser tab","type":"TEXT","updatedAt":1753813973729},
+{"id":"cmcdtrjn1000ki6v1xypcagfa","key":"site_description","value":"Building the bridge between artificial intelligence and real-world business impact at the University of Michigan.","description":"Site meta description for search engines","type":"TEXT","updatedAt":1753813973731},
+{"id":"cmcdtrjnb000li6v1u9u5o9z6","key":"site_favicon","value":"/favicon.ico","description":"Path to the favicon file","type":"TEXT","updatedAt":1753813973733},
+{"id":"cmcdtrjnl000mi6v193q770ya","key":"site_keywords","value":"AI, Business, University of Michigan, Machine Learning, Technology, Innovation","description":"Keywords for search engines (comma-separated)","type":"TEXT","updatedAt":1753813973735},
+{"id":"cmcdtrjof000ni6v1iovz2bci","key":"site_author","value":"AI Business Group at University of Michigan","description":"Author metadata for the site","type":"TEXT","updatedAt":1753813973737},
+{"id":"cmcdtrjov000oi6v1ofz808hd","key":"site_theme_color","value":"#00274c","description":"Theme color for browser UI","type":"TEXT","updatedAt":1753813973739},
+{"id":"cmcdtrjp4000pi6v1d045vmds","key":"countdown_display_mode","value":"next_event","description":"Choose whether to display next event or next featured event in countdown. Options: next_event, next_featured","type":"TEXT","updatedAt":1753813973740}]

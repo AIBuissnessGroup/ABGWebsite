@@ -448,10 +448,10 @@ export default function InternshipsPage() {
                   boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
                 }}
               >
-                <span style={{color: '#000000', fontWeight: 'bold', fontSize: '16px'}}>Join ABG</span>
+
               </a>
               <a 
-                href="mailto:aibusinessgroup@umich.edu" 
+                href="mailto:ABGContact@umich.edu" 
                 className="btn-secondary inline-flex items-center justify-center"
                 style={{color: 'white'}}
               >

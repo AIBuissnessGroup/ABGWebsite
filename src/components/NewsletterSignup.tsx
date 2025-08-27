@@ -78,13 +78,13 @@ export default function NewsletterSignup({
   };
 
   return (
-    <div className={`bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${className}`}>
+    <div className={`newsletter-card ${className}`}>
       <div className="text-center mb-4">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <EnvelopeIcon className="w-5 h-5 text-white" />
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
+        <div className="newsletter-header mb-2">
+          <EnvelopeIcon className="newsletter-icon" />
+          <h3 className="newsletter-title">{title}</h3>
         </div>
-        <p className="text-[#BBBBBB] text-sm">{subtitle}</p>
+        <p className="newsletter-subtitle">{subtitle}</p>
       </div>
 
       {message && (
@@ -101,14 +101,14 @@ export default function NewsletterSignup({
         </motion.div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="newsletter-form">
         <div>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Your name (optional)"
-            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-[#BBBBBB] focus:outline-none focus:ring-2 focus:ring-white/30"
+            className="newsletter-input"
           />
         </div>
         
@@ -119,7 +119,7 @@ export default function NewsletterSignup({
             onChange={(e) => setEmail(e.target.value)}
             placeholder={placeholder}
             required
-            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-[#BBBBBB] focus:outline-none focus:ring-2 focus:ring-white/30"
+            className="newsletter-input"
           />
         </div>
 
@@ -128,13 +128,13 @@ export default function NewsletterSignup({
           disabled={loading}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          className="w-full bg-white text-[#00274c] px-4 py-2 rounded font-medium hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+          className="newsletter-button"
         >
           {loading ? 'Subscribing...' : buttonText}
         </motion.button>
       </form>
 
-      <p className="text-xs text-[#BBBBBB] mt-3 text-center">
+      <p className="newsletter-disclaimer">
         We respect your privacy. Unsubscribe at any time.
       </p>
     </div>

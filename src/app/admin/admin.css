@@ -486,13 +486,13 @@ div.w-48.md\:w-64.bg-\[#00274c\] *,
   color: white !important;
 }
 
-/* Preview sections that show current content */
-.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"] h1,
-.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"] h2,
-.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"] h3,
-.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"] p,
-.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"] span,
-.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"] button {
+/* Preview sections that show current content - only for dark gradients */
+.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) h1,
+.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) h2,
+.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) h3,
+.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) p,
+.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) span,
+.admin-page div[class*="rounded-lg"][class*="p-"] div[class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) button {
   color: white !important;
 }
 
@@ -565,51 +565,64 @@ div.w-48.md\:w-64.bg-\[#00274c\] *,
   color: white !important;
 }
 
-/* Also target any preview containers specifically */
-.admin-page [class*="rounded-lg"][class*="p-"] [class*="bg-gradient"] *,
-.admin-page .bg-gray-50 + * [class*="bg-gradient"] * {
+/* Also target any preview containers specifically - only for dark gradients */
+.admin-page [class*="rounded-lg"][class*="p-"] [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) *,
+.admin-page .bg-gray-50 + * [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) * {
   color: white !important;
 }
 
-/* COMPREHENSIVE: Force white text for ALL elements in gradient containers */
-.admin-page [class*="bg-gradient"] *:not(button):not(input):not(select):not(textarea) {
+/* COMPREHENSIVE: Force white text for DARK elements in gradient containers */
+.admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) *:not(button):not(input):not(select):not(textarea) {
   color: white !important;
 }
 
-/* Specific targeting for stats and numbers */
-.admin-page [class*="bg-gradient"] .text-2xl,
-.admin-page [class*="bg-gradient"] .text-3xl,
-.admin-page [class*="bg-gradient"] .text-lg,
-.admin-page [class*="bg-gradient"] .text-xl,
-.admin-page [class*="bg-gradient"] .font-semibold,
-.admin-page [class*="bg-gradient"] .font-medium {
+/* Ensure dark text for light gradient backgrounds */
+.admin-page [class*="bg-gradient"][class*="from-blue-50"] *:not(button):not(input):not(select):not(textarea),
+.admin-page [class*="bg-gradient"][class*="from-indigo-50"] *:not(button):not(input):not(select):not(textarea),
+.admin-page [class*="bg-gradient"][class*="from-gray-50"] *:not(button):not(input):not(select):not(textarea),
+.admin-page [class*="bg-gradient"][class*="from-green-50"] *:not(button):not(input):not(select):not(textarea),
+.admin-page [class*="bg-gradient"][class*="from-red-50"] *:not(button):not(input):not(select):not(textarea),
+.admin-page [class*="bg-gradient"][class*="from-yellow-50"] *:not(button):not(input):not(select):not(textarea),
+.admin-page [class*="bg-gradient"][class*="from-purple-50"] *:not(button):not(input):not(select):not(textarea),
+.admin-page [class*="bg-gradient"][class*="from-pink-50"] *:not(button):not(input):not(select):not(textarea),
+.admin-page [class*="bg-gradient"][class*="from-orange-50"] *:not(button):not(input):not(select):not(textarea) {
+  color: #1f2937 !important;
+}
+
+/* Specific targeting for stats and numbers - only for dark gradients */
+.admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) .text-2xl,
+.admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) .text-3xl,
+.admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) .text-lg,
+.admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) .text-xl,
+.admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) .font-semibold,
+.admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) .font-medium {
   color: white !important;
 }
 
-/* CRITICAL: Target the exact stats structure - font-bold numbers and text-[#BBBBBB] labels */
-.admin-page [class*="bg-gradient"] .font-bold {
+/* CRITICAL: Target the exact stats structure - font-bold numbers and text-[#BBBBBB] labels - only for dark gradients */
+.admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) .font-bold {
   color: white !important;
 }
 
-.admin-page [class*="bg-gradient"] div.font-bold {
+.admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) div.font-bold {
   color: white !important;
 }
 
-/* Target the grid structure specifically */
-.admin-page [class*="bg-gradient"] .grid .font-bold,
-.admin-page [class*="bg-gradient"] [class*="grid-cols-4"] .font-bold,
-.admin-page [class*="bg-gradient"] [class*="text-center"] .font-bold {
+/* Target the grid structure specifically - only for dark gradients */
+.admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) .grid .font-bold,
+.admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) [class*="grid-cols-4"] .font-bold,
+.admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) [class*="text-center"] .font-bold {
   color: white !important;
 }
 
-/* NUCLEAR SPECIFICITY: Override the exact gray rules user mentioned */
-html body .admin-page [class*="bg-gradient"] div.font-bold,
-html body .admin-page [class*="bg-gradient"] .font-bold,
-html body .admin-page [class*="bg-gradient"] h1,
-html body .admin-page [class*="bg-gradient"] h2,
-html body .admin-page [class*="bg-gradient"] h3,
-html body .admin-page [class*="bg-gradient"] p,
-html body .admin-page [class*="bg-gradient"] span,
-html body .admin-page [class*="bg-gradient"] div {
+/* NUCLEAR SPECIFICITY: Override the exact gray rules user mentioned - only for dark gradients */
+html body .admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) div.font-bold,
+html body .admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) .font-bold,
+html body .admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) h1,
+html body .admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) h2,
+html body .admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) h3,
+html body .admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) p,
+html body .admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) span,
+html body .admin-page [class*="bg-gradient"]:not([class*="from-blue-50"]):not([class*="from-indigo-50"]):not([class*="from-gray-50"]):not([class*="from-green-50"]):not([class*="from-red-50"]):not([class*="from-yellow-50"]):not([class*="from-purple-50"]):not([class*="from-pink-50"]):not([class*="from-orange-50"]) div {
   color: white !important;
 } 

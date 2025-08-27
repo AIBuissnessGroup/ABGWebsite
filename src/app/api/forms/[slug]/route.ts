@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { MongoClient, ObjectId } from 'mongodb';
 
-const prisma = new PrismaClient();
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
+const client = new MongoClient(uri);
 
 export async function GET(
   request: NextRequest,
@@ -10,19 +11,10 @@ export async function GET(
   try {
     const { slug } = await params;
 
-    const form = await prisma.form.findUnique({
-      where: { slug },
-      include: {
-        questions: {
-          orderBy: { order: 'asc' }
-        },
-        _count: {
-          select: {
-            applications: true
-          }
-        }
-      }
-    });
+    await client.connect();
+    const db = client.db();
+
+    const form = await db.collection('Form').findOne({ slug });
 
     if (!form) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
@@ -31,6 +23,16 @@ export async function GET(
     if (!form.isPublic) {
       return NextResponse.json({ error: 'This form is not publicly accessible' }, { status: 403 });
     }
+
+    // Get questions for this form
+    const questions = await db.collection('FormQuestion')
+      .find({ formId: form._id.toString() })
+      .sort({ order: 1 })
+      .toArray();
+
+    // Get application count
+    const submissionCount = await db.collection('Application')
+      .countDocuments({ formId: form._id.toString() });
 
     // Don't return sensitive admin data
     const publicForm = {
@@ -43,7 +45,7 @@ export async function GET(
       requireAuth: form.requireAuth,
       backgroundColor: form.backgroundColor,
       textColor: form.textColor,
-      questions: form.questions.map(q => ({
+      questions: questions.map((q: any) => ({
         id: q.id,
         title: q.title,
         description: q.description,
@@ -55,12 +57,14 @@ export async function GET(
         maxLength: q.maxLength,
         pattern: q.pattern
       })),
-      submissionCount: form._count.applications
+      submissionCount
     };
 
     return NextResponse.json(publicForm);
   } catch (error) {
     console.error('Error fetching form:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 } 

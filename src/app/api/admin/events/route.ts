@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { PrismaClient } from '@prisma/client';
+import { MongoClient, ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { isAdminEmail } from '@/lib/admin';
+import crypto from 'crypto';
 
-const prisma = new PrismaClient();
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
+const client = new MongoClient(uri);
+
+// Safely serialize BigInt values
+function safeJson(obj: any) {
+  return JSON.parse(JSON.stringify(obj, (_, v) =>
+    typeof v === 'bigint' ? v.toString() : v
+  ));
+}
 
 // Helper function to handle CORS
 function corsResponse(response: NextResponse) {
@@ -21,39 +30,23 @@ export async function OPTIONS() {
 
 export async function GET() {
   try {
-    const events = await prisma.event.findMany({
-      where: { 
+    await client.connect();
+    const db = client.db();
+    
+    const events = await db.collection('Event')
+      .find({ 
         published: true,
-        isMainEvent: true // Only fetch main events, subevents will be included via relation
-      },
-      include: {
-        partnerships: {
-          include: {
-            company: true
-          }
-        },
-        subevents: {
-          where: { published: true },
-          include: {
-            partnerships: {
-              include: {
-                company: true
-              }
-            }
-          },
-          orderBy: { eventDate: 'asc' }
-        }
-      },
-      orderBy: [
-        { featured: 'desc' },
-        { eventDate: 'desc' }
-      ]
-    });
-
-    return corsResponse(NextResponse.json(events));
+        isMainEvent: 1 // Use 1 instead of true for Int type
+      })
+      .sort({ featured: -1, eventDate: -1 })
+      .toArray();
+    
+    return corsResponse(NextResponse.json(safeJson(events)));
   } catch (error) {
     console.error('Error fetching events:', error);
     return corsResponse(NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 }));
+  } finally {
+    await client.close();
   }
 }
 
@@ -73,23 +66,30 @@ export async function POST(request: NextRequest) {
       return corsResponse(NextResponse.json({ error: 'Forbidden' }, { status: 403 }));
     }
 
+    await client.connect();
+    const db = client.db('abg-website');
+    const usersCollection = db.collection('User');
+    const eventsCollection = db.collection('Event');
+
     // Find the user to get their ID
-    let user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
+    let user = await usersCollection.findOne({ email: session.user.email });
     console.log('Found user:', user);
 
     if (!user) {
       console.log('User not found in database');
       // Try to create the user if they don't exist
       try {
-        user = await prisma.user.create({
-          data: {
-            email: session.user.email,
-            name: session.user.name || '',
-            role: isAdminEmail(session.user.email) ? 'ADMIN' : 'USER'
-          }
-        });
+        const newUser = {
+          id: crypto.randomUUID(),
+          email: session.user.email,
+          name: session.user.name || '',
+          role: isAdminEmail(session.user.email) ? 'ADMIN' : 'USER',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        await usersCollection.insertOne(newUser);
+        user = newUser;
         console.log('Created new user:', user);
       } catch (error) {
         console.error('Error creating user:', error);
@@ -100,31 +100,40 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     console.log('Event data:', data);
     
-    const event = await prisma.event.create({
-      data: {
-        title: data.title,
-        description: data.description,
-        eventDate: new Date(data.eventDate),
-        endDate: data.endDate ? new Date(data.endDate) : null,
-        location: data.location,
-        venue: data.venue || null,
-        capacity: data.capacity || null,
-        registrationUrl: data.registrationUrl || null,
-        eventType: data.eventType || 'MEETING',
-        imageUrl: data.imageUrl || null,
-        featured: data.featured || false,
-        published: data.published !== undefined ? data.published : true,
-        parentEventId: data.parentEventId || null,
-        isMainEvent: data.parentEventId ? false : true,
-        createdBy: user.id
-      }
-    });
+    const eventData = {
+      id: crypto.randomUUID(),
+      title: data.title,
+      description: data.description,
+      eventDate: new Date(data.eventDate),
+      endDate: data.endDate ? new Date(data.endDate) : new Date(data.eventDate),
+      location: data.location,
+      venue: data.venue || null,
+      capacity: data.capacity || null,
+      registrationUrl: data.registrationUrl || null,
+      registrationCtaLabel: data.registrationCtaLabel || 'Register Now',
+      registrationEnabled: data.registrationEnabled ? 1 : 0,
+      eventType: data.eventType || 'MEETING',
+      imageUrl: data.imageUrl || null,
+      featured: data.featured ? 1 : 0, // Convert boolean to number
+      published: data.published !== undefined ? data.published : true, // Keep as boolean
+      parentEventId: data.parentEventId || null,
+      isMainEvent: data.parentEventId ? 0 : 1, // Convert boolean to number (0 = false, 1 = true)
+      createdBy: user.id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const result = await eventsCollection.insertOne(eventData);
+    const event = { ...eventData, _id: result.insertedId };
+    
     console.log('Created event:', event);
 
-    return corsResponse(NextResponse.json(event));
+    return corsResponse(NextResponse.json(safeJson(event)));
   } catch (error) {
     console.error('Error creating event:', error);
     return corsResponse(NextResponse.json({ error: 'Failed to create event' }, { status: 500 }));
+  } finally {
+    await client.close();
   }
 }
 
@@ -163,40 +172,50 @@ export async function PUT(request: NextRequest) {
       return corsResponse(NextResponse.json({ error: 'Event date is required' }, { status: 400 }));
     }
 
+    await client.connect();
+    const db = client.db('abg-website');
+    const eventsCollection = db.collection('Event');
+
     // Check if event exists before updating
-    const existingEvent = await prisma.event.findUnique({
-      where: { id }
-    });
+    const existingEvent = await eventsCollection.findOne({ id });
 
     if (!existingEvent) {
       return corsResponse(NextResponse.json({ error: 'Event not found' }, { status: 404 }));
     }
 
-    const event = await prisma.event.update({
-      where: { id },
-      data: {
-        title: data.title,
-        description: data.description,
-        eventDate: new Date(data.eventDate),
-        endDate: data.endDate ? new Date(data.endDate) : null,
-        location: data.location || '',
-        venue: data.venue || null,
-        capacity: data.capacity || null,
-        registrationUrl: data.registrationUrl || null,
-        eventType: data.eventType || 'MEETING',
-        imageUrl: data.imageUrl || null,
-        featured: data.featured || false,
-        published: data.published !== undefined ? data.published : true,
-        parentEventId: data.parentEventId || null,
-        isMainEvent: data.parentEventId ? false : true
-      }
-    });
+    const updateData = {
+      title: data.title,
+      description: data.description,
+      eventDate: new Date(data.eventDate),
+      endDate: data.endDate ? new Date(data.endDate) : undefined,
+      location: data.location || '',
+      venue: data.venue || null,
+      capacity: data.capacity || null,
+      registrationUrl: data.registrationUrl || null,
+      eventType: data.eventType || 'MEETING',
+      imageUrl: data.imageUrl || null,
+      featured: data.featured ? 1 : 0, // Convert boolean to number
+      published: data.published !== undefined ? data.published : true, // Keep as boolean
+      parentEventId: data.parentEventId || null,
+      isMainEvent: data.parentEventId ? 0 : 1, // Convert boolean to number (0 = false, 1 = true)
+      updatedAt: new Date()
+    };
 
-    console.log('Event updated successfully:', { id: event.id, title: event.title });
-    return corsResponse(NextResponse.json(event));
+    const result = await eventsCollection.findOneAndUpdate(
+      { id },
+      { $set: updateData },
+      { returnDocument: 'after' }
+    );
+    
+    const event = result;
+
+    console.log('Event updated successfully:', { id: event?.id, title: event?.title });
+    return corsResponse(NextResponse.json(safeJson(event)));
   } catch (error) {
     console.error('Error updating event:', error);
     return corsResponse(NextResponse.json({ error: 'Failed to update event' }, { status: 500 }));
+  } finally {
+    await client.close();
   }
 }
 
@@ -220,13 +239,21 @@ export async function DELETE(request: NextRequest) {
       return corsResponse(NextResponse.json({ error: 'Event ID required' }, { status: 400 }));
     }
 
-    await prisma.event.delete({
-      where: { id }
-    });
+    await client.connect();
+    const db = client.db('abg-website');
+    const eventsCollection = db.collection('Event');
+
+    const result = await eventsCollection.deleteOne({ id });
+    
+    if (result.deletedCount === 0) {
+      return corsResponse(NextResponse.json({ error: 'Event not found' }, { status: 404 }));
+    }
 
     return corsResponse(NextResponse.json({ success: true }));
   } catch (error) {
     console.error('Error deleting event:', error);
     return corsResponse(NextResponse.json({ error: 'Failed to delete event' }, { status: 500 }));
+  } finally {
+    await client.close();
   }
 } 

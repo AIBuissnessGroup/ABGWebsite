@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { PrismaClient } from '@prisma/client';
+import { MongoClient, ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { isAdminEmail } from '@/lib/admin';
+import crypto from 'crypto';
 
-const prisma = new PrismaClient();
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
+const client = new MongoClient(uri);
+
+// Safely serialize BigInt values
+function safeJson(obj: any) {
+  return JSON.parse(JSON.stringify(obj, (_, v) =>
+    typeof v === 'bigint' ? v.toString() : v
+  ));
+}
 
 export async function GET() {
   try {
@@ -19,36 +28,17 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const forms = await prisma.form.findMany({
-      include: {
-        creator: {
-          select: { name: true, email: true }
-        },
-        questions: {
-          orderBy: { order: 'asc' }
-        },
-        applications: {
-          select: { 
-            id: true, 
-            status: true, 
-            submittedAt: true,
-            applicantEmail: true 
-          }
-        },
-        _count: {
-          select: {
-            applications: true,
-            questions: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    await client.connect();
+    const db = client.db();
 
-    return NextResponse.json(forms);
+    const forms = await db.collection('Form').find({}).sort({ createdAt: -1 }).toArray();
+
+    return NextResponse.json(safeJson(forms));
   } catch (error) {
     console.error('Error fetching forms:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 }
 
@@ -65,9 +55,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
+    await client.connect();
+    const db = client.db();
+
+    const user = await db.collection('User').findOne({ email: session.user.email });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -82,9 +73,7 @@ export async function POST(request: NextRequest) {
       .replace(/(^-|-$)/g, '');
 
     // Check if slug already exists
-    const existingForm = await prisma.form.findUnique({
-      where: { slug }
-    });
+    const existingForm = await db.collection('Form').findOne({ slug });
 
     if (existingForm) {
       return NextResponse.json({ error: 'A form with this title already exists' }, { status: 400 });
@@ -92,35 +81,33 @@ export async function POST(request: NextRequest) {
 
     const { questions, ...formData } = data;
 
-    const form = await prisma.form.create({
-      data: {
-        ...formData,
-        slug,
-        createdBy: user.id,
-        questions: questions && questions.length > 0 ? {
-          create: questions
-        } : undefined
-      },
-      include: {
-        creator: {
-          select: { name: true, email: true }
-        },
-        questions: {
-          orderBy: { order: 'asc' }
-        },
-        _count: {
-          select: {
-            applications: true,
-            questions: true
-          }
-        }
-      }
-    });
+    const form = {
+      ...formData,
+      id_: crypto.randomUUID(),
+      slug,
+      createdBy: user._id.toString(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      // Ensure required fields have defaults
+      backgroundColor: formData.backgroundColor || '#ffffff',
+      textColor: formData.textColor || '#000000',
+      category: formData.category || 'general',
+      notificationEmail: formData.notificationEmail || user.email,
+      allowMultiple: formData.allowMultiple ? 1 : 0,
+      isAttendanceForm: formData.isAttendanceForm ? 1 : 0,
+      isPublic: formData.isPublic ? 1 : 0,
+      published: formData.published ? 1 : 0
+    };
 
-    return NextResponse.json(form);
+    const result = await db.collection('Form').insertOne(form);
+    const createdForm = await db.collection('Form').findOne({ _id: result.insertedId });
+
+    return NextResponse.json(safeJson(createdForm));
   } catch (error) {
     console.error('Error creating form:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 }
 
@@ -154,11 +141,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Form ID is required' }, { status: 400 });
     }
 
+    await client.connect();
+    const db = client.db();
+
     // Get current form to check if title changed
-    const currentForm = await prisma.form.findUnique({
-      where: { id },
-      select: { title: true, slug: true }
-    });
+    const currentForm = await db.collection('Form').findOne({ id }, { projection: { title: 1, slug: 1 } });
 
     if (!currentForm) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
@@ -173,11 +160,9 @@ export async function PUT(request: NextRequest) {
         .replace(/(^-|-$)/g, '');
 
       // Check if new slug already exists (but exclude current form)
-      const existingForm = await prisma.form.findFirst({
-        where: { 
-          slug,
-          id: { not: id }
-        }
+      const existingForm = await db.collection('Form').findOne({
+        slug,
+        id: { $ne: id }
       });
 
       if (existingForm) {
@@ -187,11 +172,11 @@ export async function PUT(request: NextRequest) {
     }
 
     // Only include fields that can be updated
-    const allowedFields = {
+    const allowedFields: any = {
       title: updateData.title,
       description: updateData.description,
       category: updateData.category,
-      slug: slug,
+      slug,
       isActive: updateData.isActive,
       isPublic: updateData.isPublic,
       allowMultiple: updateData.allowMultiple,
@@ -205,64 +190,29 @@ export async function PUT(request: NextRequest) {
       updatedAt: new Date()
     };
 
-    // Handle questions update - delete existing and create new ones
-    const updateOperations: any = {
-      ...allowedFields
-    };
-
-    if (questions && Array.isArray(questions)) {
-      updateOperations.questions = {
-        deleteMany: {},  // Delete all existing questions
-        create: questions.map((q, index) => ({
-          title: q.title,
-          description: q.description || '',
-          type: q.type,
-          required: q.required || false,
-          order: index,
-          options: (q.type === 'SELECT' || q.type === 'RADIO' || q.type === 'CHECKBOX') && q.options 
-            ? q.options 
-            : null,
-          minLength: q.minLength || null,
-          maxLength: q.maxLength || null,
-          pattern: q.pattern || null
-        }))
-      };
-    }
-
-    console.log('Updating form with operations:', updateOperations);
-
-    const form = await prisma.form.update({
-      where: { id },
-      data: updateOperations,
-      include: {
-        creator: {
-          select: { name: true, email: true }
-        },
-        questions: {
-          orderBy: { order: 'asc' }
-        },
-        applications: {
-          select: { 
-            id: true, 
-            status: true, 
-            submittedAt: true,
-            applicantEmail: true 
-          }
-        },
-        _count: {
-          select: {
-            applications: true,
-            questions: true
-          }
-        }
+    // Remove undefined values
+    Object.keys(allowedFields).forEach(key => {
+      if (allowedFields[key] === undefined) {
+        delete allowedFields[key];
       }
     });
 
+    console.log('Updating form with fields:', allowedFields);
+
+    await db.collection('Form').updateOne(
+      { id },
+      { $set: allowedFields }
+    );
+
+    const form = await db.collection('Form').findOne({ id });
+
     console.log('Form updated successfully:', { id: form.id, slug: form.slug, title: form.title });
-    return NextResponse.json(form);
+    return NextResponse.json(safeJson(form));
   } catch (error) {
     console.error('Error updating form:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 }
 
@@ -286,13 +236,16 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Form ID is required' }, { status: 400 });
     }
 
-    await prisma.form.delete({
-      where: { id }
-    });
+    await client.connect();
+    const db = client.db();
+
+    await db.collection('Form').deleteOne({ id });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting form:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 } 

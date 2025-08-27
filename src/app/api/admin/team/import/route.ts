@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { PrismaClient } from '@prisma/client';
+import { MongoClient } from 'mongodb';
 import { parse } from 'csv-parse/sync';
+import crypto from 'crypto';
 
-const prisma = new PrismaClient();
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
+const client = new MongoClient(uri);
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +35,10 @@ export async function POST(request: NextRequest) {
       trim: true
     });
 
+    await client.connect();
+    const db = client.db('abg-website');
+    const collection = db.collection('TeamMember');
+
     const results = [];
     const errors = [];
 
@@ -44,24 +50,28 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        const teamMember = await prisma.teamMember.create({
-          data: {
-            name: record.name,
-            role: record.role,
-            year: record.year,
-            major: record.major || null,
-            bio: record.bio || null,
-            email: record.email || null,
-            linkedIn: record.linkedIn || null,
-            github: record.github || null,
-            imageUrl: record.imageUrl || null,
-            featured: record.featured === 'true' || false,
-            active: record.active !== 'false'
-          }
-        });
+        const teamMemberData = {
+          id: crypto.randomUUID(),
+          name: record.name,
+          role: record.role,
+          year: record.year,
+          major: record.major || null,
+          bio: record.bio || null,
+          email: record.email || null,
+          linkedIn: record.linkedIn || null,
+          github: record.github || null,
+          imageUrl: record.imageUrl || null,
+          featured: record.featured === 'true' || false,
+          active: record.active !== 'false',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        const result = await collection.insertOne(teamMemberData);
+        const teamMember = { ...teamMemberData, _id: result.insertedId };
 
         results.push(teamMember);
-      } catch (error) {
+      } catch (error: any) {
         errors.push(`Error processing record ${JSON.stringify(record)}: ${error.message}`);
       }
     }
@@ -73,11 +83,13 @@ export async function POST(request: NextRequest) {
       results
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error importing team members:', error);
     return NextResponse.json({ 
       error: 'Failed to import team members',
-      details: error.message
+      details: error.message 
     }, { status: 500 });
+  } finally {
+    await client.close();
   }
 } 

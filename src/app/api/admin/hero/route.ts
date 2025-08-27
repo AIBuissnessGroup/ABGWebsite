@@ -1,26 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { PrismaClient } from '@prisma/client';
+import { MongoClient, ObjectId } from 'mongodb';
 
-const prisma = new PrismaClient();
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
+const client = new MongoClient(uri);
 
 export async function GET() {
   try {
-    let heroContent = await prisma.heroContent.findFirst({
-      where: { isActive: true }
-    });
+    await client.connect();
+    const db = client.db();
+    
+    let heroContent = await db.collection('HeroContent').findOne({ isActive: true });
 
     // If no content exists, create default content
     if (!heroContent) {
-      heroContent = await prisma.heroContent.create({
-        data: {}
-      });
+      const defaultContent = {
+        id: 'default-hero',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      await db.collection('HeroContent').insertOne(defaultContent);
+      heroContent = defaultContent;
     }
 
     return NextResponse.json(heroContent);
   } catch (error) {
     console.error('Error fetching hero content:', error);
     return NextResponse.json({ error: 'Failed to fetch hero content' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 }
 
@@ -40,28 +50,42 @@ export async function PUT(request: NextRequest) {
 
     const data = await request.json();
     
+    await client.connect();
+    const db = client.db();
+    
     // First deactivate all existing content
-    await prisma.heroContent.updateMany({
-      data: { isActive: false }
-    });
+    await db.collection('HeroContent').updateMany({}, { $set: { isActive: false } });
 
     // Create or update the hero content
-    const heroContent = await prisma.heroContent.upsert({
-      where: { id: data.id || 'new' },
-      update: {
-        ...data,
-        isActive: true,
-        updatedAt: new Date()
-      },
-      create: {
-        ...data,
-        isActive: true
-      }
-    });
+    const updateData = {
+      ...data,
+      isActive: true,
+      updatedAt: new Date()
+    };
+
+    let heroContent;
+    if (data.id && data.id !== 'new') {
+      // Update existing
+      await db.collection('HeroContent').updateOne(
+        { id: data.id },
+        { $set: updateData }
+      );
+      heroContent = await db.collection('HeroContent').findOne({ id: data.id });
+    } else {
+      // Create new
+      const newContent = {
+        ...updateData,
+        createdAt: new Date()
+      };
+      await db.collection('HeroContent').insertOne(newContent);
+      heroContent = newContent;
+    }
 
     return NextResponse.json(heroContent);
   } catch (error) {
     console.error('Error updating hero content:', error);
     return NextResponse.json({ error: 'Failed to update hero content' }, { status: 500 });
+  } finally {
+    await client.close();
   }
 } 

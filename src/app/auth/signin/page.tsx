@@ -7,7 +7,8 @@ import { FaGoogle } from 'react-icons/fa';
 function SignInContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const callbackUrl = searchParams?.get('callbackUrl') || '/admin';
+  const callbackUrl = searchParams?.get('callbackUrl') || '/';
+  console.log('SignIn page callbackUrl:', callbackUrl);
 
   useEffect(() => {
     // Check if user is already signed in

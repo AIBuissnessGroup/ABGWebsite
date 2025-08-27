@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { MongoClient } from 'mongodb';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,23 +18,31 @@ export async function POST(request: NextRequest) {
 
     const { projectId, partnerships } = await request.json();
 
+    const client = new MongoClient(process.env.DATABASE_URL!);
+    await client.connect();
+    const db = client.db();
+
     // Delete existing partnerships for this project
-    await prisma.projectPartnership.deleteMany({
-      where: { projectId }
+    await db.collection('ProjectPartnership').deleteMany({
+      projectId
     });
 
     // Create new partnerships
     if (partnerships && partnerships.length > 0) {
-      await prisma.projectPartnership.createMany({
-        data: partnerships.map((p: any) => ({
+      await db.collection('ProjectPartnership').insertMany(
+        partnerships.map((p: any) => ({
+          id: `pp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           projectId,
           companyId: p.companyId,
           type: p.type,
-          description: p.description || ''
+          description: p.description || '',
+          createdAt: new Date(),
+          updatedAt: new Date()
         }))
-      });
+      );
     }
 
+    await client.close();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error managing project partnerships:', error);
