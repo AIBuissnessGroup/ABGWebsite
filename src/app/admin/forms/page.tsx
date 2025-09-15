@@ -1646,7 +1646,7 @@ function FormEditor({ form, onClose, onSave }: any) {
     notificationEmail: '',
     requireAuth: false,
     backgroundColor: '#00274c',
-    textColor: '#161616ff',
+    textColor: '#ffffff',
     isAttendanceForm: false,
     attendanceLatitude: '',
     attendanceLongitude: '',

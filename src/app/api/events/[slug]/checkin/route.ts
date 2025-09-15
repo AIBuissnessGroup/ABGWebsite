@@ -18,7 +18,7 @@ export async function POST(
       return NextResponse.json({ error: 'UMich authentication required' }, { status: 401 });
     }
 
-    const { checkInCode, attendeeId } = await request.json();
+    const { checkInCode, attendeeId, photo } = await request.json();
 
     const client = new MongoClient(uri);
     await client.connect();
@@ -135,7 +135,8 @@ export async function POST(
       {
         $set: {
           status: 'attended',
-          attendedAt: now
+          attendedAt: now,
+          checkInPhoto: photo
         }
       }
     );
@@ -194,8 +195,36 @@ export async function GET(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
-    // If no specific check-in code provided, just return event info
+    // If no specific check-in code provided, check if current user is already checked in
     if (!checkInCode && !attendeeId) {
+      const session = await getServerSession(authOptions);
+      
+      if (session?.user?.email) {
+        // Look for the current user's check-in status
+        const userAttendee = await db.collection('EventAttendance').findOne({
+          eventId: event.id,
+          $or: [
+            { 'attendee.umichEmail': session.user.email },
+            { email: session.user.email }
+          ]
+        });
+
+        if (userAttendee) {
+          await client.close();
+          return NextResponse.json({
+            valid: true,
+            eventTitle: event.title,
+            eventDate: event.eventDate,
+            eventLocation: event.location,
+            attendeeName: userAttendee.attendee?.name || 'Unknown',
+            attendeeEmail: userAttendee.attendee?.umichEmail || userAttendee.email,
+            alreadyCheckedIn: userAttendee.status === 'attended',
+            checkedInAt: userAttendee.attendedAt,
+            generalEvent: true
+          });
+        }
+      }
+
       await client.close();
       return NextResponse.json({
         valid: true,

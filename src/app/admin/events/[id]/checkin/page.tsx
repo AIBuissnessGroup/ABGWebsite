@@ -20,6 +20,7 @@ interface Attendee {
   registeredAt: number;
   confirmedAt?: number;
   attendedAt?: number;
+  checkInPhoto?: string;
 }
 
 interface Event {
@@ -49,6 +50,14 @@ export default function EventCheckinPage() {
   const [qrCodeData, setQrCodeData] = useState('');
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
 
+  // Helper function to generate slug from title
+  const generateSlug = (title: string): string => {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  };
+
   // Check admin access
   useEffect(() => {
     if (status === 'loading') return;
@@ -60,7 +69,11 @@ export default function EventCheckinPage() {
 
   // Load event and attendees data
   useEffect(() => {
-    if (!eventId) return;
+    if (!eventId) {
+      console.error('No eventId provided');
+      return;
+    }
+    console.log('Loading data for eventId:', eventId);
     loadEventData();
     loadAttendees();
   }, [eventId]);
@@ -70,10 +83,17 @@ export default function EventCheckinPage() {
       const res = await fetch(`/api/admin/events/${eventId}`);
       if (res.ok) {
         const data = await res.json();
+        console.log('Loaded event data:', data);
         setEvent(data);
+      } else {
+        console.error('Failed to load event data:', res.status, res.statusText);
+        setMessage('Failed to load event data');
+        setMessageType('error');
       }
     } catch (error) {
       console.error('Error loading event:', error);
+      setMessage('Error loading event data');
+      setMessageType('error');
     }
   };
 
@@ -83,7 +103,20 @@ export default function EventCheckinPage() {
       const res = await fetch(`/api/admin/events/${eventId}/attendance`);
       if (res.ok) {
         const data = await res.json();
-        setAttendees(data.confirmed || []);
+        // Include all attendees: confirmed, waitlisted, and any that are already checked in
+        const allAttendees = [
+          ...(data.confirmed || []),
+          ...(data.waitlisted || []),
+          // Add any attendees that might be in 'attended' status
+          ...(data.attendees || []).filter((a: any) => a.status === 'attended')
+        ];
+        
+        // Remove duplicates based on ID
+        const uniqueAttendees = allAttendees.filter((attendee, index, self) => 
+          index === self.findIndex(a => a.id === attendee.id)
+        );
+        
+        setAttendees(uniqueAttendees);
       }
     } catch (error) {
       console.error('Error loading attendees:', error);
@@ -127,16 +160,38 @@ export default function EventCheckinPage() {
   };
 
   const generateEventQRCode = async () => {
-    if (!event?.slug) {
-      setMessage('Event slug not available for QR code generation');
+    console.log('Generate QR code clicked, event:', event);
+    
+    // Check if event data is loaded
+    if (!event) {
+      const errorMsg = 'Event data not loaded yet. Please wait and try again.';
+      console.error(errorMsg);
+      setMessage(errorMsg);
       setMessageType('error');
       return;
     }
-
+    
     try {
+      // Use event ID as fallback if title is missing
+      const eventTitle = event.title || `Event ${event.id}`;
+      const eventSlug = event.slug || generateSlug(eventTitle);
+      
+      console.log('Event title:', eventTitle);
+      console.log('Event slug:', eventSlug);
+      
+      if (!eventSlug) {
+        const errorMsg = 'Unable to generate QR code: Could not create event URL';
+        console.error(errorMsg);
+        setMessage(errorMsg);
+        setMessageType('error');
+        return;
+      }
+
       // Create a simple URL that goes to the event check-in page
       const baseUrl = window.location.origin;
-      const checkInUrl = `${baseUrl}/events/${event.slug}/checkin`;
+      const checkInUrl = `${baseUrl}/events/${eventSlug}/checkin`;
+      
+      console.log('Check-in URL:', checkInUrl);
 
       const qrCodeUrl = await QRCode.toDataURL(checkInUrl, {
         width: 300,
@@ -147,12 +202,18 @@ export default function EventCheckinPage() {
         }
       });
 
+      console.log('QR code generated successfully');
       setQrCodeData(qrCodeUrl);
       setSelectedAttendee(null); // No specific attendee for event QR
       setShowQRModal(true);
+      
+      // Show success message
+      setMessage('QR code generated successfully!');
+      setMessageType('success');
     } catch (error) {
       console.error('Error generating event QR code:', error);
-      setMessage('Failed to generate QR code');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setMessage(`Failed to generate QR code: ${errorMessage}`);
       setMessageType('error');
     }
   };
@@ -276,10 +337,15 @@ export default function EventCheckinPage() {
           <div className="mt-4 flex justify-center">
             <button
               onClick={generateEventQRCode}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              disabled={!event || loading}
+              className={`inline-flex items-center gap-2 px-6 py-3 rounded-lg transition-colors font-medium ${
+                !event || loading
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
             >
               <QrCodeIcon className="w-5 h-5" />
-              Generate Event Check-in QR Code
+              {loading ? 'Loading Event Data...' : 'Generate Event Check-in QR Code'}
             </button>
           </div>
         </div>
@@ -364,6 +430,9 @@ export default function EventCheckinPage() {
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Check-in Photo
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       QR Code
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -418,6 +487,32 @@ export default function EventCheckinPage() {
                           )}
                         </div>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {attendee.checkInPhoto ? (
+                          <div className="flex items-center gap-2">
+                            <img 
+                              src={attendee.checkInPhoto} 
+                              alt="Check-in photo" 
+                              className="w-12 h-12 rounded-lg object-cover border border-gray-200"
+                            />
+                            <button
+                              onClick={() => {
+                                const newWindow = window.open();
+                                if (newWindow) {
+                                  newWindow.document.write(`<img src="${attendee.checkInPhoto}" style="max-width: 100%; height: auto;" />`);
+                                }
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800 underline"
+                            >
+                              View Full
+                            </button>
+                          </div>
+                        ) : attendee.status === 'attended' ? (
+                          <span className="text-xs text-gray-400">No photo</span>
+                        ) : (
+                          <span className="text-xs text-gray-300">-</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {attendee.status === 'attended' ? (
                           <button
@@ -457,7 +552,7 @@ export default function EventCheckinPage() {
       </div>
 
       {/* QR Code Modal */}
-      {showQRModal && selectedAttendee && (
+      {showQRModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6 border-b border-gray-200">

@@ -60,8 +60,9 @@ export async function GET(
 
     const total = attendees.length;
     
-    // Separate confirmed and waitlisted attendees
-    const confirmed = attendees.filter(a => a.status === 'confirmed');
+    // Separate confirmed, waitlisted, and attended attendees
+    // Note: 'attended' attendees should still be shown as confirmed since they were confirmed and then attended
+    const confirmed = attendees.filter(a => a.status === 'confirmed' || a.status === 'attended');
     const waitlisted = attendees.filter(a => a.status === 'waitlisted');
     
     console.log('✅ Confirmed:', confirmed.length, 'Waitlisted:', waitlisted.length);
