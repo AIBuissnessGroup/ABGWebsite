@@ -236,7 +236,9 @@ export default function AdminCoffeeChatsPage() {
     // Host filter
     const hostMatch = filterHost === 'all' || 
       slot.execMember?.id === filterHost ||
-      slot.hostEmail === filterHost;
+      slot.hostEmail === filterHost ||
+      // Always show slots where current user is the host (so they can remove themselves)
+      slot.hostEmail === session?.user?.email;
 
     return textMatch && statusMatch && hostMatch;
   });
@@ -345,9 +347,22 @@ export default function AdminCoffeeChatsPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00274c] focus:border-transparent"
               >
                 <option value="all">All Hosts</option>
+                
+                {/* Team members */}
                 {teamMembers.map(member => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
+                  <option key={`member-${member.id}`} value={member.id}>
+                    {member.name} (Team Member)
+                  </option>
+                ))}
+                
+                {/* Individual hosts (non-team members) */}
+                {Array.from(new Set(
+                  slots
+                    .filter(slot => slot.hostEmail && !teamMembers.some(member => member.email === slot.hostEmail))
+                    .map(slot => slot.hostEmail)
+                )).map(hostEmail => (
+                  <option key={`host-${hostEmail}`} value={hostEmail}>
+                    {slots.find(slot => slot.hostEmail === hostEmail)?.hostName || hostEmail?.split('@')[0]} ({hostEmail})
                   </option>
                 ))}
               </select>
