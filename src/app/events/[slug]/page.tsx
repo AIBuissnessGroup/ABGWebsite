@@ -341,15 +341,17 @@ async function getUserRegistration(eventId: string, email?: string): Promise<Eve
         phone: registration.phone || registration.attendee?.phone,
       },
       status: registration.status || 'confirmed', // Default to confirmed if no status
-      registeredAt: registration.confirmedAt ? new Date(registration.confirmedAt).getTime() : Date.now(),
+      registeredAt: registration.registeredAt ? new Date(registration.registeredAt).getTime() : (registration.confirmedAt ? new Date(registration.confirmedAt).getTime() : Date.now()),
       confirmedAt: registration.confirmedAt ? new Date(registration.confirmedAt).getTime() : undefined,
+      attendedAt: registration.attendedAt ? new Date(registration.attendedAt).getTime() : undefined,
       waitlistPosition: registration.waitlistPosition,
       source: registration.source || 'website',
       reminders: {
         emailSent: false,
         smsSent: false,
         lastReminderSent: undefined
-      }
+      },
+      checkInCode: registration.checkInCode
     };
     
     return mappedRegistration;

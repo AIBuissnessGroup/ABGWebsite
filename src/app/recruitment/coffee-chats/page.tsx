@@ -45,7 +45,8 @@ export default function CoffeeChatsPage() {
     location: '',
     availability: '',
     host: '',
-    dayOfWeek: ''
+    dayOfWeek: '',
+    mySignups: false
   });
   
   // Signup modal states
@@ -66,10 +67,10 @@ export default function CoffeeChatsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      // Build query parameters for filtering
+      // Build query parameters for filtering (exclude mySignups as it's frontend-only)
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value);
+        if (value && key !== 'mySignups') params.append(key, value.toString());
       });
       
       const res = await fetch(`/api/recruitment/coffee-chats?${params.toString()}`);
@@ -87,7 +88,11 @@ export default function CoffeeChatsPage() {
       
       const slotsData = Array.isArray(data) ? data : [];
       setSlots(slotsData);
-      setFilteredSlots(slotsData);
+      // Only set filteredSlots if we don't have frontend filtering active
+      if (!filters.mySignups) {
+        setFilteredSlots(slotsData);
+      }
+      // If mySignups filter is active, the useEffect will handle filtering
     } catch (error) {
       console.error('Error loading slots:', error);
       setSlots([]);
@@ -102,7 +107,23 @@ export default function CoffeeChatsPage() {
   useEffect(() => { 
     load();
     loadTeamMembers();
-  }, [filters]);
+  }, [filters.location, filters.availability, filters.host, filters.dayOfWeek]);
+
+  // Frontend filtering for mySignups
+  useEffect(() => {
+    if (!session?.user?.email) {
+      setFilteredSlots(slots);
+      return;
+    }
+
+    let filtered = slots;
+    
+    if (filters.mySignups) {
+      filtered = slots.filter(slot => isUserSignedUp(slot));
+    }
+    
+    setFilteredSlots(filtered);
+  }, [slots, filters.mySignups, session?.user?.email]);
 
   const openSignupModal = (slot: Slot) => {
     setSelectedSlot(slot);
@@ -285,7 +306,7 @@ export default function CoffeeChatsPage() {
           <h3 className="text-lg font-semibold text-white mb-4">Filter Coffee Chats</h3>
           <div className="space-y-6">
             {/* First Row */}
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm text-white/70 mb-2">Location</label>
                 <input
@@ -312,6 +333,20 @@ export default function CoffeeChatsPage() {
                   <option value="available" style={{ backgroundColor: '#1a2c45', color: 'white' }}>Available Spots</option>
                   <option value="full" style={{ backgroundColor: '#1a2c45', color: 'white' }}>Full Slots</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-white/70 mb-2">My Signups</label>
+                <button
+                  onClick={() => setFilters({...filters, mySignups: !filters.mySignups})}
+                  className={`w-full px-3 py-2 border border-white/20 rounded-lg transition-colors focus:ring-2 focus:ring-white/30 ${
+                    filters.mySignups 
+                      ? 'bg-white/20 text-white border-white/40' 
+                      : 'bg-white/10 text-white/70 hover:bg-white/15'
+                  }`}
+                >
+                  {filters.mySignups ? '✓ Show My Signups Only' : 'Show All Slots'}
+                </button>
               </div>
             </div>
 
@@ -367,7 +402,8 @@ export default function CoffeeChatsPage() {
                 location: '',
                 availability: '',
                 host: '',
-                dayOfWeek: ''
+                dayOfWeek: '',
+                mySignups: false
               })}
               className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors"
             >
@@ -381,17 +417,24 @@ export default function CoffeeChatsPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
             <p style={{ color: 'white' }}>Loading coffee chat slots...</p>
           </div>
-        ) : slots.length === 0 ? (
+        ) : filteredSlots.length === 0 ? (
           <div className="glass-card p-8 text-center" style={{ color: '#BBBBBB' }}>
             <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <ClockIcon className="w-8 h-8 text-white/60" />
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">No coffee chat slots available</h3>
-            <p>No coffee chat slots are open yet. Please check back soon.</p>
+            <h3 className="text-xl font-semibold text-white mb-2">
+              {filters.mySignups ? 'No coffee chats found' : 'No coffee chat slots available'}
+            </h3>
+            <p>
+              {filters.mySignups 
+                ? 'You haven\'t signed up for any coffee chats yet. Sign up for slots to see them here.' 
+                : 'No coffee chat slots are open yet. Please check back soon.'
+              }
+            </p>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
-            {slots.map((slot) => {
+            {filteredSlots.map((slot) => {
               const status = getSlotStatus(slot);
               const userSignedUp = isUserSignedUp(slot);
               

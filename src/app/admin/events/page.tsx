@@ -12,7 +12,8 @@ import {
   ChevronDownIcon,
   UserPlusIcon,
   UserGroupIcon,
-  XMarkIcon
+  XMarkIcon,
+  QrCodeIcon
 } from '@heroicons/react/24/outline';
 
 // Waitlist interfaces
@@ -1115,6 +1116,15 @@ export default function EventsAdmin() {
                 >
                   <UserGroupIcon className="w-4 h-4" />
                 </button>
+                {event.attendanceConfirmEnabled && (
+                  <a
+                    href={`/admin/events/${event.id}/checkin`}
+                    className="text-blue-600 hover:text-blue-900 p-2"
+                    title="Event Check-In"
+                  >
+                    <QrCodeIcon className="w-4 h-4" />
+                  </a>
+                )}
                 <button
                   onClick={() => deleteEvent(event.id)}
                   className="text-red-600 hover:text-red-900 p-2"

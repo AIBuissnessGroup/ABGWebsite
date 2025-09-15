@@ -44,6 +44,9 @@ export default function AdminCoffeeChatsPage() {
   const [showBulkCreate, setShowBulkCreate] = useState(false);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'spreadsheet'>('list');
+  const [filterText, setFilterText] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
+  const [filterHost, setFilterHost] = useState('all');
 
   const load = async () => {
     setLoading(true);
@@ -180,6 +183,32 @@ export default function AdminCoffeeChatsPage() {
     });
   };
 
+  // Filter function
+  const filteredSlots = slots.filter(slot => {
+    // Text filter (title, location, host name, signups)
+    const textMatch = filterText === '' || 
+      slot.title?.toLowerCase().includes(filterText.toLowerCase()) ||
+      slot.location?.toLowerCase().includes(filterText.toLowerCase()) ||
+      slot.hostName?.toLowerCase().includes(filterText.toLowerCase()) ||
+      slot.execMember?.name?.toLowerCase().includes(filterText.toLowerCase()) ||
+      slot.signups?.some(signup => 
+        signup.userName?.toLowerCase().includes(filterText.toLowerCase()) ||
+        signup.userEmail?.toLowerCase().includes(filterText.toLowerCase())
+      );
+
+    // Status filter - check if slot has available spots
+    const statusMatch = filterStatus === 'all' || 
+      (filterStatus === 'open' && ((slot.signupCount || 0) < (slot.capacity || 1))) ||
+      (filterStatus === 'closed' && ((slot.signupCount || 0) >= (slot.capacity || 1)));
+
+    // Host filter
+    const hostMatch = filterHost === 'all' || 
+      slot.execMember?.id === filterHost ||
+      slot.hostEmail === filterHost;
+
+    return textMatch && statusMatch && hostMatch;
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -239,6 +268,81 @@ export default function AdminCoffeeChatsPage() {
         </div>
       </div>
 
+      {/* Filters - only show in list mode */}
+      {viewMode === 'list' && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Text Search */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Search
+              </label>
+              <input
+                type="text"
+                placeholder="Search by title, location, host, or signups..."
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00274c] focus:border-transparent"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Status
+              </label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'open' | 'closed')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00274c] focus:border-transparent"
+              >
+                <option value="all">All Statuses</option>
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+
+            {/* Host Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Host
+              </label>
+              <select
+                value={filterHost}
+                onChange={(e) => setFilterHost(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00274c] focus:border-transparent"
+              >
+                <option value="all">All Hosts</option>
+                {teamMembers.map(member => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Clear Filters */}
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  setFilterText('');
+                  setFilterStatus('all');
+                  setFilterHost('all');
+                }}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Clear Filters
+              </button>
+            </div>
+          </div>
+
+          {/* Results Count */}
+          <div className="mt-3 text-sm text-gray-600">
+            Showing {filteredSlots.length} of {slots.length} coffee chat slots
+          </div>
+        </div>
+      )}
+
       {/* Bulk Create Modal */}
       <CoffeeChatBulkCreateModal
         isOpen={showBulkCreate}
@@ -282,7 +386,7 @@ export default function AdminCoffeeChatsPage() {
                   </button>
                 </div>
               ) : (
-                slots.map((slot) => (
+                filteredSlots.map((slot) => (
                   <div key={slot.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">

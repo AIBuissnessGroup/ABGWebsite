@@ -258,6 +258,76 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
                             </span>
                           </div>
                         </>
+                      ) : userRegistration.status === 'attended' ? (
+                        <>
+                          {/* Attended User - Show Check-in Confirmation */}
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                              <span className="text-white text-sm">✓</span>
+                            </div>
+                            <div>
+                              <h2 className="text-lg font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+                                Check-in Confirmed
+                              </h2>
+                            </div>
+                          </div>
+
+                          {/* Check-in Success Message */}
+                          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 space-y-3">
+                            <div className="text-center">
+                              <p className="text-green-300 font-bold text-lg mb-2">
+                                ✨ You're checked in! ✨
+                              </p>
+                              <p className="text-green-200/90 text-sm leading-relaxed">
+                                Great job attending the event! Your participation has been recorded.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Check-in Details */}
+                          <div className="bg-black/40 border border-green-400/50 rounded-lg p-3">
+                            <div className="text-center">
+                              <p className="text-green-300/70 text-xs font-medium">CHECK-IN TIME</p>
+                              <p className="text-lg font-semibold text-green-300 mt-1">
+                                {userRegistration.attendedAt ? 
+                                  convertUtcToEst(new Date(userRegistration.attendedAt)).toLocaleString('en-US', { 
+                                    timeZone: 'America/New_York',
+                                    weekday: 'short',
+                                    month: 'short', 
+                                    day: 'numeric',
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    hour12: true
+                                  }) 
+                                  : 'Check-in time not recorded'
+                                }
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Thank you message */}
+                          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                            <div className="flex items-start gap-2">
+                              <span className="text-blue-400 text-sm">🙏</span>
+                              <div>
+                                <p className="text-blue-300 text-sm font-medium mb-1">Thank you for attending!</p>
+                                <p className="text-blue-200/90 text-xs">
+                                  We hope you enjoyed the event. Stay tuned for more ABG events!
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Status */}
+                          <div className="flex gap-2 text-xs">
+                            <span className="bg-green-500/20 text-green-300 px-2 py-1 rounded-md border border-green-500/30 font-medium">
+                              ✓ Attended
+                            </span>
+                            <span className="bg-gray-500/20 text-gray-300 px-2 py-1 rounded-md border border-gray-500/30">
+                              Registered: {convertUtcToEst(new Date(userRegistration.registeredAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
+                            </span>
+                          </div>
+                        </>
                       ) : (
                         <>
                           {/* Waitlisted User - Show Waitlist Message */}
@@ -319,7 +389,7 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
                         onClick={async () => {
                           if (confirm('Cancel registration?')) {
                             try {
-                              const response = await fetch(`/api/events/${event.id}/attendance?email=${encodeURIComponent(userEmail || '')}`, {
+                              const response = await fetch(`/api/events/${event.slug}/attendance?email=${encodeURIComponent(userEmail || '')}`, {
                                 method: 'DELETE'
                               });
                               const result = await response.json();
