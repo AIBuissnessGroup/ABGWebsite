@@ -244,6 +244,80 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { action, slotId, signupId } = body;
 
+    if (action === 'removeHost' && slotId) {
+      await client.connect();
+      const db = client.db();
+
+      // First find the slot
+      let existingSlot;
+      if (ObjectId.isValid(slotId)) {
+        existingSlot = await db.collection('CoffeeChat').findOne({ _id: new ObjectId(slotId) });
+      } else {
+        existingSlot = await db.collection('CoffeeChat').findOne({ id: slotId });
+      }
+
+      if (!existingSlot) {
+        return NextResponse.json({ error: 'Slot not found' }, { status: 404 });
+      }
+
+      // Check if the current user is the host
+      if (existingSlot.hostEmail !== session.user.email) {
+        return NextResponse.json({ error: 'You can only remove yourself as host' }, { status: 403 });
+      }
+
+      // Remove host information (set to empty strings)
+      let updateQuery;
+      if (ObjectId.isValid(slotId)) {
+        updateQuery = { _id: new ObjectId(slotId) };
+      } else {
+        updateQuery = { id: slotId };
+      }
+      
+      await db.collection('CoffeeChat').updateOne(
+        updateQuery,
+        { 
+          $set: { 
+            hostName: '', 
+            hostEmail: '', 
+            updatedAt: new Date() 
+          } 
+        }
+      );
+
+      // Return updated slot data
+      let updatedSlot;
+      if (ObjectId.isValid(slotId)) {
+        updatedSlot = await db.collection('CoffeeChat').findOne({ _id: new ObjectId(slotId) });
+      } else {
+        updatedSlot = await db.collection('CoffeeChat').findOne({ id: slotId });
+      }
+
+      if (!updatedSlot) {
+        return NextResponse.json({ error: 'Slot not found' }, { status: 404 });
+      }
+
+      const transformedSlot: Slot = {
+        id: updatedSlot.id || updatedSlot._id.toString(),
+        title: updatedSlot.title,
+        startTime: updatedSlot.startTime instanceof Date ? updatedSlot.startTime.toISOString() : updatedSlot.startTime,
+        endTime: updatedSlot.endTime instanceof Date ? updatedSlot.endTime.toISOString() : updatedSlot.endTime,
+        location: updatedSlot.location,
+        hostName: updatedSlot.hostName,
+        hostEmail: updatedSlot.hostEmail,
+        capacity: updatedSlot.capacity,
+        isOpen: updatedSlot.isOpen,
+        signups: (updatedSlot.signups || []).map((signup: any) => ({
+          id: signup.id,
+          userEmail: signup.userEmail,
+          userName: signup.userName,
+          createdAt: signup.createdAt instanceof Date ? signup.createdAt.toISOString() : signup.createdAt,
+        })),
+        signupCount: (updatedSlot.signups || []).length,
+      };
+
+      return NextResponse.json(transformedSlot);
+    }
+
     if (action === 'removeSignup' && slotId && signupId) {
       await client.connect();
       const db = client.db();

@@ -159,6 +159,38 @@ export default function AdminCoffeeChatsPage() {
     }
   };
 
+  const removeHost = async (slotId: string) => {
+    if (!window.confirm('Are you sure you want to remove yourself as the host from this coffee chat? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/recruitment/coffee-chats', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'removeHost',
+          slotId,
+        }),
+      });
+
+      if (res.ok) {
+        const updatedSlot = await res.json();
+        setSlots(prevSlots => 
+          prevSlots.map(slot => 
+            slot.id === slotId ? updatedSlot : slot
+          )
+        );
+      } else {
+        const errorData = await res.json();
+        alert(`Error: ${errorData.error || 'Failed to remove host'}`);
+      }
+    } catch (error) {
+      console.error('Error removing host:', error);
+      alert('Failed to remove host. Please try again.');
+    }
+  };
+
   const formatDateTime = (dateString: string) => {
     if (!dateString) return 'Not set';
     const date = new Date(dateString);
@@ -431,6 +463,32 @@ export default function AdminCoffeeChatsPage() {
                             </div>
                           </div>
                         </div>
+
+                        {/* Host Information */}
+                        {(slot.hostName || slot.hostEmail) && (
+                          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <UserIcon className="w-4 h-4 text-blue-600" />
+                                <div>
+                                  <div className="font-medium text-blue-900">Host</div>
+                                  <div className="text-sm text-blue-700">
+                                    {slot.hostName} {slot.hostEmail && `(${slot.hostEmail})`}
+                                  </div>
+                                </div>
+                              </div>
+                              {session?.user?.email === slot.hostEmail && (
+                                <button
+                                  onClick={() => removeHost(slot.id!)}
+                                  className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1 rounded transition-colors duration-200"
+                                  title="Remove yourself as host"
+                                >
+                                  <XMarkIcon className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Exec Assignment */}
                         <div className="mb-4">
