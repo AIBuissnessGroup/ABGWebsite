@@ -6,7 +6,7 @@ import { CogIcon } from '@heroicons/react/24/outline';
 export default function SettingsAdmin() {
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState([]);
+  const [settings, setSettings] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -51,22 +51,35 @@ export default function SettingsAdmin() {
 
   const saveChanges = async () => {
     setSaving(true);
+    setMessage('');
+    
     try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings })
+      // Save each setting individually
+      const promises = settings.map(async (setting: any) => {
+        const res = await fetch('/api/admin/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            key: setting.key, 
+            value: setting.value 
+          })
+        });
+        
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(`Failed to save ${setting.key}: ${error.error}`);
+        }
+        
+        return res.json();
       });
 
-      if (res.ok) {
-        setMessage('Settings saved successfully!');
-        loadSettings();
-      } else {
-        setMessage('Error saving settings');
-      }
+      await Promise.all(promises);
+      setMessage('Settings saved successfully!');
+      await loadSettings(); // Reload to get fresh data
+      
     } catch (error) {
       console.error('Error saving settings:', error);
-      setMessage('Error saving settings');
+      setMessage(error instanceof Error ? error.message : 'Error saving settings');
     } finally {
       setSaving(false);
     }

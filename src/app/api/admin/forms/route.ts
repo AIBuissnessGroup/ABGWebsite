@@ -32,6 +32,11 @@ export async function GET() {
     const db = client.db();
 
     const forms = await db.collection('Form').find({}).sort({ createdAt: -1 }).toArray();
+    
+    console.log('Forms API returning', forms.length, 'forms');
+    forms.forEach((form, index) => {
+      console.log(`Form ${index}: ${form.title}, Questions: ${form.questions ? form.questions.length : 'undefined'}`);
+    });
 
     return NextResponse.json(safeJson(forms));
   } catch (error) {
@@ -66,6 +71,9 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
 
+    console.log('POST /api/admin/forms - Received data:', data);
+    console.log('Questions in request:', data.questions ? data.questions.length + ' questions' : 'No questions field');
+
     // Generate slug from title
     const slug = data.title
       .toLowerCase()
@@ -83,8 +91,9 @@ export async function POST(request: NextRequest) {
 
     const form = {
       ...formData,
-      id_: crypto.randomUUID(),
+      id: crypto.randomUUID(),
       slug,
+      questions: questions || [], // Include questions in the form
       createdBy: user._id.toString(),
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -131,7 +140,10 @@ export async function PUT(request: NextRequest) {
     const urlId = searchParams.get('id');
 
     const data = await request.json();
-    const { id: bodyId, creator, questions, applications, _count, createdAt, createdBy, ...updateData } = data;
+    const { id: bodyId, creator, applications, _count, createdAt, createdBy, ...updateData } = data;
+    
+    console.log('PUT /api/admin/forms - Received data:', data);
+    console.log('Questions in PUT request:', data.questions ? data.questions.length + ' questions' : 'No questions field');
     
     const id = urlId || bodyId;
     
@@ -177,6 +189,7 @@ export async function PUT(request: NextRequest) {
       description: updateData.description,
       category: updateData.category,
       slug,
+      questions: updateData.questions || [], // Include questions in updates
       isActive: updateData.isActive,
       isPublic: updateData.isPublic,
       allowMultiple: updateData.allowMultiple,
@@ -205,6 +218,10 @@ export async function PUT(request: NextRequest) {
     );
 
     const form = await db.collection('Form').findOne({ id });
+
+    if (!form) {
+      return NextResponse.json({ error: 'Form not found after update' }, { status: 404 });
+    }
 
     console.log('Form updated successfully:', { id: form.id, slug: form.slug, title: form.title });
     return NextResponse.json(safeJson(form));

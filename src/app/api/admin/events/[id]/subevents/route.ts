@@ -22,6 +22,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    const { id } = await params; // Await params before accessing properties
     const client = new MongoClient(process.env.DATABASE_URL!);
     await client.connect();
     const db = client.db();
@@ -30,7 +31,7 @@ export async function GET(
     const subevents = await db.collection('Event').aggregate([
       { 
         $match: { 
-          parentEventId: params.id,
+          parentEventId: id,
           published: true 
         } 
       },
@@ -96,6 +97,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    const { id } = await params; // Await params before accessing properties
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
@@ -129,7 +131,7 @@ export async function POST(
     }
 
     // Verify parent event exists and is a main event
-    const parentEvent = await db.collection('Event').findOne({ id: params.id });
+    const parentEvent = await db.collection('Event').findOne({ id: id });
 
     if (!parentEvent) {
       await client.close();
@@ -157,9 +159,9 @@ export async function POST(
       imageUrl: data.imageUrl || null,
       featured: false, // Subevents are typically not featured
       published: data.published !== undefined ? data.published : true,
-      parentEventId: params.id,
+      parentEventId: id,
       isMainEvent: false,
-      createdBy: user.id,
+      createdBy: user?.id || 'unknown',
       createdAt: new Date(),
       updatedAt: new Date()
     };

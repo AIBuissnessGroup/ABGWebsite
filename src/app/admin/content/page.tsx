@@ -379,7 +379,7 @@ export default function UnifiedContentManagement() {
             'published': 'true'
           }}
           specialInstructions={{
-            'eventType': 'Must be one of: WORKSHOP, SYMPOSIUM, NETWORKING, CONFERENCE, MEETING, SOCIAL',
+            'eventType': 'Must be one of: WORKSHOP, SYMPOSIUM, NETWORKING, CONFERENCE, MEETING, SOCIAL, RECRUITMENT',
             'eventDate': 'Use format: YYYY-MM-DDTHH:mm:ss',
             'endDate': 'Use format: YYYY-MM-DDTHH:mm:ss',
             'capacity': 'Must be a number',
@@ -2651,7 +2651,9 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
     eventType: event?.eventType || 'MEETING',
     imageUrl: event?.imageUrl || '',
     featured: event?.featured || false,
-    parentEventId: event?.parentEventId || parentEvent?.id || null
+    parentEventId: event?.parentEventId || parentEvent?.id || null,
+    attendanceConfirmEnabled: event?.attendanceConfirmEnabled || false,
+    attendancePassword: '' // Never show stored password
   });
 
   const [companies, setCompanies] = useState<any[]>([]);
@@ -2911,6 +2913,7 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
                 <option value="NETWORKING">Networking</option>
                 <option value="CONFERENCE">Conference</option>
                 <option value="SOCIAL">Social</option>
+                <option value="RECRUITMENT">Recruitment</option>
               </select>
             </div>
 
@@ -2961,6 +2964,36 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
             <label htmlFor="featured" className="text-sm font-medium text-gray-700">
               Featured event (shown prominently on website)
             </label>
+          </div>
+
+          {/* Attendance Confirmation Section */}
+          <div className="border-t pt-4">
+            <div className="flex items-center mb-4">
+              <input
+                type="checkbox"
+                id="attendanceConfirmEnabled"
+                checked={formData.attendanceConfirmEnabled}
+                onChange={(e) => setFormData({...formData, attendanceConfirmEnabled: e.target.checked})}
+                className="mr-3"
+              />
+              <label htmlFor="attendanceConfirmEnabled" className="text-sm font-medium text-gray-700">
+                Enable attendance confirmation for this event
+              </label>
+            </div>
+
+            {formData.attendanceConfirmEnabled && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Attendance Password</label>
+                <input
+                  type="password"
+                  value={formData.attendancePassword}
+                  onChange={(e) => setFormData({...formData, attendancePassword: e.target.value})}
+                  placeholder="Enter password for attendance confirmation"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                />
+                <p className="text-xs text-gray-500 mt-1">Attendees will need this password to confirm their attendance</p>
+              </div>
+            )}
           </div>
 
           {/* Event Partnerships Section */}
@@ -3961,12 +3994,174 @@ function OtherSettings({ settings, onReload }: any) {
   );
 }
 
+// Maintenance Settings Component
+function MaintenanceSettings({ settings, onReload }: any) {
+  const [localSettings, setLocalSettings] = useState<any>({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const maintenanceSettings = settings.filter((s: any) => 
+      ['maintenance_mode', 'maintenance_message', 'maintenance_exempt_paths'].includes(s.key)
+    );
+    
+    const settingsObj = maintenanceSettings.reduce((acc: any, setting: any) => {
+      acc[setting.key] = setting.value;
+      return acc;
+    }, {
+      maintenance_mode: 'false',
+      maintenance_message: '',
+      maintenance_exempt_paths: '/admin,/api/admin,/auth'
+    });
+    
+    setLocalSettings(settingsObj);
+  }, [settings]);
+
+  const handleSave = async (key: string, value: string) => {
+    setSaving(true);
+    try {
+      const response = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value })
+      });
+
+      if (response.ok) {
+        setLocalSettings((prev: any) => ({ ...prev, [key]: value }));
+        toast.success(`${key} updated successfully`);
+        await onReload();
+      } else {
+        toast.error(`Failed to update ${key}`);
+      }
+    } catch (error) {
+      console.error(`Error updating ${key}:`, error);
+      toast.error(`Error updating ${key}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const maintenanceEnabled = localSettings.maintenance_mode === 'true';
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-5 h-5 text-yellow-600">⚠️</div>
+          <h3 className="font-medium text-yellow-800">Maintenance Mode</h3>
+        </div>
+        <p className="text-sm text-yellow-700">
+          When enabled, all users except admins will see a maintenance page instead of the website.
+        </p>
+      </div>
+
+      {/* Maintenance Mode Toggle */}
+      <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="text-lg font-medium text-gray-900">Maintenance Mode</h4>
+            <p className="text-sm text-gray-600 mt-1">
+              Enable to show maintenance page to all non-admin users
+            </p>
+          </div>
+          <div className="flex items-center">
+            <button
+              onClick={() => handleSave('maintenance_mode', maintenanceEnabled ? 'false' : 'true')}
+              disabled={saving}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#00274c] focus:ring-offset-2 ${
+                maintenanceEnabled ? 'bg-[#00274c]' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`${
+                  maintenanceEnabled ? 'translate-x-6' : 'translate-x-1'
+                } inline-block h-4 w-4 transform rounded-full bg-white transition`}
+              />
+            </button>
+            <span className={`ml-3 text-sm font-medium ${maintenanceEnabled ? 'text-[#00274c]' : 'text-gray-600'}`}>
+              {maintenanceEnabled ? 'Enabled' : 'Disabled'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Maintenance Message */}
+      <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <h4 className="text-lg font-medium text-gray-900 mb-4">Maintenance Message</h4>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Custom Message (optional)
+            </label>
+            <textarea
+              value={localSettings.maintenance_message || ''}
+              onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, maintenance_message: e.target.value }))}
+              placeholder="Enter a custom maintenance message (leave blank for default)"
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c] focus:border-[#00274c]"
+            />
+          </div>
+          <button
+            onClick={() => handleSave('maintenance_message', localSettings.maintenance_message || '')}
+            disabled={saving}
+            className="px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366] disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save Message'}
+          </button>
+        </div>
+      </div>
+
+      {/* Exempt Paths */}
+      <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <h4 className="text-lg font-medium text-gray-900 mb-4">Exempt Paths</h4>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Paths that should remain accessible during maintenance
+            </label>
+            <input
+              type="text"
+              value={localSettings.maintenance_exempt_paths || ''}
+              onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, maintenance_exempt_paths: e.target.value }))}
+              placeholder="/admin,/api/admin,/auth"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c] focus:border-[#00274c]"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Comma-separated paths (e.g., /admin,/api/admin,/auth)
+            </p>
+          </div>
+          <button
+            onClick={() => handleSave('maintenance_exempt_paths', localSettings.maintenance_exempt_paths || '/admin,/api/admin,/auth')}
+            disabled={saving}
+            className="px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366] disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save Exempt Paths'}
+          </button>
+        </div>
+      </div>
+
+      {/* Current Status */}
+      {maintenanceEnabled && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 text-orange-600">🚧</div>
+            <h3 className="font-medium text-orange-800">Maintenance Mode is Currently Active</h3>
+          </div>
+          <p className="text-sm text-orange-700 mt-2">
+            Non-admin users are seeing the maintenance page. Remember to disable maintenance mode when ready.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Settings Section Component
 function SettingsSection({ settings, onReload }: any) {
   const [activeSettingsTab, setActiveSettingsTab] = useState('metadata');
 
   const settingsTabs = [
     { id: 'metadata', name: 'Site Metadata', icon: '🌐' },
+    { id: 'maintenance', name: 'Maintenance Mode', icon: '🚧' },
     { id: 'other', name: 'Other Settings', icon: '⚙️' }
   ];
 
@@ -3993,6 +4188,8 @@ function SettingsSection({ settings, onReload }: any) {
 
       {activeSettingsTab === 'metadata' ? (
         <MetadataSettings settings={settings} onReload={onReload} />
+      ) : activeSettingsTab === 'maintenance' ? (
+        <MaintenanceSettings settings={settings} onReload={onReload} />
       ) : (
         <OtherSettings settings={settings} onReload={onReload} />
       )}

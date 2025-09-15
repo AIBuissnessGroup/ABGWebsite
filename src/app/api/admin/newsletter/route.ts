@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import { isAdminEmail } from '@/lib/admin';
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
@@ -66,17 +66,38 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { id } = await request.json();
+    // Try to get ID from query parameters first, then from request body
+    const { searchParams } = new URL(request.url);
+    let subscriptionId = searchParams.get('id') || searchParams.get('_id');
+    
+    if (!subscriptionId) {
+      try {
+        const body = await request.json();
+        subscriptionId = body.id || body._id || body.subscriptionId;
+      } catch (error) {
+        // If JSON parsing fails, continue without body data
+      }
+    }
 
-    if (!id) {
-      return NextResponse.json({ error: 'Subscription ID is required' }, { status: 400 });
+    if (!subscriptionId) {
+      return NextResponse.json({ 
+        error: 'Subscription ID is required',
+        details: 'Please provide the subscription ID in query parameters (?id=...) or request body'
+      }, { status: 400 });
     }
 
     await client.connect();
     const db = client.db('abg-website');
     const collection = db.collection('NewsletterSubscriber');
 
-    const result = await collection.deleteOne({ id });
+    // Try to delete by _id (ObjectId) first, then by id field if it exists
+    let result;
+    try {
+      result = await collection.deleteOne({ _id: new ObjectId(subscriptionId) });
+    } catch (error) {
+      // If ObjectId conversion fails, try as string id
+      result = await collection.deleteOne({ id: subscriptionId });
+    }
 
     if (result.deletedCount === 0) {
       return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });

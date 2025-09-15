@@ -7,8 +7,83 @@ import {
   PencilIcon, 
   TrashIcon, 
   EyeIcon,
-  CalendarIcon
+  CalendarIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  UserPlusIcon,
+  UserGroupIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
+
+// Waitlist interfaces
+interface WaitlistPerson {
+  _id: string;
+  id: string;
+  eventId: string;
+  attendee: {
+    name: string;
+    umichEmail: string;
+    major: string | null;
+    gradeLevel: string | null;
+  };
+  status: string;
+  waitlistPosition: number;
+  registeredAt: number;
+  source: string;
+  reminders: {
+    emailSent: boolean;
+    smsSent: boolean;
+  };
+  checkInCode: string;
+}
+
+interface EventWaitlist {
+  id: string;
+  title: string;
+  eventDate: string;
+  eventType: string;
+  capacity: number;
+  waitlistMaxSize: number;
+  confirmedCount: number;
+  waitlistCount: number;
+  canPromote: boolean;
+  waitlistSpots: WaitlistPerson[];
+}
+
+interface WaitlistData {
+  totalWaitlisted: number;
+  eventsWithWaitlists: number;
+  promotableEvents: number;
+  waitlistByType: Record<string, { events: number; waitlisted: number }>;
+  events: EventWaitlist[];
+}
+
+// Helper functions for EST timezone handling
+const formatDateForInput = (utcDate: Date): string => {
+  // Convert UTC date to EST/EDT for display in datetime-local input
+  // EST is UTC-5, EDT is UTC-4 (we'll use EST year-round for consistency)
+  const estOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
+  const estDate = new Date(utcDate.getTime() - estOffset);
+  const isoString = estDate.toISOString();
+  return isoString.slice(0, 16); // Remove seconds and timezone info
+};
+
+const parseDateFromInput = (dateString: string): Date => {
+  // Parse datetime-local input as EST and convert to UTC
+  if (!dateString) return new Date();
+  // Add seconds to make it a valid ISO string, but treat as EST
+  const estDateString = dateString + ':00';
+  const estDate = new Date(estDateString);
+  // Add 5 hours to convert EST to UTC
+  const estOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
+  return new Date(estDate.getTime() + estOffset);
+};
+
+// Helper function to convert UTC dates to EST for display
+const convertUtcToEst = (utcDate: Date): Date => {
+  const estOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
+  return new Date(utcDate.getTime() - estOffset);
+};
 
 export default function EventsAdmin() {
   const { data: session, status } = useSession();
@@ -21,6 +96,18 @@ export default function EventsAdmin() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'events' | 'analytics' | 'waitlist' | 'registrations'>('events');
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [waitlistData, setWaitlistData] = useState<WaitlistData | null>(null);
+  const [registrationsData, setRegistrationsData] = useState<any>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [loadingWaitlist, setLoadingWaitlist] = useState(false);
+  const [loadingRegistrations, setLoadingRegistrations] = useState(false);
+  const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
+  const [promoting, setPromoting] = useState<string | null>(null);
+  const [viewingAttendees, setViewingAttendees] = useState<string | null>(null);
+  const [attendeesData, setAttendeesData] = useState<any>(null);
+  const [loadingAttendees, setLoadingAttendees] = useState(false);
 
   // Restore form state on mount
   useEffect(() => {
@@ -30,42 +117,36 @@ export default function EventsAdmin() {
         const { showForm: savedShowForm, showSubeventForm: savedShowSubeventForm, editingEventId, parentEventId } = JSON.parse(savedFormState);
         console.log('🔄 Restoring events form state:', { savedShowForm, savedShowSubeventForm, editingEventId, parentEventId, eventsLoaded: events.length > 0 });
         
-        if (savedShowForm || savedShowSubeventForm) {
-          const checkForEvents = () => {
-            if (events.length > 0) {
-              if (savedShowSubeventForm && parentEventId) {
-                const parentEvent = events.find(e => e.id === parentEventId);
-                if (parentEvent) {
-                  setShowSubeventForm(parentEvent);
-                  console.log('✓ Events subevent form restored for parent:', parentEvent.title);
-                }
-              } else if (savedShowForm) {
-                setShowForm(true);
-                if (editingEventId) {
-                  // Find the event to edit (could be main event or subevent)
-                  let eventToEdit = events.find(e => e.id === editingEventId);
-                  if (!eventToEdit) {
-                    // Check subevents
-                    for (const event of events) {
-                      if (event.subevents) {
-                        eventToEdit = event.subevents.find((sub: any) => sub.id === editingEventId);
-                        if (eventToEdit) break;
-                      }
-                    }
+        // Only restore if user explicitly had a form open, not just because they clicked somewhere
+        if ((savedShowForm || savedShowSubeventForm) && events.length > 0) {
+          if (savedShowSubeventForm && parentEventId) {
+            const parentEvent = events.find(e => e.id === parentEventId);
+            if (parentEvent) {
+              setShowSubeventForm(parentEvent);
+              console.log('✓ Events subevent form restored for parent:', parentEvent.title);
+            }
+          } else if (savedShowForm) {
+            setShowForm(true);
+            if (editingEventId) {
+              // Find the event to edit (could be main event or subevent)
+              let eventToEdit = events.find(e => e.id === editingEventId);
+              if (!eventToEdit) {
+                // Check subevents
+                for (const event of events) {
+                  if (event.subevents) {
+                    eventToEdit = event.subevents.find((sub: any) => sub.id === editingEventId);
+                    if (eventToEdit) break;
                   }
-                  if (eventToEdit) {
-                    setEditingEvent(eventToEdit);
-                    console.log('✓ Events editing event restored:', eventToEdit.title);
-                  }
-                } else {
-                  console.log('✓ Events new form restored');
                 }
               }
+              if (eventToEdit) {
+                setEditingEvent(eventToEdit);
+                console.log('✓ Events editing event restored:', eventToEdit.title);
+              }
+            } else {
+              console.log('✓ Events new form restored');
             }
-          };
-          // Check immediately and also set up a timeout
-          checkForEvents();
-          setTimeout(checkForEvents, 100);
+          }
         }
       }
     } catch (error) {
@@ -124,6 +205,185 @@ export default function EventsAdmin() {
       setLoading(false);
     }
   };
+
+  const loadAnalytics = async () => {
+    setLoadingAnalytics(true);
+    try {
+      const res = await fetch('/api/admin/analytics');
+      const data = await res.json();
+      if (data && !data.error) {
+        setAnalyticsData(data);
+      }
+    } catch (error) {
+      console.error('Error loading analytics:', error);
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  };
+
+  const loadWaitlistData = async () => {
+    setLoadingWaitlist(true);
+    try {
+      const res = await fetch('/api/admin/waitlists');
+      const data = await res.json();
+      if (data && !data.error) {
+        setWaitlistData(data);
+      }
+    } catch (error) {
+      console.error('Error loading waitlist data:', error);
+    } finally {
+      setLoadingWaitlist(false);
+    }
+  };
+
+  const loadRegistrationsData = async () => {
+    setLoadingRegistrations(true);
+    try {
+      const res = await fetch('/api/admin/registrations');
+      const data = await res.json();
+      if (data && !data.error) {
+        setRegistrationsData(data);
+      }
+    } catch (error) {
+      console.error('Error loading registrations data:', error);
+    } finally {
+      setLoadingRegistrations(false);
+    }
+  };
+
+  const promoteFromWaitlist = async (eventId: string, attendanceId: string) => {
+    if (!confirm('Are you sure you want to promote this person from the waitlist?')) {
+      return;
+    }
+
+    setPromoting(attendanceId);
+    try {
+      const response = await fetch('/api/admin/waitlists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId, attendanceId })
+      });
+
+      if (response.ok) {
+        alert('Person promoted successfully!');
+        loadWaitlistData(); // Refresh data
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error promoting person:', error);
+      alert('Failed to promote person');
+    } finally {
+      setPromoting(null);
+    }
+  };
+
+  const toggleEventExpanded = (eventId: string) => {
+    const newExpanded = new Set(expandedEvents);
+    if (newExpanded.has(eventId)) {
+      newExpanded.delete(eventId);
+    } else {
+      newExpanded.add(eventId);
+    }
+    setExpandedEvents(newExpanded);
+  };
+
+  const formatDate = (timestamp: string | number) => {
+    const utcDate = typeof timestamp === 'string' ? new Date(timestamp) : new Date(timestamp);
+    const estDate = convertUtcToEst(utcDate);
+    return estDate.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'America/New_York'
+    });
+  };
+
+  const loadEventAttendees = async (eventId: string) => {
+    setLoadingAttendees(true);
+    try {
+      const res = await fetch(`/api/admin/events/${eventId}/attendance`);
+      const data = await res.json();
+      console.log('🔍 Attendance API response:', data);
+      if (data && !data.error) {
+        setAttendeesData(data);
+      } else {
+        console.error('❌ API returned error:', data.error);
+      }
+    } catch (error) {
+      console.error('❌ Error loading attendees:', error);
+    } finally {
+      setLoadingAttendees(false);
+    }
+  };
+
+  const removeAttendee = async (eventId: string, attendanceId: string) => {
+    if (!confirm('Are you sure you want to remove this person from the event?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/events/${eventId}/attendees`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attendanceId })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(result.message);
+        loadEventAttendees(eventId); // Refresh attendees
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error removing attendee:', error);
+      alert('Failed to remove attendee');
+    }
+  };
+
+  const promoteAttendee = async (eventId: string, attendanceId: string) => {
+    if (!confirm('Are you sure you want to promote this person from the waitlist?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/events/${eventId}/attendees`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'promote', attendanceId })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(result.message);
+        loadEventAttendees(eventId); // Refresh attendees
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error promoting attendee:', error);
+      alert('Failed to promote attendee');
+    }
+  };
+
+  // Load data when tab changes
+  useEffect(() => {
+    if (session?.user) {
+      if (activeTab === 'analytics' && !analyticsData) {
+        loadAnalytics();
+      } else if (activeTab === 'waitlist' && !waitlistData) {
+        loadWaitlistData();
+      } else if (activeTab === 'registrations' && !registrationsData) {
+        loadRegistrationsData();
+      }
+    }
+  }, [activeTab, session]);
 
   const deleteEvent = async (id: string) => {
     if (confirm('Are you sure you want to delete this event?')) {
@@ -190,8 +450,56 @@ export default function EventsAdmin() {
         )}
       </div>
 
+      {/* Tab Navigation */}
+      {!showForm && !showSubeventForm && (
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab('events')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'events'
+                  ? 'border-[#00274c] text-[#00274c]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Events
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'analytics'
+                  ? 'border-[#00274c] text-[#00274c]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Analytics
+            </button>
+            <button
+              onClick={() => setActiveTab('waitlist')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'waitlist'
+                  ? 'border-[#00274c] text-[#00274c]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Waitlists
+            </button>
+            <button
+              onClick={() => setActiveTab('registrations')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'registrations'
+                  ? 'border-[#00274c] text-[#00274c]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              All Registrations
+            </button>
+          </nav>
+        </div>
+      )}
+
       {/* Import Panel */}
-      {showImport && !showForm && !showSubeventForm && (
+      {showImport && !showForm && !showSubeventForm && activeTab === 'events' && (
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-gray-900">Bulk Upload Events (CSV)</h3>
@@ -266,8 +574,439 @@ export default function EventsAdmin() {
         </div>
       )}
 
+      {/* Attendee Management Modal */}
+      {viewingAttendees && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            // Close modal when clicking backdrop
+            if (e.target === e.currentTarget) {
+              setViewingAttendees(null);
+              setAttendeesData(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg shadow-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+               onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Manage Attendees & Send Updates</h2>
+                <button
+                  onClick={() => {
+                    setViewingAttendees(null);
+                    setAttendeesData(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center"
+                  title="Close modal"
+                >
+                  <XMarkIcon className="w-6 h-6 text-gray-600 hover:text-gray-800" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {loadingAttendees ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00274c]"></div>
+                  <span className="ml-2">Loading attendees...</span>
+                </div>
+              ) : attendeesData ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Left Column: Attendee Management */}
+                  <div className="space-y-6">
+                    {/* Summary */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">
+                          {attendeesData.confirmed?.length || 0}
+                        </div>
+                        <div className="text-sm text-green-600">Confirmed</div>
+                      </div>
+                      <div className="bg-yellow-50 p-4 rounded-lg">
+                        <div className="text-2xl font-bold text-yellow-600">
+                          {attendeesData.waitlisted?.length || 0}
+                        </div>
+                        <div className="text-sm text-yellow-600">Waitlisted</div>
+                      </div>
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {(attendeesData.confirmed?.length || 0) + (attendeesData.waitlisted?.length || 0)}
+                        </div>
+                        <div className="text-sm text-blue-600">Total</div>
+                      </div>
+                    </div>
+
+                    {/* Phone Verification Section - Always Visible */}
+                    {(() => {
+                      const currentEvent = events.find(e => e.id === viewingAttendees);
+                      return currentEvent?.requirePhone ? (
+                        <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <h3 className="text-lg font-semibold text-orange-800">📞 Phone Verification (Twilio Trial)</h3>
+                              <p className="text-sm text-orange-700">
+                                Trial accounts require phone verification before SMS can be sent.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                console.log('🔍 Verify phones button clicked for event:', viewingAttendees);
+                                
+                                if (!confirm('This will initiate phone verification calls to all attendees with phone numbers. Continue?')) {
+                                  return;
+                                }
+                                
+                                try {
+                                  console.log('📞 Starting phone verification request...');
+                                  const response = await fetch('/api/admin/events/verify-phones', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ eventId: viewingAttendees })
+                                  });
+                                  
+                                  const result = await response.json();
+                                  console.log('📞 Verification response:', result);
+                                  
+                                  if (response.ok) {
+                                    alert(`Phone verification initiated!\n\nStats:\n- ${result.stats.verificationInitiated} calls initiated\n- ${result.stats.alreadyVerified} already verified\n- ${result.stats.failed} failed\n\nAttendees will receive verification calls shortly.`);
+                                  } else {
+                                    alert(`Verification failed: ${result.error}`);
+                                  }
+                                } catch (error) {
+                                  console.error('Verification error:', error);
+                                  alert('Failed to initiate phone verification');
+                                }
+                              }}
+                              className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2"
+                            >
+                              📱 Verify All Phone Numbers
+                            </button>
+                          </div>
+                          <p className="text-xs text-orange-600">
+                            <strong>How it works:</strong> Attendees will receive automated calls with verification codes. 
+                            Once verified, SMS messages can be sent successfully.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                          <p className="text-sm text-gray-600">
+                            📱 <strong>Phone verification not needed:</strong> This event does not collect phone numbers from attendees.
+                          </p>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Confirmed Attendees */}
+                    {attendeesData.confirmed && attendeesData.confirmed.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-4 text-green-600">
+                          Confirmed Attendees ({attendeesData.confirmed.length})
+                        </h3>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {attendeesData.confirmed.map((attendee: any) => (
+                            <div key={attendee._id} className="flex items-center justify-between bg-green-50 p-3 rounded">
+                              <div>
+                                <div className="font-medium">{attendee.attendee?.name || 'No name'}</div>
+                                <div className="text-sm text-gray-600">{attendee.attendee?.umichEmail}</div>
+                                <div className="text-xs text-gray-500">
+                                  {attendee.attendee?.major} • Grade {attendee.attendee?.gradeLevel}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => removeAttendee(viewingAttendees, attendee._id)}
+                                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                              >
+                                <XMarkIcon className="w-4 h-4" />
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Waitlisted Attendees */}
+                    {attendeesData.waitlisted && attendeesData.waitlisted.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-4 text-yellow-600">
+                          Waitlisted Attendees ({attendeesData.waitlisted.length})
+                        </h3>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {attendeesData.waitlisted.map((attendee: any) => (
+                            <div key={attendee._id} className="flex items-center justify-between bg-yellow-50 p-3 rounded">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                  #{attendee.waitlistPosition}
+                                </div>
+                                <div>
+                                  <div className="font-medium">{attendee.attendee?.name || 'No name'}</div>
+                                  <div className="text-sm text-gray-600">{attendee.attendee?.umichEmail}</div>
+                                  <div className="text-xs text-gray-500">
+                                    {attendee.attendee?.major} • Grade {attendee.attendee?.gradeLevel}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => promoteAttendee(viewingAttendees, attendee._id)}
+                                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                                >
+                                  <UserPlusIcon className="w-4 h-4" />
+                                  Promote
+                                </button>
+                                <button
+                                  onClick={() => removeAttendee(viewingAttendees, attendee._id)}
+                                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                                >
+                                  <XMarkIcon className="w-4 h-4" />
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {attendeesData.confirmed?.length === 0 && attendeesData.waitlisted?.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        No attendees found for this event
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Send Updates */}
+                  <div className="space-y-6">
+                    <div className="bg-blue-50 p-6 rounded-lg">
+                      <h3 className="text-lg font-semibold mb-4 text-blue-600">Send Event Update</h3>
+                      
+                      <form className="space-y-4" onSubmit={async (e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        const title = formData.get('title') as string;
+                        const message = formData.get('message') as string;
+                        const recipients = formData.get('recipients') as string;
+                        const type = formData.get('type') as string;
+                        const sendSMS = formData.get('sendSMS') === 'on';
+                        
+                        if (!title || !message) {
+                          alert('Please fill in all fields');
+                          return;
+                        }
+
+                        // Additional validation for SMS
+                        if (sendSMS) {
+                          const currentEvent = events.find(e => e.id === viewingAttendees);
+                          if (!currentEvent?.requirePhone) {
+                            alert('SMS can only be sent for events that require phone numbers. This event does not collect phone numbers.');
+                            return;
+                          }
+                          
+                          if (!message.trim()) {
+                            alert('Message is required when sending SMS');
+                            return;
+                          }
+                          
+                          const confirmed = confirm('You are about to send an SMS message. This will use SMS credits and send to all selected attendees with phone numbers. Continue?');
+                          if (!confirmed) {
+                            return;
+                          }
+                        }
+                        
+                        try {
+                          // Send web update
+                          const updateResponse = await fetch(`/api/events/${viewingAttendees}/updates`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ title, message, recipients, type })
+                          });
+                          
+                          let updateResult = null;
+                          if (updateResponse.ok) {
+                            updateResult = await updateResponse.json();
+                          }
+                          
+                          // Send SMS if requested
+                          let smsResult = null;
+                          if (sendSMS) {
+                            const smsResponse = await fetch('/api/admin/events/sms', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ 
+                                eventId: viewingAttendees, 
+                                message: message, 
+                                recipients: recipients 
+                              })
+                            });
+                            
+                            if (smsResponse.ok) {
+                              smsResult = await smsResponse.json();
+                            }
+                          }
+                          
+                          // Show results
+                          if (updateResult && smsResult) {
+                            alert(`Update sent to ${updateResult.recipientCount} attendees and SMS sent to ${smsResult.stats.sent} phone numbers!`);
+                          } else if (updateResult) {
+                            alert(`Update sent to ${updateResult.recipientCount} attendees!`);
+                          } else if (smsResult) {
+                            alert(`SMS sent to ${smsResult.stats.sent} attendees!`);
+                          } else {
+                            alert('Failed to send update');
+                          }
+                          
+                          (e.target as HTMLFormElement).reset();
+                        } catch (error) {
+                          console.error('Error sending update:', error);
+                          alert('Failed to send update');
+                        }
+                      }}>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800 mb-1">Update Title</label>
+                          <input
+                            type="text"
+                            name="title"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                            placeholder="Enter update title..."
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800 mb-1">Message</label>
+                          <textarea
+                            name="message"
+                            rows={4}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                            placeholder="Enter your message..."
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800 mb-1">Send To</label>
+                          <select
+                            name="recipients"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                            required
+                          >
+                            <option value="all">All attendees</option>
+                            <option value="confirmed">Confirmed attendees only</option>
+                            <option value="waitlist">Waitlist members only</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800 mb-1">Update Type</label>
+                          <select
+                            name="type"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                          >
+                            <option value="info">Information</option>
+                            <option value="reminder">Reminder</option>
+                            <option value="urgent">Urgent</option>
+                          </select>
+                        </div>
+                        
+                        {/* Only show SMS option if current event requires phone numbers */}
+                        {(() => {
+                          const currentEvent = events.find(e => e.id === viewingAttendees);
+                          return currentEvent?.requirePhone ? (
+                            <div className="space-y-3">
+                              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                                <label className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    name="sendSMS"
+                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
+                                  />
+                                  <span className="text-sm text-gray-800 font-medium">
+                                    📱 <strong>Also send as SMS</strong> (requires phone numbers)
+                                  </span>
+                                </label>
+                                <p className="text-xs mt-1 ml-6 font-normal" style={{ color: '#4B5563' }}>
+                                  <strong>Important:</strong> SMS will only be sent to attendees who provided phone numbers during registration. 
+                                  Message content above is required for SMS delivery.
+                                </p>
+                              </div>
+                              
+                              {/* Phone Verification for Trial Accounts */}
+                              <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm text-orange-800 font-medium">📞 Twilio Trial Account</p>
+                                    <p className="text-xs text-orange-700 mt-1">
+                                      Trial accounts can only send SMS to verified phone numbers.
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (!confirm('This will initiate phone verification calls to all attendees with phone numbers. Continue?')) {
+                                        return;
+                                      }
+                                      
+                                      try {
+                                        const response = await fetch('/api/admin/events/verify-phones', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ eventId: viewingAttendees })
+                                        });
+                                        
+                                        const result = await response.json();
+                                        
+                                        if (response.ok) {
+                                          alert(`Phone verification initiated!\n\nStats:\n- ${result.stats.verificationInitiated} calls initiated\n- ${result.stats.alreadyVerified} already verified\n- ${result.stats.failed} failed\n\nAttendees will receive verification calls shortly.`);
+                                        } else {
+                                          alert(`Verification failed: ${result.error}`);
+                                        }
+                                      } catch (error) {
+                                        alert('Failed to initiate phone verification');
+                                        console.error('Verification error:', error);
+                                      }
+                                    }}
+                                    className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-sm font-medium"
+                                  >
+                                    Verify All Phones
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                              <p className="text-sm text-yellow-800">
+                                📱 <strong>SMS not available:</strong> This event does not collect phone numbers from attendees.
+                                To enable SMS, edit the event and check "Require Phone Number" in event settings.
+                              </p>
+                            </div>
+                          );
+                        })()}
+                        
+                        <button
+                          type="submit"
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium"
+                        >
+                          Send Update
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  Failed to load attendee data
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Events Grid */}
-      <div className="grid gap-6">
+      {activeTab === 'events' && (
+        <div className="grid gap-6">
         {events.map((event: any) => (
           <div key={event.id} className="bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-start mb-4">
@@ -298,11 +1037,11 @@ export default function EventsAdmin() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <span className="font-medium text-gray-700">Date:</span>
-                    <p className="text-gray-900">{new Date(event.eventDate).toLocaleDateString()}</p>
+                    <p className="text-gray-900">{convertUtcToEst(new Date(event.eventDate)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
                   </div>
                   <div>
                     <span className="font-medium text-gray-700">Time:</span>
-                    <p className="text-gray-900">{new Date(event.eventDate).toLocaleTimeString()}</p>
+                    <p className="text-gray-900">{convertUtcToEst(new Date(event.eventDate)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST</p>
                   </div>
                   <div>
                     <span className="font-medium text-gray-700">Location:</span>
@@ -318,6 +1057,14 @@ export default function EventsAdmin() {
                   <div className="mt-2">
                     <span className="font-medium text-gray-700 text-sm">Venue:</span>
                     <span className="text-gray-900 text-sm ml-2">{event.venue}</span>
+                  </div>
+                )}
+
+                {/* Attendance Information */}
+                {event.attendanceConfirmEnabled && (
+                  <div className="space-y-3">
+                    <AttendanceInfo eventId={event.id} />
+                    <EventStats eventId={event.id} />
                   </div>
                 )}
               </div>
@@ -358,6 +1105,17 @@ export default function EventsAdmin() {
                   <PencilIcon className="w-4 h-4" />
                 </button>
                 <button
+                  onClick={() => {
+                    setViewingAttendees(event.id);
+                    loadEventAttendees(event.id);
+                  }}
+                  className="text-purple-600 hover:text-purple-900 p-2"
+                  title="Manage Attendees"
+                  disabled={showForm || !!showSubeventForm}
+                >
+                  <UserGroupIcon className="w-4 h-4" />
+                </button>
+                <button
                   onClick={() => deleteEvent(event.id)}
                   className="text-red-600 hover:text-red-900 p-2"
                   title="Delete Event"
@@ -379,7 +1137,7 @@ export default function EventsAdmin() {
                         <div className="flex-1">
                           <h6 className="font-medium text-sm text-gray-900">{subevent.title}</h6>
                           <p className="text-xs text-gray-500 mt-1">
-                            {new Date(subevent.eventDate).toLocaleDateString()} • {new Date(subevent.eventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {convertUtcToEst(new Date(subevent.eventDate)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })} • {convertUtcToEst(new Date(subevent.eventDate)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST
                           </p>
                           {subevent.venue && (
                             <p className="text-xs text-gray-500">📍 {subevent.venue}</p>
@@ -422,9 +1180,11 @@ export default function EventsAdmin() {
             )}
           </div>
         ))}
-      </div>
+        </div>
+      )} {/* End Events Tab - Grid */}
 
-      {events.length === 0 && !showForm && !showSubeventForm && (
+      {/* No Events Message */}
+      {activeTab === 'events' && events.length === 0 && !showForm && !showSubeventForm && (
         <div className="text-center py-12">
           <CalendarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No events yet</h3>
@@ -439,6 +1199,375 @@ export default function EventsAdmin() {
                 >
                   Add Event
           </button>
+        </div>
+      )}
+      {/* End Events Tab */}
+
+      {/* Analytics Tab */}
+      {activeTab === 'analytics' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Event Analytics</h2>
+            {loadingAnalytics ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00274c]"></div>
+                <span className="ml-2 text-gray-600">Loading analytics...</span>
+              </div>
+            ) : analyticsData ? (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{analyticsData.totalEvents || 0}</div>
+                    <div className="text-sm text-blue-600">Total Events</div>
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{analyticsData.totalAttendees || 0}</div>
+                    <div className="text-sm text-green-600">Total Attendees</div>
+                  </div>
+                  <div className="bg-purple-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">{analyticsData.averageAttendance || 0}%</div>
+                    <div className="text-sm text-purple-600">Avg Attendance Rate</div>
+                  </div>
+                  <div className="bg-orange-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-orange-600">{analyticsData.upcomingEvents || 0}</div>
+                    <div className="text-sm text-orange-600">Upcoming Events</div>
+                  </div>
+                </div>
+                
+                {analyticsData.eventBreakdown && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-medium text-gray-900 mb-3">Events by Type</h3>
+                    <div className="space-y-2">
+                      {Object.entries(analyticsData.eventBreakdown).map(([type, count]: [string, any]) => (
+                        <div key={type} className="flex justify-between">
+                          <span className="text-gray-600">{type}:</span>
+                          <span className="font-medium">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No analytics data available
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Waitlist Tab */}
+      {activeTab === 'waitlist' && (
+        <div className="space-y-6">
+          {/* Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-2 text-gray-900">Total Waitlisted</h3>
+              <p className="text-3xl font-bold text-yellow-600">
+                {waitlistData?.totalWaitlisted || 0}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-2 text-gray-900">Events with Waitlists</h3>
+              <p className="text-3xl font-bold text-blue-600">
+                {waitlistData?.eventsWithWaitlists || 0}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-2 text-gray-900">Can Promote People</h3>
+              <p className="text-3xl font-bold text-green-600">
+                {waitlistData?.promotableEvents || 0}
+              </p>
+            </div>
+          </div>
+
+          {/* Events with Waitlists */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Events with Waitlists</h2>
+            
+            {loadingWaitlist ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00274c]"></div>
+                <span className="ml-2 text-gray-600">Loading waitlists...</span>
+              </div>
+            ) : waitlistData && waitlistData.events && waitlistData.events.length > 0 ? (
+              <div className="space-y-4">
+                {waitlistData.events.map((event: EventWaitlist) => (
+                  <div key={event.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div 
+                      className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => toggleEventExpanded(event.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-gray-900">{event.title}</h3>
+                          <p className="text-gray-600 text-sm mt-1">
+                            {formatDate(event.eventDate)} • {event.eventType}
+                          </p>
+                          <div className="flex items-center gap-4 mt-2 text-sm">
+                            <span className="text-green-600 font-medium">
+                              {event.confirmedCount} confirmed
+                            </span>
+                            <span className="text-yellow-600 font-medium">
+                              {event.waitlistCount} waitlisted
+                            </span>
+                            {event.capacity && (
+                              <span className="text-gray-500">
+                                Capacity: {event.capacity}
+                              </span>
+                            )}
+                            {event.canPromote && event.waitlistCount > 0 && (
+                              <span className="text-green-600 font-semibold">
+                                Can promote!
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {expandedEvents.has(event.id) ? (
+                            <ChevronUpIcon className="w-5 h-5 text-gray-400" />
+                          ) : (
+                            <ChevronDownIcon className="w-5 h-5 text-gray-400" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {expandedEvents.has(event.id) && event.waitlistSpots.length > 0 && (
+                      <div className="border-t border-gray-200">
+                        <div className="p-4">
+                          <h4 className="text-lg font-semibold mb-4 text-gray-900">Waitlist Queue</h4>
+                          <div className="space-y-3">
+                            {event.waitlistSpots.map((person) => (
+                              <div 
+                                key={person._id} 
+                                className="flex items-center justify-between bg-gray-50 rounded-lg p-4"
+                              >
+                                <div className="flex items-center gap-4">
+                                  <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                    #{person.waitlistPosition}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-900">
+                                      {person.attendee?.name || 'No name'}
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                      {person.attendee?.umichEmail}
+                                    </p>
+                                    {person.attendee?.major && (
+                                      <p className="text-sm text-gray-500">
+                                        {person.attendee.major} • Grade {person.attendee.gradeLevel}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500">
+                                    Registered {convertUtcToEst(new Date(person.registeredAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
+                                  </span>
+                                  {event.canPromote && person.waitlistPosition === 1 && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        promoteFromWaitlist(event.id, person._id);
+                                      }}
+                                      disabled={promoting === person._id}
+                                      className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition-colors"
+                                    >
+                                      <UserPlusIcon className="w-4 h-4" />
+                                      {promoting === person._id ? 'Promoting...' : 'Promote'}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                {waitlistData ? 'No events with waitlists found' : 'No waitlist data available'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* All Registrations Tab */}
+      {activeTab === 'registrations' && (
+        <div className="space-y-6">
+          {/* Summary Statistics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-2 text-gray-900">Total Registrations</h3>
+              <p className="text-3xl font-bold text-blue-600">
+                {registrationsData?.summary?.totalRegistrations || 0}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-2 text-gray-900">Confirmed</h3>
+              <p className="text-3xl font-bold text-green-600">
+                {registrationsData?.summary?.confirmedRegistrations || 0}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-2 text-gray-900">Waitlisted</h3>
+              <p className="text-3xl font-bold text-yellow-600">
+                {registrationsData?.summary?.waitlistedRegistrations || 0}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-2 text-gray-900">Unique People</h3>
+              <p className="text-3xl font-bold text-purple-600">
+                {registrationsData?.summary?.uniqueAttendees || 0}
+              </p>
+            </div>
+          </div>
+
+          {/* Breakdown Charts */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* By Event Type */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">By Event Type</h3>
+              {registrationsData?.summary?.registrationsByType && (
+                <div className="space-y-2">
+                  {Object.entries(registrationsData.summary.registrationsByType).map(([type, count]: [string, any]) => (
+                    <div key={type} className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">{type}</span>
+                      <span className="font-medium">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* By Major */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">By Major</h3>
+              {registrationsData?.summary?.registrationsByMajor && (
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {Object.entries(registrationsData.summary.registrationsByMajor)
+                    .sort(([,a], [,b]) => (b as number) - (a as number))
+                    .slice(0, 8)
+                    .map(([major, count]: [string, any]) => (
+                    <div key={major} className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 truncate">{major}</span>
+                      <span className="font-medium">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* By Grade Level */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">By Grade Level</h3>
+              {registrationsData?.summary?.registrationsByGrade && (
+                <div className="space-y-2">
+                  {Object.entries(registrationsData.summary.registrationsByGrade).map(([grade, count]: [string, any]) => (
+                    <div key={grade} className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">{grade}</span>
+                      <span className="font-medium">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* All Registrations Table */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">All Registrations</h2>
+            
+            {loadingRegistrations ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00274c]"></div>
+                <span className="ml-2 text-gray-600">Loading registrations...</span>
+              </div>
+            ) : registrationsData && registrationsData.allRegistrations && registrationsData.allRegistrations.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Event
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Major
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Grade
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Registered
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {registrationsData.allRegistrations.map((registration: any) => (
+                      <tr key={registration.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {registration.attendee.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {registration.attendee.email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {registration.eventTitle}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {registration.eventType}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            registration.status === 'confirmed' 
+                              ? 'bg-green-100 text-green-800'
+                              : registration.status === 'waitlisted'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {registration.status}
+                            {registration.waitlistPosition && ` (#${registration.waitlistPosition})`}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {registration.attendee.major}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {registration.attendee.gradeLevel}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {convertUtcToEst(new Date(registration.registeredAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                {registrationsData ? 'No registrations found' : 'No registration data available'}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -459,11 +1588,24 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
     imageUrl: '',
     featured: false,
     published: true,
-    parentEventId: null
+    parentEventId: null,
+    attendanceConfirmEnabled: false,
+    attendancePassword: '',
+    waitlistEnabled: false,
+    waitlistMaxSize: '',
+    waitlistAutoPromote: false,
+    requirePassword: false,
+    requireName: false,
+    requireMajor: false,
+    requireGradeLevel: false,
+    requirePhone: false
   });
   const [saving, setSaving] = useState(false);
+  const [hasExistingPassword, setHasExistingPassword] = useState(false);
+  const [passwordAction, setPasswordAction] = useState<'keep' | 'update' | 'clear' | 'none'>('none');
   const [companies, setCompanies] = useState<any[]>([]);
   const [partnerships, setPartnerships] = useState<any[]>([]);
+  const [speakers, setSpeakers] = useState<any[]>([]);
 
   // Autosave functionality - works for new events, editing events, and subevents
   useEffect(() => {
@@ -481,7 +1623,8 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
           
           const draftData = {
             formData,
-            partnerships
+            partnerships,
+            speakers
           };
           
           localStorage.setItem(draftKey, JSON.stringify(draftData));
@@ -492,25 +1635,39 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
       }
     };
 
-    const timeoutId = setTimeout(autoSaveData, 1000);
+    const timeoutId = setTimeout(autoSaveData, 5000); // Increased from 1s to 5s
     return () => clearTimeout(timeoutId);
-  }, [formData, partnerships, event, parentEvent]);
+  }, [formData, partnerships, speakers, event, parentEvent]);
 
   // Load companies, existing partnerships, or draft
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Always load companies first
+        console.log('🔍 Loading companies from /api/admin/companies...');
         const companiesRes = await fetch('/api/admin/companies');
+        console.log('📡 Companies response status:', companiesRes.status);
+        
         if (companiesRes.ok) {
           const companiesData = await companiesRes.json();
+          console.log('✅ Companies loaded successfully:', companiesData.length, 'companies');
+          console.log('📋 First company data structure:', companiesData[0]);
           setCompanies(companiesData);
+        } else {
+          console.error('❌ Failed to load companies:', companiesRes.status);
+          const errorText = await companiesRes.text();
+          console.error('❌ Companies error response:', errorText);
         }
 
         if (event?.id) {
+          console.log('🔍 Loading partnerships for event:', event.id);
           const partnershipsRes = await fetch(`/api/admin/partnerships/event/${event.id}`);
           if (partnershipsRes.ok) {
             const partnershipsData = await partnershipsRes.json();
+            console.log('✅ Partnerships loaded:', partnershipsData.length, 'partnerships');
             setPartnerships(partnershipsData);
+          } else {
+            console.error('Failed to load partnerships:', partnershipsRes.status);
           }
           
           // Check for editing draft
@@ -521,6 +1678,7 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
               const parsedDraft = JSON.parse(editDraft);
               setFormData(parsedDraft.formData);
               setPartnerships(parsedDraft.partnerships || []);
+              setSpeakers(parsedDraft.speakers || []);
               console.log('✓ Event editing draft loaded:', parsedDraft.formData.title);
             } catch (error) {
               console.error('Error loading event editing draft:', error);
@@ -536,6 +1694,7 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
               const parsedDraft = JSON.parse(draft);
               setFormData(parsedDraft.formData);
               setPartnerships(parsedDraft.partnerships || []);
+              setSpeakers(parsedDraft.speakers || []);
               console.log('✓ Event form draft loaded:', parsedDraft.formData.title);
             } catch (error) {
               console.error('Error loading event form draft:', error);
@@ -554,8 +1713,8 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
       setFormData({
         title: event.title || '',
         description: event.description || '',
-        eventDate: event.eventDate ? new Date(event.eventDate).toISOString().slice(0, 16) : '',
-        endDate: event.endDate ? new Date(event.endDate).toISOString().slice(0, 16) : '',
+        eventDate: event.eventDate ? formatDateForInput(new Date(event.eventDate)) : '',
+        endDate: event.endDate ? formatDateForInput(new Date(event.endDate)) : '',
         location: event.location || '',
         venue: event.venue || '',
         capacity: event.capacity?.toString() || '',
@@ -564,8 +1723,37 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
         imageUrl: event.imageUrl || '',
         featured: event.featured || false,
         published: event.published ?? true,
-        parentEventId: event.parentEventId || null
+        parentEventId: event.parentEventId || null,
+        attendanceConfirmEnabled: event.attendanceConfirmEnabled || false,
+        attendancePassword: '', // Never show stored password
+        waitlistEnabled: event.waitlistEnabled || false,
+        waitlistMaxSize: event.waitlistMaxSize?.toString() || '',
+        waitlistAutoPromote: event.waitlistAutoPromote || false,
+        requirePassword: event.requirePassword || false,
+        requireName: event.requireName || false,
+        requireMajor: event.requireMajor || false,
+        requireGradeLevel: event.requireGradeLevel || false,
+        requirePhone: event.requirePhone || false
       });
+      
+      // Check if event has existing password
+      setHasExistingPassword(!!(event.attendancePasswordHash && event.attendancePasswordSalt));
+      setPasswordAction('keep');
+      
+      // Load speakers if they exist
+      if (event.speakers) {
+        setSpeakers(event.speakers);
+      }
+      
+      // Load partners if they exist
+      if (event.partners) {
+        setPartnerships(event.partners.map((partner: any) => ({
+          companyId: partner.companyId, // Use companyId, not partner.id
+          type: partner.type || 'SPONSOR',
+          description: partner.description || '',
+          sponsorshipLevel: partner.sponsorshipLevel || partner.tier || ''
+        })));
+      }
     } else if (parentEvent) {
       // Pre-fill some fields from parent event when creating subevent
       setFormData({
@@ -581,8 +1769,22 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
         imageUrl: '',
         featured: false,
         published: true,
-        parentEventId: parentEvent.id
+        parentEventId: parentEvent.id,
+        attendanceConfirmEnabled: false,
+        attendancePassword: '',
+        waitlistEnabled: false,
+        waitlistMaxSize: '',
+        waitlistAutoPromote: false,
+        requirePassword: false,
+        requireName: false,
+        requireMajor: false,
+        requireGradeLevel: false,
+        requirePhone: false
       });
+      
+      // For new events, set initial password state
+      setHasExistingPassword(false);
+      setPasswordAction('none'); // Default to no password for new events
     }
   }, [event, parentEvent]);
 
@@ -600,17 +1802,56 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
     setPartnerships(updated);
   };
 
+  const addSpeaker = () => {
+    setSpeakers([...speakers, { 
+      name: '', 
+      title: '', 
+      company: '', 
+      bio: '', 
+      photo: '', 
+      linkedIn: '', 
+      website: '', 
+      order: speakers.length + 1 
+    }]);
+  };
+
+  const removeSpeaker = (index: number) => {
+    setSpeakers(speakers.filter((_: any, i: number) => i !== index));
+  };
+
+  const updateSpeaker = (index: number, field: string, value: string) => {
+    const updated = [...speakers];
+    updated[index][field] = value;
+    setSpeakers(updated);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
 
     try {
-      const payload = {
+      // Handle password actions
+      let passwordUpdate = {};
+      if (passwordAction === 'update' && formData.attendancePassword.trim()) {
+        passwordUpdate = { attendancePassword: formData.attendancePassword };
+      } else if (passwordAction === 'clear' || passwordAction === 'none') {
+        passwordUpdate = { attendancePassword: null }; // Signal to clear password or set no password
+      }
+      
+      const basePayload = {
         ...formData,
-        eventDate: formData.eventDate ? new Date(formData.eventDate).toISOString() : null,
-        endDate: formData.endDate ? new Date(formData.endDate).toISOString() : null,
-        capacity: formData.capacity ? parseInt(formData.capacity) : null
+        eventDate: formData.eventDate ? parseDateFromInput(formData.eventDate).toISOString() : null,
+        endDate: formData.endDate ? parseDateFromInput(formData.endDate).toISOString() : null,
+        capacity: formData.capacity ? parseInt(formData.capacity) : null,
+        waitlistMaxSize: formData.waitlistMaxSize ? parseInt(formData.waitlistMaxSize) : null,
+        speakers: speakers.filter(s => s.name && s.title && s.company),
+        partners: partnerships.filter(p => p.companyId)
       };
+      
+      // Create final payload - only include password updates if we're not keeping existing
+      const payload = passwordAction === 'keep' ? 
+        { ...basePayload, attendancePassword: undefined } : 
+        { ...basePayload, ...passwordUpdate };
 
       let url = '/api/admin/events';
       let method = 'POST';
@@ -710,12 +1951,13 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
                 onChange={(e) => setFormData({...formData, eventType: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
               >
-                <option value="WORKSHOP">Workshop</option>
-                <option value="SYMPOSIUM">Symposium</option>
-                <option value="NETWORKING">Networking</option>
-                <option value="CONFERENCE">Conference</option>
-                <option value="MEETING">Meeting</option>
-                <option value="SOCIAL">Social</option>
+                <option key="WORKSHOP" value="WORKSHOP">Workshop</option>
+                <option key="SYMPOSIUM" value="SYMPOSIUM">Symposium</option>
+                <option key="NETWORKING" value="NETWORKING">Networking</option>
+                <option key="CONFERENCE" value="CONFERENCE">Conference</option>
+                <option key="MEETING" value="MEETING">Meeting</option>
+                <option key="SOCIAL" value="SOCIAL">Social</option>
+                <option key="RECRUITMENT" value="RECRUITMENT">Recruitment</option>
               </select>
             </div>
           </div>
@@ -733,7 +1975,7 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Event Date & Time *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Event Date & Time * (EST)</label>
               <input
                 type="datetime-local"
                 value={formData.eventDate}
@@ -743,7 +1985,7 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">End Date & Time</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">End Date & Time (EST)</label>
               <input
                 type="datetime-local"
                 value={formData.endDate}
@@ -810,6 +2052,269 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
             />
           </div>
 
+          {/* Attendance Confirmation Section */}
+          <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+            <h4 className="text-md font-medium text-gray-900 mb-4">Attendance Confirmation</h4>
+            
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="attendanceConfirmEnabled"
+                  checked={formData.attendanceConfirmEnabled}
+                  onChange={(e) => setFormData({...formData, attendanceConfirmEnabled: e.target.checked})}
+                  className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300 rounded"
+                />
+                <label htmlFor="attendanceConfirmEnabled" className="ml-2 text-sm text-gray-700">
+                  Enable attendance confirmation for this event
+                </label>
+              </div>
+              
+              {formData.attendanceConfirmEnabled && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Event Password Management
+                    </label>
+                    
+                    {hasExistingPassword && (
+                      <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-green-700 text-sm">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          Password is currently set for this event
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">What would you like to do?</label>
+                        <div className="mt-2 space-y-2">
+                          {hasExistingPassword && (
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name="passwordAction"
+                                value="keep"
+                                checked={passwordAction === 'keep'}
+                                onChange={(e) => setPasswordAction(e.target.value as any)}
+                                className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">Keep existing password</span>
+                            </label>
+                          )}
+                          
+                          {!hasExistingPassword && (
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name="passwordAction"
+                                value="none"
+                                checked={passwordAction === 'none'}
+                                onChange={(e) => setPasswordAction(e.target.value as any)}
+                                className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">No password required</span>
+                            </label>
+                          )}
+                          
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="passwordAction"
+                              value="update"
+                              checked={passwordAction === 'update'}
+                              onChange={(e) => setPasswordAction(e.target.value as any)}
+                              className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300"
+                            />
+                            <span className="ml-2 text-sm text-gray-700">
+                              {hasExistingPassword ? 'Update password' : 'Set password'}
+                            </span>
+                          </label>
+                          
+                          {hasExistingPassword && (
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name="passwordAction"
+                                value="clear"
+                                checked={passwordAction === 'clear'}
+                                onChange={(e) => setPasswordAction(e.target.value as any)}
+                                className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">Remove password (no password required)</span>
+                            </label>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {passwordAction === 'update' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            {hasExistingPassword ? 'New Password' : 'Event Password'}
+                          </label>
+                          <input
+                            type="password"
+                            value={formData.attendancePassword}
+                            onChange={(e) => setFormData({...formData, attendancePassword: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                            placeholder={hasExistingPassword ? "Enter new password..." : "Set event password..."}
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Students will need this password to confirm their attendance
+                          </p>
+                        </div>
+                      )}
+                      
+                      {passwordAction === 'clear' && (
+                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-700">
+                            The password will be removed. Students will be able to confirm attendance without entering a password.
+                          </p>
+                        </div>
+                      )}
+                      
+                      {passwordAction === 'none' && (
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-700">
+                            No password will be set. Students will be able to confirm attendance without entering a password.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-700 mb-3">Required Information</h5>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="requireName"
+                          checked={formData.requireName}
+                          onChange={(e) => setFormData({...formData, requireName: e.target.checked})}
+                          className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300 rounded"
+                        />
+                        <label htmlFor="requireName" className="ml-2 text-sm text-gray-600">
+                          Require full name
+                        </label>
+                      </div>
+                      
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="requireMajor"
+                          checked={formData.requireMajor}
+                          onChange={(e) => setFormData({...formData, requireMajor: e.target.checked})}
+                          className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300 rounded"
+                        />
+                        <label htmlFor="requireMajor" className="ml-2 text-sm text-gray-600">
+                          Require major
+                        </label>
+                      </div>
+                      
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="requireGradeLevel"
+                          checked={formData.requireGradeLevel}
+                          onChange={(e) => setFormData({...formData, requireGradeLevel: e.target.checked})}
+                          className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300 rounded"
+                        />
+                        <label htmlFor="requireGradeLevel" className="ml-2 text-sm text-gray-600">
+                          Require grade level
+                        </label>
+                      </div>
+                      
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="requirePhone"
+                          checked={formData.requirePhone}
+                          onChange={(e) => setFormData({...formData, requirePhone: e.target.checked})}
+                          className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300 rounded"
+                        />
+                        <label htmlFor="requirePhone" className="ml-2 text-sm text-gray-600">
+                          Require phone number
+                        </label>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      UMich email is always required for attendance confirmation
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Waitlist Settings Section */}
+          <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+            <h4 className="text-md font-medium text-gray-900 mb-4">Waitlist Settings</h4>
+            
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="waitlistEnabled"
+                  checked={formData.waitlistEnabled}
+                  onChange={(e) => setFormData({...formData, waitlistEnabled: e.target.checked})}
+                  className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300 rounded"
+                />
+                <label htmlFor="waitlistEnabled" className="ml-2 text-sm text-gray-700">
+                  Enable waitlist when capacity is reached
+                </label>
+              </div>
+              
+              {formData.waitlistEnabled && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Maximum Waitlist Size
+                      <span className="text-xs text-gray-500 ml-2">(optional - leave blank for unlimited)</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.waitlistMaxSize}
+                      onChange={(e) => setFormData({...formData, waitlistMaxSize: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                      placeholder="e.g. 50"
+                      min="1"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="waitlistAutoPromote"
+                      checked={formData.waitlistAutoPromote}
+                      onChange={(e) => setFormData({...formData, waitlistAutoPromote: e.target.checked})}
+                      className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300 rounded"
+                    />
+                    <label htmlFor="waitlistAutoPromote" className="ml-2 text-sm text-gray-700">
+                      Automatically promote from waitlist when spots become available
+                    </label>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="requirePassword"
+                  checked={formData.requirePassword}
+                  onChange={(e) => setFormData({...formData, requirePassword: e.target.checked})}
+                  className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300 rounded"
+                />
+                <label htmlFor="requirePassword" className="ml-2 text-sm text-gray-700">
+                  Require password for event registration
+                </label>
+              </div>
+            </div>
+          </div>
+
           {/* Company Partnerships Section */}
           <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
             <div className="flex justify-between items-center mb-4">
@@ -838,9 +2343,9 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
                           required
                         >
-                          <option value="">Select a company</option>
-                          {companies.map((company: any) => (
-                            <option key={company.id} value={company.id}>
+                          <option key="empty" value="">Select a company</option>
+                          {companies.map((company: any, index: number) => (
+                            <option key={company.id || `company-${index}`} value={company.id}>
                               {company.name}
                             </option>
                           ))}
@@ -853,11 +2358,11 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
                           onChange={(e) => updatePartnership(index, 'type', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
                         >
-                          <option value="SPONSOR">Sponsor</option>
-                          <option value="COLLABORATOR">Collaborator</option>
-                          <option value="MENTOR">Mentor</option>
-                          <option value="ADVISOR">Advisor</option>
-                          <option value="VENDOR">Vendor</option>
+                          <option key="SPONSOR" value="SPONSOR">Sponsor</option>
+                          <option key="COLLABORATOR" value="COLLABORATOR">Collaborator</option>
+                          <option key="MENTOR" value="MENTOR">Mentor</option>
+                          <option key="ADVISOR" value="ADVISOR">Advisor</option>
+                          <option key="VENDOR" value="VENDOR">Vendor</option>
                         </select>
                       </div>
                       <div>
@@ -867,12 +2372,12 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
                           onChange={(e) => updatePartnership(index, 'sponsorshipLevel', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
                         >
-                          <option value="">Select Level</option>
-                          <option value="Platinum">Platinum</option>
-                          <option value="Gold">Gold</option>
-                          <option value="Silver">Silver</option>
-                          <option value="Bronze">Bronze</option>
-                          <option value="Supporting">Supporting</option>
+                          <option key="empty-level" value="">Select Level</option>
+                          <option key="Platinum" value="Platinum">Platinum</option>
+                          <option key="Gold" value="Gold">Gold</option>
+                          <option key="Silver" value="Silver">Silver</option>
+                          <option key="Bronze" value="Bronze">Bronze</option>
+                          <option key="Supporting" value="Supporting">Supporting</option>
                         </select>
                       </div>
                       <div className="flex items-end">
@@ -894,6 +2399,120 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
                         placeholder="Describe the partnership..."
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
                       />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Speakers Section */}
+          <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-md font-medium text-gray-900">Event Speakers</h4>
+              <button
+                type="button"
+                onClick={addSpeaker}
+                className="px-3 py-1 bg-[#00274c] text-white rounded-md hover:bg-[#003366] text-sm admin-white-text"
+              >
+                Add Speaker
+              </button>
+            </div>
+            
+            {speakers.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">No speakers added yet</p>
+            ) : (
+              <div className="space-y-4">
+                {speakers.map((speaker: any, index: number) => (
+                  <div key={index} className="bg-white p-4 rounded border space-y-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-700">Speaker #{index + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeSpeaker(index)}
+                        className="px-2 py-1 text-red-600 hover:text-red-800 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                        <input
+                          type="text"
+                          value={speaker.name}
+                          onChange={(e) => updateSpeaker(index, 'name', e.target.value)}
+                          placeholder="Speaker full name"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                        <input
+                          type="text"
+                          value={speaker.title}
+                          onChange={(e) => updateSpeaker(index, 'title', e.target.value)}
+                          placeholder="Job title"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Company *</label>
+                        <input
+                          type="text"
+                          value={speaker.company}
+                          onChange={(e) => updateSpeaker(index, 'company', e.target.value)}
+                          placeholder="Company name"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Photo URL</label>
+                        <input
+                          type="url"
+                          value={speaker.photo}
+                          onChange={(e) => updateSpeaker(index, 'photo', e.target.value)}
+                          placeholder="https://example.com/photo.jpg"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+                      <textarea
+                        value={speaker.bio}
+                        onChange={(e) => updateSpeaker(index, 'bio', e.target.value)}
+                        rows={2}
+                        placeholder="Brief speaker biography..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn URL</label>
+                        <input
+                          type="url"
+                          value={speaker.linkedIn}
+                          onChange={(e) => updateSpeaker(index, 'linkedIn', e.target.value)}
+                          placeholder="https://linkedin.com/in/..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Website URL</label>
+                        <input
+                          type="url"
+                          value={speaker.website}
+                          onChange={(e) => updateSpeaker(index, 'website', e.target.value)}
+                          placeholder="https://example.com"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -934,4 +2553,223 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
       </form>
     </div>
   );
+}
+
+// Attendance Info Component
+function AttendanceInfo({ eventId }: { eventId: string }) {
+  const [attendanceData, setAttendanceData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [showDetails, setShowDetails] = useState(false);
+
+  useEffect(() => {
+    loadAttendanceData();
+  }, [eventId]);
+
+  const loadAttendanceData = async () => {
+    try {
+      const response = await fetch(`/api/admin/events/${eventId}/attendance`);
+      if (response.ok) {
+        const data = await response.json();
+        setAttendanceData(data);
+      }
+    } catch (error) {
+      console.error('Error loading attendance data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadCSV = async () => {
+    try {
+      const response = await fetch(`/api/admin/events/${eventId}/attendance?format=csv`);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `event-${eventId}-attendance.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+    } catch (error) {
+      console.error('Error downloading CSV:', error);
+      alert('Failed to download attendance list');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-sm text-blue-700">Loading attendance...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!attendanceData) return null;
+
+  return (
+    <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <span className="text-sm font-medium text-blue-900">
+              {attendanceData.attendees.length} Attendee{attendanceData.attendees.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <span className="text-sm font-medium text-green-900">
+              {attendanceData.uniqueUsers} Unique User{attendanceData.uniqueUsers !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {attendanceData.attendees.length > 0 && (
+            <>
+              <button
+                onClick={() => setShowDetails(!showDetails)}
+                className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                {showDetails ? 'Hide' : 'Show'} Details
+              </button>
+              <button
+                onClick={downloadCSV}
+                className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                CSV
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      
+      {showDetails && attendanceData.attendees.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-blue-200">
+          <div className="max-h-40 overflow-y-auto">
+            <div className="grid gap-2">
+              {attendanceData.attendees.map((attendee: any, index: number) => (
+                <div key={index} className="flex items-center justify-between py-1">
+                  <span className="text-sm text-gray-900 font-medium">{attendee.userName}</span>
+                  <span className="text-xs text-gray-500">
+                    {convertUtcToEst(new Date(attendee.confirmedAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })} at{' '}
+                    {convertUtcToEst(new Date(attendee.confirmedAt)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 } 
+
+// Event Stats Component
+function EventStats({ eventId }: { eventId: string }) {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [showStats, setShowStats] = useState(false);
+
+  useEffect(() => {
+    loadStats();
+  }, [eventId]);
+
+  const loadStats = async () => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/stats`);
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      }
+    } catch (error) {
+      console.error('Error loading event stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-3 bg-purple-50 rounded-lg">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-sm text-purple-700">Loading stats...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!stats) return null;
+
+  return (
+    <div className="p-3 bg-purple-50 rounded-lg">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          <span className="text-sm font-medium text-purple-900">Event Statistics</span>
+        </div>
+        <button
+          onClick={() => setShowStats(!showStats)}
+          className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+        >
+          {showStats ? 'Hide' : 'Show'} Stats
+        </button>
+      </div>
+      
+      {showStats && (
+        <div className="mt-3 pt-3 border-t border-purple-200">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="text-center">
+              <div className="text-lg font-semibold text-purple-900">{stats.confirmedAttendees || 0}</div>
+              <div className="text-purple-600">Confirmed</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-semibold text-purple-900">{stats.waitlistSize || 0}</div>
+              <div className="text-purple-600">Waitlisted</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-semibold text-purple-900">{stats.actualAttendance || 0}</div>
+              <div className="text-purple-600">Attended</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-semibold text-purple-900">
+                {stats.confirmedAttendees > 0 ? Math.round((stats.actualAttendance / stats.confirmedAttendees) * 100) : 0}%
+              </div>
+              <div className="text-purple-600">Show Rate</div>
+            </div>
+          </div>
+          
+          {stats.demographicBreakdown && (
+            <div className="mt-4 space-y-2">
+              <h5 className="text-sm font-medium text-purple-900">Demographics</h5>
+              <div className="text-xs space-y-1">
+                {Object.entries(stats.demographicBreakdown.byGrade || {}).map(([grade, count]: [string, any]) => (
+                  <div key={grade} className="flex justify-between">
+                    <span className="text-purple-700">{grade}:</span>
+                    <span className="text-purple-900 font-medium">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

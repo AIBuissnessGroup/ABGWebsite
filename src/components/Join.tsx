@@ -63,7 +63,11 @@ export default function Join() {
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
-          setContent(data);
+          // Merge API data with default content to ensure all fields exist
+          setContent(prevContent => ({
+            ...prevContent,
+            ...data
+          }));
         }
       })
       .catch(err => console.error('Failed to load join content:', err));
@@ -72,10 +76,10 @@ export default function Join() {
   // Create joinOptions from content - only showing Stay Connected option
   const joinOptions = [
     {
-      title: content.option3Title,
-      description: content.option3Description,
-      benefits: content.option3Benefits.split('\n'),
-      cta: content.option3CTA,
+      title: content.option3Title || 'Stay Connected',
+      description: content.option3Description || 'Get updates on our latest projects and opportunities.',
+      benefits: content.option3Benefits ? content.option3Benefits.split('\n') : ['Weekly insights', 'Event invitations', 'Project showcases'],
+      cta: content.option3CTA || 'Subscribe',
       type: "newsletter",
       icon: "📧"
     }
@@ -143,7 +147,7 @@ export default function Join() {
           className="text-center mb-16 sm:mb-20"
         >
           <h2 className="heading-primary text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-white mb-4 sm:mb-6">
-            {content.title}
+            {content.title || 'JOIN THE FUTURE'}
           </h2>
           <motion.div
             initial={{ width: 0 }}
@@ -152,7 +156,7 @@ export default function Join() {
             className="h-1 bg-gradient-to-r from-[#BBBBBB] to-white mx-auto mb-6 sm:mb-8"
           />
           <p className="body-text text-lg sm:text-xl lg:text-2xl text-[#BBBBBB] max-w-4xl mx-auto leading-relaxed px-4">
-            {content.subtitle}
+            {content.subtitle || 'Ready to shape tomorrow\'s business landscape?'}
           </p>
         </motion.div>
 
@@ -239,7 +243,7 @@ export default function Join() {
         >
           <div className="glass-card p-6 sm:p-8 max-w-4xl mx-auto">
             <h3 className="heading-secondary text-xl sm:text-2xl lg:text-3xl text-white mb-4 sm:mb-6">
-              {content.contactTitle}
+              {content.contactTitle || 'QUESTIONS? LET\'S CONNECT'}
             </h3>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 text-center">
               <div>
@@ -247,8 +251,8 @@ export default function Join() {
                   <span className="text-lg sm:text-xl">💬</span>
                 </div>
                 <h4 className="text-white font-bold mb-2 text-sm sm:text-base">General Inquiries</h4>
-                <a href={`mailto:${content.contactEmail1}`} className="text-[#BBBBBB] hover:text-white transition text-xs sm:text-sm break-all">
-                  {content.contactEmail1}
+                <a href={`mailto:${content.contactEmail1 || 'ABGContact@umich.edu'}`} className="text-[#BBBBBB] hover:text-white transition text-xs sm:text-sm break-all">
+                  {content.contactEmail1 || 'ABGContact@umich.edu'}
                 </a>
               </div>
               <div>
@@ -256,8 +260,8 @@ export default function Join() {
                   <span className="text-lg sm:text-xl">🤝</span>
                 </div>
                 <h4 className="text-white font-bold mb-2 text-sm sm:text-base">Partnerships</h4>
-                <a href={`mailto:${content.contactEmail2}`} className="text-[#BBBBBB] hover:text-white transition text-xs sm:text-sm break-all">
-                  {content.contactEmail2}
+                <a href={`mailto:${content.contactEmail2 || 'ABGPartnerships@umich.edu'}`} className="text-[#BBBBBB] hover:text-white transition text-xs sm:text-sm break-all">
+                  {content.contactEmail2 || 'ABGPartnerships@umich.edu'}
                 </a>
               </div>
               <div className="sm:col-span-2 lg:col-span-1">
@@ -265,8 +269,8 @@ export default function Join() {
                   <span className="text-lg sm:text-xl">💼</span>
                 </div>
                 <h4 className="text-white font-bold mb-2 text-sm sm:text-base">Recruitment</h4>
-                <a href={`mailto:${content.contactEmail3}`} className="text-[#BBBBBB] hover:text-white transition text-xs sm:text-sm break-all">
-                  {content.contactEmail3}
+                <a href={`mailto:${content.contactEmail3 || 'ABGRecruitment@umich.edu'}`} className="text-[#BBBBBB] hover:text-white transition text-xs sm:text-sm break-all">
+                  {content.contactEmail3 || 'ABGRecruitment@umich.edu'}
                 </a>
               </div>
             </div>

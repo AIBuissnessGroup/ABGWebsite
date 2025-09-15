@@ -23,8 +23,8 @@ import {
 export default function FormsAdmin() {
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
-  const [forms, setForms] = useState([]);
-  const [applications, setApplications] = useState([]);
+  const [forms, setForms] = useState<any[]>([]);
+  const [applications, setApplications] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('review'); // 'review', 'forms', 'create'
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -38,8 +38,9 @@ export default function FormsAdmin() {
   const [showCreateStatus, setShowCreateStatus] = useState(false);
   const [newStatusName, setNewStatusName] = useState('');
   const [newStatusColor, setNewStatusColor] = useState('#6366F1');
-  const [editingForm, setEditingForm] = useState(null);
+  const [editingForm, setEditingForm] = useState<any>(null);
   const [expandedApplications, setExpandedApplications] = useState(new Set());
+  const [selectedApplications, setSelectedApplications] = useState(new Set());
   const [copySuccess, setCopySuccess] = useState('');
   // Attendance config for forms
   const [attendanceConfig, setAttendanceConfig] = useState({
@@ -90,6 +91,11 @@ export default function FormsAdmin() {
 
   // Load responses for a specific form
   const loadFormResponses = async (formId: string) => {
+    if (!formId) {
+      console.error('Form ID is required to load responses');
+      return;
+    }
+    
     try {
       const res = await fetch(`/api/admin/applications?formId=${formId}`);
       const data = await res.json();
@@ -110,7 +116,10 @@ export default function FormsAdmin() {
 
   // Export form responses
   const exportFormResponses = async (exportType: 'summary' | 'detailed') => {
-    if (!selectedForm) return;
+    if (!selectedForm || !selectedForm.id) {
+      alert('No form selected or form ID is missing');
+      return;
+    }
     
     try {
       const response = await fetch('/api/admin/applications/export', {
@@ -160,7 +169,7 @@ export default function FormsAdmin() {
     if (!newStatusName.trim()) return;
     
     const newStatus = {
-      id: Date.now().toString(),
+      id: `question-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: newStatusName.toUpperCase().replace(/\s+/g, '_'),
       label: newStatusName,
       color: newStatusColor,
@@ -199,6 +208,10 @@ export default function FormsAdmin() {
       const res = await fetch('/api/admin/forms');
       const data = await res.json();
       if (data && !data.error) {
+        console.log('Forms loaded from API:', data);
+        data.forEach((form: any, index: number) => {
+          console.log(`Frontend Form ${index}: ${form.title}, Questions: ${form.questions ? form.questions.length : 'undefined'}`);
+        });
         setForms(data);
       }
     } catch (error) {
@@ -264,6 +277,101 @@ export default function FormsAdmin() {
     setExpandedApplications(newExpanded);
   };
 
+  // Delete application
+  const deleteApplication = async (applicationId: string) => {
+    try {
+      const response = await fetch(`/api/admin/applications/${applicationId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Remove from the applications list
+        setApplications(prev => prev.filter((app: any) => app.id !== applicationId));
+        
+        // Also remove from form responses if it's there
+        setFormResponses(prev => prev.filter((app: any) => app.id !== applicationId));
+        
+        // Remove from expanded set if it was expanded
+        const newExpanded = new Set(expandedApplications);
+        newExpanded.delete(applicationId);
+        setExpandedApplications(newExpanded);
+        
+        // Remove from selected set if it was selected
+        const newSelected = new Set(selectedApplications);
+        newSelected.delete(applicationId);
+        setSelectedApplications(newSelected);
+        
+        console.log('Application deleted successfully');
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to delete application: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting application:', error);
+      alert('Failed to delete application');
+    }
+  };
+
+  // Bulk delete applications
+  const bulkDeleteApplications = async () => {
+    if (selectedApplications.size === 0) {
+      alert('No applications selected');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${selectedApplications.size} selected application(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    const deletePromises = Array.from(selectedApplications).map(id => 
+      fetch(`/api/admin/applications/${id}`, { method: 'DELETE' })
+    );
+
+    try {
+      const results = await Promise.all(deletePromises);
+      const successful = results.filter(r => r.ok).length;
+      const failed = results.length - successful;
+
+      if (successful > 0) {
+        // Remove successful deletions from state
+        setApplications(prev => prev.filter((app: any) => !selectedApplications.has(app.id)));
+        setFormResponses(prev => prev.filter((app: any) => !selectedApplications.has(app.id)));
+        
+        // Clear selections
+        setSelectedApplications(new Set());
+        
+        alert(`Successfully deleted ${successful} application(s)${failed > 0 ? `, ${failed} failed` : ''}`);
+      } else {
+        alert('Failed to delete applications');
+      }
+    } catch (error) {
+      console.error('Error bulk deleting applications:', error);
+      alert('Failed to delete applications');
+    }
+  };
+
+  // Toggle application selection
+  const toggleApplicationSelection = (applicationId: string) => {
+    const newSelected = new Set(selectedApplications);
+    if (newSelected.has(applicationId)) {
+      newSelected.delete(applicationId);
+    } else {
+      newSelected.add(applicationId);
+    }
+    setSelectedApplications(newSelected);
+  };
+
+  // Select all applications
+  const selectAllApplications = () => {
+    const allIds = filteredApplications.map((app: any) => app.id);
+    setSelectedApplications(new Set(allIds));
+  };
+
+  // Clear all selections
+  const clearAllSelections = () => {
+    setSelectedApplications(new Set());
+  };
+
   // Get reviewer colors
   const getReviewerColor = (reviewerId: string) => {
     const colors = [
@@ -285,14 +393,14 @@ export default function FormsAdmin() {
 
   // Filter applications
   const filteredApplications = applications.filter((app: any) => {
-    const categoryMatch = selectedCategory === 'all' || app.form.category === selectedCategory;
+    const categoryMatch = selectedCategory === 'all' || (app.form && app.form.category === selectedCategory);
     const statusMatch = selectedStatus === 'all' || app.status === selectedStatus;
     const reviewerMatch = selectedReviewer === 'all' || app.reviewedBy === selectedReviewer;
     return categoryMatch && statusMatch && reviewerMatch;
   });
 
   // Get unique categories and reviewers
-  const categories = [...new Set(forms.map((form: any) => form.category))];
+  const categories = [...new Set(forms.filter((form: any) => form && form.category).map((form: any) => form.category))];
   const uniqueReviewers = [...new Set(applications.filter((app: any) => app.reviewedBy).map((app: any) => ({
     id: app.reviewedBy,
     name: app.reviewer?.name,
@@ -396,6 +504,8 @@ export default function FormsAdmin() {
   };
 
   const getCategoryIcon = (category: string) => {
+    if (!category) return <DocumentTextIcon className="w-5 h-5" />;
+    
     switch (category.toLowerCase()) {
       case 'internship': 
       case 'internships': 
@@ -412,7 +522,7 @@ export default function FormsAdmin() {
 
   const getCategoryStats = (category: string) => {
     const categoryApps = applications.filter((app: any) => 
-      category === 'all' || app.form.category === category
+      category === 'all' || (app.form && app.form.category === category)
     );
     
     return {
@@ -602,6 +712,45 @@ export default function FormsAdmin() {
                 </button>
               </div>
 
+              {/* Bulk Actions */}
+              {selectedApplications.size > 0 && (
+                <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border">
+                  <span className="text-sm text-blue-700">
+                    {selectedApplications.size} selected
+                  </span>
+                  <button
+                    onClick={bulkDeleteApplications}
+                    className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 flex items-center gap-1"
+                  >
+                    <TrashIcon className="w-3 h-3" />
+                    Delete Selected
+                  </button>
+                  <button
+                    onClick={clearAllSelections}
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+
+              {/* Selection Controls */}
+              <div className="flex items-center gap-2 text-sm">
+                <button
+                  onClick={selectAllApplications}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  Select All ({filteredApplications.length})
+                </button>
+                <span className="text-gray-300">|</span>
+                <button
+                  onClick={clearAllSelections}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  Clear All
+                </button>
+              </div>
+
               <div className="text-sm text-gray-600">
                 Showing {filteredApplications.length} of {applications.length} applications
               </div>
@@ -618,12 +767,18 @@ export default function FormsAdmin() {
                 <div className="p-4 border-b">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedApplications.has(app.id)}
+                        onChange={() => toggleApplicationSelection(app.id)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
                       <div className="text-[#00274c]">
-                        {getCategoryIcon(app.form.category)}
+                        {app.form ? getCategoryIcon(app.form.category) : <DocumentTextIcon className="w-5 h-5" />}
                       </div>
                       <div>
                         <h4 className="font-semibold text-gray-900">{app.applicantName || app.applicantEmail}</h4>
-                        <p className="text-sm text-gray-600">{app.form.title}</p>
+                        <p className="text-sm text-gray-600">{app.form ? app.form.title : 'Form not found'}</p>
                         <p className="text-xs text-gray-500">
                           Submitted {new Date(app.submittedAt).toLocaleDateString()} at {new Date(app.submittedAt).toLocaleTimeString()}
                         </p>
@@ -679,6 +834,18 @@ export default function FormsAdmin() {
                         >
                           <EyeIcon className="w-4 h-4" />
                         </button>
+                        
+                        <button
+                          onClick={() => {
+                            if (confirm(`Are you sure you want to delete this application from ${app.applicantName || app.applicantEmail}? This action cannot be undone.`)) {
+                              deleteApplication(app.id);
+                            }
+                          }}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          title="Delete Application"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -692,20 +859,89 @@ export default function FormsAdmin() {
                       <div>
                         <h5 className="font-medium text-gray-900 mb-3">Application Responses</h5>
                         <div className="space-y-3">
-                          {app.responses.map((response) => (
+                          {app.responses.map((response: any) => {
+                            // Debug logging for file responses
+                            if (response.question?.type === 'FILE') {
+                              console.log('File response debug:', {
+                                questionTitle: response.question.title,
+                                questionType: response.question.type,
+                                fileName: response.fileName,
+                                fileSize: response.fileSize,
+                                fileType: response.fileType,
+                                hasFileData: !!response.fileData,
+                                fileUrl: response.fileUrl,
+                                textValue: response.textValue,
+                                booleanValue: response.booleanValue,
+                                allFields: Object.keys(response)
+                              });
+                            }
+                            
+                            return (
                             <div key={response.id} className="text-sm">
                               <span className="font-medium text-gray-900 block">{response.question.title}:</span>
                               <span className="text-gray-700 mt-1 block pl-2 border-l-2 border-gray-200">
-                                {response.textValue || 
-                                 response.numberValue || 
-                                 (response.dateValue && new Date(response.dateValue).toLocaleDateString()) ||
-                                 (response.booleanValue !== null ? (response.booleanValue ? 'Yes' : 'No') : '') ||
-                                 (response.selectedOptions && JSON.parse(response.selectedOptions).join(', ')) ||
-                                 response.fileUrl || 
-                                 'No answer provided'}
+                                {(() => {
+                                  // Handle file uploads first
+                                  if (response.fileName) {
+                                    return (
+                                      <div className="space-y-2">
+                                        <div className="flex items-center space-x-2">
+                                          <span className="font-medium">{response.fileName}</span>
+                                          <span className="text-xs text-gray-500">
+                                            ({Math.round(response.fileSize / 1024)}KB)
+                                          </span>
+                                        </div>
+                                        {response.fileData && (
+                                          <div>
+                                            {response.fileType?.startsWith('image/') ? (
+                                              <div className="space-y-2">
+                                                <img 
+                                                  src={response.fileData} 
+                                                  alt={response.fileName}
+                                                  className="max-w-xs max-h-48 rounded border"
+                                                />
+                                                <button
+                                                  onClick={() => {
+                                                    const link = document.createElement('a');
+                                                    link.href = `/api/files/${app.id}/${response.questionId}`;
+                                                    link.download = response.fileName;
+                                                    link.click();
+                                                  }}
+                                                  className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                                                >
+                                                  Download Original
+                                                </button>
+                                              </div>
+                                            ) : (
+                                              <button
+                                                onClick={() => {
+                                                  window.open(`/api/files/${app.id}/${response.questionId}`, '_blank');
+                                                }}
+                                                className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                                              >
+                                                Download File
+                                              </button>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  }
+                                  
+                                  // Handle other response types
+                                  if (response.textValue) return response.textValue;
+                                  if (response.numberValue) return response.numberValue;
+                                  if (response.dateValue) return new Date(response.dateValue).toLocaleDateString();
+                                  if (response.booleanValue !== null) return response.booleanValue ? 'Yes' : 'No';
+                                  if (response.selectedOptions) return JSON.parse(response.selectedOptions).join(', ');
+                                  if (response.fileUrl) return response.fileUrl;
+                                  
+                                  return 'No answer provided';
+                                })()}
                               </span>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -750,6 +986,13 @@ export default function FormsAdmin() {
                               <p>Review date: {new Date(app.reviewedAt).toLocaleDateString()}</p>
                             </div>
                           )}
+                          
+                          <div className="text-sm text-gray-500 mt-3 pt-3 border-t">
+                            <p><strong>IP Address:</strong> {app.ipAddress || 'Not recorded'}</p>
+                            {app.userAgent && (
+                              <p className="mt-1"><strong>User Agent:</strong> <span className="font-mono text-xs">{app.userAgent}</span></p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -891,6 +1134,8 @@ export default function FormsAdmin() {
                     </button>
                     <button
                       onClick={() => {
+                        console.log('Edit button clicked for form:', form);
+                        console.log('Form questions:', form.questions);
                         setEditingForm(form);
                         setActiveTab('edit');
                       }}
@@ -939,7 +1184,7 @@ export default function FormsAdmin() {
                     <div>
                       <span className="font-medium text-gray-700">Applications:</span>
                       <div className="flex gap-1 mt-1">
-                        {form.applications?.map((app, idx) => (
+                        {form.applications?.map((app: any, idx: number) => (
                           <span key={idx} className={`w-2 h-2 rounded-full ${getStatusColor(app.status).replace('text-', 'bg-').split(' ')[0]}`}></span>
                         ))}
                       </div>
@@ -1166,6 +1411,13 @@ export default function FormsAdmin() {
                               <p>Review date: {new Date(response.reviewedAt).toLocaleDateString()}</p>
                             </div>
                           )}
+                          
+                          <div className="text-sm text-gray-500 mt-3 pt-3 border-t">
+                            <p><strong>IP Address:</strong> {response.ipAddress || 'Not recorded'}</p>
+                            {response.userAgent && (
+                              <p className="mt-1"><strong>User Agent:</strong> <span className="font-mono text-xs">{response.userAgent}</span></p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1355,15 +1607,24 @@ export default function FormsAdmin() {
 
   // Helper function to delete form
   async function deleteForm(id: string) {
+    if (!id) {
+      alert('Form ID is missing');
+      return;
+    }
+    
     if (confirm('Are you sure you want to delete this form? This will also delete all applications.')) {
       try {
         const res = await fetch(`/api/admin/forms?id=${id}`, { method: 'DELETE' });
         if (res.ok) {
           loadForms();
           loadApplications();
+        } else {
+          const error = await res.json();
+          alert(`Failed to delete form: ${error.error || 'Unknown error'}`);
         }
       } catch (error) {
         console.error('Error deleting form:', error);
+        alert('Failed to delete form');
       }
     }
   }
@@ -1371,7 +1632,7 @@ export default function FormsAdmin() {
 
 // Simplified Form Editor Component
 function FormEditor({ form, onClose, onSave }: any) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<any>({
     title: '',
     description: '',
     slug: '',
@@ -1385,10 +1646,14 @@ function FormEditor({ form, onClose, onSave }: any) {
     notificationEmail: '',
     requireAuth: false,
     backgroundColor: '#00274c',
-    textColor: '#ffffff'
+    textColor: '#161616ff',
+    isAttendanceForm: false,
+    attendanceLatitude: '',
+    attendanceLongitude: '',
+    attendanceRadiusMeters: ''
   });
 
-  const [questions, setQuestions] = useState([]);
+  const [questions, setQuestions] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
 
   // Auto-save functionality
@@ -1409,6 +1674,7 @@ function FormEditor({ form, onClose, onSave }: any) {
   }, [formData, questions, form]);
 
   useEffect(() => {
+    console.log('FormEditor useEffect - form prop:', form);
     if (form) {
       setFormData({
         title: form.title || '',
@@ -1428,7 +1694,17 @@ function FormEditor({ form, onClose, onSave }: any) {
       });
 
       if (form.questions) {
-        setQuestions(form.questions.sort((a, b) => a.order - b.order));
+        console.log('Loading form questions:', form.questions);
+        const questionsWithIds = form.questions.map((q: any, index: number) => ({
+          ...q,
+          id: q.id || `question-${index}-${Date.now()}`, // Ensure each question has an ID
+          // Convert options array back to string for editing
+          options: Array.isArray(q.options) ? q.options.join('\n') : q.options
+        }));
+        setQuestions(questionsWithIds.sort((a: any, b: any) => a.order - b.order));
+        console.log('Questions set:', questionsWithIds);
+      } else {
+        console.log('No questions found in form:', form);
       }
     } else {
       // Load draft for new forms
@@ -1441,7 +1717,11 @@ function FormEditor({ form, onClose, onSave }: any) {
             setFormData(parsedDraft.formData);
           }
           if (parsedDraft.questions) {
-            setQuestions(parsedDraft.questions);
+            const questionsWithIds = parsedDraft.questions.map((q: any, index: number) => ({
+              ...q,
+              id: q.id || `draft-question-${index}-${Date.now()}` // Ensure draft questions have IDs
+            }));
+            setQuestions(questionsWithIds);
           }
           console.log('✓ Form editor draft loaded:', parsedDraft.formData?.title);
         } catch (error) {
@@ -1454,7 +1734,7 @@ function FormEditor({ form, onClose, onSave }: any) {
 
   const addQuestion = () => {
     const newQuestion = {
-      id: Date.now().toString(),
+      id: `question-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title: '',
       description: '',
       type: 'TEXT',
@@ -1497,13 +1777,14 @@ function FormEditor({ form, onClose, onSave }: any) {
         deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
         maxSubmissions: formData.maxSubmissions ? parseInt(formData.maxSubmissions) : null,
         questions: questions.map((q, index) => ({
+          id: q.id,
           title: q.title,
           description: q.description || '',
           type: q.type,
           required: q.required || false,
           order: index,
           options: (q.type === 'SELECT' || q.type === 'RADIO' || q.type === 'CHECKBOX') && q.options 
-            ? q.options 
+            ? q.options.split('\n').filter((option: string) => option.trim()) 
             : null,
           minLength: q.minLength || null,
           maxLength: q.maxLength || null,
@@ -1511,11 +1792,14 @@ function FormEditor({ form, onClose, onSave }: any) {
         }))
       };
 
-      const url = form 
+      const url = form && form.id
         ? `/api/admin/forms?id=${form.id}` 
         : '/api/admin/forms';
       
-      const method = form ? 'PUT' : 'POST';
+      const method = form && form.id ? 'PUT' : 'POST';
+
+      console.log('Saving form with payload:', payload);
+      console.log('Questions being sent:', payload.questions);
 
       const res = await fetch(url, {
         method,
@@ -1808,10 +2092,67 @@ function FormEditor({ form, onClose, onSave }: any) {
           </div>
 
           <div className="space-y-4">
+            {questions.length === 0 && <p className="text-gray-500">No questions yet. Click "Add Question" to get started.</p>}
             {questions.map((question, index) => (
-              <div key={question.id} className="border border-gray-200 rounded-lg p-4">
+              <div 
+                key={question.id} 
+                className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-all duration-200 cursor-move"
+                draggable={true}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', index.toString());
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.currentTarget.classList.add('opacity-50', 'scale-95');
+                }}
+                onDragEnd={(e) => {
+                  e.currentTarget.classList.remove('opacity-50', 'scale-95');
+                  // Remove any drag-over styling from all items
+                  document.querySelectorAll('.drag-over').forEach(el => {
+                    el.classList.remove('drag-over');
+                  });
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.add('drag-over');
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  // Only remove if we're actually leaving this element
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    e.currentTarget.classList.remove('drag-over');
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.remove('drag-over');
+                  
+                  const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                  const dropIndex = index;
+                  
+                  if (dragIndex !== dropIndex && !isNaN(dragIndex)) {
+                    const newQuestions = [...questions];
+                    const draggedQuestion = newQuestions[dragIndex];
+                    newQuestions.splice(dragIndex, 1);
+                    newQuestions.splice(dropIndex, 0, draggedQuestion);
+                    setQuestions(newQuestions);
+                  }
+                }}
+              >
                 <div className="flex justify-between items-start mb-4">
-                  <h4 className="font-medium">Question {index + 1}</h4>
+                  <div className="flex items-center gap-3">
+                    <div className="cursor-move text-gray-400 hover:text-gray-600" title="Drag to reorder">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900">Question {index + 1}</h4>
+                      <p className="text-sm text-gray-500">Type: {question.type}</p>
+                    </div>
+                  </div>
                   <button
                     type="button"
                     onClick={() => removeQuestion(index)}

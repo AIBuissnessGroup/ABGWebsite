@@ -181,7 +181,7 @@ export default function About() {
             className="relative mt-8 lg:mt-0"
           >
             <CollaborationCarousel
-              displayMode={content.collaborationDisplayMode}
+              displayMode="image"
               title={content.collaborationTitle}
               subtitle={content.collaborationSubtitle}
               slides={(() => {
@@ -191,7 +191,7 @@ export default function About() {
                   return [];
                 }
               })()}
-              teamImage={content.teamImage}
+              teamImage="/ABG.Group.Photo.jpg"
             />
           </motion.div>
         </div>

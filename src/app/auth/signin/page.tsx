@@ -28,16 +28,16 @@ function SignInContent() {
       <div className="max-w-md w-full">
         {/* Logo/Branding */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">ABG Admin</h1>
-          <p className="text-[#BBBBBB]">Content Management System</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Login to AI Business Group</h1>
+          <p className="text-[#BBBBBB]">Must use @umich.edu email</p>
         </div>
 
         {/* Sign In Card */}
         <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-8 shadow-2xl">
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-semibold text-white mb-2">Welcome Back</h2>
+            <h2 className="text-2xl font-semibold text-white mb-2">Welcome</h2>
             <p className="text-[#BBBBBB] text-sm">
-              Sign in with your University of Michigan account to access the admin dashboard
+              Sign in with your University of Michigan account.
             </p>
           </div>
 

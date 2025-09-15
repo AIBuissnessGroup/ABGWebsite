@@ -4,22 +4,43 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
+import { InstagramIcon, XIcon, LinkedInIcon } from "./SocialIcons";
 
 export default function Navbar() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navigationItems = [
+  const navigationItems: Array<{
+    href: string;
+    label: string;
+    external?: boolean;
+    icon?: React.ReactNode;
+  }> = [
     { href: "/", label: "Home" },
     { href: "/projects", label: "Projects" },
     { href: "/events", label: "Events" },
+    { href: "/recruitment", label: "Recruitment" },
     { href: "/internships", label: "Internships" },
     { href: "/team", label: "Team" },
-    { href: "/#join", label: "Join" },
-    { href: "https://www.instagram.com/umichaibusiness/", label: "Instagram", external: true },
-    { href: "https://x.com/AiBusinessUmich", label: "X/Twitter", external: true },
-    { href: "https://www.linkedin.com/company/michigan-ai-business-group", label: "LinkedIn", external: true },
+    { 
+      href: "https://www.instagram.com/umichaibusiness/", 
+      label: "Instagram", 
+      external: true,
+      icon: <InstagramIcon className="w-5 h-5" />
+    },
+    { 
+      href: "https://x.com/AiBusinessUmich", 
+      label: "X", 
+      external: true,
+      icon: <XIcon className="w-5 h-5" />
+    },
+    { 
+      href: "https://www.linkedin.com/company/michigan-ai-business-group", 
+      label: "LinkedIn", 
+      external: true,
+      icon: <LinkedInIcon className="w-5 h-5" />
+    },
   ];
 
   if (isAdmin) {
@@ -73,32 +94,45 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-6 lg:gap-8">
-            {navigationItems.map((item) => (
-              item.external ? (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-white/80 hover:text-white border-b-2 border-transparent hover:border-white/60 transition-all duration-300 pb-1 text-xs lg:text-sm font-bold"
-                >
-                  {item.label}
-                </a>
-              ) : (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={`border-b-2 border-transparent hover:border-white/60 transition-all duration-300 pb-1 text-xs lg:text-sm font-bold ${
-                    item.label === "Admin" 
-                      ? "text-yellow-300 hover:text-yellow-100 hover:border-yellow-300/60" 
-                      : "text-white/80 hover:text-white"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              )
-            ))}
+          <div className="hidden md:flex items-center gap-4 lg:gap-5">
+            {/* Text navigation items */}
+            <div className="flex items-center gap-6 lg:gap-8">
+              {navigationItems
+                .filter(item => !item.icon)
+                .map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className={`border-b-2 border-transparent hover:border-white/60 transition-all duration-300 pb-1 text-xs lg:text-sm font-bold ${
+                      item.label === "Admin" 
+                        ? "text-yellow-300 hover:text-yellow-100 hover:border-yellow-300/60" 
+                        : "text-white/80 hover:text-white"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                ))
+              }
+            </div>
+            
+            {/* Social media icons with tighter spacing */}
+            <div className="flex items-center gap-2">
+              {navigationItems
+                .filter(item => item.icon)
+                .map((item) => (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white/80 hover:text-white hover:scale-110 p-2 rounded-lg hover:bg-white/10 transition-all duration-300"
+                    title={item.label}
+                  >
+                    {item.icon}
+                  </a>
+                ))
+              }
+            </div>
           </div>
 
           {/* Mobile menu button */}
@@ -139,8 +173,9 @@ export default function Navbar() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 py-4 px-2 font-bold text-base rounded-lg min-h-[56px] flex items-center"
+                    className="text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 py-4 px-2 font-bold text-base rounded-lg min-h-[56px] flex items-center gap-3"
                   >
+                    {item.icon && <span className="text-white/90">{item.icon}</span>}
                     {item.label}
                   </a>
                 ) : (

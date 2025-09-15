@@ -92,16 +92,16 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await client.connect();
-    const db = client.db();
-
-    const user = await db.collection('User').findOne({ email: session.user.email });
-
-    if (!user || user.role === 'USER') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    // Check if user is admin using the environment variable
+    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
+    if (!adminEmails.includes(session.user.email)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const data = await request.json();
+
+    await client.connect();
+    const db = client.db();
 
     // Update or create join content
     const updatedContent = {
@@ -119,8 +119,8 @@ export async function PUT(request: NextRequest) {
 
     // Log the change
     await logChange(
-      user._id.toString(),
-      user.email,
+      session.user.email,
+      session.user.email,
       'UPDATE',
       'join',
       'default',
@@ -128,9 +128,9 @@ export async function PUT(request: NextRequest) {
     );
 
     return NextResponse.json(safeJson(updatedContent));
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating join content:', error);
-    return NextResponse.json({ error: 'Failed to update join content' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to update join content', details: error.message }, { status: 500 });
   } finally {
     await client.close();
   }

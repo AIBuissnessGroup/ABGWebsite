@@ -1,3 +1,5 @@
+import { InstagramIcon, XIcon, LinkedInIcon } from "./SocialIcons";
+
 export default function Footer() {
   return (
     <footer className="bg-[#0d1d35]/60 backdrop-blur-md text-[#BBBBBB] py-8 sm:py-12 px-4 sm:px-6 lg:px-12 border-t border-white/10 relative overflow-hidden">
@@ -31,33 +33,40 @@ export default function Footer() {
             <a href="/team" className="text-[#BBBBBB] hover:text-white transition text-sm">
               Team
             </a>
-            <a href="/#join" className="text-[#BBBBBB] hover:text-white transition text-sm">
-              Join
+            <a href="/recruitment" className="text-[#BBBBBB] hover:text-white transition text-sm">
+              Recruitment
             </a>
-            <a 
-              href="https://www.linkedin.com/company/abg-umich" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="text-[#BBBBBB] hover:text-white transition text-sm"
-            >
-              LinkedIn
-            </a>
-            <a 
-              href="https://www.instagram.com/umichaibusiness/" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="text-[#BBBBBB] hover:text-white transition text-sm"
-            >
-              Instagram
-            </a>
-            <a 
-              href="https://x.com/AiBusinessUmich" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="text-[#BBBBBB] hover:text-white transition text-sm"
-            >
-              X/Twitter
-            </a>
+            
+            {/* Social Media Icons */}
+            <div className="flex items-center gap-3 ml-2">
+              <a 
+                href="https://www.linkedin.com/company/abg-umich" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-[#BBBBBB] hover:text-white transition-all duration-300 hover:scale-110 p-1 rounded"
+                title="LinkedIn"
+              >
+                <LinkedInIcon className="w-5 h-5" />
+              </a>
+              <a 
+                href="https://www.instagram.com/umichaibusiness/" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-[#BBBBBB] hover:text-white transition-all duration-300 hover:scale-110 p-1 rounded"
+                title="Instagram"
+              >
+                <InstagramIcon className="w-5 h-5" />
+              </a>
+              <a 
+                href="https://x.com/AiBusinessUmich" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-[#BBBBBB] hover:text-white transition-all duration-300 hover:scale-110 p-1 rounded"
+                title="X (Twitter)"
+              >
+                <XIcon className="w-5 h-5" />
+              </a>
+            </div>
           </div>
         </div>
 

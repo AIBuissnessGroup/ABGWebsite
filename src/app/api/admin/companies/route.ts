@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient, ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
+import { isAdminEmail } from '@/lib/admin';
 
 const client = new MongoClient(process.env.DATABASE_URL!);
 
@@ -14,6 +15,12 @@ function safeJson(obj: any) {
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email || !isAdminEmail(session.user.email)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     await client.connect();
     const db = client.db('abg-website');
     const companies = await db.collection('Company').find({}).sort({ name: 1 }).toArray();
@@ -31,14 +38,8 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email) {
+    if (!session?.user?.email || !isAdminEmail(session.user.email)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const data = await request.json();
@@ -75,14 +76,8 @@ export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email) {
+    if (!session?.user?.email || !isAdminEmail(session.user.email)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -116,11 +111,11 @@ export async function PUT(request: NextRequest) {
       { returnDocument: 'after' }
     );
 
-    if (!result.value) {
+    if (!result) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    return NextResponse.json(safeJson(result.value));
+    return NextResponse.json(safeJson(result));
   } catch (error) {
     console.error('Error updating company:', error);
     return NextResponse.json({ error: 'Failed to update company' }, { status: 500 });
@@ -133,14 +128,8 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email) {
+    if (!session?.user?.email || !isAdminEmail(session.user.email)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);

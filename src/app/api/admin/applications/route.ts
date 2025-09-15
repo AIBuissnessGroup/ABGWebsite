@@ -24,10 +24,9 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
 
     await client.connect();
-    const db = client.db('abg-website');
+    const db = client.db();
     const applicationsCollection = db.collection('Application');
     const formsCollection = db.collection('Form');
-    const responsesCollection = db.collection('ApplicationResponse');
 
     const whereClause: any = {};
     if (formId) whereClause.formId = formId;
@@ -36,19 +35,57 @@ export async function GET(request: NextRequest) {
     // Get applications
     const applications = await applicationsCollection.find(whereClause).toArray();
 
-    // Enrich with form data and responses
+    // Enrich with form data
     const enrichedApplications = await Promise.all(
       applications.map(async (app) => {
         const form = await formsCollection.findOne(
           { id: app.formId },
-          { projection: { title: 1, slug: 1, category: 1 } }
+          { projection: { title: 1, slug: 1, category: 1, questions: 1 } }
         );
 
-        const responses = await responsesCollection.find({ applicationId: app.id }).toArray();
+        // Load reviewer info if application has been reviewed
+        let reviewer = null;
+        if (app.reviewedBy) {
+          const usersCollection = db.collection('User');
+          reviewer = await usersCollection.findOne(
+            { id: app.reviewedBy },
+            { projection: { name: 1, email: 1 } }
+          );
+        }
+
+        // Responses are now embedded in the application document
+        // Transform them to match the expected format for the admin panel
+        const responses = (app.responses || []).map((response: any, index: number) => {
+          // Find the question details from the form
+          const question = form?.questions?.find((q: any) => q.id === response.questionId);
+          
+          if (!question) {
+            console.log(`Warning: Question not found for ID ${response.questionId} in form ${form?.title}`);
+          }
+          
+          return {
+            id: `${app._id}-response-${index}`, // Generate a unique ID for the response
+            questionId: response.questionId,
+            question: question || { title: `Unknown Question (${response.questionId})` },
+            textValue: response.textValue,
+            numberValue: response.numberValue,
+            dateValue: response.dateValue,
+            booleanValue: response.booleanValue,
+            selectedOptions: response.selectedOptions,
+            fileUrl: response.fileUrl,
+            fileName: response.fileName,
+            fileSize: response.fileSize,
+            fileType: response.fileType,
+            fileData: response.fileData,
+            applicationId: app._id.toString()
+          };
+        });
 
         return {
           ...app,
+          id: app._id.toString(), // Ensure ID is a string
           form,
+          reviewer,
           responses
         };
       })
@@ -77,7 +114,7 @@ export async function PUT(request: NextRequest) {
     }
 
     await client.connect();
-    const db = client.db('abg-website');
+    const db = client.db();
     const usersCollection = db.collection('User');
     const applicationsCollection = db.collection('Application');
 

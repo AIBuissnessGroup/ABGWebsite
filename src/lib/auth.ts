@@ -1,11 +1,12 @@
 import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import { PrismaClient } from '@prisma/client';
+import { MongoClient } from 'mongodb';
 import { isAdminEmail } from './admin';
 
-const prisma = new PrismaClient();
+const client = new MongoClient(process.env.DATABASE_URL!);
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -17,27 +18,39 @@ export const authOptions: NextAuthOptions = {
       // Only allow UofM email addresses
       if (user.email && user.email.endsWith('@umich.edu')) {
         try {
+          await client.connect();
+          const db = client.db();
+          const usersCollection = db.collection('users');
+          
           // Check if user exists
-          let dbUser = await prisma.user.findUnique({
-            where: { email: user.email }
+          let dbUser = await usersCollection.findOne({
+            email: user.email
           });
 
           // If user doesn't exist, create them
           if (!dbUser) {
-            dbUser = await prisma.user.create({
-              data: {
-                email: user.email,
-                name: user.name,
-                image: user.image,
-                role: isAdminEmail(user.email) ? 'ADMIN' : 'USER'
-              }
+            await usersCollection.insertOne({
+              email: user.email,
+              name: user.name || '',
+              image: user.image || null,
+              role: isAdminEmail(user.email) ? 'ADMIN' : 'USER',
+              profile: {
+                major: null,
+                school: null,
+                graduationYear: null,
+                phone: null
+              },
+              createdAt: new Date(),
+              updatedAt: new Date()
             });
           }
 
-        return true;
+          return true;
         } catch (error) {
           console.error('Error in signIn callback:', error);
           return false;
+        } finally {
+          await client.close();
         }
       }
       return false;
@@ -61,13 +74,25 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
-      async redirect({ url, baseUrl }) {
-        // Only allow redirects to same-origin URLs
-        if (url.startsWith(baseUrl)) {
-          return url;
-        }
-        return baseUrl;
-      },
+    async redirect({ url, baseUrl }) {
+      console.log('Auth redirect called with:', { url, baseUrl });
+      
+      // Handle same-origin URLs
+      if (url.startsWith(baseUrl)) {
+        console.log('Redirecting to:', url);
+        return url;
+      }
+      
+      // Handle relative URLs (like /recruitment#recruitment-timeline)
+      if (url.startsWith('/')) {
+        const fullUrl = baseUrl + url;
+        console.log('Redirecting to relative URL:', fullUrl);
+        return fullUrl;
+      }
+      
+      console.log('Defaulting to baseUrl:', baseUrl);
+      return baseUrl;
+    },
   },
   pages: {
     signIn: '/auth/signin',
@@ -76,4 +101,4 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
   },
-}; 
+};

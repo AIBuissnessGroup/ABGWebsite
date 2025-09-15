@@ -24,44 +24,54 @@ async function addSampleData() {
     // Add sample companies
     const companies = [
       {
-        name: 'Microsoft',
-        description: 'Technology corporation developing, manufacturing, licensing, supporting, and selling computer software, consumer electronics, personal computers, and related services.',
-        logoUrl: 'https://img.icons8.com/color/96/microsoft.png',
-        website: 'https://microsoft.com',
-        industry: 'Technology',
-        size: 'Enterprise',
-        location: 'Redmond, WA',
-        contactEmail: 'partnerships@microsoft.com'
+        name: 'Cherry Republic',
+        description: 'Michigan-based specialty food company known for their warm, fun, and personable approach to customer experience with strong seasonal retail and service operations.',
+        logoUrl: 'https://img.icons8.com/color/96/cherry.png',
+        website: 'https://cherryrepublic.com',
+        industry: 'Food & Beverage',
+        size: 'Medium',
+        location: 'Ann Arbor, MI',
+        contactEmail: 'partnerships@cherryrepublic.com'
       },
       {
-        name: 'Ford Motor Company',
-        description: 'American multinational automobile manufacturer headquartered in Dearborn, Michigan, United States.',
-        logoUrl: 'https://img.icons8.com/color/96/ford.png',
-        website: 'https://ford.com',
-        industry: 'Automotive',
+        name: 'Direct Digital Holdings',
+        description: 'Leading media and advertising technology company focused on programmatic advertising and data-driven marketing solutions.',
+        logoUrl: 'https://img.icons8.com/color/96/digital-marketing.png',
+        website: 'https://directdigitalholdings.com',
+        industry: 'Ad Tech',
         size: 'Enterprise',
-        location: 'Dearborn, MI',
-        contactEmail: 'innovation@ford.com'
+        location: 'Atlanta, GA',
+        contactEmail: 'research@directdigitalholdings.com'
       },
       {
-        name: 'Deloitte',
-        description: 'Multinational professional services network providing audit, consulting, financial advisory, risk advisory, tax, and related services.',
-        logoUrl: 'https://img.icons8.com/color/96/deloitte.png',
-        website: 'https://deloitte.com',
-        industry: 'Consulting',
-        size: 'Enterprise',
-        location: 'London, UK',
-        contactEmail: 'university@deloitte.com'
-      },
-      {
-        name: 'Startup Accelerator Inc',
-        description: 'Early-stage venture capital firm focused on AI and machine learning startups.',
-        logoUrl: 'https://img.icons8.com/color/96/rocket.png',
-        website: 'https://startupaccelerator.com',
-        industry: 'Venture Capital',
+        name: 'Miss Kim Restaurant',
+        description: 'Contemporary Korean restaurant focusing on authentic flavors and exceptional service, seeking to optimize operations through data-driven insights.',
+        logoUrl: 'https://img.icons8.com/color/96/restaurant.png',
+        website: 'https://misskimrestaurant.com',
+        industry: 'Food Service',
         size: 'Small',
-        location: 'San Francisco, CA',
-        contactEmail: 'partnerships@startupaccelerator.com'
+        location: 'Ann Arbor, MI',
+        contactEmail: 'management@misskimrestaurant.com'
+      },
+      {
+        name: 'Epic Games',
+        description: 'American video game and software developer known for Fortnite and Unreal Engine, pioneering the future of gaming and digital experiences.',
+        logoUrl: 'https://img.icons8.com/color/96/epic-games.png',
+        website: 'https://epicgames.com',
+        industry: 'Gaming',
+        size: 'Enterprise',
+        location: 'Cary, NC',
+        contactEmail: 'partnerships@epicgames.com'
+      },
+      {
+        name: 'Herbie',
+        description: 'Consumer platform with a mission to make high quality estate planning and administration accessible, affordable and easy to understand.',
+        logoUrl: 'https://img.icons8.com/color/96/legal.png',
+        website: 'https://planwellwithherbie.com',
+        industry: 'Legal Tech',
+        size: 'Startup',
+        location: 'Atlanta, GA',
+        contactEmail: 'hello@planwellwithherbie.com'
       }
     ];
 
@@ -138,49 +148,78 @@ async function addSampleData() {
     // Add sample projects
     const projects = [
       {
-        title: 'AI-Powered Market Analysis Platform',
-        description: 'Real-time market sentiment analysis using natural language processing to predict stock movements and market trends.',
+        title: 'AI-Supported Scheduling & Customer Service Optimization',
+        description: 'Cherry Republic partnership to optimize staffing and customer service using AI while maintaining their warm, personable brand voice. Building AI-assisted seasonal staffing forecasts, call support tools, and brand-conscious decision flowcharts.',
         status: 'ACTIVE',
         startDate: new Date('2024-09-01'),
-        endDate: new Date('2025-05-01'),
-        budget: '$15,000',
-        progress: 75,
-        objectives: 'Develop NLP model for sentiment analysis\nCreate real-time data pipeline\nBuild interactive dashboard\nValidate predictions with historical data',
-        technologies: 'Python, TensorFlow, React, AWS, PostgreSQL',
-        links: 'https://github.com/abg-umich/market-analysis',
-        imageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=400&fit=crop',
+        endDate: new Date('2024-11-30'),
+        budget: '$12,000',
+        progress: 45,
+        objectives: 'Analyze historical sales and staffing patterns\nBuild AI-assisted seasonal forecasting model\nCreate manager-friendly decision flowcharts\nPrototype AI call support maintaining Cherry Republic voice\nValidate tools with staff interviews',
+        technologies: 'Python, Scikit-learn, React, MongoDB',
+        links: 'https://github.com/abg-umich/cherry-republic',
+        imageUrl: 'https://images.unsplash.com/photo-1556740738-b6a63e27c4df?w=800&h=400&fit=crop',
         featured: true,
         createdBy: user.id
       },
       {
-        title: 'Customer Behavior Prediction Model',
-        description: 'AI system to predict customer purchasing behavior and optimize marketing campaigns for e-commerce platforms.',
-        status: 'COMPLETED',
-        startDate: new Date('2024-02-01'),
-        endDate: new Date('2024-08-30'),
-        budget: '$8,500',
-        progress: 100,
-        objectives: 'Collect customer interaction data\nTrain prediction models\nA/B test marketing campaigns\nMeasure ROI improvements',
-        outcomes: '32% increase in conversion rates\n25% reduction in marketing costs\nDeployed to 3 partner companies',
-        technologies: 'Python, XGBoost, Apache Kafka, MongoDB',
-        links: 'https://github.com/abg-umich/customer-behavior',
-        imageUrl: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=400&fit=crop',
+        title: 'AI and the Next Major Breakthrough in Media & Ad Tech',
+        description: 'Research white paper collaboration with Direct Digital Holdings exploring AI breakthroughs, disruptive technologies, and evolving business models in media and ad tech over the next 5-10 years.',
+        status: 'ACTIVE',
+        startDate: new Date('2024-10-01'),
+        endDate: new Date('2024-12-15'),
+        budget: '$8,000',
+        progress: 25,
+        objectives: 'Research AI-driven ad personalization trends\nAnalyze generative AI in creative production\nExamine data privacy and regulation impacts\nDevelop cross-platform optimization strategies\nCreate predictive analytics frameworks',
+        technologies: 'Research & Analysis, Data Visualization, Python',
+        links: 'https://github.com/abg-umich/ddh-research',
+        imageUrl: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&h=400&fit=crop',
+        featured: true,
+        createdBy: user.id
+      },
+      {
+        title: 'AI-Guided Labor Scheduling Optimization',
+        description: 'Miss Kim Restaurant partnership to optimize labor scheduling and reduce costs from 37% to target range of 28-32%. Developing AI-informed frameworks and manager-friendly decision tools.',
+        status: 'PLANNING',
+        startDate: new Date('2024-10-01'),
+        endDate: new Date('2024-12-15'),
+        budget: '$6,500',
+        progress: 10,
+        objectives: 'Analyze historical sales and labor data\nIdentify staffing vs performance patterns\nDevelop AI-assisted scheduling model\nCreate simple decision flowcharts for managers\nValidate with staff interviews and pilot testing',
+        technologies: 'Python, Machine Learning, Data Analytics',
+        links: 'https://github.com/abg-umich/miss-kim',
+        imageUrl: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=400&fit=crop',
         featured: false,
         createdBy: user.id
       },
       {
-        title: 'Supply Chain Optimization Engine',
-        description: 'Machine learning system to optimize supply chain logistics and reduce operational costs for manufacturing companies.',
+        title: 'Project Harvest - Epic Games Partnership',
+        description: 'Strategic consulting partnership with Epic Games focused on innovative gaming and technology solutions. Details will be released soon.',
         status: 'PLANNING',
         startDate: new Date('2025-01-01'),
-        endDate: new Date('2025-08-01'),
-        budget: '$12,000',
-        progress: 15,
-        objectives: 'Analyze current supply chain data\nDevelop optimization algorithms\nCreate predictive maintenance models\nImplement cost reduction strategies',
-        technologies: 'Python, Scikit-learn, Apache Spark, Docker',
-        links: 'https://github.com/abg-umich/supply-chain',
-        imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&h=400&fit=crop',
+        endDate: new Date('2025-05-01'),
+        budget: 'TBD',
+        progress: 5,
+        objectives: 'Project details will be announced shortly\nStrategic consulting and analysis\nGaming technology optimization\nBusiness development support',
+        technologies: 'TBD - Details coming soon',
+        links: 'https://github.com/abg-umich/project-harvest',
+        imageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&h=400&fit=crop',
         featured: true,
+        createdBy: user.id
+      },
+      {
+        title: 'Estate Planning Technology Platform - Herbie',
+        description: 'Consumer platform partnership with Herbie to make high quality estate planning and administration accessible, affordable and easy to understand. Details will be released soon.',
+        status: 'PLANNING',
+        startDate: new Date('2025-02-01'),
+        endDate: new Date('2025-06-01'),
+        budget: 'TBD',
+        progress: 5,
+        objectives: 'Estate planning process optimization\nUser experience enhancement\nTechnology platform development\nAccessibility and affordability improvements',
+        technologies: 'TBD - Details coming soon',
+        links: 'https://github.com/abg-umich/herbie-project',
+        imageUrl: 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&h=400&fit=crop',
+        featured: false,
         createdBy: user.id
       }
     ];
@@ -195,45 +234,55 @@ async function addSampleData() {
         console.log(`Added project: ${project.title}`);
         
         // Add team members to projects
-        if (project.title === 'AI-Powered Market Analysis Platform') {
+        if (project.title === 'AI-Supported Scheduling & Customer Service Optimization') {
+          await prisma.projectTeamMember.createMany({
+            data: [
+              {
+                projectId: createdProject.id,
+                name: 'Evelyn Chao',
+                role: 'Outreach Liaison',
+                year: 'Junior',
+                email: 'evchao@umich.edu',
+                linkedIn: 'https://linkedin.com/in/evelyn-chao'
+              },
+              {
+                projectId: createdProject.id,
+                name: 'Jessica Au',
+                role: 'E-Board Advisor',
+                year: 'Junior',
+                email: 'jessau@umich.edu',
+                linkedIn: 'https://linkedin.com/in/jessica-au'
+              }
+            ]
+          });
+        }
+        
+        if (project.title === 'AI and the Next Major Breakthrough in Media & Ad Tech') {
+          await prisma.projectTeamMember.createMany({
+            data: [
+              {
+                projectId: createdProject.id,
+                name: 'Evelyn Chao',
+                role: 'VP External Relations',
+                year: 'Junior',
+                email: 'evchao@umich.edu',
+                linkedIn: 'https://linkedin.com/in/evelyn-chao'
+              }
+            ]
+          });
+        }
+        
+        if (project.title === 'AI-Guided Labor Scheduling Optimization') {
           await prisma.projectTeamMember.createMany({
             data: [
               {
                 projectId: createdProject.id,
                 name: 'Sarah Chen',
-                role: 'Project Lead',
+                role: 'Data Analyst',
                 year: 'Senior',
                 email: 'sarahchen@umich.edu',
                 linkedIn: 'https://linkedin.com/in/sarahchen'
               },
-              {
-                projectId: createdProject.id,
-                name: 'Priya Patel',
-                role: 'Technical Lead',
-                year: 'Senior',
-                email: 'priyap@umich.edu',
-                linkedIn: 'https://linkedin.com/in/priyapatel'
-              }
-            ]
-          });
-          
-          // Add company partnership
-          const microsoft = await prisma.company.findFirst({ where: { name: 'Microsoft' } });
-          if (microsoft) {
-            await prisma.projectPartnership.create({
-              data: {
-                projectId: createdProject.id,
-                companyId: microsoft.id,
-                type: 'SPONSOR',
-                description: 'Microsoft Azure credits and technical mentorship'
-              }
-            });
-          }
-        }
-        
-        if (project.title === 'Customer Behavior Prediction Model') {
-          await prisma.projectTeamMember.createMany({
-            data: [
               {
                 projectId: createdProject.id,
                 name: 'Marcus Johnson',
@@ -241,67 +290,12 @@ async function addSampleData() {
                 year: 'Junior',
                 email: 'marcusj@umich.edu',
                 linkedIn: 'https://linkedin.com/in/marcusjohnson'
-              },
-              {
-                projectId: createdProject.id,
-                name: 'Alex Rodriguez',
-                role: 'Data Analyst',
-                year: 'Sophomore',
-                email: 'alexr@umich.edu',
-                linkedIn: 'https://linkedin.com/in/alexrodriguez'
               }
             ]
           });
-          
-          // Add company partnership
-          const deloitte = await prisma.company.findFirst({ where: { name: 'Deloitte' } });
-          if (deloitte) {
-            await prisma.projectPartnership.create({
-              data: {
-                projectId: createdProject.id,
-                companyId: deloitte.id,
-                type: 'CLIENT',
-                description: 'Real-world data and business validation'
-              }
-            });
-          }
         }
-        
-        if (project.title === 'Supply Chain Optimization Engine') {
-          await prisma.projectTeamMember.createMany({
-            data: [
-              {
-                projectId: createdProject.id,
-                name: 'Sarah Chen',
-                role: 'Strategic Advisor',
-                year: 'Senior',
-                email: 'sarahchen@umich.edu',
-                linkedIn: 'https://linkedin.com/in/sarahchen'
-              },
-              {
-                projectId: createdProject.id,
-                name: 'Priya Patel',
-                role: 'Lead Developer',
-                year: 'Senior',
-                email: 'priyap@umich.edu',
-                linkedIn: 'https://linkedin.com/in/priyapatel'
-              }
-            ]
-          });
-          
-          // Add company partnership
-          const ford = await prisma.company.findFirst({ where: { name: 'Ford Motor Company' } });
-          if (ford) {
-            await prisma.projectPartnership.create({
-              data: {
-                projectId: createdProject.id,
-                companyId: ford.id,
-                type: 'COLLABORATOR',
-                description: 'Supply chain data and industry expertise'
-              }
-            });
-          }
-        }
+      } else {
+        console.log(`Project ${project.title} already exists, skipping...`);
       }
     }
 

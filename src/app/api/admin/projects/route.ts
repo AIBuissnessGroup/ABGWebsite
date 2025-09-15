@@ -77,7 +77,14 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
     
+    // Generate a unique id from title if not provided
+    const projectId = data.id || data.title.toLowerCase()
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    
     const project = {
+      id: projectId,
       title: data.title,
       description: data.description,
       status: data.status || 'PLANNING',
@@ -99,6 +106,10 @@ export async function POST(request: NextRequest) {
 
     const result = await db.collection('Project').insertOne(project);
     const createdProject = await db.collection('Project').findOne({ _id: result.insertedId });
+    
+    if (!createdProject) {
+      return NextResponse.json({ error: 'Failed to retrieve created project' }, { status: 500 });
+    }
     
     // Add empty relations for compatibility
     createdProject.teamMembers = [];
@@ -151,18 +162,20 @@ export async function PUT(request: NextRequest) {
       updatedAt: new Date()
     };
 
-    await db.collection('Project').updateOne(
-      { _id: new ObjectId(data.id) },
-      { $set: updateData }
-    );
+    // Use _id if provided, otherwise use id field
+    const query = data._id ? { _id: new ObjectId(data._id) } : { id: data.id };
+    
+    await db.collection('Project').updateOne(query, { $set: updateData });
 
-    const project = await db.collection('Project').findOne({ _id: new ObjectId(data.id) });
+    const project = await db.collection('Project').findOne(query);
     
     // Get related data
-    project.teamMembers = await db.collection('ProjectTeamMember')
-      .find({ projectId: data.id }).toArray();
-    project.funding = await db.collection('ProjectFunding')
-      .find({ projectId: data.id }).toArray();
+    if (project) {
+      project.teamMembers = await db.collection('ProjectTeamMember')
+        .find({ projectId: project.id }).toArray();
+      project.funding = await db.collection('ProjectFunding')
+        .find({ projectId: project.id }).toArray();
+    }
 
     return NextResponse.json(project);
   } catch (error) {
@@ -189,15 +202,23 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const _id = searchParams.get('_id');
 
-    if (!id) {
-      return NextResponse.json({ error: 'Project ID required' }, { status: 400 });
+    if (!id && !_id) {
+      return NextResponse.json({ error: 'Project ID or _id required' }, { status: 400 });
     }
 
     await client.connect();
     const db = client.db();
 
-    await db.collection('Project').deleteOne({ _id: new ObjectId(id) });
+    // Use _id if provided, otherwise use id field
+    const query = _id ? { _id: new ObjectId(_id) } : { id: id };
+    
+    const result = await db.collection('Project').deleteOne(query);
+    
+    if (result.deletedCount === 0) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -7,6 +7,7 @@ type Signup = {
   id: string;
   userEmail: string;
   userName: string | null;
+  phone?: string;
   createdAt: string;
 };
 
@@ -22,46 +23,129 @@ type Slot = {
   isOpen: boolean;
   signups: Signup[];
   signupCount: number;
+  execMember?: {
+    id: string;
+    name: string;
+    email?: string;
+  };
 };
 
 export default function CoffeeChatsPage() {
   const { data: session, status } = useSession();
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [filteredSlots, setFilteredSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
-  const [actionLoading, setActionLoading] = useState<string | null>(null); // Track which slot is being acted on
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  
+  // Filter states
+  const [filters, setFilters] = useState({
+    location: '',
+    availability: '',
+    host: '',
+    dayOfWeek: ''
+  });
+  
+  // Signup modal states
+  const [showSignupModal, setShowSignupModal] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState('');
+
+  const loadTeamMembers = async () => {
+    try {
+      const res = await fetch('/api/admin/team');
+      const data = await res.json();
+      setTeamMembers(data || []);
+    } catch (error) {
+      console.error('Error loading team members:', error);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/recruitment/coffee-chats');
+      // Build query parameters for filtering
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value);
+      });
+      
+      const res = await fetch(`/api/recruitment/coffee-chats?${params.toString()}`);
       const data = await res.json();
-      setSlots(data || []);
+      
+      // Check if response is an error
+      if (!res.ok || data.error) {
+        console.error('API error:', data.error || 'Unknown error');
+        setSlots([]);
+        setFilteredSlots([]);
+        setMessage('Failed to load coffee chats. Please try again.');
+        setMessageType('error');
+        return;
+      }
+      
+      const slotsData = Array.isArray(data) ? data : [];
+      setSlots(slotsData);
+      setFilteredSlots(slotsData);
+    } catch (error) {
+      console.error('Error loading slots:', error);
+      setSlots([]);
+      setFilteredSlots([]);
+      setMessage('Failed to load coffee chats. Please try again.');
+      setMessageType('error');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { 
+    load();
+    loadTeamMembers();
+  }, [filters]);
 
-  const signup = async (slotId: string) => {
-    setActionLoading(slotId);
+  const openSignupModal = (slot: Slot) => {
+    setSelectedSlot(slot);
+    setShowSignupModal(true);
+    setPhoneNumber('');
+  };
+
+  const signup = async () => {
+    if (!selectedSlot) return;
+    
+    if (!phoneNumber.trim()) {
+      setMessage('Please enter your phone number');
+      setMessageType('error');
+      return;
+    }
+
+    setActionLoading(selectedSlot.id);
     setMessage('');
     try {
       const res = await fetch('/api/recruitment/coffee-chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ slotId })
+        body: JSON.stringify({ 
+          slotId: selectedSlot.id,
+          phone: phoneNumber.trim()
+        })
       });
       const data = await res.json();
       if (!res.ok) {
-        setMessage(data.error || 'Failed to sign up');
+        // Check if it's the single signup restriction error
+        if (data.error && data.error.includes('You can only sign up for one coffee chat slot')) {
+          setMessage('You can only sign up for one coffee chat at a time. Please remove your existing signup first by clicking "Remove Signup" on your current slot.');
+        } else {
+          setMessage(data.error || 'Failed to sign up');
+        }
         setMessageType('error');
       } else {
         setMessage(data.message || 'Signed up successfully');
         setMessageType('success');
+        setShowSignupModal(false);
+        setSelectedSlot(null);
+        setPhoneNumber('');
         // Reload slots to show updated signup info
         await load();
       }
@@ -116,7 +200,8 @@ export default function CoffeeChatsPage() {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
+      timeZone: 'America/New_York' // Force Eastern Time
     });
   };
 
@@ -195,6 +280,102 @@ export default function CoffeeChatsPage() {
           </div>
         </header>
 
+        {/* Filters */}
+        <div className="glass-card p-6 mb-8">
+          <h3 className="text-lg font-semibold text-white mb-4">Filter Coffee Chats</h3>
+          <div className="space-y-6">
+            {/* First Row */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-white/70 mb-2">Location</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Ross School"
+                  value={filters.location}
+                  onChange={(e) => setFilters({...filters, location: e.target.value})}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-white/30"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-white/70 mb-2">Availability</label>
+                <select
+                  value={filters.availability}
+                  onChange={(e) => setFilters({...filters, availability: e.target.value})}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-white/30"
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    color: 'white'
+                  }}
+                >
+                  <option value="" style={{ backgroundColor: '#1a2c45', color: 'white' }}>All</option>
+                  <option value="available" style={{ backgroundColor: '#1a2c45', color: 'white' }}>Available Spots</option>
+                  <option value="full" style={{ backgroundColor: '#1a2c45', color: 'white' }}>Full Slots</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Second Row - Host Dropdown */}
+            <div>
+              <label className="block text-sm text-white/70 mb-2">Host/Exec Member</label>
+              <select
+                value={filters.host}
+                onChange={(e) => setFilters({...filters, host: e.target.value})}
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-white/30"
+                style={{ 
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  color: 'white'
+                }}
+              >
+                <option value="" style={{ backgroundColor: '#1a2c45', color: 'white' }}>All Hosts</option>
+                {teamMembers.map(member => (
+                  <option 
+                    key={member.id} 
+                    value={member.name}
+                    style={{ backgroundColor: '#1a2c45', color: 'white' }}
+                  >
+                    {member.name} - {member.role}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Third Row - Days of Week */}
+            <div>
+              <label className="block text-sm text-white/70 mb-3">Day of Week</label>
+              <div className="flex flex-wrap gap-2">
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                  <button
+                    key={day}
+                    onClick={() => setFilters({...filters, dayOfWeek: filters.dayOfWeek === day ? '' : day})}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      filters.dayOfWeek === day
+                        ? 'bg-white text-[#00274c] shadow-lg'
+                        : 'bg-white/10 text-white hover:bg-white/20 border border-white/20'
+                    }`}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex justify-end mt-6">
+            <button
+              onClick={() => setFilters({
+                location: '',
+                availability: '',
+                host: '',
+                dayOfWeek: ''
+              })}
+              className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors"
+            >
+              Clear Filters
+            </button>
+          </div>
+        </div>
+
         {loading ? (
           <div className="glass-card p-8 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
@@ -240,7 +421,14 @@ export default function CoffeeChatsPage() {
                     
                     <div className="flex items-center gap-2 text-sm" style={{ color: '#BBBBBB' }}>
                       <UserIcon className="w-4 h-4" />
-                      <span>Host: {slot.hostName}</span>
+                      <span>
+                        Host: {slot.hostName}
+                        {slot.execMember && (
+                          <span className="ml-2 px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs">
+                            Exec Member
+                          </span>
+                        )}
+                      </span>
                     </div>
                   </div>
 
@@ -291,7 +479,7 @@ export default function CoffeeChatsPage() {
                           : 'bg-white hover:bg-gray-100 text-gray-900'
                       }`}
                       disabled={actionLoading === slot.id || (!userSignedUp && (!slot.isOpen || slot.signupCount >= slot.capacity))}
-                      onClick={() => userSignedUp ? removeSignup(slot.id) : signup(slot.id)}
+                      onClick={() => userSignedUp ? removeSignup(slot.id) : openSignupModal(slot)}
                     >
                       {actionLoading === slot.id ? (
                         <div className="flex items-center justify-center gap-2">
@@ -329,6 +517,76 @@ export default function CoffeeChatsPage() {
             <p className={messageType === 'success' ? 'text-green-300' : 'text-red-300'}>
               {message}
             </p>
+          </div>
+        )}
+
+        {/* Phone Number Signup Modal */}
+        {showSignupModal && selectedSlot && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-gray-900 rounded-lg shadow-xl max-w-md w-full border border-white/20">
+              <div className="p-6 border-b border-white/20">
+                <h2 className="text-xl font-semibold text-white">
+                  Sign Up for Coffee Chat
+                </h2>
+                <p className="text-white/80 mt-1">
+                  {selectedSlot.title} with {selectedSlot.hostName}
+                </p>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div>
+                  <p className="text-white/90 mb-4">
+                    Please provide your phone number to complete the signup.
+                  </p>
+                  
+                  <label className="block text-sm font-medium text-white/80 mb-2">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="(555) 123-4567"
+                    className="w-full px-3 py-2 border border-white/20 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white/10 text-white placeholder-white/50"
+                    autoFocus
+                  />
+                </div>
+                
+                <div className="bg-blue-500/20 border border-blue-400/30 rounded-lg p-3">
+                  <p className="text-sm text-blue-300">
+                    📱 Your phone number will only be visible to Exec members and will be used for coffee chat coordination.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="px-6 py-4 border-t border-white/20 flex gap-3">
+                <button
+                  onClick={signup}
+                  disabled={!phoneNumber.trim() || actionLoading === selectedSlot.id}
+                  className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {actionLoading === selectedSlot.id ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span className="text-white">Signing up...</span>
+                    </div>
+                  ) : (
+                    <span className="text-white">Complete Signup</span>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSignupModal(false);
+                    setSelectedSlot(null);
+                    setPhoneNumber('');
+                  }}
+                  disabled={actionLoading === selectedSlot.id}
+                  className="px-4 py-3 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

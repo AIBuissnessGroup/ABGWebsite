@@ -1,7 +1,14 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { motion, useInView } from 'framer-motion'
+import { useSession } from 'next-auth/react'
 import FloatingShapes from './FloatingShapes'
+
+// Helper function to convert UTC dates to EST for display
+const convertUtcToEst = (utcDate: Date): Date => {
+  const estOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
+  return new Date(utcDate.getTime() - estOffset);
+};
 
 interface Event {
   id: string;
@@ -16,14 +23,31 @@ interface Event {
   imageUrl?: string;
   featured: boolean;
   published: boolean;
+  attendanceConfirmEnabled?: number;
+  slug?: string;
 }
 
 export default function Events() {
+  const { data: session } = useSession()
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null)
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
+  const [attendanceModal, setAttendanceModal] = useState<{ show: boolean; event: any }>({ show: false, event: null })
+  const [attendancePassword, setAttendancePassword] = useState('')
+  const [attendanceStatus, setAttendanceStatus] = useState<{ [key: string]: { attended: boolean; confirmedAt?: string } }>({})
+  const [registrationStatus, setRegistrationStatus] = useState<{ [key: string]: { registered: boolean; status: string; registeredAt?: string } }>({})
+  const [eventRequirements, setEventRequirements] = useState<{ [key: string]: { requiresPassword: boolean } }>({})
+  const [submittingAttendance, setSubmittingAttendance] = useState(false)
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true })
+
+  // Helper function to generate URL-friendly slugs
+  const generateSlug = (title: string): string => {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
 
   // Function to generate Google Calendar URL
   const generateGoogleCalendarUrl = (event: any) => {
@@ -58,6 +82,12 @@ export default function Events() {
         if (res.ok) {
           const data = await res.json();
           setEvents(data);
+          
+          // Load attendance status for authenticated users
+          if (session?.user) {
+            await loadAttendanceStatus(data);
+            await loadRegistrationStatus(data);
+          }
         }
       } catch (error) {
         console.error('Failed to load events:', error);
@@ -67,7 +97,131 @@ export default function Events() {
     };
 
     loadEvents();
-  }, []);  return (
+  }, [session]);
+
+  // Load attendance status for events
+  const loadAttendanceStatus = async (eventList: any[]) => {
+    if (!session?.user) return;
+    
+    try {
+      const statusPromises = eventList
+        .filter(event => event.attendanceConfirmEnabled)
+        .map(async (event) => {
+          const res = await fetch(`/api/events/${event.id}/attendance/confirm`);
+          if (res.ok) {
+            const status = await res.json();
+            return { eventId: event.id, status };
+          }
+          return null;
+        });
+      
+      const statuses = await Promise.all(statusPromises);
+      const statusMap: { [key: string]: any } = statuses.reduce((acc, item) => {
+        if (item) {
+          acc[item.eventId] = item.status;
+        }
+        return acc;
+      }, {} as { [key: string]: any });
+      
+      setAttendanceStatus(statusMap);
+    } catch (error) {
+      console.error('Failed to load attendance status:', error);
+    }
+  };
+
+  // Load registration status for all events
+  const loadRegistrationStatus = async (eventList: any[]) => {
+    if (!session?.user) return;
+    
+    try {
+      const statusPromises = eventList
+        .filter(event => event.registrationEnabled || event.attendanceConfirmEnabled)
+        .map(async (event) => {
+          try {
+            const res = await fetch(`/api/events/${event.id}/registration/status`);
+            if (res.ok) {
+              const status = await res.json();
+              return { eventId: event.id, status };
+            }
+          } catch (err) {
+            console.error(`Failed to load registration status for event ${event.id}:`, err);
+          }
+          return { eventId: event.id, status: { registered: false } };
+        });
+      
+      const statuses = await Promise.all(statusPromises);
+      const statusMap: { [key: string]: any } = statuses.reduce((acc, item) => {
+        if (item) {
+          acc[item.eventId] = item.status;
+        }
+        return acc;
+      }, {} as { [key: string]: any });
+      
+      setRegistrationStatus(statusMap);
+    } catch (error) {
+      console.error('Failed to load registration status:', error);
+    }
+  };
+
+  // Handle attendance confirmation
+  const handleAttendanceConfirm = async () => {
+    if (!attendanceModal.event) return;
+    
+    const requiresPassword = eventRequirements[attendanceModal.event.id]?.requiresPassword;
+    if (requiresPassword && !attendancePassword.trim()) return;
+    
+    setSubmittingAttendance(true);
+    try {
+      const res = await fetch(`/api/events/${attendanceModal.event.id}/attendance/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: attendancePassword || '' })
+      });
+      
+      const result = await res.json();
+      
+      if (res.ok) {
+        setAttendanceStatus(prev => ({
+          ...prev,
+          [attendanceModal.event.id]: { attended: true, confirmedAt: result.confirmedAt }
+        }));
+        setAttendanceModal({ show: false, event: null });
+        setAttendancePassword('');
+        alert('Attendance confirmed successfully!');
+      } else {
+        alert(result.error || 'Failed to confirm attendance');
+      }
+    } catch (error) {
+      console.error('Failed to confirm attendance:', error);
+      alert('Error confirming attendance');
+    } finally {
+      setSubmittingAttendance(false);
+    }
+  };
+
+  const openAttendanceModal = async (event: any) => {
+    if (!session?.user) {
+      window.location.href = `/auth/signin?callbackUrl=${encodeURIComponent('/events')}`;
+      return;
+    }
+    
+    // Load event requirements
+    try {
+      const res = await fetch(`/api/events/${event.id}/requirements`);
+      if (res.ok) {
+        const requirements = await res.json();
+        setEventRequirements(prev => ({
+          ...prev,
+          [event.id]: { requiresPassword: requirements.requiresPassword }
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load event requirements:', error);
+    }
+    
+    setAttendanceModal({ show: true, event });
+    setAttendancePassword('');
+  };  return (
     <section 
       id="events" 
       ref={ref}
@@ -191,6 +345,16 @@ export default function Events() {
                               {event.subevents.length} subevents
                             </span>
                           )}
+                          {event.attendanceConfirmEnabled && attendanceStatus[event.id]?.attended && (
+                            <span className="px-2 py-1 bg-green-500/20 text-green-300 text-xs rounded-full flex items-center gap-1">
+                              ✓ Confirmed
+                            </span>
+                          )}
+                          {registrationStatus[event.id]?.registered && (
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full flex items-center gap-1">
+                              🎟️ {registrationStatus[event.id]?.status === 'waitlisted' ? 'Waitlisted' : 'Registered'}
+                            </span>
+                          )}
                         </div>
                         <h3 className="heading-secondary text-xl md:text-2xl text-white mb-2">
                           {event.title}
@@ -201,8 +365,8 @@ export default function Events() {
                     {/* Event Details */}
                     <div className="space-y-3 mb-4 relative z-10">
                       <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[#BBBBBB] text-xs sm:text-sm">
-                        <span>📅 {new Date(event.eventDate || event.date).toLocaleDateString()}</span>
-                        {(event.time || event.eventDate) && <span>🕔 {event.time || new Date(event.eventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                        <span>📅 {convertUtcToEst(new Date(event.eventDate || event.date)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</span>
+                        {(event.time || event.eventDate) && <span>🕔 {event.time || convertUtcToEst(new Date(event.eventDate)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST</span>}
                         {event.location && <span>📍 {event.location}</span>}
                         {event.venue && <span>🏢 {event.venue}</span>}
                       </div>
@@ -251,12 +415,21 @@ export default function Events() {
 
                     {/* Expand/Collapse Indicator */}
                     <div className="flex justify-between items-center relative z-10">
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        className="btn-secondary text-xs sm:text-sm px-4 sm:px-6 py-2"
-                      >
-                        {selectedEvent === index ? 'Show Less' : 'See What\'s Possible'}
-                      </motion.button>
+                      <div className="flex gap-2">
+                        <a
+                          href={`/events/${event.slug || generateSlug(event.title)}`}
+                          className="btn-primary text-xs sm:text-sm px-4 sm:px-6 py-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          View Details
+                        </a>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          className="btn-secondary text-xs sm:text-sm px-4 sm:px-6 py-2"
+                        >
+                          {selectedEvent === index ? 'Show Less' : 'See What\'s Possible'}
+                        </motion.button>
+                      </div>
                       
                       <motion.div
                         animate={{ rotate: selectedEvent === index ? 180 : 0 }}
@@ -302,8 +475,8 @@ export default function Events() {
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-4 text-[#BBBBBB] text-xs mb-2">
-                                      <span>📅 {new Date(subevent.eventDate).toLocaleDateString()}</span>
-                                      <span>🕔 {new Date(subevent.eventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                      <span>📅 {convertUtcToEst(new Date(subevent.eventDate)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</span>
+                                      <span>🕔 {convertUtcToEst(new Date(subevent.eventDate)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST</span>
                                       {subevent.venue && <span>🏢 {subevent.venue}</span>}
                                       {subevent.capacity && <span>👥 {subevent.capacity}</span>}
                                     </div>
@@ -385,6 +558,12 @@ export default function Events() {
                         )}
                         
                         <div className="flex flex-col sm:flex-row gap-3">
+                          <a
+                            href={`/events/${event.slug || generateSlug(event.title)}`}
+                            className="btn-primary text-sm px-6 py-2 text-center"
+                          >
+                            View Event Details
+                          </a>
                           {event.registrationEnabled && (
                             <a
                               href={event.registrationUrl || '/#join'}
@@ -437,6 +616,78 @@ export default function Events() {
           </div>
         </motion.div>
       </div>
+
+      {/* Attendance Confirmation Modal */}
+      {attendanceModal.show && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-[#00274c] border border-white/20 rounded-xl p-6 max-w-md w-full"
+          >
+            <h3 className="text-xl font-bold text-white mb-4">
+              Confirm Attendance
+            </h3>
+            
+            {attendanceModal.event && (
+              <div className="mb-6">
+                <h4 className="text-white font-semibold">{attendanceModal.event.title}</h4>
+                <div className="text-[#BBBBBB] text-sm mt-2 space-y-1">
+                  <div>📅 {convertUtcToEst(new Date(attendanceModal.event.eventDate)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</div>
+                  <div>🕔 {convertUtcToEst(new Date(attendanceModal.event.eventDate)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST</div>
+                  {attendanceModal.event.location && <div>📍 {attendanceModal.event.location}</div>}
+                  {attendanceModal.event.venue && <div>🏢 {attendanceModal.event.venue}</div>}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {eventRequirements[attendanceModal.event?.id]?.requiresPassword && (
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Event Password
+                  </label>
+                  <input
+                    type="password"
+                    value={attendancePassword}
+                    onChange={(e) => setAttendancePassword(e.target.value)}
+                    className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+                    placeholder="Enter event password"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && (attendancePassword.trim() || !eventRequirements[attendanceModal.event?.id]?.requiresPassword)) {
+                        handleAttendanceConfirm();
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
+              {!eventRequirements[attendanceModal.event?.id]?.requiresPassword && (
+                <div className="text-[#BBBBBB] text-sm">
+                  No password required for this event. Click confirm to mark your attendance.
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setAttendanceModal({ show: false, event: null })}
+                  className="flex-1 px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
+                  disabled={submittingAttendance}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAttendanceConfirm}
+                  disabled={(eventRequirements[attendanceModal.event?.id]?.requiresPassword && !attendancePassword.trim()) || submittingAttendance}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {submittingAttendance ? 'Confirming...' : 'Confirm'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </section>
   )
 }

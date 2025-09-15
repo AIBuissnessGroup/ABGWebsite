@@ -131,6 +131,9 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
+    await client.connect();
+    const db = client.db();
+
     const updateData: any = {
       name: data.name.trim(),
       role: data.role.trim(),
@@ -143,17 +146,15 @@ export async function PUT(request: NextRequest) {
       imageUrl: data.imageUrl?.trim() || null,
       featured: Boolean(data.featured),
       active: data.active !== undefined ? Boolean(data.active) : true,
+      updatedAt: new Date()
     };
 
     // Only include sortOrder if it's provided
     if (data.sortOrder !== undefined) {
       updateData.sortOrder = Number(data.sortOrder);
     }
-
-    const db = client.db('abg-website');
-    const collection = db.collection('TeamMember');
     
-    const result = await collection.findOneAndUpdate(
+    const result = await db.collection('TeamMember').findOneAndUpdate(
       { id: data.id },
       { $set: updateData },
       { returnDocument: 'after' }
@@ -162,10 +163,8 @@ export async function PUT(request: NextRequest) {
     if (!result) {
       return NextResponse.json({ error: 'Team member not found' }, { status: 404 });
     }
-    
-    const teamMember = result;
 
-    return NextResponse.json(teamMember);
+    return NextResponse.json(safeJson(result));
   } catch (error: any) {
     console.error('Error updating team member:', error);
     console.error('Error details:', {
@@ -177,6 +176,8 @@ export async function PUT(request: NextRequest) {
       error: 'Failed to update team member',
       details: error.message 
     }, { status: 500 });
+  } finally {
+    await client.close();
   }
 }
 
@@ -201,10 +202,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Team member ID required' }, { status: 400 });
     }
 
-    const db = client.db('abg-website');
-    const collection = db.collection('TeamMember');
+    await client.connect();
+    const db = client.db();
     
-    const result = await collection.deleteOne({ id });
+    const result = await db.collection('TeamMember').deleteOne({ id });
     
     if (result.deletedCount === 0) {
       return NextResponse.json({ error: 'Team member not found' }, { status: 404 });
@@ -222,5 +223,7 @@ export async function DELETE(request: NextRequest) {
       error: 'Failed to delete team member',
       details: error.message 
     }, { status: 500 });
+  } finally {
+    await client.close();
   }
 } 

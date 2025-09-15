@@ -16,7 +16,24 @@ export async function POST(
 
     // Get client IP and user agent
     const forwarded = request.headers.get('x-forwarded-for');
-    const ipAddress = forwarded ? forwarded.split(',')[0] : 'unknown';
+    const realIp = request.headers.get('x-real-ip');
+    const cfConnectingIp = request.headers.get('cf-connecting-ip');
+    
+    let ipAddress = 'unknown';
+    if (cfConnectingIp) {
+      ipAddress = cfConnectingIp;
+    } else if (realIp) {
+      ipAddress = realIp;
+    } else if (forwarded) {
+      ipAddress = forwarded.split(',')[0].trim();
+    } else {
+      // Fallback to remote address (might be ::1 for localhost)
+      const remoteAddress = request.headers.get('x-forwarded-for') || 
+                           request.headers.get('x-real-ip') || 
+                           'unknown';
+      ipAddress = remoteAddress;
+    }
+    
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
     await client.connect();
@@ -37,10 +54,8 @@ export async function POST(
       return NextResponse.json({ error: 'The submission deadline has passed' }, { status: 403 });
     }
 
-    // Get form questions
-    const questions = await db.collection('FormQuestion')
-      .find({ formId: form._id.toString() })
-      .toArray();
+    // Get form questions (they're embedded in the form document)
+    const questions = form.questions || [];
 
     // Check authentication requirement
     if (form.requireAuth) {
@@ -171,6 +186,11 @@ export async function POST(
         const question = questions.find((q: any) => q.id === response.questionId);
         if (!question) return null;
 
+        // Skip empty responses
+        if (response.value === null || response.value === undefined || response.value === '') {
+          return null;
+        }
+
         const responseData: any = {
           questionId: response.questionId
         };
@@ -191,17 +211,27 @@ export async function POST(
             responseData.dateValue = new Date(response.value);
             break;
           case 'BOOLEAN':
-            responseData.booleanValue = Boolean(response.value);
+            responseData.booleanValue = response.value === 'true' || response.value === true;
             break;
           case 'SELECT':
           case 'RADIO':
             responseData.textValue = response.value;
             break;
           case 'CHECKBOX':
-            responseData.selectedOptions = JSON.stringify(response.value);
+            responseData.selectedOptions = Array.isArray(response.value) 
+              ? JSON.stringify(response.value) 
+              : JSON.stringify([response.value]);
             break;
           case 'FILE':
-            responseData.fileUrl = response.value;
+            if (typeof response.value === 'object' && response.value.fileData) {
+              responseData.fileName = response.value.fileName;
+              responseData.fileSize = response.value.fileSize;
+              responseData.fileType = response.value.fileType;
+              responseData.fileData = response.value.fileData;
+            } else {
+              // Fallback for old format (just filename)
+              responseData.fileUrl = response.value;
+            }
             break;
           default:
             responseData.textValue = response.value;

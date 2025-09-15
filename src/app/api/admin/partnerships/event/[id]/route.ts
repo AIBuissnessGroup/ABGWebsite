@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient } from 'mongodb';
+import { authOptions } from '@/lib/auth';
+import { isAdminEmail } from '@/lib/admin';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email) {
+    if (!session?.user?.email || !isAdminEmail(session.user.email)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { id } = await params;

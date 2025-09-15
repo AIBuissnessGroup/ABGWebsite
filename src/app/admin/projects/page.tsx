@@ -233,7 +233,16 @@ export default function ProjectsAdmin() {
                   <div className="mt-3">
                     <span className="font-medium text-gray-700 text-sm">Technologies:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {JSON.parse(project.technologies || '[]').slice(0, 5).map((tech: string, idx: number) => (
+                      {(() => {
+                        try {
+                          // Try to parse as JSON first
+                          const parsed = JSON.parse(project.technologies || '[]');
+                          return Array.isArray(parsed) ? parsed : [];
+                        } catch (e) {
+                          // If JSON parsing fails, treat as comma-separated string
+                          return project.technologies.split(',').map((tech: string) => tech.trim()).filter(Boolean);
+                        }
+                      })().slice(0, 5).map((tech: string, idx: number) => (
                         <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
                           {tech}
                         </span>
@@ -395,6 +404,14 @@ function ProjectForm({ project, onClose, onSave }: any) {
 
     // Set initial form data for existing project
     if (project) {
+      // Convert technologies from string to JSON format if needed
+      let technologiesForForm = project.technologies || '';
+      if (technologiesForForm && !technologiesForForm.startsWith('[')) {
+        // Convert comma-separated string to JSON array format
+        const techArray = technologiesForForm.split(',').map((tech: string) => tech.trim()).filter(Boolean);
+        technologiesForForm = JSON.stringify(techArray);
+      }
+
       setFormData({
         title: project.title || '',
         description: project.description || '',
@@ -405,7 +422,7 @@ function ProjectForm({ project, onClose, onSave }: any) {
         progress: project.progress || 0,
         objectives: project.objectives || '',
         outcomes: project.outcomes || '',
-        technologies: project.technologies || '',
+        technologies: technologiesForForm,
         links: project.links || '',
         imageUrl: project.imageUrl || '',
         featured: project.featured || false,

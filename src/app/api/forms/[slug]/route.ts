@@ -24,15 +24,9 @@ export async function GET(
       return NextResponse.json({ error: 'This form is not publicly accessible' }, { status: 403 });
     }
 
-    // Get questions for this form
-    const questions = await db.collection('FormQuestion')
-      .find({ formId: form._id.toString() })
-      .sort({ order: 1 })
-      .toArray();
-
     // Get application count
     const submissionCount = await db.collection('Application')
-      .countDocuments({ formId: form._id.toString() });
+      .countDocuments({ formId: form.id });
 
     // Don't return sensitive admin data
     const publicForm = {
@@ -42,22 +36,12 @@ export async function GET(
       category: form.category,
       isActive: form.isActive,
       deadline: form.deadline,
-      requireAuth: form.requireAuth,
+      requireAuth: Boolean(form.requireAuth), // Convert to proper boolean
       backgroundColor: form.backgroundColor,
       textColor: form.textColor,
-      questions: questions.map((q: any) => ({
-        id: q.id,
-        title: q.title,
-        description: q.description,
-        type: q.type,
-        required: q.required,
-        order: q.order,
-        options: q.options ? JSON.parse(q.options) : null,
-        minLength: q.minLength,
-        maxLength: q.maxLength,
-        pattern: q.pattern
-      })),
-      submissionCount
+      questions: form.questions || [], // Use questions directly from the form document
+      submissionCount,
+      isAttendanceForm: form.isAttendanceForm
     };
 
     return NextResponse.json(publicForm);

@@ -18,11 +18,11 @@ interface CollaborationCarouselProps {
 }
 
 export default function CollaborationCarousel({
-  displayMode = 'carousel',
+  displayMode = 'image', // Changed from 'carousel' to 'image'
   title = 'Innovation Through Collaboration',
   subtitle = 'Building the future together',
   slides = [],
-  teamImage
+  teamImage = '/ABG.Group.Photo.jpg' // Default to team photo
 }: CollaborationCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -42,19 +42,19 @@ export default function CollaborationCarousel({
   // Image mode
   if (displayMode === 'image' && teamImage) {
     return (
-      <div className="glass-card p-6 sm:p-8 h-60 sm:h-80 relative overflow-hidden">
+      <div className="glass-card p-6 sm:p-8 h-72 sm:h-96 relative overflow-hidden">
         <img 
           src={teamImage} 
           alt={title}
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-[#00274c]/80 to-[#1a2c45]/80"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#00274c]/70 via-transparent to-transparent"></div>
         <div className="relative z-10 h-full flex items-end">
           <div className="text-left">
-            <p className="text-white text-base sm:text-lg font-bold mb-2">
+            <p className="text-white text-base sm:text-lg font-bold mb-2 drop-shadow-lg">
               {title}
             </p>
-            <p className="text-[#BBBBBB] text-xs sm:text-sm">
+            <p className="text-[#BBBBBB] text-xs sm:text-sm drop-shadow-md">
               {subtitle}
             </p>
           </div>

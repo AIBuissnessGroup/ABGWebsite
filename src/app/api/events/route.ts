@@ -14,22 +14,45 @@ export async function OPTIONS() {
   return corsResponse(new NextResponse(null, { status: 200 }));
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const client = new MongoClient(process.env.DATABASE_URL!);
+    const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://localhost:27017/abg-website';
+    const client = new MongoClient(uri);
     await client.connect();
     const db = client.db();
+
+    const { searchParams } = new URL(request.url);
+    const eventTypeFilter = searchParams.get('eventType');
     
-    // Get all published main events with partnerships and subevents
-    const events = await db.collection('Event').aggregate([
-      { 
-        $match: { 
-          published: true,
+    // Debug: Check what the match stage actually finds
+    const matchStage: any = { 
+      $or: [
+        { published: true },          // Boolean true
+        { published: 1 }              // Number 1
+      ],
+      $and: [
+        {
           $or: [
-            { isMainEvent: true },
+            { isMainEvent: true },        // Boolean true
+            { isMainEvent: 1 },           // Number 1 
             { isMainEvent: { $exists: false } } // Include events without isMainEvent field
           ]
-        } 
+        }
+      ]
+    };
+
+    // Add eventType filter if provided
+    if (eventTypeFilter) {
+      matchStage.eventType = eventTypeFilter;
+    }
+    
+    const matchCount = await db.collection('Event').countDocuments(matchStage);
+    console.log('Events matching filter:', matchCount, 'eventType:', eventTypeFilter);
+    
+    // Get all published main events with partnerships and subevents
+    const pipeline = [
+      { 
+        $match: matchStage
       },
       {
         $lookup: {
@@ -103,7 +126,10 @@ export async function GET() {
       },
       { $unset: 'partnershipCompanies' },
       { $sort: { featured: -1, eventDate: 1 } }
-    ]).toArray();
+    ];
+    
+    const events = await db.collection('Event').aggregate(pipeline).toArray();
+    console.log('Events after aggregation:', events.length);
 
     await client.close();
     return corsResponse(NextResponse.json(events));

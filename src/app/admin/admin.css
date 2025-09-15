@@ -1,6 +1,13 @@
 /* Admin-specific styles */
 @import "tailwindcss";
 
+/* Drag and drop styles */
+.drag-over {
+  border: 2px dashed #00274c !important;
+  background-color: #f0f8ff !important;
+  transform: scale(1.02);
+}
+
 /* Admin page reset - ensure normal dark text on light backgrounds */
 .admin-page {
   background: #f8f9fa;

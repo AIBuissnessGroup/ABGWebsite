@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient, ObjectId } from 'mongodb';
-import { isAdminEmail } from '@/lib/admin';
+import { authOptions } from '@/lib/auth';
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
 const client = new MongoClient(uri);
@@ -11,40 +11,48 @@ export async function GET() {
     await client.connect();
     const db = client.db();
     
-    let aboutContent = await db.collection('AboutContent').findOne({ isActive: true });
+    // First try to find actual about content (not default)
+    let aboutContent = await db.collection('AboutContent').findOne({ 
+      title: { $exists: true, $ne: 'Default title' }
+    });
 
-    // If no content exists, create default content
+    // If no real content exists, find any active content
+    if (!aboutContent) {
+      aboutContent = await db.collection('AboutContent').findOne({ isActive: true });
+    }
+
+    // If still no content exists, create default content
     if (!aboutContent) {
       const defaultContent = {
         id: 'default-about-content',
         carouselSlides: '[]',
         collaborationDisplayMode: 'carousel',
-        collaborationSubtitle: 'Default subtitle',
-        collaborationTitle: 'Default title',
-        description1: 'Default description 1',
-        description2: 'Default description 2',
+        collaborationSubtitle: 'Building partnerships that matter',
+        collaborationTitle: 'OUR COLLABORATIONS',
+        description1: 'AI Business Group brings together builders, entrepreneurs, and innovators at the University of Michigan.',
+        description2: 'We create innovative solutions that prepare students to lead in an AI-driven world.',
         isActive: true,
-        mainTitle: 'About Us',
-        membersCount: '0',
-        missionCount: '0',
-        partnersCount: '0',
-        primaryButtonLink: '/',
-        primaryButtonText: 'Learn More',
-        projectsCount: '0',
-        secondaryButtonLink: '/',
-        secondaryButtonText: 'Join Us',
-        subtitle: 'Default subtitle',
-        title: 'Default title',
+        mainTitle: 'BUILDING THE FUTURE',
+        membersCount: '50',
+        missionCount: '1',
+        partnersCount: '10',
+        primaryButtonLink: '/projects',
+        primaryButtonText: 'See Our Work',
+        projectsCount: '12',
+        secondaryButtonLink: '/team',
+        secondaryButtonText: 'Meet The Team',
+        subtitle: 'AI SHAPES TOMORROW',
+        title: 'WHO WE ARE',
         updatedAt: new Date(),
-        value1Desc: 'Default value 1 description',
-        value1Icon: 'default-icon',
-        value1Title: 'Value 1',
-        value2Desc: 'Default value 2 description',
-        value2Icon: 'default-icon',
-        value2Title: 'Value 2',
-        value3Desc: 'Default value 3 description',
-        value3Icon: 'default-icon',
-        value3Title: 'Value 3',
+        value1Desc: 'Innovation through collaboration',
+        value1Icon: 'lightbulb',
+        value1Title: 'Innovation',
+        value2Desc: 'Building real-world solutions',
+        value2Icon: 'gear',
+        value2Title: 'Impact',
+        value3Desc: 'Preparing future leaders',
+        value3Icon: 'users',
+        value3Title: 'Growth',
         createdAt: new Date()
       };
       
@@ -69,14 +77,15 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check if user is admin
-    if (!isAdminEmail(session.user.email)) {
+    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
+    if (!adminEmails.includes(session.user.email)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -85,9 +94,11 @@ export async function PUT(request: NextRequest) {
     await client.connect();
     const db = client.db();
     
-    // First deactivate all existing content
-    await db.collection('AboutContent').updateMany({}, { $set: { isActive: false } });
-
+    // First, find the existing about content (the one with actual content)
+    let existingAbout = await db.collection('AboutContent').findOne({ 
+      title: { $exists: true, $ne: 'Default title' }
+    });
+    
     // Create or update the about content
     const updateData = {
       ...data,
@@ -96,20 +107,30 @@ export async function PUT(request: NextRequest) {
     };
 
     let aboutContent;
-    if (data.id && data.id !== 'new') {
-      // Update existing
+    if (existingAbout) {
+      // Update the existing about content
       await db.collection('AboutContent').updateOne(
-        { id: data.id },
+        { _id: existingAbout._id },
         { $set: updateData }
       );
-      aboutContent = await db.collection('AboutContent').findOne({ id: data.id });
+      // Set all other content to inactive
+      await db.collection('AboutContent').updateMany(
+        { _id: { $ne: existingAbout._id } }, 
+        { $set: { isActive: false } }
+      );
+      aboutContent = await db.collection('AboutContent').findOne({ _id: existingAbout._id });
     } else {
-      // Create new
+      // Create new content
       const newContent = {
         ...updateData,
         createdAt: new Date()
       };
       await db.collection('AboutContent').insertOne(newContent);
+      // Set all other content to inactive
+      await db.collection('AboutContent').updateMany(
+        { _id: { $ne: newContent._id } }, 
+        { $set: { isActive: false } }
+      );
       aboutContent = newContent;
     }
 

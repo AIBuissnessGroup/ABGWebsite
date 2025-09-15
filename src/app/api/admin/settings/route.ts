@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient, ObjectId } from 'mongodb';
-import { isAdminEmail } from '@/lib/admin';
+import { authOptions } from '@/lib/auth';
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
 const client = new MongoClient(uri);
 
 export async function GET() {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check if user is admin
-    if (!isAdminEmail(session.user.email)) {
+    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
+    if (!adminEmails.includes(session.user.email)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -35,14 +36,15 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check if user is admin
-    if (!isAdminEmail(session.user.email)) {
+    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
+    if (!adminEmails.includes(session.user.email)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

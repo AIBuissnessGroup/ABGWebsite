@@ -33,11 +33,10 @@ export async function GET() {
     await client.connect();
     const db = client.db();
     
+    // For admin dashboard, show ALL events (both published and unpublished)
+    // and both main events and subevents
     const events = await db.collection('Event')
-      .find({ 
-        published: true,
-        isMainEvent: 1 // Use 1 instead of true for Int type
-      })
+      .find({}) // No filtering - show everything
       .sort({ featured: -1, eventDate: -1 })
       .toArray();
     
@@ -88,8 +87,8 @@ export async function POST(request: NextRequest) {
           updatedAt: new Date()
         };
         
-        await usersCollection.insertOne(newUser);
-        user = newUser;
+        const insertResult = await usersCollection.insertOne(newUser);
+        user = await usersCollection.findOne({ _id: insertResult.insertedId });
         console.log('Created new user:', user);
       } catch (error) {
         console.error('Error creating user:', error);
@@ -99,6 +98,20 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
     console.log('Event data:', data);
+
+    // Helper function to hash password with salt
+    const hashPassword = (password: string, salt: string): string => {
+      return crypto.createHash('sha256').update(salt + password).digest('hex');
+    };
+
+    // Handle attendance password
+    let attendancePasswordHash = null;
+    let attendancePasswordSalt = null;
+    
+    if (data.attendancePassword) {
+      attendancePasswordSalt = crypto.randomBytes(16).toString('hex');
+      attendancePasswordHash = hashPassword(data.attendancePassword, attendancePasswordSalt);
+    }
     
     const eventData = {
       id: crypto.randomUUID(),
@@ -118,7 +131,22 @@ export async function POST(request: NextRequest) {
       published: data.published !== undefined ? data.published : true, // Keep as boolean
       parentEventId: data.parentEventId || null,
       isMainEvent: data.parentEventId ? 0 : 1, // Convert boolean to number (0 = false, 1 = true)
-      createdBy: user.id,
+      attendanceConfirmEnabled: data.attendanceConfirmEnabled ? 1 : 0,
+      attendancePasswordHash,
+      attendancePasswordSalt,
+      waitlistEnabled: data.waitlistEnabled || false,
+      waitlistMaxSize: data.waitlistMaxSize || null,
+      waitlistAutoPromote: data.waitlistAutoPromote || false,
+      requirePassword: data.requirePassword || false,
+      requireName: data.requireName !== undefined ? data.requireName : true,
+      requireMajor: data.requireMajor || false,
+      requireGradeLevel: data.requireGradeLevel || false,
+      requirePhone: data.requirePhone || false,
+      speakers: data.speakers || [], // Add speakers support
+      partners: data.partners || [], // Add partners support
+      attendees: [], // Initialize empty attendees array
+      waitlist: [], // Initialize empty waitlist array
+      createdBy: user?.id || crypto.randomUUID(),
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -183,6 +211,25 @@ export async function PUT(request: NextRequest) {
       return corsResponse(NextResponse.json({ error: 'Event not found' }, { status: 404 }));
     }
 
+    // Helper function to hash password with salt
+    const hashPassword = (password: string, salt: string): string => {
+      return crypto.createHash('sha256').update(salt + password).digest('hex');
+    };
+
+    // Handle attendance password
+    let attendancePasswordHash = existingEvent.attendancePasswordHash;
+    let attendancePasswordSalt = existingEvent.attendancePasswordSalt;
+    
+    if (data.attendancePassword) {
+      attendancePasswordSalt = crypto.randomBytes(16).toString('hex');
+      attendancePasswordHash = hashPassword(data.attendancePassword, attendancePasswordSalt);
+    } else if (data.attendancePassword === '' || data.attendancePassword === null) {
+      // Clear password if empty string or null is provided
+      attendancePasswordHash = null;
+      attendancePasswordSalt = null;
+    }
+    // If attendancePassword is undefined, keep existing password
+
     const updateData = {
       title: data.title,
       description: data.description,
@@ -198,6 +245,19 @@ export async function PUT(request: NextRequest) {
       published: data.published !== undefined ? data.published : true, // Keep as boolean
       parentEventId: data.parentEventId || null,
       isMainEvent: data.parentEventId ? 0 : 1, // Convert boolean to number (0 = false, 1 = true)
+      attendanceConfirmEnabled: data.attendanceConfirmEnabled ? 1 : 0,
+      attendancePasswordHash,
+      attendancePasswordSalt,
+      waitlistEnabled: data.waitlistEnabled || false,
+      waitlistMaxSize: data.waitlistMaxSize || null,
+      waitlistAutoPromote: data.waitlistAutoPromote || false,
+      requirePassword: data.requirePassword || false,
+      requireName: data.requireName !== undefined ? data.requireName : true,
+      requireMajor: data.requireMajor || false,
+      requireGradeLevel: data.requireGradeLevel || false,
+      requirePhone: data.requirePhone || false,
+      speakers: data.speakers || [], // Add speakers support
+      partners: data.partners || [], // Add partners support
       updatedAt: new Date()
     };
 

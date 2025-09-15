@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient, ObjectId } from 'mongodb';
+import { authOptions } from '@/lib/auth';
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
 const client = new MongoClient(uri);
@@ -10,12 +11,28 @@ export async function GET() {
     await client.connect();
     const db = client.db();
     
-    let heroContent = await db.collection('HeroContent').findOne({ isActive: true });
+    // First try to find actual hero content (not just default)
+    let heroContent = await db.collection('HeroContent').findOne({ 
+      mainTitle: { $exists: true } 
+    });
 
-    // If no content exists, create default content
+    // If no real content exists, find any active content
+    if (!heroContent) {
+      heroContent = await db.collection('HeroContent').findOne({ isActive: true });
+    }
+
+    // If still no content exists, create default content with all fields
     if (!heroContent) {
       const defaultContent = {
         id: 'default-hero',
+        mainTitle: "AI SHAPES",
+        subTitle: "TOMORROW.",
+        thirdTitle: "WE MAKE AI",
+        description: "One project at a time. We're building the bridge between artificial intelligence and real-world business impact at the University of Michigan.",
+        primaryButtonText: "See What's Possible",
+        primaryButtonLink: "#join",
+        secondaryButtonText: "Explore Projects",
+        secondaryButtonLink: "/projects",
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -36,7 +53,7 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -53,9 +70,11 @@ export async function PUT(request: NextRequest) {
     await client.connect();
     const db = client.db();
     
-    // First deactivate all existing content
-    await db.collection('HeroContent').updateMany({}, { $set: { isActive: false } });
-
+    // First, find the existing hero content (the one with actual content)
+    let existingHero = await db.collection('HeroContent').findOne({ 
+      mainTitle: { $exists: true } 
+    });
+    
     // Create or update the hero content
     const updateData = {
       ...data,
@@ -64,23 +83,34 @@ export async function PUT(request: NextRequest) {
     };
 
     let heroContent;
-    if (data.id && data.id !== 'new') {
-      // Update existing
+    if (existingHero) {
+      // Update the existing hero content
       await db.collection('HeroContent').updateOne(
-        { id: data.id },
+        { _id: existingHero._id },
         { $set: updateData }
       );
-      heroContent = await db.collection('HeroContent').findOne({ id: data.id });
+      // Set all other content to inactive
+      await db.collection('HeroContent').updateMany(
+        { _id: { $ne: existingHero._id } }, 
+        { $set: { isActive: false } }
+      );
+      heroContent = await db.collection('HeroContent').findOne({ _id: existingHero._id });
     } else {
-      // Create new
+      // Create new content
       const newContent = {
         ...updateData,
         createdAt: new Date()
       };
-      await db.collection('HeroContent').insertOne(newContent);
+      const insertResult = await db.collection('HeroContent').insertOne(newContent);
+      // Set all other content to inactive
+      await db.collection('HeroContent').updateMany(
+        { _id: { $ne: insertResult.insertedId } }, 
+        { $set: { isActive: false } }
+      );
       heroContent = newContent;
     }
 
+    console.log('Final hero content:', heroContent);
     return NextResponse.json(heroContent);
   } catch (error) {
     console.error('Error updating hero content:', error);
