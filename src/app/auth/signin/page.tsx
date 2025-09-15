@@ -20,7 +20,18 @@ function SignInContent() {
   }, [router, callbackUrl]);
 
   const handleSignIn = () => {
-    signIn('google', { callbackUrl });
+    signIn('google', { 
+      callbackUrl,
+      redirect: false
+    }).then((result) => {
+      if (result?.error) {
+        console.error('Sign in error:', result.error);
+        // If there's an error, try opening in new window
+        window.open(`/api/auth/signin/google?callbackUrl=${encodeURIComponent(callbackUrl)}`, '_blank');
+      } else if (result?.url) {
+        window.location.href = result.url;
+      }
+    });
   };
 
   return (

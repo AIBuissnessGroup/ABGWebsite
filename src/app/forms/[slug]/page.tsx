@@ -232,7 +232,16 @@ export default function FormPage() {
   const handleGoogleSignIn = () => {
     signIn('google', { 
       callbackUrl: window.location.href,
-      hd: 'umich.edu' // Restrict to UMich domain
+      hd: 'umich.edu', // Restrict to UMich domain
+      redirect: false
+    }).then((result) => {
+      if (result?.error) {
+        console.error('Sign in error:', result.error);
+        // If there's an error, try opening in new window
+        window.open(`/api/auth/signin/google?callbackUrl=${encodeURIComponent(window.location.href)}&hd=umich.edu`, '_blank');
+      } else if (result?.url) {
+        window.location.href = result.url;
+      }
     });
   };
 
@@ -611,7 +620,18 @@ export default function FormPage() {
               </p>
               {!session?.user ? (
                 <button
-                  onClick={() => signIn('google', { callbackUrl })}
+                  onClick={() => signIn('google', { 
+                    callbackUrl,
+                    redirect: false
+                  }).then((result) => {
+                    if (result?.error) {
+                      console.error('Sign in error:', result.error);
+                      // If there's an error, try opening in new window
+                      window.open(`/api/auth/signin/google?callbackUrl=${encodeURIComponent(callbackUrl)}`, '_blank');
+                    } else if (result?.url) {
+                      window.location.href = result.url;
+                    }
+                  })}
                   className="w-full bg-white hover:bg-gray-50 text-gray-900 font-medium py-3 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">

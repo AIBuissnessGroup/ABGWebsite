@@ -11,6 +11,19 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+          // These parameters help prevent the disallowed_useragent error
+          include_granted_scopes: "true",
+        }
+      },
+      // Additional configuration to handle user agent issues
+      httpOptions: {
+        timeout: 10000,
+      }
     }),
   ],
   callbacks: {

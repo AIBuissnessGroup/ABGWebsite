@@ -260,7 +260,18 @@ export default function CoffeeChatsPage() {
               
               {!session?.user ? (
                 <button
-                  onClick={() => signIn('google', { callbackUrl: window.location.href })}
+                  onClick={() => signIn('google', { 
+                    callbackUrl: window.location.href,
+                    redirect: false
+                  }).then((result) => {
+                    if (result?.error) {
+                      console.error('Sign in error:', result.error);
+                      // If there's an error, try opening in new window
+                      window.open(`/api/auth/signin/google?callbackUrl=${encodeURIComponent(window.location.href)}`, '_blank');
+                    } else if (result?.url) {
+                      window.location.href = result.url;
+                    }
+                  })}
                   className="w-full bg-white hover:bg-gray-50 text-gray-900 font-medium py-3 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
                 >
                   Sign In with UMich Google
