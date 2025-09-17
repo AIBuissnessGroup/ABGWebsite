@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient, ObjectId } from 'mongodb';
 
+// Configure runtime for handling large requests
+export const maxDuration = 60; // seconds
+
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
 const client = new MongoClient(uri);
 

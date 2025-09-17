@@ -506,9 +506,9 @@ export default function FormPage() {
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (file) {
-                  // Check file size (5MB limit)
-                  if (file.size > 5 * 1024 * 1024) {
-                    alert('File size must be less than 5MB');
+                  // Check file size (10MB limit)
+                  if (file.size > 10 * 1024 * 1024) {
+                    alert('File size must be less than 10MB');
                     e.target.value = '';
                     return;
                   }
@@ -534,7 +534,7 @@ export default function FormPage() {
               required={question.required}
             />
             <p className="text-xs text-white/70 mt-1">
-              Max file size: 5MB. Supported formats: PDF, DOC, DOCX, TXT, JPG, JPEG, PNG, GIF
+              Max file size: 10MB. Supported formats: PDF, DOC, DOCX, TXT, JPG, JPEG, PNG, GIF
             </p>
             {responses[question.id] && typeof responses[question.id] === 'object' && (
               <p className="text-xs text-green-300 mt-2">
