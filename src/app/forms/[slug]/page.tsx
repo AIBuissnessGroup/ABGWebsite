@@ -53,6 +53,7 @@ export default function FormPage() {
   const [draftSaving, setDraftSaving] = useState(false);
   const [lastDraftSaved, setLastDraftSaved] = useState<Date | null>(null);
   const [hasDraft, setHasDraft] = useState(false);
+  const [draftInitialized, setDraftInitialized] = useState(false);
   
   const [applicantInfo, setApplicantInfo] = useState({
     name: '',
@@ -84,6 +85,9 @@ export default function FormPage() {
   useEffect(() => {
     if (form && session?.user?.email && !submitted) {
       loadDraft();
+    } else if (form && !form.requireAuth && !submitted) {
+      // For forms that don't require auth, initialize draft state
+      setDraftInitialized(true);
     }
   }, [form, session, submitted]);
 
@@ -119,7 +123,7 @@ export default function FormPage() {
 
   // Auto-save functionality
   useEffect(() => {
-    if (!session?.user?.email || !form || submitted) return;
+    if (!session?.user?.email || !form || submitted || isDraftLoading || !draftInitialized) return;
 
     // Clear existing timer
     if (autoSaveTimer.current) {
@@ -137,7 +141,7 @@ export default function FormPage() {
         clearTimeout(autoSaveTimer.current);
       }
     };
-  }, [applicantInfo, responses, session, form, submitted]);
+  }, [applicantInfo, responses, session, form, submitted, isDraftLoading, draftInitialized]);
 
   const loadForm = async () => {
     try {
@@ -180,6 +184,7 @@ export default function FormPage() {
       console.error('Error loading draft:', error);
     }
     setIsDraftLoading(false);
+    setDraftInitialized(true);
   };
 
   const saveDraft = async () => {
@@ -340,6 +345,7 @@ export default function FormPage() {
         return (
           <input
             type={question.type === 'EMAIL' ? 'email' : question.type === 'PHONE' ? 'tel' : question.type === 'URL' ? 'url' : 'text'}
+            value={value}
             className={inputBaseClass}
             onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
             style={textColorStyle}
@@ -354,6 +360,7 @@ export default function FormPage() {
       case 'TEXTAREA':
         return (
           <textarea
+            value={value}
             className={inputBaseClass}
             onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
             style={textColorStyle}
@@ -369,6 +376,7 @@ export default function FormPage() {
         return (
           <input
             type="number"
+            value={value}
             className={inputBaseClass}
             onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
             style={textColorStyle}
@@ -381,6 +389,7 @@ export default function FormPage() {
         return (
           <input
             type="date"
+            value={value}
             className={inputBaseClass}
             onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
             required={question.required}
@@ -393,6 +402,7 @@ export default function FormPage() {
           : (question.options && typeof question.options === 'string' ? (question.options as string).split('\n').filter((opt: string) => opt.trim()) : []);
         return (
           <select
+            value={value}
             className={inputBaseClass}
             style={textColorStyle}
             onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
@@ -548,6 +558,7 @@ export default function FormPage() {
         return (
           <input
             type="text"
+            value={value}
             onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
             style={textColorStyle}
             placeholder={`Enter your response here.`}
