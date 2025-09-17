@@ -59,25 +59,61 @@ interface WaitlistData {
   events: EventWaitlist[];
 }
 
-// Helper functions for EST timezone handling
+// Helper functions for Eastern Time (EST/EDT) timezone handling
 const formatDateForInput = (utcDate: Date): string => {
-  // Convert UTC date to EST/EDT for display in datetime-local input
-  // EST is UTC-5, EDT is UTC-4 (we'll use EST year-round for consistency)
-  const estOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
-  const estDate = new Date(utcDate.getTime() - estOffset);
-  const isoString = estDate.toISOString();
-  return isoString.slice(0, 16); // Remove seconds and timezone info
+  // Convert UTC date to Eastern Time for display in datetime-local input
+  console.log('formatDateForInput input (UTC):', utcDate.toISOString());
+  
+  // Use the most direct approach: convert UTC to Eastern using built-in methods
+  const easternTimeString = utcDate.toLocaleString('sv-SE', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  
+  // sv-SE format gives us "YYYY-MM-DD HH:mm" - just replace space with T
+  const result = easternTimeString.replace(' ', 'T');
+  console.log('formatDateForInput output (Eastern):', result);
+  
+  return result;
 };
 
 const parseDateFromInput = (dateString: string): Date => {
-  // Parse datetime-local input as EST and convert to UTC
+  // Parse datetime-local input as Eastern Time and convert to UTC
   if (!dateString) return new Date();
-  // Add seconds to make it a valid ISO string, but treat as EST
-  const estDateString = dateString + ':00';
-  const estDate = new Date(estDateString);
-  // Add 5 hours to convert EST to UTC
-  const estOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
-  return new Date(estDate.getTime() + estOffset);
+  
+  console.log('parseDateFromInput input (Eastern):', dateString);
+  
+  // Simple approach: create the date assuming it's in Eastern Time, then convert to UTC
+  // We'll use the Date constructor but manually calculate the Eastern offset
+  
+  const [datePart, timePart] = dateString.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour, minute] = timePart.split(':').map(Number);
+  
+  // For October 17, 2025, we know we're in Eastern Daylight Time (EDT = UTC-4)
+  // But let's calculate it dynamically to handle any date
+  
+  // Create a test date to determine if we're in DST
+  const testDate = new Date(year, month - 1, day, 12, 0, 0);
+  
+  // Check if this date is in DST by comparing January and July offsets
+  const janOffset = new Date(year, 0, 1).getTimezoneOffset();
+  const julOffset = new Date(year, 6, 1).getTimezoneOffset();
+  const isDST = testDate.getTimezoneOffset() < Math.max(janOffset, julOffset);
+  
+  // For Eastern Time: EST = UTC-5, EDT = UTC-4
+  const offsetHours = isDST ? 4 : 5;
+  
+  // Create the date in UTC by adding the offset
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hour + offsetHours, minute, 0, 0));
+  
+  console.log('parseDateFromInput output (UTC):', utcDate.toISOString());
+  
+  return utcDate;
 };
 
 // Helper function to convert UTC dates to EST for display
@@ -1038,11 +1074,11 @@ export default function EventsAdmin() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <span className="font-medium text-gray-700">Date:</span>
-                    <p className="text-gray-900">{convertUtcToEst(new Date(event.eventDate)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
+                    <p className="text-gray-900">{new Date(event.eventDate).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
                   </div>
                   <div>
                     <span className="font-medium text-gray-700">Time:</span>
-                    <p className="text-gray-900">{convertUtcToEst(new Date(event.eventDate)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST</p>
+                    <p className="text-gray-900">{new Date(event.eventDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} ET</p>
                   </div>
                   <div>
                     <span className="font-medium text-gray-700">Location:</span>
@@ -1147,7 +1183,7 @@ export default function EventsAdmin() {
                         <div className="flex-1">
                           <h6 className="font-medium text-sm text-gray-900">{subevent.title}</h6>
                           <p className="text-xs text-gray-500 mt-1">
-                            {convertUtcToEst(new Date(subevent.eventDate)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })} • {convertUtcToEst(new Date(subevent.eventDate)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST
+                            {new Date(subevent.eventDate).toLocaleDateString('en-US', { timeZone: 'America/New_York' })} • {new Date(subevent.eventDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} ET
                           </p>
                           {subevent.venue && (
                             <p className="text-xs text-gray-500">📍 {subevent.venue}</p>

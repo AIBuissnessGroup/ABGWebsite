@@ -90,6 +90,32 @@ async function getEvent(slug: string): Promise<Event | null> {
           }
         }
       },
+      {
+        $lookup: {
+          from: 'Event',
+          localField: 'id',
+          foreignField: 'parentEventId',
+          as: 'subevents'
+        }
+      },
+      {
+        $addFields: {
+          subevents: {
+            $map: {
+              input: '$subevents',
+              as: 'subevent',
+              in: {
+                $mergeObjects: [
+                  '$$subevent',
+                  {
+                    partnerships: []
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
       { $unset: 'partnershipCompanies' }
     ];
     
@@ -183,6 +209,32 @@ async function getEvent(slug: string): Promise<Event | null> {
               }
             }
           },
+          {
+            $lookup: {
+              from: 'Event',
+              localField: 'id',
+              foreignField: 'parentEventId',
+              as: 'subevents'
+            }
+          },
+          {
+            $addFields: {
+              subevents: {
+                $map: {
+                  input: '$subevents',
+                  as: 'subevent',
+                  in: {
+                    $mergeObjects: [
+                      '$$subevent',
+                      {
+                        partnerships: []
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
           { $unset: 'partnershipCompanies' }
         ]).toArray();
         
@@ -248,6 +300,32 @@ async function getEvent(slug: string): Promise<Event | null> {
                               0
                             ]
                           }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            {
+              $lookup: {
+                from: 'Event',
+                localField: 'id',
+                foreignField: 'parentEventId',
+                as: 'subevents'
+              }
+            },
+            {
+              $addFields: {
+                subevents: {
+                  $map: {
+                    input: '$subevents',
+                    as: 'subevent',
+                    in: {
+                      $mergeObjects: [
+                        '$$subevent',
+                        {
+                          partnerships: []
                         }
                       ]
                     }
@@ -443,6 +521,60 @@ export default async function EventPage({ params, searchParams }: EventPageProps
     createdBy: dbEvent.createdBy,
     slug: dbEvent.slug,
     speakers: dbEvent.speakers || [],
+    // Serialize sub-events if they exist
+    subevents: dbEvent.subevents ? dbEvent.subevents.map((subevent: any) => ({
+      id: subevent.id,
+      title: subevent.title,
+      description: subevent.description,
+      eventDate: typeof subevent.eventDate === 'string' ? new Date(subevent.eventDate).getTime() : subevent.eventDate,
+      endDate: subevent.endDate ? (typeof subevent.endDate === 'string' ? new Date(subevent.endDate).getTime() : subevent.endDate) : undefined,
+      location: subevent.location,
+      venue: subevent.venue,
+      capacity: subevent.capacity,
+      registrationUrl: subevent.registrationUrl,
+      registrationCtaLabel: subevent.registrationCtaLabel,
+      eventType: subevent.eventType,
+      imageUrl: subevent.imageUrl,
+      featured: subevent.featured,
+      published: subevent.published,
+      parentEventId: subevent.parentEventId,
+      isMainEvent: subevent.isMainEvent,
+      createdAt: typeof subevent.createdAt === 'string' ? new Date(subevent.createdAt).getTime() : subevent.createdAt,
+      updatedAt: subevent.updatedAt ? (typeof subevent.updatedAt === 'string' ? new Date(subevent.updatedAt).getTime() : subevent.updatedAt) : Date.now(),
+      createdBy: subevent.createdBy,
+      slug: subevent.slug,
+      speakers: subevent.speakers || [],
+      registrationEnabled: subevent.registrationEnabled,
+      attendanceConfirmEnabled: subevent.attendanceConfirmEnabled,
+      waitlist: {
+        enabled: Boolean(subevent.waitlistEnabled),
+        maxSize: subevent.waitlistMaxSize,
+        autoPromote: Boolean(subevent.waitlistAutoPromote),
+        currentSize: 0
+      },
+      partners: subevent.partnerships ? subevent.partnerships.map((partnership: any) => ({
+        id: partnership.company?.id || partnership.companyId,
+        name: partnership.company?.name || 'Unknown Company',
+        logo: partnership.company?.logoUrl,
+        type: partnership.type,
+        description: partnership.description,
+        sponsorshipLevel: partnership.sponsorshipLevel,
+        website: partnership.company?.website
+      })) : [],
+      attendanceConfirmation: {
+        enabled: Boolean(subevent.attendanceConfirmEnabled),
+        requiresPassword: Boolean(subevent.attendancePasswordHash),
+        allowUMichEmailOnly: true,
+        requiredFields: {
+          name: Boolean(subevent.requireName !== undefined ? subevent.requireName : false),
+          umichEmail: true,
+          major: Boolean(subevent.requireMajor || false),
+          gradeLevel: Boolean(subevent.requireGradeLevel || false),
+          phone: Boolean(subevent.requirePhone || false),
+        },
+        smsReminders: Boolean(subevent.requirePhone || false),
+      },
+    })) : [],
     // Add the registration/attendance fields that the component expects
     registrationEnabled: dbEvent.registrationEnabled,
     attendanceConfirmEnabled: dbEvent.attendanceConfirmEnabled,

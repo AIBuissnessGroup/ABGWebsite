@@ -462,6 +462,32 @@ export default function RecruitmentPage() {
   const nextEvent = getNextEvent();
   const liveEvent = getLiveEvent();
 
+  // Auto-center timeline on live/next event
+  useEffect(() => {
+    if (recruitmentEvents.length > 0 && (liveEvent || nextEvent)) {
+      const timeoutId = setTimeout(() => {
+        const container = document.querySelector('#timeline-container') as HTMLElement;
+        if (container) {
+          const targetEvent = liveEvent || nextEvent;
+          const targetElement = container.querySelector(`[data-event-id="${targetEvent?.id}"]`) as HTMLElement;
+          if (targetElement) {
+            const elementLeft = targetElement.offsetLeft;
+            const elementWidth = targetElement.offsetWidth;
+            const containerWidth = container.offsetWidth;
+            const scrollPosition = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+            
+            container.scrollTo({
+              left: Math.max(0, scrollPosition),
+              behavior: 'smooth'
+            });
+          }
+        }
+      }, 1500); // Give time for elements to render
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [recruitmentEvents, liveEvent, nextEvent]);
+
   const loadRecruitmentData = async () => {
     try {
       const [levelsRes, timelineRes, eventsRes] = await Promise.all([
@@ -1877,7 +1903,7 @@ export default function RecruitmentPage() {
                 <div className="absolute right-0 top-0 bottom-0 w-4 sm:w-8 lg:w-12 bg-gradient-to-l from-[#00274c]/95 via-[#00274c]/80 to-transparent z-10 pointer-events-none"></div>
                 
                 {/* Scrollable Timeline */}
-                <div className="overflow-x-auto pb-4 scrollbar-hide">
+                <div className="overflow-x-auto pb-4 scrollbar-hide" id="timeline-container">
                   <div className="flex gap-4 sm:gap-6 lg:gap-8 px-4 sm:px-8 lg:px-12 py-6 sm:py-8 lg:py-10 min-w-max">
                     {recruitmentEvents
                       .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())

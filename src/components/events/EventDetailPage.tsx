@@ -8,36 +8,28 @@ import EventUpdates from './EventUpdates';
 import Footer from '../Footer';
 import FloatingShapes from '../FloatingShapes';
 
-// Helper function to convert UTC dates to EST for display
-const convertUtcToEst = (utcDate: Date): Date => {
-  const estOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
-  return new Date(utcDate.getTime() - estOffset);
-};
-
 // Helper function for consistent date formatting
 const formatEventDate = (timestamp: number) => {
   const utcDate = new Date(timestamp);
-  const estDate = convertUtcToEst(utcDate);
   const options: Intl.DateTimeFormatOptions = {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-    timeZone: 'America/New_York' // Use consistent timezone
+    timeZone: 'America/New_York'
   };
-  return estDate.toLocaleDateString('en-US', options);
+  return utcDate.toLocaleDateString('en-US', options);
 };
 
 const formatEventTime = (timestamp: number) => {
   const utcDate = new Date(timestamp);
-  const estDate = convertUtcToEst(utcDate);
   const options: Intl.DateTimeFormatOptions = {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-    timeZone: 'America/New_York' // Use consistent timezone
+    timeZone: 'America/New_York'
   };
-  return estDate.toLocaleTimeString('en-US', options);
+  return utcDate.toLocaleTimeString('en-US', options);
 };
 
 interface EventDetailPageProps {
@@ -163,6 +155,38 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
                   </div>
                 </div>
               )}
+
+              {/* Sub-events Section */}
+              {event.subevents && event.subevents.length > 0 && (
+                <div>
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-300 mb-2 uppercase tracking-wider">Subevents</h3>
+                  <div className="space-y-2">
+                    {event.subevents
+                      .sort((a, b) => a.eventDate - b.eventDate)
+                      .map((subevent, index) => (
+                        <div key={subevent.id || index} className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-3 md:p-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div className="flex-1">
+                              <h4 className="text-white text-sm md:text-base font-medium leading-tight">{subevent.title}</h4>
+                              <p className="text-gray-300 text-xs md:text-sm leading-tight mt-1">{subevent.description}</p>
+                            </div>
+                            <div className="flex flex-col sm:items-end gap-1 text-xs md:text-sm">
+                              <div className="text-gray-300">
+                                {isClient ? formatEventTime(subevent.eventDate) : 'Loading...'}
+                              </div>
+                              {subevent.venue && (
+                                <div className="text-gray-400 text-xs">📍 {subevent.venue}</div>
+                              )}
+                              <div className="text-gray-400 text-xs">
+                                <span className="px-2 py-1 bg-white/10 rounded-full">{subevent.eventType}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 mt-4 md:mt-6 px-4">
               <button
@@ -254,7 +278,7 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
                               Confirmed
                             </span>
                             <span className="bg-gray-500/20 text-gray-300 px-2 py-1 rounded-md border border-gray-500/30">
-                              {convertUtcToEst(new Date(userRegistration.registeredAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
+                              {new Date(userRegistration.registeredAt).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
                             </span>
                           </div>
                         </>
@@ -290,7 +314,7 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
                               <p className="text-green-300/70 text-xs font-medium">CHECK-IN TIME</p>
                               <p className="text-lg font-semibold text-green-300 mt-1">
                                 {userRegistration.attendedAt ? 
-                                  convertUtcToEst(new Date(userRegistration.attendedAt)).toLocaleString('en-US', { 
+                                  new Date(userRegistration.attendedAt).toLocaleString('en-US', { 
                                     timeZone: 'America/New_York',
                                     weekday: 'short',
                                     month: 'short', 
@@ -324,7 +348,7 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
                               ✓ Attended
                             </span>
                             <span className="bg-gray-500/20 text-gray-300 px-2 py-1 rounded-md border border-gray-500/30">
-                              Registered: {convertUtcToEst(new Date(userRegistration.registeredAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
+                              Registered: {new Date(userRegistration.registeredAt).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
                             </span>
                           </div>
                         </>
@@ -376,7 +400,7 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
                               Waitlist #{userRegistration.waitlistPosition}
                             </span>
                             <span className="bg-gray-500/20 text-gray-300 px-2 py-1 rounded-md border border-gray-500/30">
-                              {convertUtcToEst(new Date(userRegistration.registeredAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
+                              {new Date(userRegistration.registeredAt).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
                             </span>
                           </div>
                         </>

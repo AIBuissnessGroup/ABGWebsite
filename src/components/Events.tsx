@@ -365,8 +365,8 @@ export default function Events() {
                     {/* Event Details */}
                     <div className="space-y-3 mb-4 relative z-10">
                       <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[#BBBBBB] text-xs sm:text-sm">
-                        <span>📅 {convertUtcToEst(new Date(event.eventDate || event.date)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</span>
-                        {(event.time || event.eventDate) && <span>🕔 {event.time || convertUtcToEst(new Date(event.eventDate)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST</span>}
+                        <span>📅 {new Date(event.eventDate || event.date).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</span>
+                        {(event.time || event.eventDate) && <span>🕔 {event.time || new Date(event.eventDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} ET</span>}
                         {event.location && <span>📍 {event.location}</span>}
                         {event.venue && <span>🏢 {event.venue}</span>}
                       </div>
@@ -475,8 +475,8 @@ export default function Events() {
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-4 text-[#BBBBBB] text-xs mb-2">
-                                      <span>📅 {convertUtcToEst(new Date(subevent.eventDate)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</span>
-                                      <span>🕔 {convertUtcToEst(new Date(subevent.eventDate)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST</span>
+                                      <span>📅 {new Date(subevent.eventDate).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</span>
+                                      <span>🕔 {new Date(subevent.eventDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} ET</span>
                                       {subevent.venue && <span>🏢 {subevent.venue}</span>}
                                       {subevent.capacity && <span>👥 {subevent.capacity}</span>}
                                     </div>
@@ -633,8 +633,8 @@ export default function Events() {
               <div className="mb-6">
                 <h4 className="text-white font-semibold">{attendanceModal.event.title}</h4>
                 <div className="text-[#BBBBBB] text-sm mt-2 space-y-1">
-                  <div>📅 {convertUtcToEst(new Date(attendanceModal.event.eventDate)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</div>
-                  <div>🕔 {convertUtcToEst(new Date(attendanceModal.event.eventDate)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST</div>
+                  <div>📅 {new Date(attendanceModal.event.eventDate).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</div>
+                  <div>🕔 {new Date(attendanceModal.event.eventDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} ET</div>
                   {attendanceModal.event.location && <div>📍 {attendanceModal.event.location}</div>}
                   {attendanceModal.event.venue && <div>🏢 {attendanceModal.event.venue}</div>}
                 </div>

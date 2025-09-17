@@ -60,6 +60,9 @@ export interface Event {
   // Event speakers
   speakers?: EventSpeaker[];
 
+  // Sub-events for main events
+  subevents?: Event[];
+
   // Enhanced attendance confirmation system
   attendanceConfirmation?: {
     enabled: boolean;
