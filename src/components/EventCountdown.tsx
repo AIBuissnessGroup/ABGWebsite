@@ -4,10 +4,41 @@ import { motion } from 'framer-motion';
 import { CalendarIcon, MapPinIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import { analytics } from '@/lib/analytics';
 
-// Helper function to convert UTC dates to EST for display
-const convertUtcToEst = (utcDate: Date): Date => {
-  const estOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
-  return new Date(utcDate.getTime() - estOffset);
+// Helper function to format dates in ET timezone
+const formatDateInET = (date: Date, format: 'date' | 'time' | 'datetime' = 'datetime'): string => {
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: 'America/New_York'
+  };
+
+  if (format === 'date') {
+    return date.toLocaleDateString('en-US', {
+      ...options,
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric'
+    });
+  } else if (format === 'time') {
+    return date.toLocaleTimeString('en-US', {
+      ...options,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } else {
+    // datetime format
+    return `📅 ${date.toLocaleDateString('en-US', {
+      ...options,
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric'
+    })}
+${date.toLocaleTimeString('en-US', {
+      ...options,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    })} ET`;
+  }
 };
 
 interface Event {
@@ -235,7 +266,7 @@ export default function EventCountdown({
                       </span>
                     </div>
                     <div className="text-muted text-xs">
-                      📅 {convertUtcToEst(new Date(subevent.eventDate)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })} • 🕔 {convertUtcToEst(new Date(subevent.eventDate)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST
+                      {formatDateInET(new Date(subevent.eventDate))}
                     </div>
                   </div>
                 </div>
@@ -336,20 +367,8 @@ export default function EventCountdown({
             <CalendarIcon className="w-3 h-3" />
             <span>
               {nextEvent?.eventDate ? 
-                convertUtcToEst(new Date(nextEvent.eventDate)).toLocaleDateString('en-US', { 
-                  weekday: 'short', 
-                  month: 'short', 
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  timeZone: 'America/New_York'
-                }) + ' EST' : 
-                convertUtcToEst(new Date(eventDate)).toLocaleDateString('en-US', { 
-                  weekday: 'short', 
-                  month: 'short', 
-                  day: 'numeric',
-                  timeZone: 'America/New_York'
-                })
+                formatDateInET(new Date(nextEvent.eventDate)) : 
+                formatDateInET(new Date(eventDate))
               }
             </span>
           </div>
