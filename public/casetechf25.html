@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Case Tech F25 Dashboard</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' http: https: data: blob: 'unsafe-inline'; frame-src http: https: 'self'; script-src 'self' 'unsafe-inline' http: https:;">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #00274c 0%, #1a2c45 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .loading-text {
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+        }
+        
+        .dashboard-container {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .dashboard-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .error-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #00274c 0%, #1a2c45 100%);
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+        
+        .error-content {
+            text-align: center;
+            color: white;
+            font-family: Arial, sans-serif;
+            max-width: 400px;
+            padding: 20px;
+        }
+        
+        .error-title {
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+        
+        .error-message {
+            font-size: 16px;
+            opacity: 0.8;
+            margin-bottom: 24px;
+        }
+        
+        .signin-button {
+            background: white;
+            color: #00274c;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .signin-button:hover {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading" class="loading">
+        <div class="loading-text">Loading dashboard...</div>
+    </div>
+    
+    <div id="error" class="error-container">
+        <div class="error-content">
+            <div class="error-title">Authentication Required</div>
+            <div class="error-message">You need to be signed in with admin privileges to access this dashboard.</div>
+            <a href="/auth/signin" class="signin-button">Sign In</a>
+        </div>
+    </div>
+    
+    <div id="dashboard" class="dashboard-container" style="display: none;">
+        <iframe 
+            id="kibana-iframe"
+            class="dashboard-iframe"
+            src="http://159.89.33.25:5601/app/dashboards#/view/e1d4cc48-eac5-45a6-bd87-f286ddfcc76a?embed=true&_g=(refreshInterval%3A(pause%3A!t%2Cvalue%3A60000)%2Ctime%3A(from%3Anow-24h%2Fh%2Cto%3Anow))&hide-filter-bar=true"
+            title="Case Tech F25 Dashboard"
+            allowfullscreen>
+        </iframe>
+    </div>
+
+    <script>
+        // Check authentication
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/session');
+                const session = await response.json();
+                
+                if (session && session.user && (session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN')) {
+                    // User is authenticated and has admin role
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+                } else {
+                    // User is not authenticated or doesn't have admin role
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('error').style.display = 'flex';
+                }
+            } catch (error) {
+                console.error('Authentication check failed:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'flex';
+            }
+        }
+
+        // Start authentication check when page loads
+        window.addEventListener('load', checkAuth);
+    </script>
+</body>
+</html>
