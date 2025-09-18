@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import FloatingShapes from '@/components/FloatingShapes';
 
@@ -162,9 +162,20 @@ export default function SelfCheckInPage({ params }: { params: Promise<{ slug: st
 
   const handleCheckIn = async () => {
     if (status !== 'authenticated') {
-      // Redirect to sign in with return URL
+      // Directly trigger Google OAuth for UMich authentication
       const currentUrl = window.location.href;
-      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(currentUrl)}`);
+      signIn('google', { 
+        callbackUrl: currentUrl,
+        redirect: false
+      }).then((result) => {
+        if (result?.error) {
+          console.error('Sign in error:', result.error);
+          // If there's an error, try opening in new window
+          window.open(`/api/auth/signin/google?callbackUrl=${encodeURIComponent(currentUrl)}`, '_blank');
+        } else if (result?.url) {
+          window.location.href = result.url;
+        }
+      });
       return;
     }
 
@@ -327,9 +338,9 @@ export default function SelfCheckInPage({ params }: { params: Promise<{ slug: st
             </div>
           ) : (
             <div className="mb-6">
-              <div className="bg-yellow-50 p-3 rounded-lg">
+              <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
                 <p className="text-sm text-yellow-700 checkin-text">
-                  🔐 You need to sign in to check in
+                  🔐 You need to sign in with your University of Michigan Google account to check in.
                 </p>
               </div>
             </div>
@@ -429,15 +440,17 @@ export default function SelfCheckInPage({ params }: { params: Promise<{ slug: st
           {!eventData.alreadyCheckedIn && (
             <button
               onClick={handleCheckIn}
-              disabled={checkingIn || !capturedPhoto}
+              disabled={checkingIn || (status === 'authenticated' && !capturedPhoto)}
               data-action="check-in"
               data-event-slug={eventId}
               className={`w-full py-4 px-6 rounded-lg transition-colors font-bold text-lg shadow-lg ${
-                !capturedPhoto 
-                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                  : checkingIn 
-                    ? 'bg-blue-400 text-white cursor-not-allowed' 
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                checkingIn 
+                  ? 'bg-blue-400 text-white cursor-not-allowed' 
+                  : status !== 'authenticated'
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : !capturedPhoto 
+                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
               }`}
             >
               {checkingIn ? (
@@ -445,12 +458,12 @@ export default function SelfCheckInPage({ params }: { params: Promise<{ slug: st
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
                   Processing Check-in...
                 </span>
+              ) : status !== 'authenticated' ? (
+                '� Sign In with UMich & Check In'
               ) : !capturedPhoto ? (
                 '📸 Take Photo First'
-              ) : status === 'authenticated' ? (
-                '✓ Check In to Event'
               ) : (
-                'Sign In to Check In'
+                '✓ Check In to Event'
               )}
             </button>
           )}
