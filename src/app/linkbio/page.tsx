@@ -13,6 +13,7 @@ interface Event {
   location?: string;
   capacity?: number;
   registrationEnabled: boolean;
+  attendanceConfirmEnabled: boolean;
   published: boolean;
   featured?: boolean;
   eventType?: string;
@@ -31,11 +32,11 @@ export default function LinkBioPage() {
       const response = await fetch('/api/events');
       if (response.ok) {
         const data = await response.json();
-        // Filter for published events with registration enabled and sort by date
+        // Filter for published events with attendance confirmation enabled and sort by date
         const upcomingEvents = data
           .filter((event: Event) => 
             event.published && 
-            event.registrationEnabled && 
+            event.attendanceConfirmEnabled && 
             new Date(event.eventDate) >= new Date()
           )
           .sort((a: Event, b: Event) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
@@ -93,14 +94,14 @@ export default function LinkBioPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#00274c] via-[#003366] to-[#001a33] flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-white text-lg">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#00274c] via-[#003366] to-[#001a33] py-12 px-4">
+    <div className="min-h-screen py-12 px-4">
       <div className="max-w-md mx-auto">
         {/* Header */}
         <motion.div

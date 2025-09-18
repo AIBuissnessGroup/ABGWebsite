@@ -33,12 +33,12 @@ export default function CaseTechF25Dashboard() {
 
   return (
     <div className="h-screen w-screen overflow-hidden">
-      <iframe
-        src="https://159.89.33.25:5602/app/dashboards#/view/e1d4cc48-eac5-45a6-bd87-f286ddfcc76a?embed=true&_g=(refreshInterval%3A(pause%3A!t%2Cvalue%3A60000)%2Ctime%3A(from%3Anow-24h%2Fh%2Cto%3Anow))&hide-filter-bar=true"
-        className="h-full w-full border-0"
-        title="Case Tech F25 Dashboard"
-        allowFullScreen
-      />
+              <iframe
+          src="/api/kibana-proxy?path=/app/dashboards#/view/e1d4cc48-eac5-45a6-bd87-f286ddfcc76a?embed=true&_g=(refreshInterval%3A(pause%3A!t%2Cvalue%3A60000)%2Ctime%3A(from%3Anow-24h%2Fh%2Cto%3Anow))&hide-filter-bar=true"
+          className="w-full h-full border-0"
+          title="Case Tech F25 Dashboard"
+          allowFullScreen
+        />
     </div>
   );
 }

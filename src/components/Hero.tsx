@@ -4,6 +4,7 @@ import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 import FloatingShapes from './FloatingShapes';
 import EventCountdown from './EventCountdown';
+import ApplicationCTA from './ApplicationCTA';
 import { useState, useEffect } from 'react';
 
 interface HeroContent {
@@ -140,6 +141,9 @@ export default function Hero() {
             >
               {content.description}
             </motion.p>
+
+            {/* Applications CTA with Countdown */}
+            <ApplicationCTA className="pt-2 sm:pt-4 justify-center lg:justify-start" />
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}

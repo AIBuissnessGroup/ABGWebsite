@@ -17,12 +17,10 @@ export default function LinkBioLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="bg-gradient-to-br from-[#00274c] via-[#003366] to-[#001a33]">
-        <Providers>
-          {children}
-        </Providers>
-      </body>
-    </html>
+    <div className="min-h-screen bg-gradient-to-br from-[#00274c] via-[#003366] to-[#001a33]">
+      <Providers>
+        {children}
+      </Providers>
+    </div>
   );
 }
