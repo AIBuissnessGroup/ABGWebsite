@@ -40,6 +40,23 @@
   color: #1f2937 !important;
 }
 
+/* EXCEPTION: Dark theme pages (like interviews) should have white text */
+.admin-page .bg-\[#00274c\] h1,
+.admin-page .bg-\[#00274c\] h2,
+.admin-page .bg-\[#00274c\] h3,
+.admin-page .bg-\[#00274c\] h4,
+.admin-page .bg-\[#00274c\] h5,
+.admin-page .bg-\[#00274c\] h6,
+.admin-page .bg-\[#00274c\] p,
+.admin-page .bg-\[#00274c\] span,
+.admin-page .bg-\[#00274c\] div,
+.admin-page .bg-\[#00274c\] label,
+.admin-page .bg-\[#00274c\] a,
+.admin-page .bg-\[#00274c\] td,
+.admin-page .bg-\[#00274c\] th {
+  color: white !important;
+}
+
 /* Override all Tailwind text color classes in admin */
 .admin-page .text-gray-900,
 .admin-page .text-gray-800,
