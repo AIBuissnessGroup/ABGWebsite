@@ -38,6 +38,10 @@ export default function FormsAdmin() {
   const [showCreateStatus, setShowCreateStatus] = useState(false);
   const [newStatusName, setNewStatusName] = useState('');
   const [newStatusColor, setNewStatusColor] = useState('#6366F1');
+  
+  // File data loading state
+  const [fileDataCache, setFileDataCache] = useState<{ [key: string]: any }>({});
+  const [loadingFiles, setLoadingFiles] = useState<{ [key: string]: boolean }>({});
   const [editingForm, setEditingForm] = useState<any>(null);
   const [expandedApplications, setExpandedApplications] = useState(new Set());
   const [selectedApplications, setSelectedApplications] = useState(new Set());
@@ -232,6 +236,48 @@ export default function FormsAdmin() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Load file data on demand for preview
+  const loadFileData = async (applicationId: string, questionId: string) => {
+    const cacheKey = `${applicationId}-${questionId}`;
+    
+    console.log('loadFileData called with:', { applicationId, questionId, cacheKey });
+    
+    // Return cached data if available
+    if (fileDataCache[cacheKey]) {
+      console.log('Returning cached data for:', cacheKey);
+      return fileDataCache[cacheKey];
+    }
+    
+    // Check if already loading
+    if (loadingFiles[cacheKey]) {
+      console.log('Already loading:', cacheKey);
+      return null;
+    }
+    
+    setLoadingFiles(prev => ({ ...prev, [cacheKey]: true }));
+    
+    try {
+      const url = `/api/admin/files/${applicationId}/${questionId}/data`;
+      console.log('Fetching from:', url);
+      const res = await fetch(url);
+      console.log('Fetch response:', res.status, res.statusText);
+      if (res.ok) {
+        const fileData = await res.json();
+        console.log('File data received:', fileData);
+        setFileDataCache(prev => ({ ...prev, [cacheKey]: fileData }));
+        return fileData;
+      } else {
+        console.error('Failed to fetch file data:', res.status, await res.text());
+      }
+    } catch (error) {
+      console.error('Error loading file data:', error);
+    } finally {
+      setLoadingFiles(prev => ({ ...prev, [cacheKey]: false }));
+    }
+    
+    return null;
   };
 
   const updateApplicationStatus = async (applicationId: string, newStatus: string, adminNotes: string = '') => {
@@ -881,60 +927,82 @@ export default function FormsAdmin() {
                               <span className="font-medium text-gray-900 block">{response.question.title}:</span>
                               <span className="text-gray-700 mt-1 block pl-2 border-l-2 border-gray-200">
                                 {(() => {
-                                  // Handle file uploads first
-                                  if (response.fileName) {
-                                    return (
-                                      <div className="space-y-2">
-                                        <div className="flex items-center space-x-2">
-                                          <span className="font-medium">{response.fileName}</span>
-                                          <span className="text-xs text-gray-500">
-                                            ({Math.round(response.fileSize / 1024)}KB)
-                                          </span>
-                                        </div>
-                                        {response.fileData && (
-                                          <div>
-                                            {response.fileType?.startsWith('image/') ? (
-                                              <div className="space-y-2">
-                                                <img 
-                                                  src={response.fileData} 
-                                                  alt={response.fileName}
-                                                  className="max-w-xs max-h-48 rounded border"
-                                                />
-                                                <button
-                                                  onClick={() => {
-                                                    const link = document.createElement('a');
-                                                    link.href = `/api/files/${app.id}/${response.questionId}`;
-                                                    link.download = response.fileName;
-                                                    link.click();
-                                                  }}
-                                                  className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
-                                                >
-                                                  Download Original
-                                                </button>
-                                              </div>
-                                            ) : (
-                                              <button
-                                                onClick={() => {
-                                                  window.open(`/api/files/${app.id}/${response.questionId}`, '_blank');
-                                                }}
-                                                className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
-                                              >
-                                                Download File
-                                              </button>
-                                            )}
+                                  // Debug all response types to see what we're working with
+                                  console.log('Response debug for', response.question.title, {
+                                    questionType: response.question.type,
+                                    fileName: response.fileName,
+                                    fileUrl: response.fileUrl,
+                                    textValue: response.textValue,
+                                    booleanValue: response.booleanValue,
+                                    booleanValueType: typeof response.booleanValue,
+                                    selectedOptions: response.selectedOptions,
+                                    hasFileData: response.hasFileData,
+                                    allKeys: Object.keys(response),
+                                    allValues: response
+                                  });
+                                  
+                                  // Handle file uploads first - check for file indicators
+                                  // Handle file uploads first - check for file indicators
+                                  if (response.fileName || response.fileUrl || response.question?.type === 'FILE') {
+                                    // If we have file data, display it
+                                    if (response.fileName) {
+                                      console.log('Rendering file preview for:', response.fileName, 'Type:', response.fileType);
+                                      return (
+                                        <div className="space-y-2">
+                                          <div className="flex items-center space-x-2">
+                                            <span className="font-medium">{response.fileName}</span>
+                                            <span className="text-xs text-gray-500">
+                                              ({Math.round(response.fileSize / 1024)}KB)
+                                            </span>
                                           </div>
-                                        )}
-                                      </div>
-                                    );
+                                          
+                                          <FilePreview 
+                                            applicationId={app.id}
+                                            questionId={response.questionId}
+                                            fileName={response.fileName}
+                                            fileType={response.fileType}
+                                            hasFileData={response.hasFileData}
+                                            loadFileData={loadFileData}
+                                          />
+                                        </div>
+                                      );
+                                    } else if (response.fileUrl) {
+                                      return (
+                                        <div className="space-y-2">
+                                          <a 
+                                            href={response.fileUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:text-blue-800 underline"
+                                          >
+                                            View File
+                                          </a>
+                                        </div>
+                                      );
+                                    } else if (response.question?.type === 'FILE') {
+                                      // This is a file question but no file was uploaded
+                                      return <span className="text-gray-500 italic">No file uploaded</span>;
+                                    }
                                   }
                                   
-                                  // Handle other response types
+                                  // Handle other response types - prioritize file URLs first
+                                  if (response.fileUrl) return response.fileUrl;
                                   if (response.textValue) return response.textValue;
                                   if (response.numberValue) return response.numberValue;
                                   if (response.dateValue) return new Date(response.dateValue).toLocaleDateString();
-                                  if (response.booleanValue !== null) return response.booleanValue ? 'Yes' : 'No';
-                                  if (response.selectedOptions) return JSON.parse(response.selectedOptions).join(', ');
-                                  if (response.fileUrl) return response.fileUrl;
+                                  // Handle checkbox, radio, and select options
+                                  if (response.selectedOptions) {
+                                    try {
+                                      const options = JSON.parse(response.selectedOptions);
+                                      return Array.isArray(options) ? options.join(', ') : options;
+                                    } catch (e) {
+                                      return response.selectedOptions;
+                                    }
+                                  }
+                                  // Only check boolean value for actual boolean questions
+                                  if (response.question?.type === 'BOOLEAN' && response.booleanValue !== null) {
+                                    return response.booleanValue ? 'Yes' : 'No';
+                                  }
                                   
                                   return 'No answer provided';
                                 })()}
@@ -1356,13 +1424,51 @@ export default function FormsAdmin() {
                             <div key={answer.id} className="text-sm">
                               <span className="font-medium text-gray-900 block">{answer.question.title}:</span>
                               <span className="text-gray-700 mt-1 block pl-2 border-l-2 border-gray-200">
-                                {answer.textValue || 
-                                 answer.numberValue || 
-                                 (answer.dateValue && new Date(answer.dateValue).toLocaleDateString()) ||
-                                 (answer.booleanValue !== null ? (answer.booleanValue ? 'Yes' : 'No') : '') ||
-                                 (answer.selectedOptions && JSON.parse(answer.selectedOptions).join(', ')) ||
-                                 answer.fileUrl || 
-                                 'No answer provided'}
+                                {(() => {
+                                  // Handle file questions first
+                                  if (answer.fileName || answer.fileUrl || answer.question?.type === 'FILE') {
+                                    if (answer.fileName) {
+                                      return (
+                                        <div className="space-y-2">
+                                          <div className="flex items-center space-x-2">
+                                            <span className="font-medium">{answer.fileName}</span>
+                                            <span className="text-xs text-gray-500">
+                                              ({Math.round(answer.fileSize / 1024)}KB)
+                                            </span>
+                                          </div>
+                                          
+                                          <FilePreview 
+                                            applicationId={response.id}
+                                            questionId={answer.questionId}
+                                            fileName={answer.fileName}
+                                            fileType={answer.fileType}
+                                            hasFileData={answer.hasFileData || true}
+                                            loadFileData={loadFileData}
+                                          />
+                                        </div>
+                                      );
+                                    } else if (answer.fileUrl) {
+                                      return answer.fileUrl;
+                                    } else {
+                                      return 'No file uploaded';
+                                    }
+                                  }
+                                  
+                                  // Handle other response types
+                                  return answer.textValue || 
+                                         answer.numberValue || 
+                                         (answer.dateValue && new Date(answer.dateValue).toLocaleDateString()) ||
+                                         (answer.selectedOptions && (() => {
+                                           try {
+                                             const options = JSON.parse(answer.selectedOptions);
+                                             return Array.isArray(options) ? options.join(', ') : options;
+                                           } catch (e) {
+                                             return answer.selectedOptions;
+                                           }
+                                         })()) ||
+                                         (answer.question?.type === 'BOOLEAN' && answer.booleanValue !== null ? (answer.booleanValue ? 'Yes' : 'No') : '') ||
+                                         'No answer provided';
+                                })()}
                               </span>
                             </div>
                           ))}
@@ -2270,6 +2376,125 @@ function FormEditor({ form, onClose, onSave }: any) {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+// File Preview Component with lazy loading
+function FilePreview({ 
+  applicationId, 
+  questionId, 
+  fileName, 
+  fileType, 
+  hasFileData,
+  loadFileData 
+}: { 
+  applicationId: string;
+  questionId: string;
+  fileName: string;
+  fileType: string;
+  hasFileData: boolean;
+  loadFileData: (appId: string, qId: string) => Promise<any>;
+}) {
+  const [fileData, setFileData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Debug logging
+  console.log('FilePreview props:', {
+    applicationId,
+    questionId,
+    fileName,
+    fileType,
+    hasFileData,
+    isImage: fileType?.startsWith('image/')
+  });
+
+  const loadFile = async () => {
+    if (loading || fileData) return;
+    
+    console.log('loadFile called for:', applicationId, questionId);
+    setLoading(true);
+    try {
+      const data = await loadFileData(applicationId, questionId);
+      console.log('loadFileData returned:', data);
+      if (data) {
+        setFileData(data);
+      }
+    } catch (error) {
+      console.error('Error loading file:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadFile = () => {
+    const link = document.createElement('a');
+    link.href = `/api/admin/files/${applicationId}/${questionId}`;
+    link.download = fileName;
+    link.click();
+  };
+
+  return (
+    <div className="space-y-2 border border-blue-200 p-2 rounded bg-blue-50">
+      <div className="text-xs text-blue-600">FilePreview Component Loaded</div>
+      <div className="flex space-x-2">
+        <button
+          onClick={downloadFile}
+          className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+        >
+          Download
+        </button>
+        
+        {/* Show preview button for images, or view button for other files */}
+        {(hasFileData || fileName) && (
+          <>
+            {(fileType?.startsWith('image/') || fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? (
+              <button
+                onClick={() => {
+                  console.log('Preview button clicked, showPreview:', showPreview);
+                  if (!showPreview) {
+                    loadFile();
+                  }
+                  setShowPreview(!showPreview);
+                }}
+                className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors"
+              >
+                {showPreview ? 'Hide Preview' : 'Show Preview'}
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  console.log('View File button clicked');
+                  window.open(`/api/admin/files/${applicationId}/${questionId}`, '_blank');
+                }}
+                className="px-2 py-1 bg-purple-500 text-white text-xs rounded hover:bg-purple-600 transition-colors"
+              >
+                View File
+              </button>
+            )}
+          </>
+        )}
+      </div>
+      
+      {showPreview && (
+        <div className="mt-2">
+          {loading ? (
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+              <span>Loading preview...</span>
+            </div>
+          ) : fileData ? (
+            <img 
+              src={fileData.fileData} 
+              alt={fileName}
+              className="max-w-xs max-h-48 rounded border"
+            />
+          ) : (
+            <span className="text-sm text-gray-500">Preview not available</span>
+          )}
+        </div>
+      )}
     </div>
   );
 } 

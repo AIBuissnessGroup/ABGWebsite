@@ -62,6 +62,9 @@ export default function FormPage() {
   });
   
   const [responses, setResponses] = useState<Record<string, any>>({});
+  
+  // File processing state
+  const [processingFiles, setProcessingFiles] = useState<Record<string, boolean>>({});
 
   // Auto-save timer ref
   const autoSaveTimer = useRef<NodeJS.Timeout | null>(null);
@@ -523,6 +526,9 @@ export default function FormPage() {
                     return;
                   }
                   
+                  // Start processing
+                  setProcessingFiles(prev => ({ ...prev, [question.id]: true }));
+                  
                   // Convert file to base64 for storage
                   const reader = new FileReader();
                   reader.onload = () => {
@@ -536,6 +542,12 @@ export default function FormPage() {
                         fileData: base64
                       }
                     });
+                    // Finish processing
+                    setProcessingFiles(prev => ({ ...prev, [question.id]: false }));
+                  };
+                  reader.onerror = () => {
+                    setProcessingFiles(prev => ({ ...prev, [question.id]: false }));
+                    alert('Error reading file. Please try again.');
                   };
                   reader.readAsDataURL(file);
                 }
@@ -546,7 +558,13 @@ export default function FormPage() {
             <p className="text-xs text-white/70 mt-1">
               Max file size: 10MB. Supported formats: PDF, DOC, DOCX, TXT, JPG, JPEG, PNG, GIF
             </p>
-            {responses[question.id] && typeof responses[question.id] === 'object' && (
+            {processingFiles[question.id] && (
+              <div className="flex items-center space-x-2 mt-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span className="text-xs text-white/80">Processing file...</span>
+              </div>
+            )}
+            {responses[question.id] && typeof responses[question.id] === 'object' && !processingFiles[question.id] && (
               <p className="text-xs text-green-300 mt-2">
                 ✓ {(responses[question.id] as any).fileName} ({Math.round((responses[question.id] as any).fileSize / 1024)}KB)
               </p>

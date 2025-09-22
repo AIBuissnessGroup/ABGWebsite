@@ -76,7 +76,8 @@ export async function GET(request: NextRequest) {
             fileName: response.fileName,
             fileSize: response.fileSize,
             fileType: response.fileType,
-            fileData: response.fileData,
+            // Exclude fileData from initial load for performance - load on demand
+            hasFileData: !!response.fileData,
             applicationId: app._id.toString()
           };
         });

@@ -45,6 +45,16 @@ export async function middleware(request: NextRequest) {
     // Continue normally if database is unavailable
   }
 
+  // Add CSP headers for casetechf25 route
+  if (pathname.startsWith('/casetechf25')) {
+    const response = NextResponse.next();
+    response.headers.set(
+      'Content-Security-Policy',
+      "default-src 'self' http: https: data: blob: 'unsafe-inline' 'unsafe-eval'; frame-src http: https: 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' http: https:;"
+    );
+    return response;
+  }
+
   return NextResponse.next();
 }
 

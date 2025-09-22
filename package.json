@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npm run clean && next dev",
+    "dev": "npm run clean && next dev -p 3001",
     "dev:clean": "npm run clean && next dev",
     "clean": "rimraf .next",
     "clean:force": "rimraf .next",
