@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { MongoClient, ObjectId } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
+const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
 const client = new MongoClient(uri);
 
 type InterviewSignup = {
@@ -34,14 +34,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
+    // Remove date filtering - show all slots in the database for admin view
+    // const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
     await client.connect();
     const db = client.db();
 
-    const interviewSlots = await db.collection('InterviewSlot').find({
-      date: date
-    }).sort({ room: 1, startTime: 1 }).toArray();
+    // Get ALL interview slots for admin view, sorted by date, room, and time
+    const interviewSlots = await db.collection('InterviewSlot').find({}).sort({ date: 1, room: 1, startTime: 1 }).toArray();
 
     const transformedSlots = interviewSlots.map((slot: any) => ({
       id: slot.id || slot._id.toString(),

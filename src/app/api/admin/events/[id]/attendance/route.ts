@@ -4,7 +4,7 @@ import { MongoClient } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { isAdminEmail } from '@/lib/admin';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://localhost:27017/abg-website';
+const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
 
 // Create a new client for each request to avoid connection issues
 function createMongoClient() {
@@ -37,7 +37,7 @@ export async function GET(
 
     console.log('🔍 Attendance API - Event ID:', id);
 
-    // Verify event exists
+    // Verify event exists and get custom fields
     const event = await db.collection('Event').findOne({ id: id });
     if (!event) {
       console.log('❌ Event not found with ID:', id);
@@ -45,6 +45,7 @@ export async function GET(
     }
     
     console.log('✅ Event found:', event.title);
+    const customFields = event.customFields || [];
 
     if (countOnly) {
       const count = await db.collection('EventAttendance').countDocuments({ eventId: id });
@@ -97,7 +98,15 @@ export async function GET(
       return {
         email: email,
         userName: userName,
-        confirmedAt: a.confirmedAt || a.registeredAt
+        confirmedAt: a.confirmedAt || a.registeredAt,
+        customFieldResponses: a.customFieldResponses || {},
+        attendee: {
+          name: name,
+          umichEmail: email,
+          major: a.attendee?.major,
+          gradeLevel: a.attendee?.gradeLevel,
+          phone: a.attendee?.phone
+        }
       };
     });
 
@@ -106,10 +115,31 @@ export async function GET(
     const uniqueUsers = uniqueEmails.size;
 
     if (format === 'csv') {
-      const csvContent = [
-        'Email,Name,Confirmed At',
-        ...attendeesData.map(a => `"${a.email}","${a.userName}","${new Date(a.confirmedAt).toLocaleString()}"`)
-      ].join('\n');
+      // Create CSV headers including custom fields
+      const baseHeaders = ['Email', 'Name', 'Major', 'Grade Level', 'Phone', 'Confirmed At'];
+      const customFieldHeaders = customFields.map((field: any) => field.label);
+      const headers = [...baseHeaders, ...customFieldHeaders];
+      
+      // Create CSV rows including custom field responses
+      const rows = attendeesData.map(a => {
+        const baseData = [
+          `"${a.email}"`,
+          `"${a.userName}"`,
+          `"${a.attendee?.major || ''}"`,
+          `"${a.attendee?.gradeLevel || ''}"`,
+          `"${a.attendee?.phone || ''}"`,
+          `"${new Date(a.confirmedAt).toLocaleString()}"`
+        ];
+        
+        const customFieldData = customFields.map((field: any) => {
+          const response = a.customFieldResponses?.[field.id] || '';
+          return `"${response}"`;
+        });
+        
+        return [...baseData, ...customFieldData].join(',');
+      });
+      
+      const csvContent = [headers.join(','), ...rows].join('\n');
 
       return new NextResponse(csvContent, {
         headers: {
@@ -124,7 +154,8 @@ export async function GET(
       confirmed,
       waitlisted,
       total,
-      uniqueUsers
+      uniqueUsers,
+      customFields: customFields
     });
   } catch (error) {
     console.error('Error fetching attendance:', error);

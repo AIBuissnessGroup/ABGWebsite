@@ -141,7 +141,7 @@ export default function Hero() {
             >
               {content.description}
             </motion.p>
-
+          
             {/* Applications CTA with Countdown */}
             <ApplicationCTA className="pt-2 sm:pt-4 justify-center lg:justify-start" />
 
@@ -173,6 +173,7 @@ export default function Hero() {
               <span>Est. 2025</span>
             </motion.div>
           </div>
+          
 
           {/* Right Column - Event Countdown */}
           <motion.div

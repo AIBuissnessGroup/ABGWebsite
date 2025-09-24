@@ -1648,6 +1648,14 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
   });
   const [saving, setSaving] = useState(false);
   const [hasExistingPassword, setHasExistingPassword] = useState(false);
+  const [customFields, setCustomFields] = useState<Array<{
+    id: string;
+    type: 'text' | 'select' | 'textarea' | 'email' | 'phone';
+    label: string;
+    required: boolean;
+    options?: string[];
+    placeholder?: string;
+  }>>([]);
   const [passwordAction, setPasswordAction] = useState<'keep' | 'update' | 'clear' | 'none'>('none');
   const [companies, setCompanies] = useState<any[]>([]);
   const [partnerships, setPartnerships] = useState<any[]>([]);
@@ -1800,6 +1808,11 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
           sponsorshipLevel: partner.sponsorshipLevel || partner.tier || ''
         })));
       }
+      
+      // Load custom fields if they exist
+      if (event.customFields) {
+        setCustomFields(event.customFields);
+      }
     } else if (parentEvent) {
       // Pre-fill some fields from parent event when creating subevent
       setFormData({
@@ -1871,6 +1884,50 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
     setSpeakers(updated);
   };
 
+  // Custom field management functions
+  const addCustomField = () => {
+    setCustomFields([...customFields, {
+      id: Date.now().toString(),
+      type: 'text',
+      label: '',
+      required: false,
+      placeholder: ''
+    }]);
+  };
+
+  const removeCustomField = (index: number) => {
+    setCustomFields(customFields.filter((_, i) => i !== index));
+  };
+
+  const updateCustomField = (index: number, field: string, value: any) => {
+    const updated = [...customFields];
+    updated[index] = { ...updated[index], [field]: value };
+    setCustomFields(updated);
+  };
+
+  const addCustomFieldOption = (fieldIndex: number) => {
+    const updated = [...customFields];
+    if (!updated[fieldIndex].options) {
+      updated[fieldIndex].options = [];
+    }
+    updated[fieldIndex].options!.push('');
+    setCustomFields(updated);
+  };
+
+  const removeCustomFieldOption = (fieldIndex: number, optionIndex: number) => {
+    const updated = [...customFields];
+    updated[fieldIndex].options = updated[fieldIndex].options?.filter((_, i) => i !== optionIndex);
+    setCustomFields(updated);
+  };
+
+  const updateCustomFieldOption = (fieldIndex: number, optionIndex: number, value: string) => {
+    const updated = [...customFields];
+    if (updated[fieldIndex].options) {
+      updated[fieldIndex].options[optionIndex] = value;
+    }
+    setCustomFields(updated);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -1891,7 +1948,8 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
         capacity: formData.capacity ? parseInt(formData.capacity) : null,
         waitlistMaxSize: formData.waitlistMaxSize ? parseInt(formData.waitlistMaxSize) : null,
         speakers: speakers.filter(s => s.name && s.title && s.company),
-        partners: partnerships.filter(p => p.companyId)
+        partners: partnerships.filter(p => p.companyId),
+        customFields: customFields.filter(f => f.label.trim())
       };
       
       // Create final payload - only include password updates if we're not keeping existing
@@ -2295,6 +2353,151 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
               )}
             </div>
           </div>
+
+          {/* Custom Fields Section */}
+          {formData.attendanceConfirmEnabled && (
+            <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-md font-medium text-gray-900">Custom Registration Fields</h4>
+                <button
+                  type="button"
+                  onClick={addCustomField}
+                  className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded-md flex items-center gap-1"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  Add Custom Field
+                </button>
+              </div>
+              
+              <p className="text-xs text-gray-600 mb-4">
+                Add custom questions to collect additional information during registration
+              </p>
+              
+              {customFields.length === 0 ? (
+                <div className="text-sm text-gray-500 py-4 text-center border border-dashed border-gray-300 rounded-lg">
+                  No custom fields added yet. Click "Add Custom Field" to create registration questions.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {customFields.map((field, index) => (
+                    <div key={field.id} className="p-4 bg-white border border-gray-200 rounded-lg">
+                      <div className="flex justify-between items-start mb-3">
+                        <span className="text-sm font-medium text-gray-700">Field {index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeCustomField(index)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <XMarkIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Field Label *
+                          </label>
+                          <input
+                            type="text"
+                            value={field.label}
+                            onChange={(e) => updateCustomField(index, 'label', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                            placeholder="e.g., Dietary Restrictions"
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Field Type
+                          </label>
+                          <select
+                            value={field.type}
+                            onChange={(e) => updateCustomField(index, 'type', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                          >
+                            <option value="text">Text Input</option>
+                            <option value="textarea">Text Area</option>
+                            <option value="select">Dropdown/Select</option>
+                            <option value="email">Email</option>
+                            <option value="phone">Phone Number</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Placeholder Text
+                          </label>
+                          <input
+                            type="text"
+                            value={field.placeholder || ''}
+                            onChange={(e) => updateCustomField(index, 'placeholder', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                            placeholder="Optional placeholder text"
+                          />
+                        </div>
+                        
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id={`required-${field.id}`}
+                            checked={field.required}
+                            onChange={(e) => updateCustomField(index, 'required', e.target.checked)}
+                            className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300 rounded"
+                          />
+                          <label htmlFor={`required-${field.id}`} className="ml-2 text-sm text-gray-700">
+                            Required field
+                          </label>
+                        </div>
+                      </div>
+                      
+                      {field.type === 'select' && (
+                        <div className="mt-4">
+                          <div className="flex justify-between items-center mb-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Dropdown Options
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => addCustomFieldOption(index)}
+                              className="text-sm text-blue-600 hover:text-blue-800"
+                            >
+                              + Add Option
+                            </button>
+                          </div>
+                          <div className="space-y-2">
+                            {(field.options || []).map((option, optionIndex) => (
+                              <div key={optionIndex} className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={option}
+                                  onChange={(e) => updateCustomFieldOption(index, optionIndex, e.target.value)}
+                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                                  placeholder={`Option ${optionIndex + 1}`}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeCustomFieldOption(index, optionIndex)}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <XMarkIcon className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                            {(!field.options || field.options.length === 0) && (
+                              <div className="text-sm text-gray-500 py-2 text-center border border-dashed border-gray-300 rounded">
+                                No options added yet. Click "Add Option" to create choices.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Waitlist Settings Section */}
           <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
@@ -2705,15 +2908,58 @@ function AttendanceInfo({ eventId }: { eventId: string }) {
       
       {showDetails && attendanceData.attendees.length > 0 && (
         <div className="mt-3 pt-3 border-t border-blue-200">
-          <div className="max-h-40 overflow-y-auto">
-            <div className="grid gap-2">
+          <div className="max-h-96 overflow-y-auto">
+            <div className="grid gap-3">
               {attendanceData.attendees.map((attendee: any, index: number) => (
-                <div key={index} className="flex items-center justify-between py-1">
-                  <span className="text-sm text-gray-900 font-medium">{attendee.userName}</span>
-                  <span className="text-xs text-gray-500">
-                    {convertUtcToEst(new Date(attendee.confirmedAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })} at{' '}
-                    {convertUtcToEst(new Date(attendee.confirmedAt)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST
-                  </span>
+                <div key={index} className="p-3 bg-white rounded-lg border border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-col">
+                      <span className="text-sm text-gray-900 font-medium">{attendee.userName}</span>
+                      <span className="text-xs text-gray-500">{attendee.email}</span>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {convertUtcToEst(new Date(attendee.confirmedAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })} at{' '}
+                      {convertUtcToEst(new Date(attendee.confirmedAt)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST
+                    </span>
+                  </div>
+                  
+                  {/* Standard Fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                    {attendee.attendee?.major && (
+                      <div className="text-xs">
+                        <span className="font-medium text-gray-600">Major:</span> {attendee.attendee.major}
+                      </div>
+                    )}
+                    {attendee.attendee?.gradeLevel && (
+                      <div className="text-xs">
+                        <span className="font-medium text-gray-600">Grade:</span> {attendee.attendee.gradeLevel}
+                      </div>
+                    )}
+                    {attendee.attendee?.phone && (
+                      <div className="text-xs">
+                        <span className="font-medium text-gray-600">Phone:</span> {attendee.attendee.phone}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Custom Fields */}
+                  {attendanceData.customFields && attendanceData.customFields.length > 0 && (
+                    <div className="border-t border-gray-100 pt-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {attendanceData.customFields.map((field: any) => {
+                          const response = attendee.customFieldResponses?.[field.id];
+                          if (!response) return null;
+                          
+                          return (
+                            <div key={field.id} className="text-xs">
+                              <span className="font-medium text-gray-600">{field.label}:</span>{' '}
+                              <span className="text-gray-800">{response}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

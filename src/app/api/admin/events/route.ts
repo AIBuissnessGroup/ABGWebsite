@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { isAdminEmail } from '@/lib/admin';
 import crypto from 'crypto';
 
-const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/abg-website';
+const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
 const client = new MongoClient(uri);
 
 // Safely serialize BigInt values
@@ -142,6 +142,7 @@ export async function POST(request: NextRequest) {
       requireMajor: data.requireMajor || false,
       requireGradeLevel: data.requireGradeLevel || false,
       requirePhone: data.requirePhone || false,
+      customFields: data.customFields || [], // Add custom fields support
       speakers: data.speakers || [], // Add speakers support
       partners: data.partners || [], // Add partners support
       attendees: [], // Initialize empty attendees array
@@ -256,6 +257,7 @@ export async function PUT(request: NextRequest) {
       requireMajor: data.requireMajor || false,
       requireGradeLevel: data.requireGradeLevel || false,
       requirePhone: data.requirePhone || false,
+      customFields: data.customFields || [], // Add custom fields support
       speakers: data.speakers || [], // Add speakers support
       partners: data.partners || [], // Add partners support
       updatedAt: new Date()

@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { MongoClient } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://localhost:27017/abg-website';
+const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
 
 // Create a new client for each request to avoid connection issues
 function createMongoClient() {
@@ -194,6 +194,23 @@ export async function POST(
       }, { status: 400 });
     }
 
+    // Validate custom fields if they exist
+    if (event.customFields && event.customFields.length > 0) {
+      const customFieldResponses = attendeeData.customFields || {};
+      
+      for (const field of event.customFields) {
+        if (field.required) {
+          const response = customFieldResponses[field.id];
+          if (!response || (typeof response === 'string' && !response.trim())) {
+            await client.close();
+            return NextResponse.json({ 
+              error: `${field.label} is required` 
+            }, { status: 400 });
+          }
+        }
+      }
+    }
+
     // Check capacity and determine status
     let status = 'confirmed';
     let waitlistPosition = null;
@@ -225,6 +242,7 @@ export async function POST(
         gradeLevel: attendeeData.gradeLevel,
         phone: attendeeData.phone
       },
+      customFieldResponses: attendeeData.customFields || {}, // Store custom field responses
       status: status,
       registeredAt: Date.now(),
       ...(waitlistPosition && { waitlistPosition })

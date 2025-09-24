@@ -53,6 +53,7 @@ interface Event {
   registrationCtaLabel?: string;
   partnerships?: any[];
   slug?: string;
+  backgroundImageUrl?: string;
   subevents?: {
     id: string;
     title: string;
@@ -86,7 +87,7 @@ export default function EventCountdown({
   const [isClient, setIsClient] = useState(false);
   const [nextEvent, setNextEvent] = useState<Event | null>(null);
   const [loadingEvent, setLoadingEvent] = useState(true);
-  const [eventAttendanceText, setEventAttendanceText] = useState('Open to all students');
+  const [eventAttendanceText, setEventAttendanceText] = useState('For General Members Only');
 
   // Function to generate Google Calendar URL
     const generateGoogleCalendarUrl = (event: Event) => {
@@ -205,6 +206,31 @@ export default function EventCountdown({
   return (
     <div className="w-full max-w-sm mx-auto lg:max-w-none">
       <div className="glass-card p-3 sm:p-4 lg:p-6 min-h-[400px] sm:min-h-[480px] lg:min-h-[600px] flex flex-col relative overflow-hidden">
+        {/* Background Image */}
+        {nextEvent?.backgroundImageUrl && (
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{
+              backgroundImage: `url(${nextEvent.backgroundImageUrl})`,
+              filter: 'blur(2.5px)',
+              transform: 'scale(1.1)', // Slight scale to avoid blur edge effects
+            }}
+          />
+        )}
+        
+        {/* Vignette overlay for fading edges back to page background */}
+        {nextEvent?.backgroundImageUrl && (
+          <div 
+            className="absolute inset-0"
+            style={{
+              background: `radial-gradient(ellipse at center, transparent 20%, rgba(0, 39, 76, 0.3) 60%, rgba(0, 39, 76, 0.8) 85%, rgba(0, 39, 76, 1) 100%)`
+            }}
+          />
+        )}
+        
+        {/* Background overlay for better text readability */}
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+        
         {/* Background decorative elements */}
         <div className="absolute top-2 sm:top-3 right-2 sm:right-3 w-3 sm:w-4 h-3 sm:h-4 border border-white/20 rounded-full"></div>
         <div className="absolute bottom-2 sm:bottom-3 left-2 sm:left-3 w-2 sm:w-3 h-2 sm:h-3 border border-white/10 rounded-full"></div>
@@ -219,7 +245,7 @@ export default function EventCountdown({
           className="flex items-center justify-center gap-2 text-muted text-xs sm:text-sm"
         >
           <CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-          <span className="uppercase tracking-wider">Next Event</span>
+          <span className="uppercase tracking-wider">Featured Event</span>
         </motion.div>
         
         <motion.h3
@@ -237,21 +263,21 @@ export default function EventCountdown({
           transition={{ duration: 0.6, delay: 0.2 }}
           className="text-muted text-xs sm:text-sm leading-snug mx-auto px-2 line-clamp-3"
         >
-          {(nextEvent?.description || eventDescription).length > 100 ? 
-            (nextEvent?.description || eventDescription).substring(0, 100) + '...' : 
+          {(nextEvent?.description || eventDescription).length > 200 ? 
+            (nextEvent?.description || eventDescription).substring(0, 200) + '...' : 
             (nextEvent?.description || eventDescription)
           }
         </motion.p>
 
         {/* Upcoming Subevents */}
-        {nextEvent?.subevents && nextEvent.subevents.length > 0 && (
+        {nextEvent && nextEvent.subevents && nextEvent.subevents.length > 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.35 }}
             className="pt-1 sm:pt-2"
           >
-            <div className="text-xs text-muted mb-1 sm:mb-2 uppercase tracking-wider">Pre-Event</div>
+            <div className="text-xs text-muted mb-1 sm:mb-2 uppercase tracking-wider">Subevents</div>
             <div className="px-1 sm:px-2">
               {nextEvent.subevents.slice(0, 1).map((subevent, idx) => (
                 <div key={subevent.id} className="flex items-center justify-between p-1.5 sm:p-2 bg-white/5 rounded border border-white/10">
@@ -273,7 +299,7 @@ export default function EventCountdown({
               ))}
             </div>
           </motion.div>
-        )}
+        ) : null}
       </div>
 
       {/* Countdown Timer */}
@@ -310,7 +336,7 @@ export default function EventCountdown({
       </motion.div>
 
       {/* Event Partners - Below Countdown */}
-      {nextEvent?.partnerships && nextEvent.partnerships.length > 0 && (
+      {nextEvent && nextEvent.partnerships && nextEvent.partnerships.length > 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -339,7 +365,7 @@ export default function EventCountdown({
             ))}
           </div>
         </motion.div>
-      )}
+      ) : null}
 
       {/* Event Details */}
       <motion.div
@@ -395,9 +421,9 @@ export default function EventCountdown({
               </motion.a>
             )}
 
-            {nextEvent?.registrationEnabled && (
+            {nextEvent && (nextEvent.registrationUrl || nextEvent.registrationEnabled) ? (
               <motion.a
-                href={nextEvent?.registrationUrl || "/events"}
+                href={nextEvent.registrationUrl || `/events/${nextEvent.slug || generateSlug(nextEvent.title)}?register=true`}
                 onClick={() => {
                   if (nextEvent) {
                     analytics.events.clickRegister(nextEvent.title);
@@ -407,9 +433,9 @@ export default function EventCountdown({
                 whileTap={{ scale: 0.95 }}
                 className="w-full bg-brand hover-brand backdrop-blur-sm border border-white/30 rounded px-3 py-2 text-white text-xs sm:text-sm font-medium transition-all duration-300 text-center"
               >
-                {nextEvent?.registrationCtaLabel || 'Reserve Your Spot →'}
+                {nextEvent?.registrationCtaLabel || 'Register Now →'}
               </motion.a>
-            )}
+            ) : null}
           
           </div>
         </div>

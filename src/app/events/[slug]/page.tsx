@@ -480,6 +480,7 @@ export default async function EventPage({ params, searchParams }: EventPageProps
   const userEmail = session?.user?.email || undefined;
   
   const { slug } = await params;
+  const resolvedSearchParams = await searchParams;
   
   console.log('EventPage Debug:');
   console.log('- Slug:', slug);
@@ -609,6 +610,8 @@ export default async function EventPage({ params, searchParams }: EventPageProps
       },
       smsReminders: Boolean(dbEvent.requirePhone || false),
     },
+    // Include custom fields for registration forms
+    customFields: dbEvent.customFields || [],
     // Exclude MongoDB-specific fields like _id
   };
   
@@ -621,6 +624,7 @@ export default async function EventPage({ params, searchParams }: EventPageProps
         userRegistration={userRegistration}
         userEmail={userEmail}
         eventStats={eventStats}
+        searchParams={resolvedSearchParams}
       />
     </main>
   );

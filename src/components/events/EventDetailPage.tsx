@@ -40,9 +40,10 @@ interface EventDetailPageProps {
     confirmedCount: number;
     waitlistCount: number;
   };
+  searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-export default function EventDetailPage({ event, userRegistration, userEmail, eventStats }: EventDetailPageProps) {
+export default function EventDetailPage({ event, userRegistration, userEmail, eventStats, searchParams }: EventDetailPageProps) {
   const [showAttendanceForm, setShowAttendanceForm] = useState(false);
   const [localUserEmail, setLocalUserEmail] = useState(userEmail || '');
   const [isClient, setIsClient] = useState(false);
@@ -50,7 +51,18 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
   // Handle hydration mismatch for date formatting
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    
+    // Check if register=true is in the URL and automatically open registration form
+    // Check both server-side searchParams and client-side URL parameters
+    if (searchParams?.register === 'true') {
+      setShowAttendanceForm(true);
+    } else if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('register') === 'true') {
+        setShowAttendanceForm(true);
+      }
+    }
+  }, [searchParams]);
 
   const handleExportToCalendar = () => {
     const googleCalendarUrl = generateGoogleCalendarUrl(event);

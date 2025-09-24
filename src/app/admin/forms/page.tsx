@@ -749,12 +749,12 @@ export default function FormsAdmin() {
                 <button
                   onClick={exportDetailedResponses}
                   className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 flex items-center gap-2"
-                  title="Export detailed responses with full question/answer pairs"
+                  title="Export detailed responses with scoring section for each applicant"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  Detailed
+                  Detailed + Scoring
                 </button>
               </div>
 

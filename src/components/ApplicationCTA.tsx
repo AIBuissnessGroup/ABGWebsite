@@ -12,7 +12,7 @@ export default function ApplicationCTA({ className = '', deadlineString }: Appli
   const countdown = useApplicationCountdown(deadlineString);
 
   if (countdown.isEnded) {
-    // Show "Get Notified" button when applications are closed
+    // Show "Applications Closed" status when applications are closed
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -20,6 +20,8 @@ export default function ApplicationCTA({ className = '', deadlineString }: Appli
         transition={{ duration: 0.8, delay: 0.9 }}
         className={`flex flex-col gap-3 ${className}`}
       >
+        {/* Commented out "Get Notified" button */}
+        {/*
         <motion.a
           href="/recruitment"
           whileHover={{ scale: 1.02, y: -1 }}
@@ -30,6 +32,7 @@ export default function ApplicationCTA({ className = '', deadlineString }: Appli
           <RocketLaunchIcon className="w-5 h-5" />
           Get Notified
         </motion.a>
+        */}
         
         <div className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-400/30 bg-gray-800/20 text-gray-300 text-sm">
           Applications Closed

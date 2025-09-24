@@ -155,24 +155,81 @@ export async function POST(request: NextRequest) {
           app.responses.forEach((response: any) => {
             let value = 'No answer provided';
             
-            if (response.textValue) value = response.textValue;
-            else if (response.numberValue !== null) value = response.numberValue.toString();
-            else if (response.dateValue) value = new Date(response.dateValue).toLocaleDateString();
-            else if (response.booleanValue !== null) value = response.booleanValue ? 'Yes' : 'No';
-            else if (response.selectedOptions) {
+            if (response.fileName) {
+              value = `FILE: ${response.fileName} (${Math.round(response.fileSize / 1024)}KB)`;
+            } else if (response.textValue) {
+              value = response.textValue;
+            } else if (response.numberValue !== null) {
+              value = response.numberValue.toString();
+            } else if (response.dateValue) {
+              value = new Date(response.dateValue).toLocaleDateString();
+            } else if (response.question?.type === 'BOOLEAN' && response.booleanValue !== null) {
+              value = response.booleanValue ? 'Yes' : 'No';
+            } else if (response.selectedOptions) {
               try {
-                value = JSON.parse(response.selectedOptions).join(', ');
+                const options = JSON.parse(response.selectedOptions);
+                value = Array.isArray(options) ? options.join(', ') : options;
               } catch {
                 value = response.selectedOptions;
               }
+            } else if (response.fileUrl) {
+              value = response.fileUrl;
             }
-            else if (response.fileUrl) value = response.fileUrl;
 
             detailedData.push({
               'Field': response.question.title,
               'Response': value,
               'Details': response.question.type
             });
+          });
+
+          // Add scoring section for this application
+          detailedData.push({
+            'Field': '--- SCORING & EVALUATION ---',
+            'Response': '',
+            'Details': ''
+          });
+          
+          detailedData.push({
+            'Field': '🏆 OVERALL SCORE (1-10)',
+            'Response': '',
+            'Details': 'Rate overall candidate quality'
+          });
+
+          detailedData.push({
+            'Field': '💼 Technical Skills Score (1-10)',
+            'Response': '',
+            'Details': 'Rate technical competency'
+          });
+
+          detailedData.push({
+            'Field': '🤝 Communication Score (1-10)',
+            'Response': '',
+            'Details': 'Rate communication abilities'
+          });
+
+          detailedData.push({
+            'Field': '🎯 Cultural Fit Score (1-10)',
+            'Response': '',
+            'Details': 'Rate cultural alignment'
+          });
+
+          detailedData.push({
+            'Field': '📝 Interview Notes',
+            'Response': '',
+            'Details': 'Additional interview observations'
+          });
+
+          detailedData.push({
+            'Field': '✅ Recommendation',
+            'Response': '',
+            'Details': 'Hire/No Hire/Maybe'
+          });
+
+          detailedData.push({
+            'Field': '📊 Reviewer Comments',
+            'Response': '',
+            'Details': 'Final evaluation notes'
           });
 
           // Add separator
@@ -219,23 +276,42 @@ export async function POST(request: NextRequest) {
           const questionTitle = response.question.title;
           let value = 'No answer';
           
-          if (response.textValue) value = response.textValue;
-          else if (response.numberValue !== null) value = response.numberValue.toString();
-          else if (response.dateValue) value = new Date(response.dateValue).toLocaleDateString();
-          else if (response.booleanValue !== null) value = response.booleanValue ? 'Yes' : 'No';
-          else if (response.selectedOptions) {
+          if (response.fileName) {
+            value = `FILE: ${response.fileName} (${Math.round(response.fileSize / 1024)}KB)`;
+          } else if (response.textValue) {
+            value = response.textValue;
+          } else if (response.numberValue !== null) {
+            value = response.numberValue.toString();
+          } else if (response.dateValue) {
+            value = new Date(response.dateValue).toLocaleDateString();
+          } else if (response.question?.type === 'BOOLEAN' && response.booleanValue !== null) {
+            value = response.booleanValue ? 'Yes' : 'No';
+          } else if (response.selectedOptions) {
             try {
-              value = JSON.parse(response.selectedOptions).join(', ');
+              const options = JSON.parse(response.selectedOptions);
+              value = Array.isArray(options) ? options.join(', ') : options;
             } catch {
               value = response.selectedOptions;
             }
+          } else if (response.fileUrl) {
+            value = response.fileUrl;
           }
-          else if (response.fileUrl) value = response.fileUrl;
 
           responseData[questionTitle] = value;
         });
 
-        return { ...baseData, ...responseData };
+        // Add scoring columns
+        const scoringData = {
+          '🏆 OVERALL SCORE (1-10)': '',
+          '💼 Technical Skills Score (1-10)': '',
+          '🤝 Communication Score (1-10)': '',
+          '🎯 Cultural Fit Score (1-10)': '',
+          '📝 Interview Notes': '',
+          '✅ Recommendation (Hire/No Hire/Maybe)': '',
+          '📊 Reviewer Comments': ''
+        };
+
+        return { ...baseData, ...responseData, ...scoringData };
       });
 
       const worksheet = XLSX.utils.json_to_sheet(summaryData);

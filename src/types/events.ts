@@ -22,6 +22,15 @@ export interface EventSpeaker {
   order: number; // for display ordering
 }
 
+export interface CustomField {
+  id: string;
+  type: 'text' | 'select' | 'textarea' | 'email' | 'phone';
+  label: string;
+  required: boolean;
+  options?: string[];
+  placeholder?: string;
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -59,6 +68,9 @@ export interface Event {
 
   // Event speakers
   speakers?: EventSpeaker[];
+
+  // Custom registration fields
+  customFields?: CustomField[];
 
   // Sub-events for main events
   subevents?: Event[];

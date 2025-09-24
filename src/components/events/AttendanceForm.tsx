@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Event } from '../../types/events';
+import { Event, CustomField } from '../../types/events';
 
 interface AttendanceFormProps {
   event: Event;
@@ -18,6 +18,7 @@ interface FormData {
   gradeLevel: string;
   phone: string;
   password: string;
+  customFields: { [key: string]: string };
 }
 
 export default function AttendanceForm({ event, initialEmail = '', onSuccess, onCancel }: AttendanceFormProps) {
@@ -28,7 +29,8 @@ export default function AttendanceForm({ event, initialEmail = '', onSuccess, on
     major: '',
     gradeLevel: '',
     phone: '',
-    password: ''
+    password: '',
+    customFields: {}
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -111,6 +113,15 @@ export default function AttendanceForm({ event, initialEmail = '', onSuccess, on
       errors.push('Password is required');
     }
 
+    // Validate custom fields
+    if (event.customFields) {
+      event.customFields.forEach((field: CustomField) => {
+        if (field.required && !formData.customFields[field.id]?.trim()) {
+          errors.push(`${field.label} is required`);
+        }
+      });
+    }
+
     if (errors.length > 0) {
       setError(errors.join(', '));
       setIsSubmitting(false);
@@ -127,7 +138,8 @@ export default function AttendanceForm({ event, initialEmail = '', onSuccess, on
           major: requiredFields.major ? formData.major : undefined,
           gradeLevel: requiredFields.gradeLevel ? formData.gradeLevel : undefined,
           phone: smsReminders ? formData.phone : undefined,
-          password: needsPassword ? formData.password : undefined
+          password: needsPassword ? formData.password : undefined,
+          customFields: formData.customFields
         })
       });
 
@@ -300,6 +312,115 @@ export default function AttendanceForm({ event, initialEmail = '', onSuccess, on
             <p className="text-sm text-gray-600 mt-2">
               Contact the event organizer if you don't have the password
             </p>
+          </div>
+        )}
+
+        {/* Custom Fields */}
+        {event.customFields && event.customFields.length > 0 && (
+          <div className="space-y-6">
+            <div className="border-t border-gray-600 pt-6">
+              <h4 className="text-lg font-light text-white mb-4">Additional Information</h4>
+              <div className="space-y-4">
+                {event.customFields.map((field: CustomField) => (
+                  <div key={field.id}>
+                    <label className="block text-sm font-light text-gray-300 mb-2">
+                      {field.label}
+                      {field.required && <span className="text-red-400 ml-1">*</span>}
+                    </label>
+                    
+                    {field.type === 'text' && (
+                      <input
+                        type="text"
+                        required={field.required}
+                        value={formData.customFields[field.id] || ''}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          customFields: { 
+                            ...formData.customFields, 
+                            [field.id]: e.target.value 
+                          } 
+                        })}
+                        className="w-full p-4 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:border-white transition-colors text-white placeholder-gray-400"
+                        placeholder={field.placeholder || ''}
+                      />
+                    )}
+                    
+                    {field.type === 'textarea' && (
+                      <textarea
+                        required={field.required}
+                        value={formData.customFields[field.id] || ''}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          customFields: { 
+                            ...formData.customFields, 
+                            [field.id]: e.target.value 
+                          } 
+                        })}
+                        className="w-full p-4 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:border-white transition-colors text-white placeholder-gray-400"
+                        placeholder={field.placeholder || ''}
+                        rows={3}
+                      />
+                    )}
+                    
+                    {field.type === 'select' && field.options && (
+                      <select
+                        required={field.required}
+                        value={formData.customFields[field.id] || ''}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          customFields: { 
+                            ...formData.customFields, 
+                            [field.id]: e.target.value 
+                          } 
+                        })}
+                        className="w-full p-4 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:border-white transition-colors text-white"
+                      >
+                        <option value="">Select an option...</option>
+                        {field.options.filter((option: string) => option.trim()).map((option: string, index: number) => (
+                          <option key={index} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    
+                    {field.type === 'email' && (
+                      <input
+                        type="email"
+                        required={field.required}
+                        value={formData.customFields[field.id] || ''}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          customFields: { 
+                            ...formData.customFields, 
+                            [field.id]: e.target.value 
+                          } 
+                        })}
+                        className="w-full p-4 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:border-white transition-colors text-white placeholder-gray-400"
+                        placeholder={field.placeholder || 'email@example.com'}
+                      />
+                    )}
+                    
+                    {field.type === 'phone' && (
+                      <input
+                        type="tel"
+                        required={field.required}
+                        value={formData.customFields[field.id] || ''}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          customFields: { 
+                            ...formData.customFields, 
+                            [field.id]: e.target.value 
+                          } 
+                        })}
+                        className="w-full p-4 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:border-white transition-colors text-white placeholder-gray-400"
+                        placeholder={field.placeholder || '(123) 456-7890'}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
