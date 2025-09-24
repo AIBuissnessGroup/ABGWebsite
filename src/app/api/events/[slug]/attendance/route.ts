@@ -162,17 +162,55 @@ export async function POST(
     await client.connect();
     const db = client.db();
 
-    // Find event by slug
-    let event = await db.collection('Event').findOne({ slug: eventSlug, published: true }) as any;
+    // Find event by slug - use the same logic as the event page
+    let event = await db.collection('Event').findOne({ 
+      $and: [
+        {
+          $or: [
+            { slug: eventSlug },
+            { id: eventSlug }
+          ]
+        },
+        {
+          $or: [
+            { published: true },
+            { published: 1 }
+          ]
+        }
+      ]
+    }) as any;
     
     if (!event) {
-      // Try by id as fallback
-      const eventById = await db.collection('Event').findOne({ id: eventSlug, published: true }) as any;
-      if (!eventById) {
+      console.log('🔍 Event not found by slug or id, trying flexible search...');
+      // Try finding by title-based slug generation
+      const allEvents = await db.collection('Event').find({ 
+        $or: [{ published: true }, { published: 1 }] 
+      }).toArray();
+      
+      // Try to match by generating slug from title
+      for (const e of allEvents) {
+        const generatedSlug = e.title?.toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-')
+          .trim();
+        
+        if (generatedSlug === eventSlug) {
+          event = e;
+          console.log('✅ Found event by generated slug match:', e.title);
+          break;
+        }
+      }
+      
+      if (!event) {
+        console.log('❌ Event not found. Available events:', allEvents.slice(0, 3).map(e => ({
+          id: e.id,
+          slug: e.slug,
+          title: e.title
+        })));
         await client.close();
         return NextResponse.json({ error: 'Event not found' }, { status: 404 });
       }
-      event = eventById;
     }
 
     console.log('✅ Event found for registration:', event.title);
@@ -296,28 +334,59 @@ export async function DELETE(
     await client.connect();
     const db = client.db();
 
-    // Get event details - find by slug first
+    // Get event details - use consistent logic with event page
     console.log('🔍 Looking for event with slug:', eventSlug);
     
-    // Try finding by slug field first
-    let event = await db.collection('Event').findOne({
-      slug: eventSlug,
-      published: true
+    // Use the same logic as the event page and POST endpoint
+    let event = await db.collection('Event').findOne({ 
+      $and: [
+        {
+          $or: [
+            { slug: eventSlug },
+            { id: eventSlug }
+          ]
+        },
+        {
+          $or: [
+            { published: true },
+            { published: 1 }
+          ]
+        }
+      ]
     }) as any;
     
-    // If not found, try finding by id field
+    console.log('🔍 Event found by slug/id:', event ? 'YES' : 'NO');
+    
+    // If still not found, try a more flexible search
     if (!event) {
-      console.log('🔍 Event not found by slug, trying id field');
-      event = await db.collection('Event').findOne({
-        id: eventSlug,
-        published: true
-      }) as any;
+      console.log('🔍 Trying flexible search...');
+      // Try finding by title-based slug generation
+      const allEvents = await db.collection('Event').find({ 
+        $or: [{ published: true }, { published: 1 }] 
+      }).toArray();
+      console.log('🔍 Total published events:', allEvents.length);
+      
+      // Try to match by generating slug from title
+      for (const e of allEvents) {
+        const generatedSlug = e.title?.toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-')
+          .trim();
+        console.log('🔍 Checking event:', { title: e.title, slug: e.slug, generatedSlug, targetSlug: eventSlug });
+        
+        if (generatedSlug === eventSlug) {
+          event = e;
+          console.log('✅ Found event by generated slug match:', e.title);
+          break;
+        }
+      }
     }
     
     // Debug: show what events exist if still not found
     if (!event) {
-      const allEvents = await db.collection('Event').find({ published: true }).toArray();
-      console.log('🔍 Available events:', allEvents.map(e => ({
+      const allEvents = await db.collection('Event').find({ published: true }).limit(5).toArray();
+      console.log('🔍 Sample available events:', allEvents.map(e => ({
         id: e.id,
         _id: e._id,
         slug: e.slug,
