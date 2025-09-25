@@ -825,7 +825,7 @@ export default function FormsAdmin() {
                       <div>
                         <h4 className="font-semibold text-gray-900">{app.applicantName || app.applicantEmail}</h4>
                         {app.applicantPhone && (
-                          <p className="text-sm text-gray-700">📞 {response.applicantPhone} | ✉️ {response.applicantEmail}</p>
+                          <p className="text-sm text-gray-700">📞 {app.applicantPhone} | ✉️ {app.applicantEmail}</p>
                         )}
                         <p className="text-sm text-gray-600">{app.form ? app.form.title : 'Form not found'}</p>
                         <p className="text-xs text-gray-500">
@@ -908,7 +908,7 @@ export default function FormsAdmin() {
                       <div>
                         <h5 className="font-medium text-gray-900 mb-3">Application Responses</h5>
                         <div className="space-y-3">
-                          {app.responses.map((response: any) => {
+                          {(app.responses || []).map((response: any) => {
                             // Debug logging for file responses
                             if (response.question?.type === 'FILE') {
                               console.log('File response debug:', {
