@@ -18,6 +18,8 @@ type InterviewSlot = {
   endTime: string;
   date: string;
   status: 'available' | 'booked';
+  title?: string;
+  description?: string;
   bookedByUserId?: string;
   signup?: InterviewSignup;
   isBookedByCurrentUser?: boolean;
@@ -33,6 +35,7 @@ export default function InterviewsPage() {
   const [userBooking, setUserBooking] = useState<InterviewSlot | null>(null);
   const [roomFilter, setRoomFilter] = useState<string>('all');
   const [timeFilter, setTimeFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
 
   // Filter slots based on selected filters
   const filteredSlots = slots.filter(slot => {
@@ -40,8 +43,30 @@ export default function InterviewsPage() {
     
     let timeMatch = true;
     if (timeFilter !== 'all') {
-      const slotHour = new Date(slot.startTime).getHours();
+      // Parse time from slot - handle both ISO format and time-only format
+      let slotHour: number;
+      if (slot.startTime.includes(':') && !slot.startTime.includes('T')) {
+        // Time-only format like "09:00"
+        const [hours] = slot.startTime.split(':');
+        slotHour = parseInt(hours, 10);
+      } else {
+        // ISO datetime format
+        slotHour = new Date(slot.startTime).getHours();
+      }
+      
       switch (timeFilter) {
+        case '9am':
+          timeMatch = slotHour === 9;
+          break;
+        case '10am':
+          timeMatch = slotHour === 10;
+          break;
+        case '11am':
+          timeMatch = slotHour === 11;
+          break;
+        case '12pm':
+          timeMatch = slotHour === 12;
+          break;
         case '6pm':
           timeMatch = slotHour === 18;
           break;
@@ -59,7 +84,17 @@ export default function InterviewsPage() {
       }
     }
     
-    return roomMatch && timeMatch;
+    // Type filter logic
+    let typeMatch = true;
+    if (typeFilter !== 'all') {
+      if (typeFilter === 'engineering') {
+        typeMatch = slot.title?.toLowerCase().includes('engineering') || false;
+      } else if (typeFilter === 'business') {
+        typeMatch = slot.title?.toLowerCase().includes('business') || false;
+      }
+    }
+    
+    return roomMatch && timeMatch && typeMatch;
   });
 
   // Group filtered slots by room
@@ -95,9 +130,8 @@ export default function InterviewsPage() {
   const loadSlots = async () => {
     try {
       setLoading(true);
-      // Get next Wednesday's date
-      const nextWednesday = getNextWednesday();
-      const response = await fetch(`/api/interviews/slots?date=${nextWednesday}`);
+      // Load all available interview slots
+      const response = await fetch('/api/interviews/slots');
       const data = await response.json();
       
       if (!response.ok) {
@@ -105,6 +139,16 @@ export default function InterviewsPage() {
       }
       
       setSlots(data);
+      
+      // Debug: Check if titles are being loaded
+      console.log('Loaded slots:', data.length);
+      console.log('Raw API response (first 3 slots):', data.slice(0, 3));
+      console.log('Sample slot with title:', data.find((slot: InterviewSlot) => slot.title));
+      console.log('All slots titles:', data.map((slot: InterviewSlot) => ({ id: slot.id, title: slot.title, room: slot.room })));
+      
+      // Check if any slot has a title
+      const slotsWithTitles = data.filter((slot: InterviewSlot) => slot.title);
+      console.log('Slots with titles count:', slotsWithTitles.length);
       
       // Find user's current booking
       const currentUserBooking = data.find((slot: InterviewSlot) => slot.isBookedByCurrentUser);
@@ -119,17 +163,29 @@ export default function InterviewsPage() {
     }
   };
 
-  const getNextWednesday = () => {
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = Sunday, 3 = Wednesday
-    const daysUntilWednesday = (3 - dayOfWeek + 7) % 7;
-    const nextWednesday = new Date(today);
-    nextWednesday.setDate(today.getDate() + daysUntilWednesday);
-    return nextWednesday.toISOString().split('T')[0];
-  };
+
 
   const formatTime = (timeString: string) => {
+    // Handle time-only strings like "09:00" or "14:30"
+    if (timeString && timeString.includes(':') && !timeString.includes('T')) {
+      const [hours, minutes] = timeString.split(':');
+      const hour24 = parseInt(hours, 10);
+      const min = parseInt(minutes, 10);
+      
+      // Convert to 12-hour format
+      const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+      const ampm = hour24 >= 12 ? 'PM' : 'AM';
+      const minStr = min.toString().padStart(2, '0');
+      
+      return `${hour12}:${minStr} ${ampm}`;
+    }
+    
+    // Fallback for full datetime strings
     const date = new Date(timeString);
+    if (isNaN(date.getTime())) {
+      return 'Invalid Time';
+    }
+    
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -214,16 +270,27 @@ export default function InterviewsPage() {
   const canCancelBooking = (slot: InterviewSlot) => {
     if (!slot.isBookedByCurrentUser) return false;
     
-    const slotStartTime = new Date(slot.startTime);
+    // Combine date and startTime to create proper DateTime
+    const slotDateTime = new Date(`${slot.date}T${slot.startTime}:00`);
     const now = new Date();
-    const hoursUntilStart = (slotStartTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const hoursUntilStart = (slotDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    
+    console.log('Cancellation check:', {
+      slotDate: slot.date,
+      slotTime: slot.startTime,
+      slotDateTime: slotDateTime.toISOString(),
+      now: now.toISOString(),
+      hoursUntilStart: hoursUntilStart.toFixed(2),
+      canCancel: hoursUntilStart > 5
+    });
     
     return hoursUntilStart > 5;
   };
 
   const addToGoogleCalendar = (slot: InterviewSlot) => {
-    const startTime = new Date(slot.startTime);
-    const endTime = new Date(slot.endTime);
+    // Combine date and time to create proper DateTime
+    const startTime = new Date(`${slot.date}T${slot.startTime}:00`);
+    const endTime = new Date(`${slot.date}T${slot.endTime}:00`);
     
     const formatDateForGoogle = (date: Date) => {
       return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
@@ -270,10 +337,10 @@ export default function InterviewsPage() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4">R1 Behavioral Interviews | Wednesday 9/24: 6-10pm</h1>
+                    <h1 className="text-4xl font-bold mb-4">R2 Interviews | Friday 9/26: 9am-1pm</h1>
           <div className="bg-yellow-500/20 border border-yellow-400/30 rounded-lg p-4 max-w-2xl mx-auto">
             <p className="text-yellow-100 text-lg">
-              <strong>Attire:</strong> Suit and tie business professional. Please bring two copies of your resume.
+              <strong>Attire:</strong> Suit and tie business professional.
             </p>
           </div>
         </div>
@@ -292,7 +359,7 @@ export default function InterviewsPage() {
         {/* Filter Controls */}
         <div className="mb-8 bg-white/10 rounded-lg p-6">
           <h2 className="text-xl font-semibold mb-4">Filter Interview Slots</h2>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-3 gap-4">
             {/* Room Filter */}
             <div>
               <label className="block text-sm font-medium mb-2">Filter by Room</label>
@@ -302,12 +369,29 @@ export default function InterviewsPage() {
                 className="w-full bg-[#00274c] border border-white/20 rounded-lg px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
               >
                 <option value="all">All Rooms</option>
-                <option value="R2248">R2248</option>
+                <option value="R0228">R0228</option>
+                <option value="R0236">R0236</option>
+                <option value="R1216">R1216</option>
                 <option value="R1226">R1226</option>
                 <option value="R1228">R1228</option>
                 <option value="R1236">R1236</option>
                 <option value="R1238">R1238</option>
-                <option value="R1216">R1216</option>
+                <option value="R2238">R2238</option>
+                <option value="R2248">R2248</option>
+              </select>
+            </div>
+            
+            {/* Interview Type Filter */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Filter by Interview Type</label>
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="w-full bg-[#00274c] border border-white/20 rounded-lg px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+              >
+                <option value="all">All Types</option>
+                <option value="business">Business Based Interview</option>
+                <option value="engineering">Engineering Based Interview</option>
               </select>
             </div>
             
@@ -320,6 +404,10 @@ export default function InterviewsPage() {
                 className="w-full bg-[#00274c] border border-white/20 rounded-lg px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
               >
                 <option value="all">All Times</option>
+                <option value="9am">9:00 AM Hour</option>
+                <option value="10am">10:00 AM Hour</option>
+                <option value="11am">11:00 AM Hour</option>
+                <option value="12pm">12:00 PM Hour</option>
                 <option value="6pm">6:00 PM Hour</option>
                 <option value="7pm">7:00 PM Hour</option>
                 <option value="8pm">8:00 PM Hour</option>
@@ -332,7 +420,12 @@ export default function InterviewsPage() {
           <div className="mt-4 text-sm text-gray-300">
             Showing {filteredSlots.length} of {slots.length} slots
             {roomFilter !== 'all' && ` in Room ${roomFilter}`}
-            {timeFilter !== 'all' && ` at ${timeFilter.replace('pm', ':00 PM')}`}
+            {typeFilter !== 'all' && ` for ${typeFilter === 'business' ? 'Business' : 'Engineering'} interviews`}
+            {timeFilter !== 'all' && ` at ${
+              timeFilter.includes('am') 
+                ? timeFilter.replace('am', ':00 AM') 
+                : timeFilter.replace('pm', ':00 PM')
+            }`}
           </div>
         </div>
         {userBooking && (
@@ -390,6 +483,7 @@ export default function InterviewsPage() {
               onClick={() => {
                 setRoomFilter('all');
                 setTimeFilter('all');
+                setTypeFilter('all');
               }}
               className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
             >
@@ -414,11 +508,24 @@ export default function InterviewsPage() {
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <ClockIcon className="w-5 h-5" />
-                          <span className="font-medium">
-                            {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
-                          </span>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-3">
+                            <ClockIcon className="w-5 h-5" />
+                            <span className="font-medium">
+                              {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                            </span>
+                          </div>
+                          {slot.title && (
+                            <div className="text-sm text-cyan-200 font-semibold bg-cyan-900/30 px-2 py-1 rounded">
+                              📋 {slot.title}
+                            </div>
+                          )}
+                          {/* Debug: Show if title exists */}
+                          {!slot.title && (
+                            <div className="text-xs text-red-400">
+                              DEBUG: No title for {slot.room} {slot.startTime}
+                            </div>
+                          )}
                         </div>
                         
                         {slot.status === 'available' && !userBooking ? (

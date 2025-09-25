@@ -21,6 +21,8 @@ type InterviewSlot = {
   endTime: string;   // ISO
   date: string;      // YYYY-MM-DD
   status: 'available' | 'booked';
+  title?: string;
+  description?: string;
   bookedByUserId?: string;
   signup?: InterviewSignup;
 };
@@ -50,6 +52,8 @@ export async function GET(request: NextRequest) {
       endTime: slot.endTime instanceof Date ? slot.endTime.toISOString() : slot.endTime,
       date: slot.date,
       status: slot.status,
+      title: slot.title,
+      description: slot.description,
       bookedByUserId: slot.bookedByUserId,
       signup: slot.signup ? {
         id: slot.signup.id,

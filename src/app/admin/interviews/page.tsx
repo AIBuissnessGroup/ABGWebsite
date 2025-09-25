@@ -18,6 +18,8 @@ type InterviewSlot = {
   endTime: string;
   date: string;
   status: 'available' | 'booked';
+  title?: string;
+  description?: string;
   bookedByUserId?: string;
   signup?: InterviewSignup;
 };
@@ -55,7 +57,6 @@ export default function AdminInterviewsPage() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [showSeedModal, setShowSeedModal] = useState(false);
   const [showWhitelistModal, setShowWhitelistModal] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [whitelist, setWhitelist] = useState<any[]>([]);
@@ -93,8 +94,8 @@ export default function AdminInterviewsPage() {
   const loadSlots = async () => {
     try {
       setLoading(true);
-      const nextWednesday = getNextWednesday();
-      const response = await fetch(`/api/admin/interviews/slots?date=${nextWednesday}`);
+      // Load all available interview slots
+      const response = await fetch('/api/admin/interviews/slots');
       const data = await response.json();
       
       if (!response.ok) {
@@ -111,17 +112,29 @@ export default function AdminInterviewsPage() {
     }
   };
 
-  const getNextWednesday = () => {
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = Sunday, 3 = Wednesday
-    const daysUntilWednesday = (3 - dayOfWeek + 7) % 7;
-    const nextWednesday = new Date(today);
-    nextWednesday.setDate(today.getDate() + daysUntilWednesday);
-    return nextWednesday.toISOString().split('T')[0];
-  };
+
 
   const formatTime = (timeString: string) => {
+    // Handle time-only strings like "09:00" or "14:30"
+    if (timeString && timeString.includes(':') && !timeString.includes('T')) {
+      const [hours, minutes] = timeString.split(':');
+      const hour24 = parseInt(hours, 10);
+      const min = parseInt(minutes, 10);
+      
+      // Convert to 12-hour format
+      const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+      const ampm = hour24 >= 12 ? 'PM' : 'AM';
+      const minStr = min.toString().padStart(2, '0');
+      
+      return `${hour12}:${minStr} ${ampm}`;
+    }
+    
+    // Fallback for full datetime strings
     const date = new Date(timeString);
+    if (isNaN(date.getTime())) {
+      return 'Invalid Time';
+    }
+    
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -177,52 +190,7 @@ export default function AdminInterviewsPage() {
     }
   };
 
-  const seedSlots = async () => {
-    setActionLoading('seed');
-    try {
-      const nextWednesday = getNextWednesday();
-      const seedData = {
-        date: nextWednesday,
-        timezone: 'America/Detroit',
-        rooms: ['R2248', 'R1226', 'R1228', 'R1236', 'R1238', 'R1216'],
-        times: [
-          ['18:00', '18:30'],
-          ['18:30', '19:00'],
-          ['19:00', '19:30'],
-          ['19:30', '20:00'],
-          ['20:00', '20:30'],
-          ['20:30', '21:00'],
-          ['21:00', '21:30'],
-          ['21:30', '22:00']
-        ]
-      };
 
-      const response = await fetch('/api/admin/interviews/slots', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(seedData),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to seed slots');
-      }
-      
-      setMessage(`Successfully created ${data.slotsCreated} interview slots`);
-      setMessageType('success');
-      setShowSeedModal(false);
-      await loadSlots();
-    } catch (error) {
-      console.error('Error seeding slots:', error);
-      setMessage(error instanceof Error ? error.message : 'Failed to seed slots');
-      setMessageType('error');
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
   const exportCSV = () => {
     const csvContent = [
@@ -243,7 +211,7 @@ export default function AdminInterviewsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `interviews-${getNextWednesday()}.csv`;
+    a.download = `interviews-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -368,7 +336,7 @@ export default function AdminInterviewsPage() {
         <div className="flex items-center justify-between mb-8">
           <div style={{ color: 'white' }}>
             <h1 className="text-4xl font-bold mb-2 text-white" style={{ color: 'white !important' }}>Admin: Interviews</h1>
-            <p className="text-white" style={{ color: 'white !important' }}>Wednesday, {formatDate(getNextWednesday())}</p>
+            <p className="text-white" style={{ color: 'white !important' }}>Interview Slots</p>
           </div>
           <div className="flex gap-3">
             <button
@@ -382,12 +350,6 @@ export default function AdminInterviewsPage() {
               className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
             >
               Manage Whitelist
-            </button>
-            <button
-              onClick={() => setShowSeedModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Seed Slots
             </button>
           </div>
         </div>
@@ -485,7 +447,6 @@ export default function AdminInterviewsPage() {
         {slots.length === 0 ? (
           <div className="text-center py-12" style={{ color: 'white' }}>
             <p className="text-xl text-white mb-4" style={{ color: 'white !important' }}>No interview slots found</p>
-            <p className="text-white" style={{ color: 'white !important' }}>Use the "Seed Slots" button to create interview slots for Wednesday</p>
           </div>
         ) : (
           <div className="bg-white/10 rounded-lg overflow-hidden">
@@ -515,9 +476,16 @@ export default function AdminInterviewsPage() {
                     .map((slot) => (
                     <tr key={slot.id} className="border-t border-white/10" style={{ color: 'white' }}>
                       <td className="p-4 text-white" style={{ color: 'white !important' }}>
-                        <div className="flex items-center gap-2">
-                          <MapPinIcon className="w-4 h-4" />
-                          {slot.room}
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <MapPinIcon className="w-4 h-4" />
+                            {slot.room}
+                          </div>
+                          {slot.title && (
+                            <div className="text-xs text-blue-300">
+                              {slot.title}
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="p-4 text-white" style={{ color: 'white !important' }}>
@@ -603,38 +571,7 @@ export default function AdminInterviewsPage() {
           </div>
         )}
 
-        {/* Seed Modal */}
-        {showSeedModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-[#001a35] border border-white/20 rounded-lg p-6 max-w-md w-full mx-4" style={{ color: 'white' }}>
-              <h2 className="text-xl font-bold mb-4 text-white" style={{ color: 'white !important' }}>Seed Interview Slots</h2>
-              <p className="text-white mb-4" style={{ color: 'white !important' }}>
-                This will create interview slots for Wednesday with:
-              </p>
-              <ul className="text-sm text-white mb-6 space-y-1" style={{ color: 'white !important' }}>
-                <li>• 6 rooms: R2248, R1226, R1228, R1236, R1238, R1216</li>
-                <li>• 8 time slots: 6:00 PM - 10:00 PM (30-min intervals)</li>
-                <li>• Total: 48 interview slots</li>
-              </ul>
-              <div className="flex gap-3">
-                <button
-                  onClick={seedSlots}
-                  disabled={actionLoading === 'seed'}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {actionLoading === 'seed' ? 'Creating...' : 'Create Slots'}
-                </button>
-                <button
-                  onClick={() => setShowSeedModal(false)}
-                  disabled={actionLoading === 'seed'}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {/* Whitelist Management Modal */}
         {showWhitelistModal && (

@@ -824,6 +824,9 @@ export default function FormsAdmin() {
                       </div>
                       <div>
                         <h4 className="font-semibold text-gray-900">{app.applicantName || app.applicantEmail}</h4>
+                        {app.applicantPhone && (
+                          <p className="text-sm text-gray-700">📞 {response.applicantPhone} | ✉️ {response.applicantEmail}</p>
+                        )}
                         <p className="text-sm text-gray-600">{app.form ? app.form.title : 'Form not found'}</p>
                         <p className="text-xs text-gray-500">
                           Submitted {new Date(app.submittedAt).toLocaleDateString()} at {new Date(app.submittedAt).toLocaleTimeString()}
@@ -1384,6 +1387,9 @@ export default function FormsAdmin() {
                       </div>
                       <div>
                         <h4 className="font-semibold text-gray-900">{response.applicantName || response.applicantEmail}</h4>
+                        {response.applicantPhone && (
+                          <p className="text-sm text-gray-700">📞 {response.applicantPhone} | ✉️ {response.applicantEmail}</p>
+                        )}
                         <p className="text-xs text-gray-500">
                           Submitted {new Date(response.submittedAt).toLocaleDateString()} at {new Date(response.submittedAt).toLocaleTimeString()}
                         </p>
