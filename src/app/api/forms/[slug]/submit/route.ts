@@ -236,6 +236,14 @@ export async function POST(
               responseData.fileUrl = response.value;
             }
             break;
+          case 'DESCRIPTION':
+            // Description questions don't store responses, skip them
+            return null;
+          case 'MATRIX':
+            responseData.selectedOptions = Array.isArray(response.value) 
+              ? JSON.stringify(response.value) 
+              : JSON.stringify([response.value]);
+            break;
           default:
             responseData.textValue = response.value;
         }

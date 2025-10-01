@@ -74,6 +74,8 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
   const eventDate = new Date(event.eventDate);
   const endDate = event.endDate ? new Date(event.endDate) : null;
   const isUpcoming = eventDate.getTime() > Date.now();
+  // Registration stays open until event end time (or indefinitely if no end time is set)
+  const canRegisterByTime = endDate ? endDate.getTime() > Date.now() : true;
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -207,7 +209,7 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
               >
                 Add to Google Calendar
               </button>
-              {canRegister && isUpcoming && (
+              {canRegister && canRegisterByTime && (
                 <button
                   onClick={() => setShowAttendanceForm(true)}
                   className="w-full sm:w-auto bg-white text-black px-6 md:px-8 py-2.5 md:py-3 rounded-full font-medium hover:bg-gray-100 transition-all duration-300 text-sm md:text-base"
@@ -523,7 +525,7 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
                 </div>
                 
                 {/* Registration Button */}
-                {isUpcoming && (
+                {canRegisterByTime && (
                   <div className="space-y-4">
                     {canRegister ? (
                       <button

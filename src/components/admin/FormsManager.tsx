@@ -33,6 +33,9 @@ interface Question {
   minLength: string;
   maxLength: string;
   pattern: string;
+  matrixRows?: string;
+  matrixCols?: string;
+  descriptionContent?: string;
 }
 
 interface FormsManagerProps {
@@ -95,8 +98,13 @@ export default function FormsManager({
     { value: 'CHECKBOX', label: 'Checkboxes' },
     { value: 'BOOLEAN', label: 'Yes/No' },
     { value: 'URL', label: 'Website URL' },
-    { value: 'FILE', label: 'File Upload' }
+    { value: 'FILE', label: 'File Upload' },
+    { value: 'DESCRIPTION', label: 'Description Section' },
+    { value: 'MATRIX', label: 'Matrix/Grid (Ranking)' }
   ];
+
+  // Debug logging
+  console.log('FormsManager questionTypes:', questionTypes);
 
   const resetForm = () => {
     setNewForm({
@@ -257,7 +265,10 @@ export default function FormsManager({
           options: '',
           minLength: '',
           maxLength: '',
-          pattern: ''
+          pattern: '',
+          matrixRows: '',
+          matrixCols: '',
+          descriptionContent: ''
         });
         setShowAddQuestion(false);
         onReload();
@@ -756,13 +767,36 @@ export default function FormsManager({
                   <label className="block text-sm font-medium text-gray-900 mb-2">Question Type</label>
                   <select
                     value={newQuestion.type}
-                    onChange={(e) => setNewQuestion({...newQuestion, type: e.target.value})}
+                    onChange={(e) => {
+                      console.log('Question type changed to:', e.target.value);
+                      setNewQuestion({...newQuestion, type: e.target.value});
+                    }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    style={{ 
+                      zIndex: 10,
+                      minHeight: '40px',
+                      appearance: 'menulist'
+                    }}
                   >
-                    {questionTypes.map(type => (
-                      <option key={type.value} value={type.value}>{type.label}</option>
-                    ))}
+                    <option value="">Select a question type...</option>
+                    <option value="TEXT">Short Text</option>
+                    <option value="TEXTAREA">Long Text</option>
+                    <option value="EMAIL">Email</option>
+                    <option value="PHONE">Phone Number</option>
+                    <option value="NUMBER">Number</option>
+                    <option value="DATE">Date</option>
+                    <option value="SELECT">Dropdown</option>
+                    <option value="RADIO">Radio Buttons</option>
+                    <option value="CHECKBOX">Checkboxes</option>
+                    <option value="BOOLEAN">Yes/No</option>
+                    <option value="URL">Website URL</option>
+                    <option value="FILE">File Upload</option>
+                    <option value="DESCRIPTION">Description Section</option>
+                    <option value="MATRIX">Matrix/Grid (Ranking)</option>
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Total options: {questionTypes.length} | Current: {newQuestion.type}
+                  </p>
                 </div>
               </div>
 
@@ -793,6 +827,59 @@ export default function FormsManager({
                     Example: <span className="font-mono">["Option 1", "Option 2", "Option 3"]</span><br/>
                     For dropdowns, radio buttons, and checkboxes, enter your options as a JSON array.<br/>
                     <span className="font-semibold text-red-500">Do not use comma-separated values.</span>
+                  </p>
+                </div>
+              )}
+
+              {newQuestion.type === 'MATRIX' && (
+                <div className="space-y-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-2">
+                      Row Items (enter as a JSON array)
+                    </label>
+                    <textarea
+                      value={newQuestion.matrixRows}
+                      onChange={(e) => setNewQuestion({...newQuestion, matrixRows: e.target.value})}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                      rows={3}
+                      placeholder='["Miss Kim", "Direct Digital Holdings", "Project Harvest"]'
+                    />
+                    <p className="text-xs text-gray-600 mt-1">
+                      Items to be ranked/rated (one per row in the matrix)
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-2">
+                      Column Headers (enter as a JSON array)
+                    </label>
+                    <textarea
+                      value={newQuestion.matrixCols}
+                      onChange={(e) => setNewQuestion({...newQuestion, matrixCols: e.target.value})}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                      rows={2}
+                      placeholder='["1", "2", "3", "4", "5", "6"]'
+                    />
+                    <p className="text-xs text-gray-600 mt-1">
+                      Column headers for ranking/rating (e.g., 1-6 for ranking, 1-5 for rating scale)
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {newQuestion.type === 'DESCRIPTION' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Description Content (supports line breaks)
+                  </label>
+                  <textarea
+                    value={newQuestion.descriptionContent}
+                    onChange={(e) => setNewQuestion({...newQuestion, descriptionContent: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    rows={4}
+                    placeholder="Enter your description here. You can use line breaks to format the text."
+                  />
+                  <p className="text-xs text-gray-600 mt-1">
+                    This will be displayed as a formatted text section in the form (not a question)
                   </p>
                 </div>
               )}
@@ -829,7 +916,10 @@ export default function FormsManager({
                       options: '',
                       minLength: '',
                       maxLength: '',
-                      pattern: ''
+                      pattern: '',
+                      matrixRows: '',
+                      matrixCols: '',
+                      descriptionContent: ''
                     });
                   }}
                   className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
@@ -861,6 +951,32 @@ export default function FormsManager({
                       <div className="text-sm text-gray-500">
                         <span className="font-medium">Options: </span>
                         {JSON.parse(question.options).join(', ')}
+                      </div>
+                    )}
+                    {question.type === 'MATRIX' && (question.matrixRows || question.matrixCols) && (
+                      <div className="text-sm text-gray-500">
+                        {question.matrixRows && (
+                          <div>
+                            <span className="font-medium">Rows: </span>
+                            {question.matrixRows.split('\n').filter((r: string) => r.trim()).join(', ')}
+                          </div>
+                        )}
+                        {question.matrixCols && (
+                          <div>
+                            <span className="font-medium">Columns: </span>
+                            {question.matrixCols.split('\n').filter((c: string) => c.trim()).join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {question.type === 'DESCRIPTION' && question.descriptionContent && (
+                      <div className="text-sm text-gray-500 max-w-md">
+                        <span className="font-medium">Content: </span>
+                        <div className="whitespace-pre-wrap truncate">
+                          {question.descriptionContent.length > 100 
+                            ? question.descriptionContent.substring(0, 100) + '...' 
+                            : question.descriptionContent}
+                        </div>
                       </div>
                     )}
                   </div>

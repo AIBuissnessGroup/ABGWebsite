@@ -31,6 +31,7 @@ const navigation = [
   { name: 'Interviews', href: '/admin/interviews', icon: UserGroupIcon },
   { name: 'Companies', href: '/admin/companies', icon: BuildingOfficeIcon },
   { name: 'Forms', href: '/admin/forms', icon: DocumentTextIcon },
+  { name: 'Form Analytics', href: '/admin/analytics/forms', icon: ChartBarIcon },
   { name: 'Newsletter', href: '/admin/newsletter', icon: EnvelopeIcon },
   { name: 'Recruitment', href: '/admin/recruitment', icon: CalendarIcon },
   { name: 'Site Settings', href: '/admin/settings', icon: CogIcon },

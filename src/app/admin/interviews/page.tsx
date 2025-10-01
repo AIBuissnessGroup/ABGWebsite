@@ -650,7 +650,9 @@ export default function AdminInterviewsPage() {
               
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="space-y-6">
-                  {selectedApplication.questions.map((question) => {
+                  {selectedApplication.questions
+                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                    .map((question) => {
                     const response = selectedApplication.responses.find((r: any) => r.questionId === question.id);
                     
                     return (

@@ -75,9 +75,16 @@ export async function POST(
       id: crypto.randomUUID(),
       formId,
       type: data.type,
-      question: data.question,
+      question: data.title, // Use title from frontend
+      description: data.description || null,
       required: Boolean(data.required),
       options: data.options || null,
+      minLength: data.minLength || null,
+      maxLength: data.maxLength || null,
+      pattern: data.pattern || null,
+      matrixRows: data.matrixRows || null,
+      matrixCols: data.matrixCols || null,
+      descriptionContent: data.descriptionContent || null,
       order: newOrder,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -121,9 +128,16 @@ export async function PUT(
 
     const updateData = {
       type: data.type,
-      question: data.question,
+      question: data.title, // Use title from frontend
+      description: data.description || null,
       required: Boolean(data.required),
       options: data.options || null,
+      minLength: data.minLength || null,
+      maxLength: data.maxLength || null,
+      pattern: data.pattern || null,
+      matrixRows: data.matrixRows || null,
+      matrixCols: data.matrixCols || null,
+      descriptionContent: data.descriptionContent || null,
       order: data.order,
       updatedAt: new Date()
     };

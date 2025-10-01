@@ -22,14 +22,33 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const formId = searchParams.get('formId');
     const status = searchParams.get('status');
+    const includeArchived = searchParams.get('includeArchived') === 'true';
 
     await client.connect();
     const db = client.db();
     const applicationsCollection = db.collection('Application');
     const formsCollection = db.collection('Form');
 
+    // First, get forms based on archive status
+    const formFilter: any = {};
+    if (!includeArchived) {
+      // Exclude archived forms by default
+      formFilter.$or = [
+        { isArchived: { $ne: 1 } },
+        { isArchived: { $exists: false } }
+      ];
+    }
+
+    const forms = await formsCollection.find(formFilter, { projection: { id: 1 } }).toArray();
+    const activeFormIds = forms.map(form => form.id);
+
     const whereClause: any = {};
-    if (formId) whereClause.formId = formId;
+    if (formId) {
+      whereClause.formId = formId;
+    } else if (!includeArchived) {
+      // Only show applications from non-archived forms
+      whereClause.formId = { $in: activeFormIds };
+    }
     if (status) whereClause.status = status;
 
     // Get applications

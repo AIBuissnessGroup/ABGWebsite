@@ -14,7 +14,8 @@ import {
   BuildingOfficeIcon,
   EnvelopeIcon,
   CalendarIcon,
-  EyeIcon
+  EyeIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
 import AnalyticsWidget from '@/components/admin/AnalyticsWidget';
 
@@ -127,6 +128,13 @@ export default function AdminDashboard() {
       icon: DocumentTextIcon,
       color: 'bg-emerald-500',
       href: '/admin/forms',
+    },
+    {
+      title: 'Form Analytics',
+      description: 'Analyze form responses',
+      icon: ChartBarIcon,
+      color: 'bg-teal-500',
+      href: '/admin/analytics/forms',
     },
     {
       title: 'Newsletter',

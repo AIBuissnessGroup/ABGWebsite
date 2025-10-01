@@ -59,7 +59,7 @@ export async function POST(
       console.log('WARNING: Multiple records found:', matchingRecords.map(r => ({ id: r.id, email: r.attendee?.umichEmail || r.email, status: r.status })));
     }
     
-    const attendee = await db.collection('EventAttendance').findOne(query);
+    let attendee = await db.collection('EventAttendance').findOne(query);
     console.log('Found attendee:', attendee ? 'Yes' : 'No', attendee ? attendee.status : 'N/A');
     if (attendee) {
       console.log('Attendee details:', {
@@ -72,11 +72,93 @@ export async function POST(
     }
 
     if (!attendee) {
+      // Auto-register the user if they're not already registered
+      console.log('No existing registration found, attempting auto-registration...');
+      
+      // Check if event allows registration (either registration or attendance confirmation enabled)
+      if (!event.registrationEnabled && !event.attendanceConfirmEnabled) {
+        await client.close();
+        return NextResponse.json({ 
+          error: 'Registration is not enabled for this event.',
+          registered: false
+        }, { status: 403 });
+      }
+
+      // Check if registration is still open (before event end time)
+      const now = Date.now();
+      const eventEndTime = event.endDate ? new Date(event.endDate).getTime() : null;
+      
+      if (eventEndTime && now > eventEndTime) {
+        await client.close();
+        return NextResponse.json({ 
+          error: 'Registration for this event has ended.',
+          registered: false
+        }, { status: 403 });
+      }
+
+      // Auto-register the user using upsert to prevent race conditions
+      try {
+        const autoRegistration = {
+          id: `attendance_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          eventId: event.id,
+          attendee: {
+            name: session.user.name || 'Unknown',
+            umichEmail: session.user.email
+          },
+          status: 'confirmed', // Auto-confirm for check-in
+          registeredAt: now,
+          confirmedAt: now,
+          source: 'checkin',
+          checkInCode: `checkin_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        };
+
+        // Use upsert to prevent duplicate registrations in case of race conditions
+        const upsertResult = await db.collection('EventAttendance').updateOne(
+          {
+            eventId: event.id,
+            $or: [
+              { 'attendee.umichEmail': session.user.email },
+              { email: session.user.email }
+            ]
+          },
+          { $setOnInsert: autoRegistration },
+          { upsert: true }
+        );
+
+        if (upsertResult.upsertedId) {
+          console.log('Auto-registration successful:', upsertResult.upsertedId);
+          attendee = { 
+            ...autoRegistration, 
+            _id: upsertResult.upsertedId 
+          };
+        } else {
+          // Registration already existed (race condition), fetch it
+          console.log('Registration already exists, fetching existing record');
+          attendee = await db.collection('EventAttendance').findOne({
+            eventId: event.id,
+            $or: [
+              { 'attendee.umichEmail': session.user.email },
+              { email: session.user.email }
+            ]
+          });
+        }
+      } catch (autoRegError) {
+        console.error('Auto-registration failed:', autoRegError);
+        await client.close();
+        return NextResponse.json({ 
+          error: 'Failed to register for event. Please try again.',
+          registered: false
+        }, { status: 500 });
+      }
+    }
+
+    // Ensure attendee exists at this point (should always be true after auto-registration)
+    if (!attendee) {
       await client.close();
       return NextResponse.json({ 
-        error: 'No registration found for this event. Please register first.',
+        error: 'Unexpected error: No attendee record found.',
         registered: false
-      }, { status: 404 });
+      }, { status: 500 });
     }
 
     // For specific attendee QR codes, check if the authenticated user matches

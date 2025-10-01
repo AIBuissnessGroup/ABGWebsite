@@ -16,6 +16,9 @@ interface Question {
   minLength?: number;
   maxLength?: number;
   pattern?: string;
+  matrixRows?: string;
+  matrixCols?: string;
+  descriptionContent?: string;
 }
 
 interface FormData {
@@ -569,6 +572,81 @@ export default function FormPage() {
                 ✓ {(responses[question.id] as any).fileName} ({Math.round((responses[question.id] as any).fileSize / 1024)}KB)
               </p>
             )}
+          </div>
+        );
+
+      case 'DESCRIPTION':
+        return (
+          <div className="prose prose-invert max-w-none">
+            <div 
+              className="text-white/90 leading-relaxed whitespace-pre-wrap"
+              style={{ color: form?.textColor || '#ffffff' }}
+            >
+              {question.descriptionContent || question.description || 'No content provided.'}
+            </div>
+          </div>
+        );
+
+      case 'MATRIX':
+        const matrixRows = question.matrixRows ? question.matrixRows.split('\n').filter(row => row.trim()) : [];
+        const matrixCols = question.matrixCols ? question.matrixCols.split('\n').filter(col => col.trim()) : [];
+        
+        if (matrixRows.length === 0 || matrixCols.length === 0) {
+          return (
+            <div className="text-white/70 text-sm">
+              Matrix configuration incomplete. Please contact the form administrator.
+            </div>
+          );
+        }
+
+        return (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-white/20">
+              <thead>
+                <tr>
+                  <th className="border border-white/20 p-3 bg-white/5 text-white font-medium text-left">
+                    Criteria
+                  </th>
+                  {matrixCols.map((col, index) => (
+                    <th key={index} className="border border-white/20 p-3 bg-white/5 text-white font-medium text-center">
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {matrixRows.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    <td className="border border-white/20 p-3 text-white font-medium">
+                      {row}
+                    </td>
+                    {matrixCols.map((col, colIndex) => (
+                      <td key={colIndex} className="border border-white/20 p-3 text-center">
+                        <input
+                          type="radio"
+                          name={`${question.id}_${rowIndex}`}
+                          value={col}
+                          checked={
+                            Array.isArray(value) 
+                              ? value[rowIndex] === col
+                              : (typeof value === 'object' && value !== null)
+                                ? value[rowIndex] === col
+                                : false
+                          }
+                          onChange={(e) => {
+                            const newMatrixValue = Array.isArray(value) ? [...value] : new Array(matrixRows.length);
+                            newMatrixValue[rowIndex] = e.target.value;
+                            setResponses({...responses, [question.id]: newMatrixValue});
+                          }}
+                          className="w-4 h-4"
+                          required={question.required}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         );
 

@@ -18,6 +18,7 @@ export const authOptions: NextAuthOptions = {
           response_type: "code",
           // These parameters help prevent the disallowed_useragent error
           include_granted_scopes: "true",
+          scope: "openid email profile https://www.googleapis.com/auth/forms.body.readonly",
         }
       },
       // Additional configuration to handle user agent issues
@@ -73,11 +74,16 @@ export const authOptions: NextAuthOptions = {
         // Add user ID and role to session from token
         session.user.id = token.sub || '';
         session.user.role = token.role || 'USER';
+        // Add access token for Google API calls
+        session.accessToken = token.accessToken as string;
       }
       return session;
     },
     async jwt({ token, user, account }) {
       if (user && account) {
+        // Store the access token for Google API calls
+        token.accessToken = account.access_token;
+        
         // Check if user should be admin based on email
         if (user.email && isAdminEmail(user.email)) {
           token.role = 'ADMIN';

@@ -9,6 +9,7 @@ declare module 'next-auth' {
       image?: string | null;
       role: 'USER' | 'ADMIN' | 'SUPER_ADMIN';
     };
+    accessToken?: string;
   }
 
   interface User {
@@ -20,5 +21,6 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     role: 'USER' | 'ADMIN' | 'SUPER_ADMIN';
+    accessToken?: string;
   }
 } 

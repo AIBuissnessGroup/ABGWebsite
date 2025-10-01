@@ -57,6 +57,22 @@ export default function FormsAdmin() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
+  
+  // Google Forms import state
+  const [showGoogleImport, setShowGoogleImport] = useState(false);
+  const [googleFormUrl, setGoogleFormUrl] = useState('');
+  const [importingGoogle, setImportingGoogle] = useState(false);
+  const [googleImportResult, setGoogleImportResult] = useState<any>(null);
+
+  // Form filtering state
+  const [formSearchQuery, setFormSearchQuery] = useState('');
+  const [selectedFormCategory, setSelectedFormCategory] = useState('all');
+  const [formStatusFilter, setFormStatusFilter] = useState('all'); // all, active, inactive, archived
+  const [sortBy, setSortBy] = useState('newest'); // newest, oldest, name-asc, name-desc
+
+  // Application filtering state
+  const [includeArchivedApplications, setIncludeArchivedApplications] = useState(false);
+  const [selectedApplicationForm, setSelectedApplicationForm] = useState('all');
 
   // Check authentication
   useEffect(() => {
@@ -86,7 +102,7 @@ export default function FormsAdmin() {
   useEffect(() => {
     if (session?.user) {
       loadForms();
-      loadApplications();
+      loadApplications(includeArchivedApplications, selectedApplicationForm);
       loadCustomStatuses();
     }
   }, [session]);
@@ -94,13 +110,23 @@ export default function FormsAdmin() {
 
 
   // Load responses for a specific form
-  const loadFormResponses = async (formId: string) => {
+  const loadFormResponses = async (formId: string, isArchived: boolean = false) => {
     if (!formId) {
       console.error('Form ID is required to load responses');
       return;
     }
     
     try {
+      // For archived forms, show a warning and require explicit confirmation
+      if (isArchived) {
+        const shouldLoad = confirm(
+          'This form is archived and may have many responses. Loading all responses might take some time. Do you want to continue?'
+        );
+        if (!shouldLoad) {
+          return;
+        }
+      }
+
       const res = await fetch(`/api/admin/applications?formId=${formId}`);
       const data = await res.json();
       if (data && !data.error) {
@@ -223,10 +249,19 @@ export default function FormsAdmin() {
     }
   };
 
-  const loadApplications = async () => {
+  const loadApplications = async (includeArchived: boolean = false, formFilter: string = 'all') => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/applications');
+      const params = new URLSearchParams();
+      if (includeArchived) {
+        params.append('includeArchived', 'true');
+      }
+      if (formFilter !== 'all') {
+        params.append('formId', formFilter);
+      }
+
+      const url = `/api/admin/applications${params.toString() ? '?' + params.toString() : ''}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (data && !data.error) {
         setApplications(data);
@@ -293,7 +328,7 @@ export default function FormsAdmin() {
       });
 
       if (res.ok) {
-        loadApplications(); // Reload to get updated data
+        loadApplications(includeArchivedApplications, selectedApplicationForm); // Reload to get updated data
       } else {
         alert('Error updating application status');
       }
@@ -312,6 +347,89 @@ export default function FormsAdmin() {
       console.error('Failed to copy link:', err);
     }
   };
+
+  // Import Google Form using OAuth
+  const importGoogleForm = async () => {
+    if (!googleFormUrl.trim()) {
+      alert('Please enter a Google Form URL');
+      return;
+    }
+
+    setImportingGoogle(true);
+    setGoogleImportResult(null);
+
+    try {
+      const res = await fetch('/api/admin/forms/import-google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formUrl: googleFormUrl.trim() })
+      });
+
+      const result = await res.json();
+      setGoogleImportResult(result);
+
+      if (res.ok && result.success) {
+        await loadForms();
+        setGoogleFormUrl('');
+        setTimeout(() => setShowGoogleImport(false), 3000);
+      }
+    } catch (error) {
+      console.error('Error importing Google Form:', error);
+      setGoogleImportResult({ error: 'Failed to import Google Form. Please try again.' });
+    } finally {
+      setImportingGoogle(false);
+    }
+  };
+
+
+
+  // Filter and sort forms
+  const filteredAndSortedForms = forms.filter((form) => {
+    // Search query filter
+    if (formSearchQuery.trim()) {
+      const query = formSearchQuery.toLowerCase();
+      const matchesTitle = form.title.toLowerCase().includes(query);
+      const matchesDescription = form.description?.toLowerCase()?.includes(query);
+      const matchesSlug = form.slug?.toLowerCase()?.includes(query);
+      if (!matchesTitle && !matchesDescription && !matchesSlug) {
+        return false;
+      }
+    }
+
+    // Category filter
+    if (selectedFormCategory !== 'all' && form.category !== selectedFormCategory) {
+      return false;
+    }
+
+    // Status filter
+    if (formStatusFilter === 'active' && !form.isActive) {
+      return false;
+    }
+    if (formStatusFilter === 'inactive' && form.isActive) {
+      return false;
+    }
+    if (formStatusFilter === 'archived' && !form.isArchived) {
+      return false;
+    }
+    if (formStatusFilter === 'all' && form.isArchived) {
+      // Don't show archived forms in "all" by default
+      return false;
+    }
+
+    return true;
+  }).sort((a, b) => {
+    switch (sortBy) {
+      case 'oldest':
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      case 'name-asc':
+        return a.title.localeCompare(b.title);
+      case 'name-desc':
+        return b.title.localeCompare(a.title);
+      case 'newest':
+      default:
+        return (b.createdAt || 0) - (a.createdAt || 0);
+    }
+  });
 
   const toggleApplicationExpanded = (applicationId: string) => {
     const newExpanded = new Set(expandedApplications);
@@ -580,6 +698,53 @@ export default function FormsAdmin() {
     };
   };
 
+  // Analytics data processing
+  const getAnalyticsData = () => {
+    // Question Analysis
+    const questionAnalysis = {
+      totalQuestions: 0,
+      questionTypes: {} as Record<string, number>,
+      averageQuestionsPerForm: 0,
+      responseRates: {} as Record<string, number>
+    };
+
+    forms.forEach((form: any) => {
+      if (form.questions) {
+        questionAnalysis.totalQuestions += form.questions.length;
+        form.questions.forEach((question: any) => {
+          const type = question.type || 'TEXT';
+          questionAnalysis.questionTypes[type] = (questionAnalysis.questionTypes[type] || 0) + 1;
+        });
+      }
+    });
+
+    if (forms.length > 0) {
+      questionAnalysis.averageQuestionsPerForm = Math.round(questionAnalysis.totalQuestions / forms.length * 10) / 10;
+    }
+
+    // Response Status Distribution
+    const statusDistribution = {} as Record<string, number>;
+    const allStatuses = getAllStatuses();
+    
+    // Initialize all statuses with 0
+    allStatuses.forEach(status => {
+      statusDistribution[status.name] = 0;
+    });
+
+    // Count actual statuses
+    applications.forEach((app: any) => {
+      const status = app.status || 'PENDING';
+      statusDistribution[status] = (statusDistribution[status] || 0) + 1;
+    });
+
+    return {
+      questionAnalysis,
+      statusDistribution,
+      totalApplications: applications.length,
+      totalForms: forms.length
+    };
+  };
+
   if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -631,6 +796,19 @@ export default function FormsAdmin() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
             Custom Statuses
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+              activeTab === 'analytics' 
+                ? 'bg-[#00274c] text-white admin-white-text' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Analytics
           </button>
           <button
             onClick={() => setActiveTab('create')}
@@ -732,6 +910,37 @@ export default function FormsAdmin() {
                   </option>
                 ))}
               </select>
+
+              <select
+                value={selectedApplicationForm}
+                onChange={(e) => {
+                  setSelectedApplicationForm(e.target.value);
+                  loadApplications(includeArchivedApplications, e.target.value);
+                }}
+                className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#00274c]"
+              >
+                <option value="all">All Forms</option>
+                {forms.map((form: any) => (
+                  <option key={form.id} value={form.id}>
+                    {form.title} {form.isArchived ? '(Archived)' : ''}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                onClick={() => {
+                  const newValue = !includeArchivedApplications;
+                  setIncludeArchivedApplications(newValue);
+                  loadApplications(newValue, selectedApplicationForm);
+                }}
+                className={`px-3 py-1 border rounded text-sm font-medium transition-colors ${
+                  includeArchivedApplications
+                    ? 'bg-orange-100 border-orange-300 text-orange-800 hover:bg-orange-200'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {includeArchivedApplications ? 'Hide Archived' : 'Load Archived'}
+              </button>
 
 
 
@@ -908,7 +1117,9 @@ export default function FormsAdmin() {
                       <div>
                         <h5 className="font-medium text-gray-900 mb-3">Application Responses</h5>
                         <div className="space-y-3">
-                          {(app.responses || []).map((response: any) => {
+                          {(app.responses || [])
+                            .sort((a: any, b: any) => (a.question?.order || 0) - (b.question?.order || 0))
+                            .map((response: any) => {
                             // Debug logging for file responses
                             if (response.question?.type === 'FILE') {
                               console.log('File response debug:', {
@@ -986,6 +1197,35 @@ export default function FormsAdmin() {
                                       // This is a file question but no file was uploaded
                                       return <span className="text-gray-500 italic">No file uploaded</span>;
                                     }
+                                  }
+                                  
+                                  // Handle matrix responses with ranking display
+                                  if (response.question?.type === 'MATRIX' && response.selectedOptions) {
+                                    try {
+                                      const selections = JSON.parse(response.selectedOptions);
+                                      if (Array.isArray(selections)) {
+                                        const matrixRows = response.question.matrixRows ? response.question.matrixRows.split('\n').filter((r: string) => r.trim()) : [];
+                                        return (
+                                          <div className="space-y-1">
+                                            {selections.map((selection: string, index: number) => (
+                                              <div key={index} className="flex justify-between text-sm">
+                                                <span className="font-medium">{matrixRows[index] || `Row ${index + 1}`}:</span>
+                                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                                                  {selection || 'Not ranked'}
+                                                </span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        );
+                                      }
+                                    } catch (e) {
+                                      return response.selectedOptions;
+                                    }
+                                  }
+                                  
+                                  // Handle description type (no response needed)
+                                  if (response.question?.type === 'DESCRIPTION') {
+                                    return <span className="text-gray-500 italic">Description section (no response required)</span>;
                                   }
                                   
                                   // Handle other response types - prioritize file URLs first
@@ -1095,6 +1335,15 @@ export default function FormsAdmin() {
             <h2 className="text-xl font-semibold text-gray-900">Manage Forms</h2>
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setShowGoogleImport(v => !v)}
+                className="px-4 py-2 rounded-lg border border-green-300 text-green-700 hover:bg-green-50 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                </svg>
+                Import Google Form
+              </button>
+              <button
                 onClick={() => setShowImport(v => !v)}
                 className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
               >
@@ -1108,6 +1357,156 @@ export default function FormsAdmin() {
               </button>
             </div>
           </div>
+
+          {showGoogleImport && (
+            <div className="bg-white p-4 rounded-lg border border-green-200 bg-green-50">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-green-600" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                  </svg>
+                  Import Google Form
+                </h4>
+                <button className="text-sm text-gray-500 hover:text-gray-700" onClick={() => setShowGoogleImport(false)}>Close</button>
+              </div>
+              <div className="text-sm text-gray-600 mb-3">
+                <p className="mb-2">Paste a Google Form link to automatically recreate it on your website.</p>
+                <div className="bg-green-50 border border-green-200 rounded p-2 text-xs">
+                  <p className="font-semibold text-green-800 mb-1">� OAuth Authentication Active:</p>
+                  <ul className="list-disc list-inside text-green-700 space-y-1">
+                    <li>Uses your Google account credentials</li>
+                    <li>Can access forms you have permission to view</li>
+                    <li>Supports both public and private forms</li>
+                    <li>More reliable and secure than API keys</li>
+                  </ul>
+                </div>
+                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                  <p className="font-semibold text-blue-800 mb-1">DOES NOT WORK YET!!!</p>
+                  <p className="text-blue-700">
+                    Your signed-in Google account is used to fetch form data via the Google Forms API. 
+                    You can import any form you have access to view.
+                  </p>
+                </div>
+                <details className="mt-2">
+                </details>
+              </div>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <input 
+                  type="url"
+                  value={googleFormUrl}
+                  onChange={(e) => setGoogleFormUrl(e.target.value)}
+                  placeholder="https://docs.google.com/forms/d/..."
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                />
+                <button
+                  disabled={!googleFormUrl.trim() || importingGoogle}
+                  onClick={importGoogleForm}
+                  className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                  {importingGoogle ? (
+                    <>
+                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Importing...
+                    </>
+                  ) : (
+                    'Import Form'
+                  )}
+                </button>
+              </div>
+              {googleImportResult && (
+                <div className={`mt-3 p-3 rounded border text-sm ${
+                  googleImportResult.success 
+                    ? 'bg-green-100 border-green-300 text-green-800' 
+                    : 'bg-red-100 border-red-300 text-red-800'
+                }`}>
+                  {googleImportResult.success ? (
+                    <div>
+                      <p className="font-semibold">✅ Success!</p>
+                      <p>{googleImportResult.message}</p>
+                      <p className="mt-1">Questions: {googleImportResult.questions}, Sections: {googleImportResult.sections}</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="font-semibold">❌ Error</p>
+                      <p className="mb-2">{googleImportResult.error}</p>
+                      
+                      {googleImportResult.error?.includes('OAuth access token missing') && (
+                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                          <p className="font-semibold text-yellow-800 mb-2">🔄 Re-authentication Required</p>
+                          <p className="text-yellow-700 text-sm mb-3">
+                            You need to sign out and sign back in to get Google Forms API permissions.
+                          </p>
+                          <button
+                            onClick={() => {
+                              if (typeof window !== 'undefined') {
+                                import('next-auth/react').then(({ signOut }) => {
+                                  signOut({ callbackUrl: window.location.origin + '/auth/signin' });
+                                });
+                              }
+                            }}
+                            className="px-3 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm font-medium"
+                          >
+                            Sign Out & Re-authenticate
+                          </button>
+                        </div>
+                      )}
+                      
+                      <div className="mt-3">
+                        <p className="font-semibold mb-1">💡 Troubleshooting Tips:</p>
+                        <ul className="list-disc list-inside space-y-1 text-sm">
+                          <li>Ensure you have <strong>view access</strong> to the Google Form</li>
+                          <li>Check that the URL is complete and starts with https://docs.google.com/forms/</li>
+                          <li>Try signing out and back in to refresh your Google permissions</li>
+                          <li>Make sure the Google Forms API is enabled in your Google Cloud project</li>
+                        </ul>
+                      </div>
+                      
+                      {googleImportResult.suggestions && googleImportResult.suggestions.length > 0 && (
+                        <div className="mt-2">
+                          <p className="font-semibold mb-1">Additional suggestions:</p>
+                          <ul className="list-disc list-inside space-y-1">
+                            {googleImportResult.suggestions.map((suggestion: string, index: number) => (
+                              <li key={index}>{suggestion}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {googleImportResult.helpText && (
+                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
+                          <p className="text-red-700">{googleImportResult.helpText}</p>
+                        </div>
+                      )}
+
+                      {googleImportResult.needsReauth && (
+                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                          <p className="text-yellow-800 font-semibold mb-2">🔄 Re-authentication Required</p>
+                          <p className="text-yellow-700 text-sm mb-3">
+                            To use Google Forms import, you need to sign out and sign back in to grant Google Forms API permissions.
+                          </p>
+                          <button
+                            onClick={() => {
+                              // Import signOut from next-auth/react at the top of the file
+                              if (typeof window !== 'undefined') {
+                                import('next-auth/react').then(({ signOut }) => {
+                                  signOut({ callbackUrl: window.location.href });
+                                });
+                              }
+                            }}
+                            className="bg-yellow-600 text-white px-4 py-2 rounded text-sm hover:bg-yellow-700 font-medium"
+                          >
+                            Sign Out & Re-authenticate
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {showImport && (
             <div className="bg-white p-4 rounded-lg border border-gray-200">
@@ -1140,9 +1539,85 @@ export default function FormsAdmin() {
             </div>
           )}
 
+          {/* Form Filters */}
+          <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-2 mb-3">
+              <FunnelIcon className="w-5 h-5 text-gray-500" />
+              <h4 className="font-medium text-gray-900">Filter Forms</h4>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Search Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <input
+                  type="text"
+                  value={formSearchQuery}
+                  onChange={(e) => setFormSearchQuery(e.target.value)}
+                  placeholder="Search forms..."
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Category Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select
+                  value={selectedFormCategory}
+                  onChange={(e) => setSelectedFormCategory(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Categories</option>
+                  <option value="general">General</option>
+                  <option value="application">Application</option>
+                  <option value="event">Event Registration</option>
+                  <option value="partnership">Partnership</option>
+                  <option value="internship">Internship</option>
+                  <option value="feedback">Feedback</option>
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={formStatusFilter}
+                  onChange={(e) => setFormStatusFilter(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">Active Forms</option>
+                  <option value="active">Active Only</option>
+                  <option value="inactive">Inactive Only</option>
+                  <option value="archived">Archived Only</option>
+                </select>
+              </div>
+
+              {/* Sort By */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="name-asc">Name A-Z</option>
+                  <option value="name-desc">Name Z-A</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Results Summary */}
+            <div className="mt-3 text-sm text-gray-500">
+              Showing {filteredAndSortedForms.length} of {forms.length} forms
+              {formSearchQuery && <span> matching "{formSearchQuery}"</span>}
+            </div>
+          </div>
+
           <div className="grid gap-6">
-            {forms.map((form) => (
-              <div key={form.id} className="bg-white rounded-lg shadow-md p-6">
+            {filteredAndSortedForms.map((form) => (
+              <div key={form.id} className={`bg-white rounded-lg shadow-md p-6 ${form.isArchived ? 'opacity-75 border-2 border-dashed border-orange-200' : ''}`}>
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -1157,6 +1632,11 @@ export default function FormsAdmin() {
                       }`}>
                         {form.isActive ? 'Active' : 'Inactive'}
                       </span>
+                      {form.isArchived && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                          Archived
+                        </span>
+                      )}
                       <span className="text-sm text-gray-500">
                         {form._count?.applications || 0} submissions
                       </span>
@@ -1194,7 +1674,7 @@ export default function FormsAdmin() {
                       onClick={() => {
                         setSelectedForm(form);
                         setActiveTab('responses');
-                        loadFormResponses(form.id);
+                        loadFormResponses(form.id, form.isArchived);
                       }}
                       className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded"
                       title="View Responses"
@@ -1214,6 +1694,25 @@ export default function FormsAdmin() {
                       title="Edit Form"
                     >
                       <PencilIcon className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => toggleArchiveForm(form.id, form.isArchived)}
+                      className={`p-2 rounded ${
+                        form.isArchived 
+                          ? 'text-blue-600 hover:text-blue-900 hover:bg-blue-50' 
+                          : 'text-orange-600 hover:text-orange-900 hover:bg-orange-50'
+                      }`}
+                      title={form.isArchived ? 'Unarchive Form' : 'Archive Form'}
+                    >
+                      {form.isArchived ? (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8l6 6V9h5a2 2 0 012 2v1M1 1l22 22m0 0l-6-6M7 3a1 1 0 000 2v1a1 1 0 001 1h9a1 1 0 001-1V5a1 1 0 100-2H8a1 1 0 00-1 1z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8l6 6V9h5a2 2 0 012 2v1M1 1l22 22" />
+                        </svg>
+                      )}
                     </button>
                     <button
                       onClick={() => deleteForm(form.id)}
@@ -1276,6 +1775,25 @@ export default function FormsAdmin() {
                 className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
               >
                 Create Form
+              </button>
+            </div>
+          )}
+
+          {forms.length > 0 && filteredAndSortedForms.length === 0 && (
+            <div className="text-center py-12">
+              <FunnelIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No forms match your filters</h3>
+              <p className="text-gray-600 mb-4">Try adjusting your search query or filters to see more forms.</p>
+              <button
+                onClick={() => {
+                  setFormSearchQuery('');
+                  setSelectedFormCategory('all');
+                  setFormStatusFilter('all');
+                  setSortBy('newest');
+                }}
+                className="text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Clear All Filters
               </button>
             </div>
           )}
@@ -1426,7 +1944,9 @@ export default function FormsAdmin() {
                       <div>
                         <h5 className="font-medium text-gray-900 mb-3">Response Details</h5>
                         <div className="space-y-3">
-                          {response.responses.map((answer: any) => (
+                          {response.responses
+                            .sort((a: any, b: any) => (a.question?.order || 0) - (b.question?.order || 0))
+                            .map((answer: any) => (
                             <div key={answer.id} className="text-sm">
                               <span className="font-medium text-gray-900 block">{answer.question.title}:</span>
                               <span className="text-gray-700 mt-1 block pl-2 border-l-2 border-gray-200">
@@ -1460,6 +1980,35 @@ export default function FormsAdmin() {
                                     }
                                   }
                                   
+                                  // Handle matrix responses with ranking display
+                                  if (answer.question?.type === 'MATRIX' && answer.selectedOptions) {
+                                    try {
+                                      const selections = JSON.parse(answer.selectedOptions);
+                                      if (Array.isArray(selections)) {
+                                        const matrixRows = answer.question.matrixRows ? answer.question.matrixRows.split('\n').filter((r: string) => r.trim()) : [];
+                                        return (
+                                          <div className="space-y-1">
+                                            {selections.map((selection: string, index: number) => (
+                                              <div key={index} className="flex justify-between text-sm">
+                                                <span className="font-medium">{matrixRows[index] || `Row ${index + 1}`}:</span>
+                                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                                                  {selection || 'Not ranked'}
+                                                </span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        );
+                                      }
+                                    } catch (e) {
+                                      return answer.selectedOptions;
+                                    }
+                                  }
+                                  
+                                  // Handle description type (no response needed)
+                                  if (answer.question?.type === 'DESCRIPTION') {
+                                    return <span className="text-gray-500 italic">Description section (no response required)</span>;
+                                  }
+                                  
                                   // Handle other response types
                                   return answer.textValue || 
                                          answer.numberValue || 
@@ -1483,47 +2032,7 @@ export default function FormsAdmin() {
 
                       {/* Status Management */}
                       <div>
-                        <h5 className="font-medium text-gray-900 mb-3">Response Management</h5>
-                        
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                            <select
-                              value={response.status}
-                              onChange={(e) => updateApplicationStatus(response.id, e.target.value, response.adminNotes)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-                            >
-                              <option value="PENDING">Pending Review</option>
-                              <option value="REVIEWING">Under Review</option>
-                              <option value="ACCEPTED">Accepted</option>
-                              <option value="REJECTED">Rejected</option>
-                              <option value="WAITLISTED">Waitlisted</option>
-                              <option value="WITHDRAWN">Withdrawn</option>
-                            </select>
-                          </div>
 
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Admin Notes</label>
-                            <textarea
-                              defaultValue={response.adminNotes || ''}
-                              placeholder="Add notes about this response..."
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-                              rows={3}
-                              onBlur={(e) => {
-                                if (e.target.value !== (response.adminNotes || '')) {
-                                  updateApplicationStatus(response.id, response.status, e.target.value);
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {response.reviewedBy && (
-                            <div className="text-sm text-gray-600">
-                              <p>Reviewed by: {response.reviewer?.email || response.reviewer?.name}</p>
-                              <p>Review date: {new Date(response.reviewedAt).toLocaleDateString()}</p>
-                            </div>
-                          )}
-                          
                           <div className="text-sm text-gray-500 mt-3 pt-3 border-t">
                             <p><strong>IP Address:</strong> {response.ipAddress || 'Not recorded'}</p>
                             {response.userAgent && (
@@ -1533,7 +2042,6 @@ export default function FormsAdmin() {
                         </div>
                       </div>
                     </div>
-                  </div>
                 )}
               </div>
             ))}
@@ -1551,6 +2059,225 @@ export default function FormsAdmin() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Analytics Tab */}
+      {activeTab === 'analytics' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Forms Analytics</h2>
+              <p className="text-gray-600">Analyze form usage, question types, and response patterns</p>
+            </div>
+          </div>
+
+          {(() => {
+            const analyticsData = getAnalyticsData();
+            
+            return (
+              <div className="space-y-6">
+                {/* Overview Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <div className="text-2xl font-bold text-blue-600">{analyticsData.totalForms}</div>
+                    <div className="text-sm text-gray-600">Total Forms</div>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <div className="text-2xl font-bold text-green-600">{analyticsData.totalApplications}</div>
+                    <div className="text-sm text-gray-600">Total Applications</div>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <div className="text-2xl font-bold text-purple-600">{analyticsData.questionAnalysis.totalQuestions}</div>
+                    <div className="text-sm text-gray-600">Total Questions</div>
+                  </div>
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <div className="text-2xl font-bold text-orange-600">{analyticsData.questionAnalysis.averageQuestionsPerForm}</div>
+                    <div className="text-sm text-gray-600">Avg Questions/Form</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Question Analysis */}
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Question Analysis</h3>
+                    
+                    {Object.keys(analyticsData.questionAnalysis.questionTypes).length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="text-sm text-gray-600 mb-3">
+                          Distribution of question types across all forms
+                        </div>
+                        
+                        {Object.entries(analyticsData.questionAnalysis.questionTypes)
+                          .sort(([,a], [,b]) => b - a)
+                          .map(([type, count]) => {
+                            const percentage = Math.round((count / analyticsData.questionAnalysis.totalQuestions) * 100);
+                            const typeLabels: Record<string, string> = {
+                              'TEXT': 'Text Input',
+                              'TEXTAREA': 'Long Text',
+                              'SELECT': 'Dropdown',
+                              'RADIO': 'Multiple Choice',
+                              'CHECKBOX': 'Checkboxes',
+                              'BOOLEAN': 'Yes/No',
+                              'NUMBER': 'Number',
+                              'EMAIL': 'Email',
+                              'PHONE': 'Phone',
+                              'DATE': 'Date',
+                              'FILE': 'File Upload',
+                              'DESCRIPTION': 'Description/Text Block',
+                              'MATRIX': 'Matrix/Grid'
+                            };
+                            
+                            return (
+                              <div key={type} className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between text-sm mb-1">
+                                    <span className="font-medium text-gray-900">
+                                      {typeLabels[type] || type}
+                                    </span>
+                                    <span className="text-gray-600">{count} ({percentage}%)</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                      style={{ width: `${percentage}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No question data available</h3>
+                        <p className="text-gray-600">Create forms with questions to see analysis here.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Response Status Distribution */}
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Response Status Distribution</h3>
+                    
+                    {analyticsData.totalApplications > 0 ? (
+                      <div className="space-y-4">
+                        <div className="text-sm text-gray-600 mb-3">
+                          Distribution of application statuses across all forms
+                        </div>
+                        
+                        {Object.entries(analyticsData.statusDistribution)
+                          .filter(([, count]) => count > 0)
+                          .sort(([,a], [,b]) => b - a)
+                          .map(([status, count]) => {
+                            const percentage = Math.round((count / analyticsData.totalApplications) * 100);
+                            const statusInfo = getAllStatuses().find(s => s.name === status);
+                            const statusLabel = statusInfo?.label || status;
+                            const statusColor = statusInfo?.color || '#6B7280';
+                            
+                            return (
+                              <div key={status} className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between text-sm mb-1">
+                                    <div className="flex items-center gap-2">
+                                      <div 
+                                        className="w-3 h-3 rounded-full" 
+                                        style={{ backgroundColor: statusColor }}
+                                      ></div>
+                                      <span className="font-medium text-gray-900">{statusLabel}</span>
+                                    </div>
+                                    <span className="text-gray-600">{count} ({percentage}%)</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className="h-2 rounded-full transition-all duration-300" 
+                                      style={{ 
+                                        width: `${percentage}%`,
+                                        backgroundColor: statusColor
+                                      }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No application data available</h3>
+                        <p className="text-gray-600">Applications need to be submitted to see status distribution.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Additional Analytics */}
+                <div className="bg-white rounded-lg shadow-sm border p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Form Performance</h3>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Form</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Questions</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applications</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {forms.map((form: any) => {
+                          const formApplications = applications.filter((app: any) => app.formId === form.id);
+                          return (
+                            <tr key={form.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-medium text-gray-900">{form.title}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
+                                  {form.category || 'general'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {form.questions?.length || 0}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {formApplications.length}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  form.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {form.isActive ? 'Active' : 'Inactive'}
+                                </span>
+                                {form.isArchived && (
+                                  <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+                                    Archived
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  {forms.length === 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">No forms available for analysis.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1729,7 +2456,7 @@ export default function FormsAdmin() {
         const res = await fetch(`/api/admin/forms?id=${id}`, { method: 'DELETE' });
         if (res.ok) {
           loadForms();
-          loadApplications();
+          loadApplications(includeArchivedApplications, selectedApplicationForm);
         } else {
           const error = await res.json();
           alert(`Failed to delete form: ${error.error || 'Unknown error'}`);
@@ -1737,6 +2464,41 @@ export default function FormsAdmin() {
       } catch (error) {
         console.error('Error deleting form:', error);
         alert('Failed to delete form');
+      }
+    }
+  }
+
+  // Helper function to archive/unarchive form
+  async function toggleArchiveForm(formId: string, isCurrentlyArchived: boolean) {
+    if (!formId) {
+      alert('Form ID is missing');
+      return;
+    }
+
+    const action = isCurrentlyArchived ? 'unarchive' : 'archive';
+    const confirmMessage = isCurrentlyArchived 
+      ? 'Are you sure you want to unarchive this form? It will become active again.'
+      : 'Are you sure you want to archive this form? It will be hidden from the main list and become inactive.';
+
+    if (confirm(confirmMessage)) {
+      try {
+        const res = await fetch(`/api/admin/forms/${formId}/archive`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action })
+        });
+
+        const result = await res.json();
+
+        if (res.ok && result.success) {
+          loadForms();
+          loadApplications(includeArchivedApplications, selectedApplicationForm);
+        } else {
+          alert(`Failed to ${action} form: ${result.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        console.error(`Error ${action}ing form:`, error);
+        alert(`Failed to ${action} form`);
       }
     }
   }
@@ -1811,7 +2573,11 @@ function FormEditor({ form, onClose, onSave }: any) {
           ...q,
           id: q.id || `question-${index}-${Date.now()}`, // Ensure each question has an ID
           // Convert options array back to string for editing
-          options: Array.isArray(q.options) ? q.options.join('\n') : q.options
+          options: Array.isArray(q.options) ? q.options.join('\n') : q.options,
+          // Ensure matrix fields are properly loaded
+          matrixRows: q.matrixRows || null,
+          matrixCols: q.matrixCols || null,
+          descriptionContent: q.descriptionContent || null
         }));
         setQuestions(questionsWithIds.sort((a: any, b: any) => a.order - b.order));
         console.log('Questions set:', questionsWithIds);
@@ -1855,7 +2621,10 @@ function FormEditor({ form, onClose, onSave }: any) {
       options: null,
       minLength: null,
       maxLength: null,
-      pattern: null
+      pattern: null,
+      matrixRows: null,
+      matrixCols: null,
+      descriptionContent: null
     };
     setQuestions([...questions, newQuestion]);
   };
@@ -1900,7 +2669,10 @@ function FormEditor({ form, onClose, onSave }: any) {
             : null,
           minLength: q.minLength || null,
           maxLength: q.maxLength || null,
-          pattern: q.pattern || null
+          pattern: q.pattern || null,
+          matrixRows: q.matrixRows || null,
+          matrixCols: q.matrixCols || null,
+          descriptionContent: q.descriptionContent || null
         }))
       };
 
@@ -1912,6 +2684,15 @@ function FormEditor({ form, onClose, onSave }: any) {
 
       console.log('Saving form with payload:', payload);
       console.log('Questions being sent:', payload.questions);
+      payload.questions.forEach((q: any, i: number) => {
+        console.log(`Question ${i}:`, {
+          title: q.title,
+          type: q.type,
+          matrixRows: q.matrixRows,
+          matrixCols: q.matrixCols,
+          descriptionContent: q.descriptionContent
+        });
+      });
 
       const res = await fetch(url, {
         method,
@@ -2306,6 +3087,8 @@ function FormEditor({ form, onClose, onSave }: any) {
                         <option value="FILE">File Upload</option>
                         <option value="URL">URL</option>
                         <option value="BOOLEAN">Yes/No</option>
+                        <option value="DESCRIPTION">Description Section</option>
+                        <option value="MATRIX">Matrix/Grid (Ranking)</option>
                       </select>
                     </div>
                   </div>
@@ -2341,6 +3124,47 @@ function FormEditor({ form, onClose, onSave }: any) {
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
                       placeholder="Option 1&#10;Option 2&#10;Option 3"
                     />
+                  </div>
+                )}
+
+                {question.type === 'MATRIX' && (
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Matrix Rows (one per line)</label>
+                      <textarea
+                        value={question.matrixRows || ''}
+                        onChange={(e) => updateQuestion(index, 'matrixRows', e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
+                        placeholder="Row 1 (e.g., Quality)&#10;Row 2 (e.g., Price)&#10;Row 3 (e.g., Service)"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Matrix Columns (one per line)</label>
+                      <textarea
+                        value={question.matrixCols || ''}
+                        onChange={(e) => updateQuestion(index, 'matrixCols', e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
+                        placeholder="Excellent&#10;Good&#10;Fair&#10;Poor"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {question.type === 'DESCRIPTION' && (
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description Content</label>
+                    <textarea
+                      value={question.descriptionContent || ''}
+                      onChange={(e) => updateQuestion(index, 'descriptionContent', e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
+                      placeholder="Enter the text content to display. Line breaks will be preserved."
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      This content will be displayed as formatted text with line breaks preserved.
+                    </p>
                   </div>
                 )}
 

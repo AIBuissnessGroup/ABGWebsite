@@ -52,6 +52,8 @@ export default function AdminLayout({
   const [isMobile, setIsMobile] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
+
+
   // Mobile detection
   useEffect(() => {
     setIsClient(true);
