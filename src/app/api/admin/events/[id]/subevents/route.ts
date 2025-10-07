@@ -19,10 +19,10 @@ export async function OPTIONS() {
 // GET all subevents for a parent event
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params; // Await params before accessing properties
     const client = new MongoClient(process.env.DATABASE_URL!);
     await client.connect();
     const db = client.db();

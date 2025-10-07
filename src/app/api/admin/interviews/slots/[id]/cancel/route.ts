@@ -7,14 +7,15 @@ const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8y
 const client = new MongoClient(uri);
 
 // POST /api/admin/interviews/slots/[id]/cancel - Admin cancel a booking
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'SUPER_ADMIN')) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 401 });
   }
 
   try {
-    const slotId = params.id;
+    const slotId = id;
     
     if (!slotId) {
       return NextResponse.json({ error: 'Missing slot ID' }, { status: 400 });

@@ -87,7 +87,7 @@ export default function EventCountdown({
   const [isClient, setIsClient] = useState(false);
   const [nextEvent, setNextEvent] = useState<Event | null>(null);
   const [loadingEvent, setLoadingEvent] = useState(true);
-  const [eventAttendanceText, setEventAttendanceText] = useState('For General Members Only');
+  const [eventAttendanceText, setEventAttendanceText] = useState('Must RSVP to Attend');
 
   // Function to generate Google Calendar URL
     const generateGoogleCalendarUrl = (event: Event) => {
@@ -422,19 +422,38 @@ export default function EventCountdown({
             )}
 
             {nextEvent && (nextEvent.registrationUrl || nextEvent.registrationEnabled) ? (
-              <motion.a
-                href={nextEvent.registrationUrl || `/events/${nextEvent.slug || generateSlug(nextEvent.title)}?register=true`}
-                onClick={() => {
+              <motion.button
+                onClick={(e) => {
+                  e.preventDefault();
                   if (nextEvent) {
                     analytics.events.clickRegister(nextEvent.title);
+                    
+                    // Check if it's an external registration URL
+                    if (nextEvent.registrationUrl && !nextEvent.registrationUrl.startsWith('/')) {
+                      // External URL - open in new tab
+                      window.open(nextEvent.registrationUrl, '_blank');
+                    } else {
+                      // Internal registration - trigger popup
+                      const registrationUrl = nextEvent.registrationUrl || `/events/${nextEvent.slug || generateSlug(nextEvent.title)}?register=true`;
+                      
+                      // Dispatch custom event to open RSVP popup
+                      const openRsvpEvent = new CustomEvent('openRsvpPopup', {
+                        detail: {
+                          eventId: nextEvent.id,
+                          eventTitle: nextEvent.title,
+                          registrationUrl: registrationUrl
+                        }
+                      });
+                      window.dispatchEvent(openRsvpEvent);
+                    }
                   }
                 }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="w-full bg-brand hover-brand backdrop-blur-sm border border-white/30 rounded px-3 py-2 text-white text-xs sm:text-sm font-medium transition-all duration-300 text-center"
+                className="w-full bg-brand hover-brand backdrop-blur-sm border border-white/30 rounded px-3 py-2 text-white text-xs sm:text-sm font-medium transition-all duration-300 text-center cursor-pointer"
               >
-                {nextEvent?.registrationCtaLabel || 'Register Now →'}
-              </motion.a>
+                {nextEvent?.registrationCtaLabel || 'RSVP Now →'}
+              </motion.button>
             ) : null}
           
           </div>

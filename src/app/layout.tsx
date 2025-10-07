@@ -35,7 +35,7 @@ export default function RootLayout({
   const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${roboto.variable} ${geistSans.variable} ${geistMono.variable} font-sans bg-[#00274c] text-white `}>
         {/* Google Analytics */}
         {GA_MEASUREMENT_ID && (

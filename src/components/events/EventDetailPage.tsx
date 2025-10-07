@@ -103,47 +103,47 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
               {event.speakers && event.speakers.length > 0 && (
                 <div>
                   <h3 className="text-xs sm:text-sm font-medium text-gray-300 mb-2 uppercase tracking-wider">Speakers</h3>
-                  {/* Mobile: 2 per row, Desktop: horizontal scroll */}
-                  <div className="grid grid-cols-2 gap-2 sm:hidden">
+                  {/* Responsive grid layout - 4 per row, with overflow rows centered */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3 justify-items-center">
                     {event.speakers
-                      .sort((a, b) => a.order - b.order)
-                      .map((speaker, index) => (
-                        <div key={speaker.id || index} className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-2 text-center">
-                          {speaker.photo && (
-                            <div className="mb-1">
-                              <img 
-                                src={speaker.photo} 
-                                alt={speaker.name}
-                                className="w-8 h-8 rounded-full mx-auto object-cover border-2 border-white/30"
-                              />
-                            </div>
-                          )}
-                          <div className="text-white text-xs font-medium leading-tight">{speaker.name}</div>
-                          <div className="text-gray-300 text-xs leading-tight break-words">{speaker.title}</div>
-                          <div className="text-gray-400 text-xs leading-tight">{speaker.company}</div>
-                        </div>
-                      ))}
-                  </div>
-                  {/* Desktop: horizontal scroll */}
-                  <div className="hidden sm:flex justify-center gap-2 md:gap-3 overflow-x-auto pb-2">
-                    {event.speakers
-                      .sort((a, b) => a.order - b.order)
-                      .map((speaker, index) => (
-                        <div key={speaker.id || index} className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-2 md:p-3 text-center flex-shrink-0 min-w-[160px] max-w-[200px]">
-                          {speaker.photo && (
-                            <div className="mb-1 md:mb-2">
-                              <img 
-                                src={speaker.photo} 
-                                alt={speaker.name}
-                                className="w-8 h-8 md:w-10 md:h-10 rounded-full mx-auto object-cover border-2 border-white/30"
-                              />
-                            </div>
-                          )}
-                          <div className="text-white text-xs font-medium leading-tight">{speaker.name}</div>
-                          <div className="text-gray-300 text-xs leading-tight break-words">{speaker.title}</div>
-                          <div className="text-gray-400 text-xs leading-tight">{speaker.company}</div>
-                        </div>
-                      ))}
+                      .sort((a, b) => (a.order || 0) - (b.order || 0))
+                      .map((speaker, index) => {
+                        // Calculate if this speaker is in an incomplete bottom row
+                        const totalSpeakers = event.speakers?.length || 0;
+                        const speakersPerRow = 4;
+                        const fullRows = Math.floor(totalSpeakers / speakersPerRow);
+                        const remainingSpeakers = totalSpeakers % speakersPerRow;
+                        const isInLastIncompleteRow = index >= fullRows * speakersPerRow;
+                        
+                        // For incomplete rows, add margin to center them
+                        let additionalClasses = "";
+                        if (isInLastIncompleteRow && remainingSpeakers > 0) {
+                          const startOffset = Math.floor((speakersPerRow - remainingSpeakers) / 2);
+                          if (index === fullRows * speakersPerRow) {
+                            // First item in incomplete row
+                            if (remainingSpeakers === 1) additionalClasses = "sm:col-start-2"; // Center single item
+                            if (remainingSpeakers === 2) additionalClasses = "sm:col-start-2"; // Start 2 items from column 2
+                            if (remainingSpeakers === 3) additionalClasses = "sm:col-start-1"; // Start 3 items from column 1
+                          }
+                        }
+                        
+                        return (
+                          <div key={speaker.id || index} className={`bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-2 md:p-3 text-center w-full max-w-[200px] ${additionalClasses}`}>
+                            {speaker.photo && (
+                              <div className="mb-1 md:mb-2">
+                                <img 
+                                  src={speaker.photo} 
+                                  alt={speaker.name}
+                                  className="w-8 h-8 md:w-10 md:h-10 rounded-full mx-auto object-cover border-2 border-white/30"
+                                />
+                              </div>
+                            )}
+                            <div className="text-white text-xs font-medium leading-tight line-clamp-2">{speaker.name}</div>
+                            <div className="text-gray-300 text-xs leading-tight break-words line-clamp-2">{speaker.title}</div>
+                            <div className="text-gray-400 text-xs leading-tight line-clamp-1">{speaker.company}</div>
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               )}

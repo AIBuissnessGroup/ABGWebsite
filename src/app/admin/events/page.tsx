@@ -1862,6 +1862,7 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
   };
 
   const addSpeaker = () => {
+    const newOrder = Math.max(0, ...speakers.map(s => s.order || 0)) + 1;
     setSpeakers([...speakers, { 
       name: '', 
       title: '', 
@@ -1870,7 +1871,7 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
       photo: '', 
       linkedIn: '', 
       website: '', 
-      order: speakers.length + 1 
+      order: newOrder
     }]);
   };
 
@@ -1878,10 +1879,35 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
     setSpeakers(speakers.filter((_: any, i: number) => i !== index));
   };
 
-  const updateSpeaker = (index: number, field: string, value: string) => {
+  const updateSpeaker = (index: number, field: string, value: string | number) => {
     const updated = [...speakers];
     updated[index][field] = value;
     setSpeakers(updated);
+  };
+
+  const moveSpeaker = (fromIndex: number, toIndex: number) => {
+    const updated = [...speakers];
+    const [movedSpeaker] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, movedSpeaker);
+    
+    // Update order values to match new positions
+    updated.forEach((speaker, index) => {
+      speaker.order = index + 1;
+    });
+    
+    setSpeakers(updated);
+  };
+
+  const moveSpeakerUp = (index: number) => {
+    if (index > 0) {
+      moveSpeaker(index, index - 1);
+    }
+  };
+
+  const moveSpeakerDown = (index: number) => {
+    if (index < speakers.length - 1) {
+      moveSpeaker(index, index + 1);
+    }
   };
 
   // Custom field management functions
@@ -2672,10 +2698,38 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
               <p className="text-sm text-gray-500 text-center py-4">No speakers added yet</p>
             ) : (
               <div className="space-y-4">
-                {speakers.map((speaker: any, index: number) => (
+                {speakers
+                  .sort((a, b) => (a.order || 0) - (b.order || 0))
+                  .map((speaker: any, index: number) => (
                   <div key={index} className="bg-white p-4 rounded border space-y-3">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-gray-700">Speaker #{index + 1}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-gray-700">Speaker #{index + 1}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveSpeakerUp(index)}
+                            disabled={index === 0}
+                            className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Move up"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveSpeakerDown(index)}
+                            disabled={index === speakers.length - 1}
+                            className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Move down"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
                       <button
                         type="button"
                         onClick={() => removeSpeaker(index)}
@@ -2684,7 +2738,7 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
                         Remove
                       </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                         <input
@@ -2705,6 +2759,19 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
                           placeholder="Job title"
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
                           required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Display Order</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={speaker.order || index + 1}
+                          onChange={(e) => {
+                            const newOrder = parseInt(e.target.value) || index + 1;
+                            updateSpeaker(index, 'order', newOrder);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00274c]"
                         />
                       </div>
                     </div>
