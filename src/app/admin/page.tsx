@@ -144,6 +144,13 @@ export default function AdminDashboard() {
       href: '/admin/newsletter',
     },
     {
+      title: 'Newsroom',
+      description: 'Manage blog posts and content',
+      icon: DocumentTextIcon,
+      color: 'bg-slate-500',
+      href: '/admin/newsroom',
+    },
+    {
       title: 'Internships',
       description: 'Manage internship program',
       icon: BriefcaseIcon,

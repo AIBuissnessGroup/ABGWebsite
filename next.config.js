@@ -3,6 +3,35 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_ADMIN_EMAILS: process.env.ADMIN_EMAILS,
   },
+  images: {
+    domains: ['images.unsplash.com', 'img.icons8.com', 'msofficestore.us', 'i.ibb.co'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.icons8.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'msofficestore.us',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.ibb.co',
+        port: '',
+        pathname: '/**',
+      },
+    ],
+  },
   async headers() {
     return [
       {
