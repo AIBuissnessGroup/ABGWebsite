@@ -36,6 +36,7 @@ interface EventDetailPageProps {
   event: Event;
   userRegistration?: EventAttendance | null;
   userEmail?: string;
+  userRoles?: string[];
   eventStats?: {
     confirmedCount: number;
     waitlistCount: number;
@@ -43,7 +44,7 @@ interface EventDetailPageProps {
   searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-export default function EventDetailPage({ event, userRegistration, userEmail, eventStats, searchParams }: EventDetailPageProps) {
+export default function EventDetailPage({ event, userRegistration, userEmail, userRoles = [], eventStats, searchParams }: EventDetailPageProps) {
   const [showAttendanceForm, setShowAttendanceForm] = useState(false);
   const [localUserEmail, setLocalUserEmail] = useState(userEmail || '');
   const [isClient, setIsClient] = useState(false);
@@ -69,7 +70,12 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
     window.open(googleCalendarUrl, '_blank');
   };
 
-  const canRegister = (!!event.registrationEnabled || !!event.attendanceConfirmEnabled) && !userRegistration;
+  // Check if user has required roles for registration
+  const hasRequiredRole = event.registration?.enabled && event.registration?.requiredRolesAny?.length > 0
+    ? event.registration.requiredRolesAny.some(role => userRoles.includes(role))
+    : true; // If no role requirements, allow registration
+
+  const canRegister = (!!event.registrationEnabled || !!event.attendanceConfirmEnabled) && !userRegistration && hasRequiredRole;
   
   const eventDate = new Date(event.eventDate);
   const endDate = event.endDate ? new Date(event.endDate) : null;
@@ -559,6 +565,16 @@ export default function EventDetailPage({ event, userRegistration, userEmail, ev
                             <span className="font-bold">Attendance Confirmed</span>
                           </div>
                         )}
+                      </div>
+                    ) : !hasRequiredRole ? (
+                      <div className="text-center text-gray-400 py-4 rounded-xl border-2 border-red-600/30 bg-red-500/10">
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                          <span className="text-lg">🚫</span>
+                          <span className="font-semibold text-red-300">Access Restricted</span>
+                        </div>
+                        <p className="text-sm opacity-75 text-red-200">
+                          This event is restricted to specific member levels
+                        </p>
                       </div>
                     ) : !(event.registrationEnabled || event.attendanceConfirmEnabled) ? (
                       <div className="text-center text-gray-400 py-4 rounded-xl border-2 border-gray-600/30 bg-gray-500/10">

@@ -1,6 +1,29 @@
 /* Admin-specific styles */
 @import "tailwindcss";
 
+/* Custom scrollbar for admin sidebar */
+.admin-page .overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.admin-page .overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-page .overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-page .overflow-y-auto::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.admin-page .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
 /* Drag and drop styles */
 .drag-over {
   border: 2px dashed #00274c !important;

@@ -6,6 +6,9 @@ import Script from 'next/script';
 import Navbar from "../components/Navbar";
 import Providers from "@/components/Providers";
 
+// Import production logging configuration
+import "@/lib/production-logging";
+
 const roboto = Roboto({
   subsets: ['latin'],
   weight: '700', // This loads Roboto Bold

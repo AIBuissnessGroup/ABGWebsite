@@ -1,0 +1,39 @@
+[Unit]
+Description=ABG Website - AI Business Group Website
+After=network.target
+Requires=network.target
+
+[Service]
+Type=simple
+User=abg
+Group=abg
+WorkingDirectory=/opt/abg-website
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=10
+KillMode=process
+TimeoutSec=60
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=abg-website
+
+# Environment variables
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# Environment=MONGODB_URI=your_mongodb_uri
+# Environment=NEXTAUTH_SECRET=your_nextauth_secret
+# Environment=GOOGLE_CLIENT_ID=your_google_client_id
+# Environment=GOOGLE_CLIENT_SECRET=your_google_client_secret
+# Environment=ADMIN_EMAILS=admin1@umich.edu,admin2@umich.edu
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/abg-website
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

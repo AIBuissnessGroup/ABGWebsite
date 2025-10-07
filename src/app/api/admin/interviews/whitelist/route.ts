@@ -9,7 +9,7 @@ const client = new MongoClient(uri);
 // GET /api/admin/interviews/whitelist - Get approved emails
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'SUPER_ADMIN')) {
+  if (!session || !session.user?.roles?.includes('ADMIN')) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 401 });
   }
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/interviews/whitelist - Add email to whitelist
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'SUPER_ADMIN')) {
+  if (!session || !session.user?.roles?.includes('ADMIN')) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 401 });
   }
 
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
 // DELETE /api/admin/interviews/whitelist - Remove email from whitelist
 export async function DELETE(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'SUPER_ADMIN')) {
+  if (!session || !session.user?.roles?.includes('ADMIN')) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 401 });
   }
 

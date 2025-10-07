@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user is admin to determine phone visibility
-    const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN';
+    const isAdmin = session?.user?.roles?.includes('ADMIN') || false;
 
     // Get team members for exec info
     const teamMembers = await db.collection('TeamMember').find({ active: true }).toArray();
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     const db = client.db();
 
     // Check if user is already signed up for any slot (non-admins only)
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.user.roles.includes('ADMIN');
     
     if (!isAdmin) {
       const existingSignup = await db.collection('CoffeeChat').findOne({

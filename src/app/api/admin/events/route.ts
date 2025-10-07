@@ -148,6 +148,12 @@ export async function POST(request: NextRequest) {
       attendees: [], // Initialize empty attendees array
       waitlist: [], // Initialize empty waitlist array
       createdBy: user?.id || crypto.randomUUID(),
+      
+      // Role-gated registration
+      registration: {
+        enabled: data.registrationRoleGatingEnabled || false,
+        requiredRolesAny: data.requiredRolesAny || []
+      },
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -260,6 +266,13 @@ export async function PUT(request: NextRequest) {
       customFields: data.customFields || [], // Add custom fields support
       speakers: data.speakers || [], // Add speakers support
       partners: data.partners || [], // Add partners support
+      
+      // Role-gated registration
+      registration: {
+        enabled: data.registrationRoleGatingEnabled || false,
+        requiredRolesAny: data.requiredRolesAny || []
+      },
+      
       updatedAt: new Date()
     };
 

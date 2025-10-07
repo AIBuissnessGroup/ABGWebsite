@@ -79,7 +79,7 @@ export default function AdminLayout({
     }
 
     // Check if user has admin role
-    if (session.user?.role !== 'ADMIN' && session.user?.role !== 'SUPER_ADMIN') {
+    if (!session.user?.roles?.includes('ADMIN')) {
       router.push('/auth/unauthorized');
       return;
     }
@@ -93,7 +93,7 @@ export default function AdminLayout({
     );
   }
 
-  if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'SUPER_ADMIN')) {
+  if (!session || !session.user?.roles?.includes('ADMIN')) {
     return null;
   }
 

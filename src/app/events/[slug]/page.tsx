@@ -478,6 +478,7 @@ export default async function EventPage({ params, searchParams }: EventPageProps
   // Get user session
   const session = await getServerSession(authOptions);
   const userEmail = session?.user?.email || undefined;
+  const userRoles = session?.user?.roles || [];
   
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
@@ -612,6 +613,8 @@ export default async function EventPage({ params, searchParams }: EventPageProps
     },
     // Include custom fields for registration forms
     customFields: dbEvent.customFields || [],
+    // Role-based registration configuration
+    registration: dbEvent.registration || { enabled: false, requiredRolesAny: [] },
     // Exclude MongoDB-specific fields like _id
   };
   
@@ -623,6 +626,7 @@ export default async function EventPage({ params, searchParams }: EventPageProps
         event={serializedEvent} 
         userRegistration={userRegistration}
         userEmail={userEmail}
+        userRoles={userRoles}
         eventStats={eventStats}
         searchParams={resolvedSearchParams}
       />

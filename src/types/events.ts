@@ -43,6 +43,12 @@ export interface Event {
   registrationUrl?: string;
   registrationEnabled: number; // 0 or 1
   registrationCtaLabel: string;
+  
+  // Role-gated registration
+  registration?: {
+    enabled: boolean;
+    requiredRolesAny: string[]; // Array of role names that can register
+  };
   eventType: 'MEETING' | 'WORKSHOP' | 'NETWORKING' | 'CONFERENCE' | 'SOCIAL' | 'SYMPOSIUM';
   imageUrl?: string;
   featured: number; // 0 or 1

@@ -20,12 +20,16 @@ import {
 import AnalyticsWidget from '@/components/admin/AnalyticsWidget';
 
 interface AuditLog {
-  id: string;
+  _id: string;
+  userId: string;
   userEmail: string;
   action: string;
-  resource: string;
+  targetType: string;
+  targetId?: string;
+  meta: any;
+  ip?: string;
+  userAgent?: string;
   timestamp: string;
-  changes: string;
 }
 
 export default function AdminDashboard() {
@@ -38,7 +42,9 @@ export default function AdminDashboard() {
       try {
         const response = await fetch('/api/admin/audit');
         if (response.ok) {
-          const logs = await response.json();
+          const data = await response.json();
+          // Handle both old format (array) and new format (object with logs property)
+          const logs = Array.isArray(data) ? data : (data.logs || []);
           setAuditLogs(logs);
         }
       } catch (error) {
@@ -61,13 +67,20 @@ export default function AdminDashboard() {
   };
 
   const getResourceIcon = (resource: string) => {
-    switch (resource) {
+    switch (resource?.toLowerCase()) {
+      case 'user': return '👤';
+      case 'event': return '📅';
+      case 'project': return '🚀';
+      case 'team': return '👥';
+      case 'teammember': return '👤';
+      case 'newsroompost': return '📰';
+      case 'form': return '📝';
+      case 'content': return '�';
       case 'hero': return '🏠';
       case 'about': return 'ℹ️';
       case 'join': return '🤝';
-      case 'project': return '🚀';
-      case 'event': return '📅';
-      case 'team': return '👥';
+      case 'sitesettings': return '⚙️';
+      case 'system': return '�️';
       default: return '📄';
     }
   };
@@ -100,6 +113,20 @@ export default function AdminDashboard() {
       icon: UserGroupIcon,
       color: 'bg-pink-500',
       href: '/admin/team',
+    },
+    {
+      title: 'User Management',
+      description: 'Manage user roles and permissions',
+      icon: UserGroupIcon,
+      color: 'bg-red-500',
+      href: '/admin/users',
+    },
+    {
+      title: 'Audit Logs',
+      description: 'View system activity and user actions',
+      icon: EyeIcon,
+      color: 'bg-yellow-500',
+      href: '/admin/audit',
     },
     {
       title: 'Projects',
@@ -239,17 +266,20 @@ export default function AdminDashboard() {
           ) : (
             <div className="space-y-4">
               {auditLogs.map((log) => (
-                <div key={log.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <div key={log._id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                   <div className="flex items-center gap-4">
-                    <span className="text-2xl">{getResourceIcon(log.resource)}</span>
+                    <span className="text-2xl">{getResourceIcon(log.targetType)}</span>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getActionColor(log.action)}`}>
                           {log.action}
                         </span>
-                        <span className="text-sm font-medium text-gray-900 capitalize">{log.resource}</span>
+                        <span className="text-sm font-medium text-gray-900 capitalize">{log.targetType}</span>
                       </div>
-                      <p className="text-sm text-gray-600">{log.changes}</p>
+                      <p className="text-sm text-gray-600">
+                        {log.meta?.reason || log.meta?.description || `Modified ${log.targetType.toLowerCase()}`}
+                        {log.targetId && ` (ID: ${log.targetId})`}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">

@@ -15,6 +15,7 @@ import {
   XMarkIcon,
   QrCodeIcon
 } from '@heroicons/react/24/outline';
+import { USER_ROLES, getRoleDisplayName } from '@/lib/roles';
 
 // Waitlist interfaces
 interface WaitlistPerson {
@@ -1644,7 +1645,9 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
     requireName: false,
     requireMajor: false,
     requireGradeLevel: false,
-    requirePhone: false
+    requirePhone: false,
+    roleGatedRegistration: false,
+    requiredRoles: []
   });
   const [saving, setSaving] = useState(false);
   const [hasExistingPassword, setHasExistingPassword] = useState(false);
@@ -1787,7 +1790,9 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
         requireName: event.requireName || false,
         requireMajor: event.requireMajor || false,
         requireGradeLevel: event.requireGradeLevel || false,
-        requirePhone: event.requirePhone || false
+        requirePhone: event.requirePhone || false,
+        roleGatedRegistration: !!(event.registration?.enabled && event.registration?.requiredRolesAny?.length > 0),
+        requiredRoles: event.registration?.requiredRolesAny || []
       });
       
       // Check if event has existing password
@@ -1838,7 +1843,9 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
         requireName: false,
         requireMajor: false,
         requireGradeLevel: false,
-        requirePhone: false
+        requirePhone: false,
+        roleGatedRegistration: false,
+        requiredRoles: []
       });
       
       // For new events, set initial password state
@@ -1975,7 +1982,11 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
         waitlistMaxSize: formData.waitlistMaxSize ? parseInt(formData.waitlistMaxSize) : null,
         speakers: speakers.filter(s => s.name && s.title && s.company),
         partners: partnerships.filter(p => p.companyId),
-        customFields: customFields.filter(f => f.label.trim())
+        customFields: customFields.filter(f => f.label.trim()),
+        registration: formData.roleGatedRegistration && formData.requiredRoles.length > 0 ? {
+          enabled: true,
+          requiredRolesAny: formData.requiredRoles
+        } : { enabled: false }
       };
       
       // Create final payload - only include password updates if we're not keeping existing
@@ -2374,6 +2385,66 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
                     <p className="text-xs text-gray-500 mt-2">
                       UMich email is always required for attendance confirmation
                     </p>
+                  </div>
+                  
+                  {/* Role-Based Registration Section */}
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-700 mb-3">Registration Access Control</h5>
+                    <div className="space-y-3">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="roleGatedRegistration"
+                          checked={formData.roleGatedRegistration}
+                          onChange={(e) => setFormData({...formData, roleGatedRegistration: e.target.checked})}
+                          className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300 rounded"
+                        />
+                        <label htmlFor="roleGatedRegistration" className="ml-2 text-sm text-gray-700">
+                          Restrict registration to specific member roles
+                        </label>
+                      </div>
+                      
+                      {formData.roleGatedRegistration && (
+                        <div className="ml-6 space-y-2">
+                          <p className="text-sm text-gray-600 mb-3">
+                            Select which member roles can register for this event:
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {USER_ROLES.map(role => (
+                              <div key={role} className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`role-${role}`}
+                                  checked={formData.requiredRoles.includes(role)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setFormData({
+                                        ...formData,
+                                        requiredRoles: [...formData.requiredRoles, role]
+                                      });
+                                    } else {
+                                      setFormData({
+                                        ...formData,
+                                        requiredRoles: formData.requiredRoles.filter(r => r !== role)
+                                      });
+                                    }
+                                  }}
+                                  className="h-4 w-4 text-[#00274c] focus:ring-[#00274c] border-gray-300 rounded"
+                                />
+                                <label htmlFor={`role-${role}`} className="ml-2 text-sm text-gray-600">
+                                  {getRoleDisplayName(role)}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                          {formData.requiredRoles.length === 0 && (
+                            <p className="text-xs text-amber-600 mt-2">
+                              Please select at least one role to enable role-gated registration
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

@@ -27,7 +27,7 @@ export default function Unauthorized() {
             <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
               <p className="text-sm text-[#BBBBBB] mb-2">Signed in as:</p>
               <p className="text-white font-medium">{session.user.email}</p>
-              <p className="text-xs text-[#5e6472] mt-1">Role: {session.user.role || 'USER'}</p>
+              <p className="text-xs text-[#5e6472] mt-1">Roles: {session.user.roles.join(', ')}</p>
             </div>
           ) : (
             <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
@@ -64,8 +64,8 @@ export default function Unauthorized() {
             <h3 className="text-white font-medium mb-2">Debug Info:</h3>
             <div className="text-xs text-[#BBBBBB] space-y-1">
               <p>Email: {session?.user?.email || 'Not signed in'}</p>
-              <p>Role: {session?.user?.role || 'None'}</p>
-              <p>Required: ADMIN or SUPER_ADMIN</p>
+              <p>Roles: {session?.user?.roles?.join(', ') || 'None'}</p>
+              <p>Required: ADMIN</p>
               <p className="text-yellow-300 mt-2">
                 Add your email to ADMIN_EMAILS in .env file
               </p>

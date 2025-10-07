@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient } from 'mongodb';
 import { authOptions } from '@/lib/auth';
+import { canRegisterForEvent } from '@/lib/roles';
+import { logAuditEvent, getRequestMetadata } from '@/lib/audit';
+import type { UserRole } from '@/types/next-auth';
 
 const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
 
@@ -214,6 +217,47 @@ export async function POST(
     }
 
     console.log('✅ Event found for registration:', event.title);
+
+    // Check role-gated registration requirements
+    if (event.registration?.enabled && event.registration?.requiredRolesAny?.length > 0) {
+      console.log('🔒 Role-gated registration enabled. Required roles:', event.registration.requiredRolesAny);
+      
+      // Check if user has any of the required roles
+      const userRoles = session.user.roles || ['USER'];
+      const requiredRoles = event.registration.requiredRolesAny as UserRole[];
+      
+      if (!canRegisterForEvent(userRoles, requiredRoles)) {
+        console.log('❌ User lacks required role. User roles:', userRoles, 'Required roles:', event.registration.requiredRolesAny);
+        
+        // Log role gate failure to audit system
+        const { ip, userAgent } = getRequestMetadata(request);
+        
+        await logAuditEvent(
+          session.user.id || 'unknown',
+          session.user.email,
+          'event.registration_role_gate_failed',
+          'Event',
+          {
+            targetId: event.id,
+            meta: {
+              eventTitle: event.title,
+              userRoles,
+              requiredRoles: event.registration.requiredRolesAny
+            },
+            ip,
+            userAgent
+          }
+        );
+        
+        await client.close();
+        return NextResponse.json({ 
+          error: 'You do not have the required permissions to register for this event. Please contact an administrator if you believe this is an error.',
+          requiredRoles: event.registration.requiredRolesAny
+        }, { status: 403 });
+      }
+      
+      console.log('✅ User has required role for registration');
+    }
 
     // Check if already registered
     const existingRegistration = await db.collection('EventAttendance').findOne({

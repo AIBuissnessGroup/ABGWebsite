@@ -21,13 +21,13 @@ const authOptions = {
     async session({ session, token }: any) {
       if (session?.user && token) {
         session.user.id = token.sub || '';
-        session.user.role = token.role || 'USER';
+        session.user.roles = token.roles || ['USER'];
       }
       return session;
     },
     async jwt({ token, user }: any) {
       if (user) {
-        token.role = user.email && isAdminEmail(user.email) ? 'ADMIN' : 'USER';
+        token.roles = user.email && isAdminEmail(user.email) ? ['ADMIN'] : ['USER'];
       }
       return token;
     },
