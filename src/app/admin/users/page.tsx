@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { USER_ROLES, getRoleDisplayName } from '@/lib/roles';
+import { isAdmin } from '@/lib/admin';
 import type { UserRole } from '@/types/next-auth';
 
 interface User {
@@ -146,7 +147,7 @@ export default function AdminUsersPage() {
     );
   }
 
-  if (!session?.user?.roles?.includes('ADMIN')) {
+  if (!isAdmin(session?.user)) {
     return (
       <div className="min-h-screen bg-[#00274c] flex items-center justify-center">
         <div className="text-center text-white">

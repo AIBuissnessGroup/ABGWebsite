@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { PencilIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { isAdmin } from '@/lib/admin';
 
 export default function AboutAdmin() {
   const { data: session, status } = useSession();
@@ -41,7 +42,7 @@ export default function AboutAdmin() {
     if (!session) {
       redirect('/auth/signin');
     }
-    if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'SUPER_ADMIN') {
+    if (!isAdmin(session?.user)) {
       redirect('/auth/unauthorized');
     }
   }, [session, status]);

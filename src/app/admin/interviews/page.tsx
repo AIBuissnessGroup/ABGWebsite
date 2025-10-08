@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { ClockIcon, MapPinIcon, UserIcon, EnvelopeIcon, ArrowTopRightOnSquareIcon, TrashIcon, DocumentTextIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { isAdmin } from '@/lib/admin';
 
 type InterviewSignup = {
   id: string;
@@ -67,7 +68,7 @@ export default function AdminInterviewsPage() {
   useEffect(() => {
     if (status === 'loading') return;
     
-    if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'SUPER_ADMIN')) {
+    if (!isAdmin(session?.user)) {
       window.location.href = '/';
       return;
     }
@@ -315,12 +316,22 @@ export default function AdminInterviewsPage() {
     );
   }
 
-  if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'SUPER_ADMIN')) {
+  if (!isAdmin(session?.user)) {
     return (
       <div className="min-h-screen bg-[#00274c] flex items-center justify-center text-white">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4 text-white">Access Denied</h1>
-          <p className="text-white">Admin access required</p>
+          <p className="text-white">You don't have permission to access the admin dashboard.</p>
+          <p className="text-white mt-2">
+            Signed in as: <br />
+            <strong>{session?.user?.email}</strong>
+          </p>
+          <p className="text-white mt-2">
+            Roles: {session?.user?.roles ? session.user.roles.join(', ') : 'None'}
+          </p>
+          <p className="text-white mt-2">
+            Only authorized University of Michigan users can access the admin panel.
+          </p>
         </div>
       </div>
     );

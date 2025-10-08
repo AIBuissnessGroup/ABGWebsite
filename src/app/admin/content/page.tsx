@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { PlusIcon, PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { isAdmin } from '@/lib/admin';
 
 import CSVUploader from '@/components/admin/CSVUploader';
 import { toast } from 'react-toastify';
@@ -182,7 +183,7 @@ export default function UnifiedContentManagement() {
     if (!session) {
       redirect('/auth/signin');
     }
-    if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'SUPER_ADMIN') {
+    if (!isAdmin(session?.user)) {
       redirect('/auth/unauthorized');
     }
   }, [session, status]);

@@ -347,6 +347,7 @@ export default function TeamAdmin() {
         <div className="bg-white rounded-lg shadow-md border border-gray-200 mb-6">
           <TeamMemberForm
             member={editingMember}
+            projects={projects}
             onClose={() => {
               setShowForm(false);
               setEditingMember(null);
@@ -408,7 +409,7 @@ export default function TeamAdmin() {
   );
 }
 
-function TeamMemberForm({ member, onClose, onSave }: any) {
+function TeamMemberForm({ member, projects, onClose, onSave }: any) {
   const [formData, setFormData] = useState({
     name: '',
     role: '',
@@ -716,13 +717,13 @@ function TeamMemberForm({ member, onClose, onSave }: any) {
                   required={formData.memberType === 'analyst'}
                 >
                   <option value="">Select a project...</option>
-                  {projects.map((project) => (
+                  {(projects || []).map((project) => (
                     <option key={project.id} value={project.title}>
                       {project.title}
                     </option>
                   ))}
                 </select>
-                {projects.length === 0 && (
+                {(projects || []).length === 0 && (
                   <p className="text-sm text-gray-500 mt-1">
                     No projects available. Please create a project first.
                   </p>

@@ -22,4 +22,28 @@ export function getAdminEmails(): string[] {
 export function isAdminEmail(email: string): boolean {
   const adminEmails = getAdminEmails();
   return adminEmails.includes(email);
+}
+
+/**
+ * Check if a user has admin access based on email or roles
+ */
+export function isAdmin(user: any): boolean {
+  if (!user) return false;
+  
+  // Check email-based admin access
+  if (user.email && isAdminEmail(user.email)) {
+    return true;
+  }
+  
+  // Check role-based admin access
+  if (user.roles && Array.isArray(user.roles)) {
+    return user.roles.includes('ADMIN');
+  }
+  
+  // Legacy role field check
+  if (user.role === 'ADMIN') {
+    return true;
+  }
+  
+  return false;
 } 

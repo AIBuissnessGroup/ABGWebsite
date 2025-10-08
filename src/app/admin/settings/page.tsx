@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { CogIcon } from '@heroicons/react/24/outline';
+import { isAdmin } from '@/lib/admin';
 export default function SettingsAdmin() {
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
@@ -16,7 +17,7 @@ export default function SettingsAdmin() {
     if (!session) {
       redirect('/auth/signin');
     }
-    if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'SUPER_ADMIN') {
+    if (!isAdmin(session?.user)) {
       redirect('/auth/unauthorized');
     }
   }, [session, status]);

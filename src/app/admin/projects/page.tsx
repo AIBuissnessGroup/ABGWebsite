@@ -21,25 +21,18 @@ export default function ProjectsAdmin() {
   useEffect(() => {
     try {
       const savedFormState = localStorage.getItem('projectsAdmin_formState');
-      if (savedFormState) {
+      if (savedFormState && projects && projects.length > 0) {
         const { showForm: savedShowForm, editingProjectId } = JSON.parse(savedFormState);
         console.log('🔄 Restoring projects form state:', { savedShowForm, editingProjectId, projectsLoaded: projects.length > 0 });
         if (savedShowForm) {
           setShowForm(true);
           if (editingProjectId) {
-            // We'll set the editing project after projects are loaded
-            const checkForProject = () => {
-              if (projects.length > 0) {
-                const project = projects.find(p => p.id === editingProjectId);
-                if (project) {
-                  setEditingProject(project);
-                  console.log('✓ Projects editing project restored:', project.title);
-                }
-              }
-            };
-            // Check immediately and also set up a timeout
-            checkForProject();
-            setTimeout(checkForProject, 100);
+            // Find and set the editing project
+            const project = projects.find(p => p.id === editingProjectId);
+            if (project) {
+              setEditingProject(project);
+              console.log('✓ Projects editing project restored:', project.title);
+            }
           } else {
             console.log('✓ Projects new form restored');
           }
@@ -143,7 +136,7 @@ export default function ProjectsAdmin() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Projects</h1>
-          <p className="text-gray-600 mt-1">Manage project portfolio ({projects.length} total)</p>
+          <p className="text-gray-600 mt-1">Manage project portfolio ({(projects || []).length} total)</p>
         </div>
         {!showForm && (
           <button
@@ -183,7 +176,7 @@ export default function ProjectsAdmin() {
 
       {/* Projects Grid */}
       <div className="grid gap-6">
-        {projects.map((project: any) => (
+        {(projects || []).map((project: any) => (
           <div key={project.id} className="bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-start mb-4">
               <div className="flex-1">
@@ -286,7 +279,7 @@ export default function ProjectsAdmin() {
         ))}
       </div>
 
-      {projects.length === 0 && !showForm && (
+      {(projects || []).length === 0 && !showForm && (
         <div className="text-center py-12">
           <RocketLaunchIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>

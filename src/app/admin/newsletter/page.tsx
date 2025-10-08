@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { TrashIcon, EnvelopeIcon, UserGroupIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import { isAdmin } from '@/lib/admin';
 
 interface NewsletterSubscription {
   id: string;
@@ -39,7 +40,7 @@ export default function NewsletterAdmin() {
     if (!session) {
       redirect('/auth/signin');
     }
-    if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'SUPER_ADMIN') {
+    if (!isAdmin(session?.user)) {
       redirect('/auth/unauthorized');
     }
   }, [session, status]);

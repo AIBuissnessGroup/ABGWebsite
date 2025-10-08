@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChartBarIcon, FunnelIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { isAdmin } from '@/lib/admin';
 
 interface AuditLogEntry {
   _id: string;
@@ -151,7 +152,7 @@ export default function AdminAuditPage() {
     );
   }
 
-  if (!session?.user?.roles?.includes('ADMIN')) {
+  if (!isAdmin(session?.user)) {
     return (
       <div className="min-h-screen bg-[#00274c] flex items-center justify-center">
         <div className="text-center text-white">
