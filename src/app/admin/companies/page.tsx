@@ -94,17 +94,30 @@ export default function CompaniesAdmin() {
     }
   };
 
-  const deleteCompany = async (id: string) => {
-    if (confirm('Are you sure you want to delete this company? This action cannot be undone.')) {
+  const deleteCompany = async (id: string, force = false) => {
+    const confirmMsg = force 
+      ? 'Are you sure you want to FORCE DELETE this company? This will also remove all partnerships and cannot be undone.'
+      : 'Are you sure you want to delete this company? This action cannot be undone.';
+      
+    if (confirm(confirmMsg)) {
       try {
-        const res = await fetch(`/api/admin/companies?id=${id}`, { 
-          method: 'DELETE' 
-        });
+        const url = force 
+          ? `/api/admin/companies?id=${id}&force=true`
+          : `/api/admin/companies?id=${id}`;
+          
+        const res = await fetch(url, { method: 'DELETE' });
+        
         if (res.ok) {
           loadCompanies(); // Reload the companies list
         } else {
           const error = await res.json();
-          alert(error.error || 'Error deleting company');
+          if (!force && error.error && error.error.includes('partnerships')) {
+            if (confirm('This company has active partnerships. Do you want to force delete it and remove all partnerships?')) {
+              deleteCompany(id, true); // Retry with force
+            }
+          } else {
+            alert(error.error || 'Error deleting company');
+          }
         }
       } catch (error) {
         console.error('Error deleting company:', error);

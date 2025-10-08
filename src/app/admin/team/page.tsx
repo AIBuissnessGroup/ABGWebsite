@@ -140,6 +140,7 @@ export default function TeamAdmin() {
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
   const [members, setMembers] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -212,10 +213,11 @@ export default function TeamAdmin() {
     console.log('User session:', session.user);
   }, [session, status]);
 
-  // Load team members
+  // Load team members and projects
   useEffect(() => {
     if (session?.user) {
       loadMembers();
+      loadProjects();
     }
   }, [session]);
 
@@ -233,6 +235,20 @@ export default function TeamAdmin() {
       console.error('Error loading team members:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadProjects = async () => {
+    try {
+      const res = await fetch('/api/projects');
+      const data = await res.json();
+      if (data && !data.error) {
+        setProjects(data);
+      } else {
+        console.error('Projects API error:', data.error);
+      }
+    } catch (error) {
+      console.error('Error loading projects:', error);
     }
   };
 
@@ -693,14 +709,24 @@ function TeamMemberForm({ member, onClose, onSave }: any) {
             {formData.memberType === 'analyst' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Project <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
+                <select
                   value={formData.project}
                   onChange={(e) => setFormData({...formData, project: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-                  placeholder="e.g., Healthcare Analytics, Market Research"
                   required={formData.memberType === 'analyst'}
-                />
+                >
+                  <option value="">Select a project...</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.title}>
+                      {project.title}
+                    </option>
+                  ))}
+                </select>
+                {projects.length === 0 && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    No projects available. Please create a project first.
+                  </p>
+                )}
               </div>
             )}
           </div>

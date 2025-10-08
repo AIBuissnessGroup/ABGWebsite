@@ -24,15 +24,9 @@ export async function GET() {
       project.funding = await db.collection('ProjectFunding')
         .find({ projectId: project.id }).toArray();
       
-      // Get partnerships with company data
-      const partnerships = await db.collection('ProjectPartnership')
+      // Get partnerships (without company data)
+      project.partnerships = await db.collection('ProjectPartnership')
         .find({ projectId: project.id }).toArray();
-      
-      for (const partnership of partnerships) {
-        partnership.company = await db.collection('Company')
-          .findOne({ id: partnership.companyId });
-      }
-      project.partnerships = partnerships;
     }
     
     // Sort by featured (desc) then createdAt (desc)

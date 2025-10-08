@@ -134,6 +134,7 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const force = searchParams.get('force') === 'true';
 
     if (!id) {
       return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
@@ -145,10 +146,15 @@ export async function DELETE(request: NextRequest) {
     // Check if company has partnerships before deleting
     const partnerships = await db.collection('ProjectPartnership').countDocuments({ companyId: id });
 
-    if (partnerships > 0) {
+    if (partnerships > 0 && !force) {
       return NextResponse.json({ 
-        error: 'Cannot delete company with existing partnerships. Remove partnerships first.' 
+        error: 'Cannot delete company with existing partnerships. Remove partnerships first or use force delete.' 
       }, { status: 400 });
+    }
+
+    // If force delete, remove partnerships first
+    if (force && partnerships > 0) {
+      await db.collection('ProjectPartnership').deleteMany({ companyId: id });
     }
 
     const result = await db.collection('Company').deleteOne({ id: id });
