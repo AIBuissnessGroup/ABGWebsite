@@ -222,11 +222,8 @@ export default function TeamAdmin() {
   const loadMembers = async () => {
     setLoading(true);
     try {
-      console.log('Loading team members...');
       const res = await fetch('/api/admin/team');
-      console.log('Team API response status:', res.status);
       const data = await res.json();
-      console.log('Team API response data:', data);
       if (data && !data.error) {
         setMembers(data);
       } else {
@@ -407,7 +404,9 @@ function TeamMemberForm({ member, onClose, onSave }: any) {
     github: '',
     imageUrl: '',
     featured: false,
-    active: true
+    active: true,
+    memberType: 'exec' as 'exec' | 'analyst',
+    project: ''
   });
   const [saving, setSaving] = useState(false);
 
@@ -444,7 +443,9 @@ function TeamMemberForm({ member, onClose, onSave }: any) {
         github: member.github || '',
         imageUrl: member.imageUrl || '',
         featured: member.featured || false,
-        active: member.active ?? true
+        active: member.active ?? true,
+        memberType: member.memberType || 'exec',
+        project: member.project || ''
       });
       
       // Check for editing draft (modifications to existing member)
@@ -481,13 +482,29 @@ function TeamMemberForm({ member, onClose, onSave }: any) {
     e.preventDefault();
     setSaving(true);
 
+    // Validate required fields
+    if (!formData.name.trim() || !formData.role.trim()) {
+      alert('Name and role are required');
+      setSaving(false);
+      return;
+    }
+
+    // Validate project field for analysts
+    if (formData.memberType === 'analyst' && !formData.project.trim()) {
+      alert('Project is required for analysts');
+      setSaving(false);
+      return;
+    }
+
     try {
+      const memberId = member?.id || member?._id;
+      
       const url = member 
-        ? `/api/admin/team?id=${member.id}` 
+        ? `/api/admin/team?id=${memberId}` 
         : '/api/admin/team';
       
       const method = member ? 'PUT' : 'POST';
-      const data = member ? { ...formData, id: member.id } : formData;
+      const data = formData; // Don't include id in body for PUT, it comes from URL
 
       const res = await fetch(url, {
         method,
@@ -643,6 +660,49 @@ function TeamMemberForm({ member, onClose, onSave }: any) {
                 placeholder="https://example.com/image.jpg"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Member Type</label>
+              <div className="flex space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="memberType"
+                    value="exec"
+                    checked={formData.memberType === 'exec'}
+                    onChange={(e) => setFormData({...formData, memberType: e.target.value as 'exec' | 'analyst', project: e.target.value === 'exec' ? '' : formData.project})}
+                    className="mr-2 text-[#00274c] focus:ring-[#00274c]"
+                  />
+                  Executive Team
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="memberType"
+                    value="analyst"
+                    checked={formData.memberType === 'analyst'}
+                    onChange={(e) => setFormData({...formData, memberType: e.target.value as 'exec' | 'analyst'})}
+                    className="mr-2 text-[#00274c] focus:ring-[#00274c]"
+                  />
+                  Analyst
+                </label>
+              </div>
+            </div>
+            {formData.memberType === 'analyst' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Project <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={formData.project}
+                  onChange={(e) => setFormData({...formData, project: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                  placeholder="e.g., Healthcare Analytics, Market Research"
+                  required={formData.memberType === 'analyst'}
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-6 mb-6">

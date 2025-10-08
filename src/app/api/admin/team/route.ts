@@ -23,7 +23,14 @@ export async function GET() {
       .sort({ featured: -1, sortOrder: 1, joinDate: 1 })
       .toArray();
 
-    return NextResponse.json(safeJson(teamMembers));
+    // Map _id to id for consistent frontend usage and apply safeJson first
+    const safeTeamMembers = safeJson(teamMembers);
+    const membersWithId = safeTeamMembers.map((member: any) => ({
+      ...member,
+      id: member._id
+    }));
+
+    return NextResponse.json(membersWithId);
   } catch (error) {
     console.error('Error fetching team members:', error);
     return NextResponse.json({ error: 'Failed to fetch team members' }, { status: 500 });
@@ -77,6 +84,8 @@ export async function POST(request: NextRequest) {
       imageUrl: data.imageUrl?.trim() || null,
       featured: Boolean(data.featured),
       active: true,
+      memberType: data.memberType || 'exec', // Default to exec if not specified
+      project: data.project?.trim() || null, // Only for analysts
       sortOrder: sortOrderValue + 1,
       joinDate: new Date(),
       createdAt: new Date(),
@@ -121,13 +130,34 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Get ID from URL query parameters
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+
+    
+    if (!id || id === 'undefined' || id === 'null') {
+      return NextResponse.json({ 
+        error: 'Missing or invalid ID parameter',
+        received: id
+      }, { status: 400 });
+    }
+
+    // Validate ObjectId format
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ 
+        error: 'Invalid ID format',
+        received: id
+      }, { status: 400 });
+    }
+
     const data = await request.json();
     
     // Validate required fields
-    if (!data.id || !data.name || !data.role || !data.year) {
+    if (!data.name || !data.role || !data.year) {
       return NextResponse.json({ 
         error: 'Missing required fields', 
-        details: 'ID, name, role, and year are required' 
+        details: 'Name, role, and year are required' 
       }, { status: 400 });
     }
 
@@ -146,6 +176,8 @@ export async function PUT(request: NextRequest) {
       imageUrl: data.imageUrl?.trim() || null,
       featured: Boolean(data.featured),
       active: data.active !== undefined ? Boolean(data.active) : true,
+      memberType: data.memberType || 'exec',
+      project: data.project?.trim() || null,
       updatedAt: new Date()
     };
 
@@ -155,7 +187,7 @@ export async function PUT(request: NextRequest) {
     }
     
     const result = await db.collection('TeamMember').findOneAndUpdate(
-      { id: data.id },
+      { _id: new ObjectId(id) },
       { $set: updateData },
       { returnDocument: 'after' }
     );
@@ -164,7 +196,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Team member not found' }, { status: 404 });
     }
 
-    return NextResponse.json(safeJson(result));
+    // Map _id to id for consistent frontend usage
+    const memberWithId = {
+      ...result,
+      id: result._id.toString()
+    };
+
+    return NextResponse.json(safeJson(memberWithId));
   } catch (error: any) {
     console.error('Error updating team member:', error);
     console.error('Error details:', {
@@ -205,7 +243,7 @@ export async function DELETE(request: NextRequest) {
     await client.connect();
     const db = client.db();
     
-    const result = await db.collection('TeamMember').deleteOne({ id });
+    const result = await db.collection('TeamMember').deleteOne({ _id: new ObjectId(id) });
     
     if (result.deletedCount === 0) {
       return NextResponse.json({ error: 'Team member not found' }, { status: 404 });
