@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { InstagramIcon, XIcon, LinkedInIcon } from "./SocialIcons";
+import { isAdmin } from "@/lib/roles";
 
 export default function Navbar() {
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN';
+  const userIsAdmin = isAdmin(session?.user?.roles || []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navigationItems: Array<{
@@ -44,7 +45,7 @@ export default function Navbar() {
     },
   ];
 
-  if (isAdmin) {
+  if (userIsAdmin) {
     navigationItems.push({ href: "/admin", label: "Admin" });
   }
 
