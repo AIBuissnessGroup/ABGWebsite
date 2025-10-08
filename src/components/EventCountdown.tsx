@@ -351,10 +351,10 @@ export default function EventCountdown({
           <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2 px-1 sm:px-2">
             {nextEvent.partnerships.map((partnership: any, idx: number) => (
               <div key={idx} className="flex items-center gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-white/10 rounded border border-white/20 hover:bg-white/15 transition-all duration-200">
-                {partnership.company.logoUrl && (
+                {partnership.company?.logoUrl && (
                   <img 
                     src={partnership.company.logoUrl} 
-                    alt={partnership.company.name}
+                    alt={partnership.company?.name || 'Partner'}
                     className="w-6 h-6 sm:w-8 sm:h-8 object-contain"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
@@ -362,7 +362,7 @@ export default function EventCountdown({
                     }}
                   />
                 )}
-                <span className="text-white text-xs sm:text-sm font-medium">{partnership.company.name}</span>
+                <span className="text-white text-xs sm:text-sm font-medium">{partnership.company?.name || 'Partner'}</span>
               </div>
             ))}
           </div>

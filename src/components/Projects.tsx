@@ -348,10 +348,10 @@ export default function Projects() {
                           <div className="space-y-2 sm:space-y-3">
                             {project.partnerships.slice(0, 2).map((partnership: any, idx: number) => (
                               <div key={idx} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-white/5 rounded-lg border border-white/10">
-                                {partnership.company.logoUrl && (
+                                {partnership.company?.logoUrl && (
                                   <img 
                                     src={partnership.company.logoUrl} 
-                                    alt={partnership.company.name}
+                                    alt={partnership.company?.name || 'Partner'}
                                     className="w-6 h-6 sm:w-8 sm:h-8 object-contain flex-shrink-0"
                                     onError={(e) => {
                                       const target = e.target as HTMLImageElement;
@@ -361,7 +361,7 @@ export default function Projects() {
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                                    <span className="text-white text-xs sm:text-sm font-medium truncate">{partnership.company.name}</span>
+                                    <span className="text-white text-xs sm:text-sm font-medium truncate">{partnership.company?.name || 'Partner'}</span>
                                     <span className={`px-2 py-0.5 rounded text-xs self-start flex-shrink-0 ${
                                       partnership.type === 'SPONSOR' ? 'bg-purple-400/20 text-purple-400' :
                                       partnership.type === 'CLIENT' ? 'bg-blue-400/20 text-blue-400' :
