@@ -137,12 +137,7 @@ export default function PostCard({ post }: PostCardProps) {
                 {post.datePublished ? formatDate(post.datePublished) : formatDate(post.createdAt)}
               </div>
               
-              {post.analytics && post.analytics.views > 0 && (
-                <div className="flex items-center gap-1">
-                  <EyeIcon className="w-3.5 h-3.5" />
-                  {formatViews(post.analytics.views)}
-                </div>
-              )}
+
             </div>
 
             <div className="text-right">

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CalendarIcon, MapPinIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import { analytics } from '@/lib/analytics';
+import { useRouter } from 'next/navigation';
 
 // Helper function to format dates in ET timezone
 const formatDateInET = (date: Date, format: 'date' | 'time' | 'datetime' = 'datetime'): string => {
@@ -77,6 +78,7 @@ export default function EventCountdown({
   eventLocation = "Michigan Ross School of Business",
   eventDescription = "Join us for an exclusive evening exploring the future of AI in business"
 }: EventCountdownProps) {
+  const router = useRouter();
   const [timeLeft, setTimeLeft] = useState({
     days: 0,
     hours: 0,
@@ -126,7 +128,7 @@ export default function EventCountdown({
           fetch('/api/events/next'),
           fetch('/api/admin/settings')
         ]);
-
+        
         if (eventRes.ok) {
           const event = await eventRes.json();
           setNextEvent(event);
@@ -425,26 +427,19 @@ export default function EventCountdown({
               <motion.button
                 onClick={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
+                  
                   if (nextEvent) {
                     analytics.events.clickRegister(nextEvent.title);
                     
-                    // Check if it's an external registration URL
-                    if (nextEvent.registrationUrl && !nextEvent.registrationUrl.startsWith('/')) {
-                      // External URL - open in new tab
-                      window.open(nextEvent.registrationUrl, '_blank');
-                    } else {
-                      // Internal registration - trigger popup
-                      const registrationUrl = nextEvent.registrationUrl || `/events/${nextEvent.slug || generateSlug(nextEvent.title)}?register=true`;
-                      
-                      // Dispatch custom event to open RSVP popup
-                      const openRsvpEvent = new CustomEvent('openRsvpPopup', {
-                        detail: {
-                          eventId: nextEvent.id,
-                          eventTitle: nextEvent.title,
-                          registrationUrl: registrationUrl
-                        }
-                      });
-                      window.dispatchEvent(openRsvpEvent);
+                    // Always navigate to the event's own page with registration popup
+                    const eventPath = `/events/${nextEvent.slug || generateSlug(nextEvent.title)}?register=true`;
+                    
+                    try {
+                      router.push(eventPath);
+                    } catch (error) {
+                      console.error('Router navigation failed:', error);
+                      window.location.href = eventPath;
                     }
                   }
                 }}

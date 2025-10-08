@@ -3,6 +3,12 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_ADMIN_EMAILS: process.env.ADMIN_EMAILS,
   },
+  compiler: {
+    // Remove console logs in production builds
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error'] // Keep console.error for debugging critical issues
+    } : false,
+  },
   images: {
     domains: ['images.unsplash.com', 'img.icons8.com', 'msofficestore.us', 'i.ibb.co'],
     remotePatterns: [

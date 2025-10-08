@@ -296,12 +296,6 @@ export default function PostDetailClient({ post }: PostDetailClientProps) {
                 {post.datePublished ? formatDate(post.datePublished) : formatDate(post.createdAt)}
               </div>
               
-              {post.analytics && post.analytics.views > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <EyeIcon className="w-4 h-4" />
-                  {formatViews(post.analytics.views)}
-                </div>
-              )}
               
               <button
                 onClick={handleShare}

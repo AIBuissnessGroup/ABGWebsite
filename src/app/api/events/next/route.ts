@@ -107,7 +107,8 @@ export async function GET() {
       registrationCtaLabel: nextEvent.registrationCtaLabel,
       backgroundImageUrl: nextEvent.imageUrl,
       partnerships: nextEvent.partnerships || [],
-      subevents: nextEvent.subevents || []
+      subevents: nextEvent.subevents || [],
+      slug: nextEvent.slug
     };
 
     return NextResponse.json(safeJson(formattedEvent));
