@@ -1,9 +1,9 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ChartBarIcon, FunnelIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { ChartBarIcon, FunnelIcon, ArrowPathIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { isAdmin } from '@/lib/admin';
 
 interface AuditLogEntry {
@@ -40,6 +40,7 @@ export default function AdminAuditPage() {
   const [loading, setLoading] = useState(true);
   const [loadingStats, setLoadingStats] = useState(true);
   const [error, setError] = useState('');
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   
   // Filters
   const [filters, setFilters] = useState({
@@ -48,6 +49,16 @@ export default function AdminAuditPage() {
     targetType: '',
     page: 1
   });
+
+  const toggleRowExpansion = (logId: string) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(logId)) {
+      newExpanded.delete(logId);
+    } else {
+      newExpanded.add(logId);
+    }
+    setExpandedRows(newExpanded);
+  };
   
   // Pagination
   const [pagination, setPagination] = useState({
@@ -328,6 +339,7 @@ export default function AdminAuditPage() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="text-left p-4 text-gray-900 font-medium w-8"></th>
                   <th className="text-left p-4 text-gray-900 font-medium">Timestamp</th>
                   <th className="text-left p-4 text-gray-900 font-medium">User</th>
                   <th className="text-left p-4 text-gray-900 font-medium">Action</th>
@@ -338,47 +350,97 @@ export default function AdminAuditPage() {
               <tbody className="divide-y divide-gray-200 bg-white">
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-gray-600">
+                    <td colSpan={6} className="p-8 text-center text-gray-600">
                       Loading audit logs...
                     </td>
                   </tr>
                 ) : logs.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-gray-600">
+                    <td colSpan={6} className="p-8 text-center text-gray-600">
                       No audit logs found.
                     </td>
                   </tr>
                 ) : (
                   logs.map((log) => (
-                    <tr key={log._id} className="hover:bg-gray-50">
-                      <td className="p-4 text-sm text-gray-600">
-                        {formatTimestamp(log.timestamp)}
-                      </td>
-                      <td className="p-4">
-                        <div className="text-gray-900 text-sm">{log.userEmail}</div>
-                        {log.ip && (
-                          <div className="text-gray-500 text-xs">{log.ip}</div>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <span className={`text-sm font-medium ${getActionColor(log.action)}`}>
-                          {log.action}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <div className="text-gray-900 text-sm">{log.targetType}</div>
-                        {log.targetId && (
-                          <div className="text-gray-500 text-xs">{log.targetId}</div>
-                        )}
-                      </td>
-                      <td className="p-4 text-sm text-gray-600 max-w-xs">
-                        {log.meta && Object.keys(log.meta).length > 0 && (
-                          <div className="truncate">
-                            {JSON.stringify(log.meta, null, 2)}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
+                    <React.Fragment key={log._id}>
+                      <tr className="hover:bg-gray-50">
+                        <td className="p-4">
+                          <button
+                            onClick={() => toggleRowExpansion(log._id)}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            {expandedRows.has(log._id) ? (
+                              <ChevronDownIcon className="w-4 h-4" />
+                            ) : (
+                              <ChevronRightIcon className="w-4 h-4" />
+                            )}
+                          </button>
+                        </td>
+                        <td className="p-4 text-sm text-gray-600">
+                          {formatTimestamp(log.timestamp)}
+                        </td>
+                        <td className="p-4">
+                          <div className="text-gray-900 text-sm">{log.userEmail}</div>
+                          {log.ip && (
+                            <div className="text-gray-500 text-xs">{log.ip}</div>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <span className={`text-sm font-medium ${getActionColor(log.action)}`}>
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <div className="text-gray-900 text-sm">{log.targetType}</div>
+                          {log.targetId && (
+                            <div className="text-gray-500 text-xs">{log.targetId}</div>
+                          )}
+                        </td>
+                        <td className="p-4 text-sm text-gray-600">
+                          {log.meta && Object.keys(log.meta).length > 0 ? (
+                            <div className="text-gray-500">
+                              {expandedRows.has(log._id) ? 'Details expanded below' : 'Click arrow to view details'}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">No additional details</span>
+                          )}
+                        </td>
+                      </tr>
+                      {expandedRows.has(log._id) && (
+                        <tr key={`${log._id}-expanded`} className="bg-gray-50">
+                          <td className="p-4"></td>
+                          <td colSpan={5} className="p-4">
+                            <div className="bg-white rounded border p-4">
+                              <h4 className="font-medium text-gray-900 mb-3">Detailed Information</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <span className="font-medium text-gray-700">User Agent:</span>
+                                  <div className="text-gray-600 mt-1 break-all">
+                                    {log.userAgent || 'Not recorded'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-700">IP Address:</span>
+                                  <div className="text-gray-600 mt-1">
+                                    {log.ip || 'Not recorded'}
+                                  </div>
+                                </div>
+                                {log.meta && Object.keys(log.meta).length > 0 && (
+                                  <div className="md:col-span-2">
+                                    <span className="font-medium text-gray-700">Metadata:</span>
+                                    <div className="bg-gray-100 rounded p-3 mt-1">
+                                      <pre className="text-xs text-gray-800 overflow-x-auto whitespace-pre-wrap">
+                                        {JSON.stringify(log.meta, null, 2)}
+                                      </pre>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))
                 )}
               </tbody>
