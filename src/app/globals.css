@@ -29,6 +29,14 @@ html {
 }
 
 /* Text clamping utilities */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -43,6 +51,37 @@ html {
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Extra small screen utilities (480px and up) */
+@media (min-width: 480px) {
+  .xs\:block { display: block; }
+  .xs\:flex-row { flex-direction: row; }
+  .xs\:items-center { align-items: center; }
+}
+
+/* Event card background image styling */
+.event-bg-image {
+  background-attachment: scroll;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: transform 0.3s ease;
+}
+
+.event-bg-image:hover {
+  transform: scale(1.02);
+}
+
+/* Ensure backdrop blur works across browsers */
+.backdrop-blur-md {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 body {

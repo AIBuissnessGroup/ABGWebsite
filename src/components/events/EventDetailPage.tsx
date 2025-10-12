@@ -54,16 +54,19 @@ export default function EventDetailPage({ event, userRegistration, userEmail, us
     setIsClient(true);
     
     // Check if register=true is in the URL and automatically open registration form
-    // Check both server-side searchParams and client-side URL parameters
-    if (searchParams?.register === 'true') {
-      setShowAttendanceForm(true);
-    } else if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('register') === 'true') {
+    // Only show the form if the user is not already registered
+    if (!userRegistration) {
+      // Check both server-side searchParams and client-side URL parameters
+      if (searchParams?.register === 'true') {
         setShowAttendanceForm(true);
+      } else if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('register') === 'true') {
+          setShowAttendanceForm(true);
+        }
       }
     }
-  }, [searchParams]);
+  }, [searchParams, userRegistration]);
 
   const handleExportToCalendar = () => {
     const googleCalendarUrl = generateGoogleCalendarUrl(event);

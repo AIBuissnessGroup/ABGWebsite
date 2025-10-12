@@ -18,7 +18,7 @@ export const authOptions: NextAuthOptions = {
           response_type: "code",
           // These parameters help prevent the disallowed_useragent error
           include_granted_scopes: "true",
-          scope: "openid email profile https://www.googleapis.com/auth/forms.body.readonly",
+          scope: "openid email profile",
         }
       },
       // Additional configuration to handle user agent issues
