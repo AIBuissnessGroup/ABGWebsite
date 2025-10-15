@@ -682,34 +682,27 @@ export default function EventDetailPage({ event, userRegistration, userEmail, us
 
 // Helper functions
 function generateGoogleCalendarUrl(event: Event): string {
-  // The event.eventDate is stored as UTC in the database
-  // But it represents an EST time, so we need to convert it properly for Google Calendar
-  const utcStartDate = new Date(event.eventDate);
-  const utcEndDate = event.endDate ? new Date(event.endDate) : new Date(utcStartDate.getTime() + 2 * 60 * 60 * 1000);
+  // The event.eventDate is stored as UTC timestamp in the database
+  const startDate = new Date(event.eventDate);
+  const endDate = event.endDate ? new Date(event.endDate) : new Date(startDate.getTime() + 90 * 60 * 1000); // Default 1.5 hours
   
-  // Convert UTC to EST (subtract 5 hours) to get the actual intended time
-  const estOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
-  const estStartDate = new Date(utcStartDate.getTime() - estOffset);
-  const estEndDate = new Date(utcEndDate.getTime() - estOffset);
-  
-  // Format for Google Calendar with EST timezone
+  // Format for Google Calendar as UTC time with Z suffix
   const formatDateForGoogle = (date: Date) => {
-    // Use the EST date but format as if it's local time
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(date.getUTCSeconds()).padStart(2, '0');
     
-    // Return in format YYYYMMDDTHHMMSS for local time
-    return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+    // Return in UTC format YYYYMMDDTHHMMSSZ
+    return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
   };
   
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: event.title,
-    dates: `${formatDateForGoogle(estStartDate)}/${formatDateForGoogle(estEndDate)}`,
+    dates: `${formatDateForGoogle(startDate)}/${formatDateForGoogle(endDate)}`,
     details: event.description,
     location: `${event.location}${event.venue ? ', ' + event.venue : ''}`,
     sprop: 'website:abg-website.com'
