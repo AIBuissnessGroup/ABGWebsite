@@ -21,7 +21,7 @@
 - **Styling**: Tailwind CSS
 - **Database**: MongoDB (hosted on Digital Ocean)
 - **Authentication**: NextAuth.js (Google OAuth)
-- **Deployment**: Digital Ocean Droplet with Nginx
+- **Deployment**: Digital Ocean Droplet with SystemD + Nginx
 
 ### Scale
 - **216 files**
@@ -73,6 +73,7 @@ ABGWebsite/
 - Hosted on Digital Ocean (IP-restricted for security)
 - Collections likely include: users, events, applications, etc.
 - Connected via Mongoose or native MongoDB driver
+- Two instances: Production (port 27017) and Development (port 27018)
 
 ### NextAuth.js
 - Google OAuth integration for UMich emails
@@ -84,6 +85,7 @@ ABGWebsite/
 - IP-restricted database access
 - Environment variables for sensitive data
 - Server-side authentication checks
+- Separate dev/prod credentials
 
 ---
 
@@ -91,19 +93,26 @@ ABGWebsite/
 
 ### Production Setup (Digital Ocean)
 ```
-Internet → Nginx (Reverse Proxy) → Next.js App (Port 3001) → MongoDB
-                                         
-                                    
+Internet → Nginx (Port 80/443) → Next.js App (Port 3001) → MongoDB (Port 27017)
+           (SSL/TLS)              (SystemD Service)          (Production DB)
 ```
 
 ### Components
 - **Nginx**: Handles SSL/TLS, serves static files, reverse proxy
+- **SystemD**: Manages Next.js process as a service (`abg-website.service`)
 - **Next.js**: Built for production (`npm run build`)
+- **MongoDB**: Database server (two instances: prod + dev)
 
 ### Key Files
 - `nginx.conf` - Nginx configuration
-- `ecosystem.config.js` - PM2 configuration
 - `abg-website.service` - SystemD service file
+- `/etc/systemd/system/abg-website.service` - Service location on server
+
+### How SystemD Works
+- Automatically starts Next.js on server boot
+- Auto-restarts if the application crashes
+- Manages logs via `journalctl`
+- Runs as a background service
 
 ---
 
@@ -127,9 +136,11 @@ Internet → Nginx (Reverse Proxy) → Next.js App (Port 3001) → MongoDB
 ### Deployment Process
 - Code pushed to `main` branch
 - SSH into Digital Ocean server
-- Pull latest changes
-- Run `npm run build`
-- Restart PM2: `pm2 restart ecosystem.config.js`
+- Pull latest changes: `git pull origin main`
+- Install dependencies: `npm install`
+- Build for production: `npm run build`
+- Restart service: `sudo systemctl restart abg-website`
+- Verify: `sudo systemctl status abg-website`
 
 ---
 
@@ -141,7 +152,47 @@ Internet → Nginx (Reverse Proxy) → Next.js App (Port 3001) → MongoDB
 - **Application System**: Recruitment and application forms
 - **Admin Dashboard**: Special access for leadership
 - **Member Directory**: User profiles and information
+- **SMS Notifications**: Twilio integration for alerts
 - **Analytics**: Google Analytics tracking
+
+### Environment Integrations
+- Google Forms API
+- Twilio SMS
+- Google OAuth
+- MongoDB
+
+---
+
+## 🔧 System Management Commands
+
+### Common Commands (Lead Members)
+```bash
+# Check service status
+sudo systemctl status abg-website
+
+# Restart the service
+sudo systemctl restart abg-website
+
+# View logs
+sudo journalctl -u abg-website -n 50
+
+# Follow logs in real-time
+sudo journalctl -u abg-website -f
+```
+
+### Development vs Production
+
+**Development Environment:**
+- Runs on your local machine (`localhost:3001`)
+- Uses development database (port 27018)
+- Hot reload (changes appear instantly)
+- Development credentials
+
+**Production Environment:**
+- Runs on Digital Ocean server
+- Uses production database (port 27017)
+- Managed by SystemD service
+- Production credentials (secure)
 
 ---
 
@@ -159,7 +210,50 @@ Internet → Nginx (Reverse Proxy) → Next.js App (Port 3001) → MongoDB
 2. Next.js App Router basics
 3. TypeScript basics
 4. Tailwind CSS utilities
-5. Using AI tools (Copilot) for development
+5. Using AI tools (ChatGPT, GitHub Copilot) for development
+
+### Tools You'll Use
+- **VS Code** - Code editor (recommended)
+- **Git** - Version control
+- **Node.js** - JavaScript runtime
+- **MongoDB Compass** - Database GUI (Lead Members)
+- **Postman/Insomnia** - API testing (Lead Members)
+
+---
+
+## 🏗 Development vs Lead Member Tracks
+
+### Focused Contributors (Option A):
+- Work on specific features locally
+- Push to GitHub for review
+- No server access needed
+- Use development database
+- Focus on coding and learning
+
+### Lead Members (Option B):
+- Full deployment access
+- Manage production server
+- Code reviews and mentorship
+- Database management
+- DevOps responsibilities
+- Strategic planning
+
+---
+
+## 📊 Tech Committee Structure
+
+```
+VP of Technology
+    ↓
+Lead Tech Committee Members (2-3)
+    ↓
+Focused Contributors (5-10)
+```
+
+### Roles:
+- **VP Tech**: Overall strategy, infrastructure ownership
+- **Lead Members**: Subproject management, code review, deployments
+- **Contributors**: Feature development, bug fixes, learning
 
 ---
 
@@ -167,3 +261,47 @@ Internet → Nginx (Reverse Proxy) → Next.js App (Port 3001) → MongoDB
 - Slack workspace for real-time communication
 - GitHub Issues for bug reports and feature requests
 - Weekly Tech Committee meetings
+- Office hours with Tech Leads
+
+---
+
+## 🚀 Getting Started Checklist
+
+### Week 1: Setup
+- [ ] Install Node.js, Git, VS Code
+- [ ] Clone repository
+- [ ] Get `.env.local` file from Tech Lead
+- [ ] Run `npm install`
+- [ ] Run `npm run dev` successfully
+- [ ] Join Slack workspace
+
+### Week 2: First Contribution
+- [ ] Explore codebase
+- [ ] Pick first issue (assigned by Lead)
+- [ ] Create feature branch
+- [ ] Make changes
+- [ ] Create Pull Request
+- [ ] Address feedback
+
+### Week 3+: Active Development
+- [ ] Regular contributions (5-10 hrs/week)
+- [ ] Attend weekly meetings
+- [ ] Ask questions when stuck
+- [ ] Learn and grow!
+
+---
+
+## 💡 Key Takeaways
+
+1. **SystemD manages production** - Not PM2, uses systemctl commands
+2. **Two environments** - Development (local) and Production (server)
+3. **Two databases** - Dev (port 27018) and Prod (port 27017)
+4. **AI-assisted development** - Use ChatGPT/Copilot to help code
+5. **You don't need to know everything** - Learn as you go!
+6. **Ask for help** - Tech Leads are here to support you
+
+---
+
+**Welcome to the ABG Tech Committee! 🎉**
+
+Questions? Reach out on Slack: #tech-committee
