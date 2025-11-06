@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient, ObjectId } from 'mongodb';
+import { notifyFormSubmission } from '@/lib/slack';
 
 // Configure runtime for handling large requests
 export const maxDuration = 60; // seconds
@@ -253,6 +254,30 @@ export async function POST(
     };
 
     const result = await db.collection('Application').insertOne(applicationData);
+    
+    // Send Slack notification (async, don't wait for it)
+    notifyFormSubmission({
+      formTitle: form.title || form.name || slug,
+      formSlug: slug,
+      applicantName: applicationData.applicantName,
+      applicantEmail: applicationData.applicantEmail,
+      applicantPhone: applicationData.applicantPhone,
+      applicationId: result.insertedId.toString(),
+      responses: responses
+        .filter((r: any) => r.value !== null && r.value !== undefined && r.value !== '')
+        .map((r: any) => {
+          const question = questions.find((q: any) => q.id === r.questionId);
+          return {
+            questionTitle: question?.title || question?.question || 'Unknown Question',
+            value: r.value,
+            questionId: r.questionId,
+          };
+        }),
+      submissionUrl: `${process.env.NEXTAUTH_URL || 'https://abgumich.org'}/admin/forms/${slug}`,
+    }).catch((error) => {
+      // Log error but don't fail the submission
+      console.error('Failed to send Slack notification:', error);
+    });
     
     return NextResponse.json({ 
       success: true, 

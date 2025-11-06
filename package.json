@@ -9,7 +9,8 @@
     "clean:force": "rimraf .next",
     "build": "npm run clean && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:slack": "tsx scripts/test-slack-notification.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
