@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient, ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
-import { isAdminEmail } from '@/lib/admin';
+import { isAdmin } from '@/lib/admin';
 import crypto from 'crypto';
 
 const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is admin
-    if (!isAdminEmail(session.user.email)) {
+    if (!isAdmin(session.user)) {
       console.log('User is not an admin');
       return corsResponse(NextResponse.json({ error: 'Forbidden' }, { status: 403 }));
     }
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
           id: crypto.randomUUID(),
           email: session.user.email,
           name: session.user.name || '',
-          role: isAdminEmail(session.user.email) ? 'ADMIN' : 'USER',
+          role: isAdmin(session.user) ? 'ADMIN' : 'USER',
           createdAt: new Date(),
           updatedAt: new Date()
         };
@@ -181,7 +181,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Check if user is admin
-    if (!isAdminEmail(session.user.email)) {
+    if (!isAdmin(session.user)) {
       return corsResponse(NextResponse.json({ error: 'Forbidden' }, { status: 403 }));
     }
 
@@ -303,7 +303,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check if user is admin
-    if (!isAdminEmail(session.user.email)) {
+    if (!isAdmin(session.user)) {
       return corsResponse(NextResponse.json({ error: 'Forbidden' }, { status: 403 }));
     }
 

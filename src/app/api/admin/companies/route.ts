@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient, ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
-import { isAdminEmail } from '@/lib/admin';
+import { isAdmin } from '@/lib/admin';
 
 const client = new MongoClient(process.env.DATABASE_URL!);
 
@@ -17,7 +17,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email || !isAdminEmail(session.user.email)) {
+    if (!session || !isAdmin(session.user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email || !isAdminEmail(session.user.email)) {
+    if (!session || !isAdmin(session.user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -76,7 +76,7 @@ export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email || !isAdminEmail(session.user.email)) {
+    if (!session || !isAdmin(session.user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -128,7 +128,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email || !isAdminEmail(session.user.email)) {
+    if (!session || !isAdmin(session.user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

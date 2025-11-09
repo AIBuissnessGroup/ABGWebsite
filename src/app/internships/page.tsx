@@ -31,21 +31,21 @@ export default function InternshipsPage() {
   const loadContent = async () => {
     try {
       // Load page content
-      const contentRes = await fetch('/api/admin/internships/content');
+      const contentRes = await fetch('/api/public/internships/content');
       const contentData = await contentRes.json();
       if (contentData && !contentData.error) {
         setPageContent(contentData);
       }
 
       // Load projects
-      const projectsRes = await fetch('/api/admin/internships/projects');
+      const projectsRes = await fetch('/api/public/internships/projects');
       const projectsData = await projectsRes.json();
       if (projectsData && !projectsData.error) {
         setProjects(projectsData.filter((p: any) => p.active));
       }
 
       // Load companies
-      const companiesRes = await fetch('/api/admin/internships/companies');
+      const companiesRes = await fetch('/api/public/internships/companies');
       const companiesData = await companiesRes.json();
       if (companiesData && !companiesData.error) {
         setCompanies(companiesData);

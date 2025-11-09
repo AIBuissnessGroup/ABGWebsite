@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient } from 'mongodb';
-import { isAdminEmail } from '@/lib/admin';
+import { isAdmin } from '@/lib/admin';
 import * as XLSX from 'xlsx';
 
 export async function POST(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is admin
-    if (!isAdminEmail(session.user.email)) {
+    if (!isAdmin(session.user)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

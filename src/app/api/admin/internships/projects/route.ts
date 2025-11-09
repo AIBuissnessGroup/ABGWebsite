@@ -1,46 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin';
+import { internshipsStore } from '@/lib/internships/store';
 
-// Mock data for internship projects
-let internshipProjects = [
-  {
-    id: '1',
-    title: 'AI Research Intern',
-    description: 'Work on cutting-edge NLP projects and machine learning model development. You will collaborate with our research team to develop innovative AI solutions.',
-    companyId: '1',
-    linkedForm: '1735847762089', // Example form ID - can be linked to forms from the forms system
-    status: 'OPEN',
-    duration: '12 weeks',
-    location: 'Remote',
-    type: 'Research',
-    skills: '["Python", "PyTorch", "NLP", "Machine Learning"]',
-    requirements: 'Strong programming skills, machine learning background, and enthusiasm for AI research.',
-    applicationDeadline: '2025-03-01',
-    applicationsCount: 5,
-    active: true,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    title: 'ML Engineering Intern',
-    description: 'Build production ML pipelines and deploy AI models at scale. Work with our engineering team to bring AI solutions to production.',
-    companyId: '2',
-    linkedForm: '', // No form linked yet
-    status: 'FILLED',
-    duration: '10 weeks',
-    location: 'San Francisco, CA',
-    type: 'Engineering',
-    skills: '["Python", "Docker", "AWS", "MLOps", "Kubernetes"]',
-    requirements: 'Experience with cloud platforms, containerization, and ML deployment.',
-    applicationDeadline: '2025-02-15',
-    applicationsCount: 12,
-    active: true,
-    createdAt: new Date().toISOString()
+async function ensureAdmin() {
+  const session = await getServerSession(authOptions);
+  if (!session || !isAdmin(session.user)) {
+    return null;
   }
-];
+  return session;
+}
 
 export async function GET() {
+  const session = await ensureAdmin();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    return NextResponse.json(internshipProjects);
+    return NextResponse.json(internshipsStore.getProjects());
   } catch (error) {
     console.error('Error fetching internship projects:', error);
     return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 });
@@ -48,19 +27,24 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await ensureAdmin();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const data = await request.json();
-    
+
     const newProject = {
       id: Date.now().toString(),
       ...data,
       applicationsCount: 0,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
-    
-    internshipProjects.push(newProject);
-    
+
+    internshipsStore.addProject(newProject);
+
     return NextResponse.json(newProject, { status: 201 });
   } catch (error) {
     console.error('Error creating internship project:', error);
@@ -69,28 +53,26 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const session = await ensureAdmin();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const data = await request.json();
-    
+
     if (!id) {
       return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
     }
-    
-    const projectIndex = internshipProjects.findIndex(p => p.id === id);
-    if (projectIndex === -1) {
+
+    const updatedProject = internshipsStore.updateProject(id, data);
+    if (!updatedProject) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
-    
-    internshipProjects[projectIndex] = {
-      ...internshipProjects[projectIndex],
-      ...data,
-      id,
-      updatedAt: new Date().toISOString()
-    };
-    
-    return NextResponse.json(internshipProjects[projectIndex]);
+
+    return NextResponse.json(updatedProject);
   } catch (error) {
     console.error('Error updating internship project:', error);
     return NextResponse.json({ error: 'Failed to update project' }, { status: 500 });
@@ -98,24 +80,27 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const session = await ensureAdmin();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    
+
     if (!id) {
       return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
     }
-    
-    const projectIndex = internshipProjects.findIndex(p => p.id === id);
-    if (projectIndex === -1) {
+
+    const deleted = internshipsStore.deleteProject(id);
+    if (!deleted) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
-    
-    internshipProjects.splice(projectIndex, 1);
-    
+
     return NextResponse.json({ message: 'Project deleted successfully' });
   } catch (error) {
     console.error('Error deleting internship project:', error);
     return NextResponse.json({ error: 'Failed to delete project' }, { status: 500 });
   }
-} 
+}

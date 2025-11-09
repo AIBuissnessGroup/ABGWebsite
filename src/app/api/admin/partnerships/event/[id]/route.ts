@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient } from 'mongodb';
 import { authOptions } from '@/lib/auth';
-import { isAdminEmail } from '@/lib/admin';
+import { isAdmin } from '@/lib/admin';
 
 export async function GET(
   request: NextRequest,
@@ -11,7 +11,7 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email || !isAdminEmail(session.user.email)) {
+    if (!session || !isAdmin(session.user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

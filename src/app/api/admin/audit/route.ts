@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
-import { getAuditLogs, getAuditStats, getRequestMetadata } from '@/lib/audit';
+import { getAuditLogs } from '@/lib/audit';
 
-// GET - Fetch audit logs and statistics (Admin only)
+// GET - Fetch audit logs (Admin only)
 export async function GET(request: NextRequest) {
   try {
     // Get session with Next.js 15 compatibility
@@ -20,14 +20,6 @@ export async function GET(request: NextRequest) {
     const targetType = searchParams.get('targetType') || undefined;
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
-    const getStats = searchParams.get('stats') === 'true';
-
-    if (getStats) {
-      // Return statistics
-      const stats = await getAuditStats();
-      return NextResponse.json(stats);
-    }
-
     // Return filtered logs
     const result = await getAuditLogs({
       page,

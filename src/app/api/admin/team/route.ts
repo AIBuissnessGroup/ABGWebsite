@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient, ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin';
 
 // Safely serialize BigInt values
 function safeJson(obj: any) {
@@ -14,6 +15,11 @@ const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8y
 const client = new MongoClient(uri);
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session || !isAdmin(session.user)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     await client.connect();
     const db = client.db();
@@ -43,14 +49,8 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email) {
+    if (!session || !isAdmin(session.user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const data = await request.json();
@@ -120,14 +120,8 @@ export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email) {
+    if (!session || !isAdmin(session.user)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Get ID from URL query parameters

@@ -1,9 +1,9 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { ChartBarIcon, FunnelIcon, ArrowPathIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { FunnelIcon, ArrowPathIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { isAdmin } from '@/lib/admin';
 
 interface AuditLogEntry {
@@ -13,17 +13,10 @@ interface AuditLogEntry {
   action: string;
   targetType: string;
   targetId?: string;
-  meta?: Record<string, any>;
+  meta?: Record<string, unknown>;
   ip?: string;
   userAgent?: string;
   timestamp: string;
-}
-
-interface AuditStats {
-  totalLogs: number;
-  todayLogs: number;
-  topActions: Array<{ action: string; count: number }>;
-  topUsers: Array<{ userEmail: string; count: number }>;
 }
 
 interface AuditResponse {
@@ -36,9 +29,7 @@ interface AuditResponse {
 export default function AdminAuditPage() {
   const { data: session, status } = useSession();
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
-  const [stats, setStats] = useState<AuditStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingStats, setLoadingStats] = useState(true);
   const [error, setError] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   
@@ -49,6 +40,11 @@ export default function AdminAuditPage() {
     targetType: '',
     page: 1
   });
+  const filtersRef = useRef(filters);
+
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   const toggleRowExpansion = (logId: string) => {
     const newExpanded = new Set(expandedRows);
@@ -68,15 +64,16 @@ export default function AdminAuditPage() {
     totalLogs: 0
   });
 
-  const loadLogs = async (newFilters = filters) => {
+  const loadLogs = useCallback(async (newFilters?: typeof filters) => {
+    const filtersToUse = newFilters ?? filtersRef.current;
     try {
       setLoading(true);
       const params = new URLSearchParams();
       
-      if (newFilters.action) params.set('action', newFilters.action);
-      if (newFilters.userEmail) params.set('userEmail', newFilters.userEmail);
-      if (newFilters.targetType) params.set('targetType', newFilters.targetType);
-      params.set('page', newFilters.page.toString());
+      if (filtersToUse.action) params.set('action', filtersToUse.action);
+      if (filtersToUse.userEmail) params.set('userEmail', filtersToUse.userEmail);
+      if (filtersToUse.targetType) params.set('targetType', filtersToUse.targetType);
+      params.set('page', filtersToUse.page.toString());
       params.set('limit', '25');
 
       const response = await fetch(`/api/admin/audit?${params}`);
@@ -99,31 +96,13 @@ export default function AdminAuditPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const loadStats = async () => {
-    try {
-      setLoadingStats(true);
-      const response = await fetch('/api/admin/audit?stats=true');
-      if (!response.ok) {
-        throw new Error('Failed to fetch audit statistics');
-      }
-      
-      const data: AuditStats = await response.json();
-      setStats(data);
-    } catch (err) {
-      console.error('Failed to load audit statistics:', err);
-    } finally {
-      setLoadingStats(false);
-    }
-  };
+  }, []);
 
   useEffect(() => {
     if (session?.user) {
       loadLogs();
-      loadStats();
     }
-  }, [session]);
+  }, [session, loadLogs]);
 
   const handleFilterChange = (key: string, value: string) => {
     const newFilters = { ...filters, [key]: value, page: 1 };
@@ -204,65 +183,6 @@ export default function AdminAuditPage() {
             {error}
           </div>
         )}
-
-        {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <ChartBarIcon className="h-8 w-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm text-gray-600">Total Logs</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {loadingStats ? '...' : stats?.totalLogs.toLocaleString() || '0'}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <ChartBarIcon className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm text-gray-600">Today</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {loadingStats ? '...' : stats?.todayLogs || '0'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600 mb-2">Top Actions</p>
-            {loadingStats ? (
-              <p className="text-gray-900">Loading...</p>
-            ) : (
-              <div className="space-y-1">
-                {stats?.topActions.slice(0, 3).map((action, idx) => (
-                  <div key={idx} className="text-sm">
-                    <span className="text-gray-900">{action.action}</span>
-                    <span className="text-gray-600 ml-2">({action.count})</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600 mb-2">Top Users</p>
-            {loadingStats ? (
-              <p className="text-gray-900">Loading...</p>
-            ) : (
-              <div className="space-y-1">
-                {stats?.topUsers.slice(0, 3).map((user, idx) => (
-                  <div key={idx} className="text-sm">
-                    <span className="text-gray-900">{user.userEmail.split('@')[0]}</span>
-                    <span className="text-gray-600 ml-2">({user.count})</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">

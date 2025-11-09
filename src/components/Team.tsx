@@ -39,7 +39,7 @@ export default function Team() {
   useEffect(() => {
     const loadTeamMembers = async () => {
       try {
-        const res = await fetch('/api/admin/team');
+        const res = await fetch('/api/public/team');
         if (res.ok) {
           const data = await res.json();
           setTeamMembers(data);

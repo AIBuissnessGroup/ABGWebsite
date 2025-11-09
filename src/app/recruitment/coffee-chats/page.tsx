@@ -56,7 +56,7 @@ export default function CoffeeChatsPage() {
 
   const loadTeamMembers = async () => {
     try {
-      const res = await fetch('/api/admin/team');
+      const res = await fetch('/api/public/team');
       const data = await res.json();
       setTeamMembers(data || []);
     } catch (error) {
@@ -647,5 +647,4 @@ export default function CoffeeChatsPage() {
     </div>
   );
 }
-
 

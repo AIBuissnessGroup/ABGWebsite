@@ -1,24 +1,60 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
-import { 
-  EyeIcon, 
-  EyeSlashIcon, 
+import { useState, useMemo } from 'react';
+import {
+  EyeIcon,
+  EyeSlashIcon,
   ArrowDownTrayIcon,
   MagnifyingGlassIcon,
   CalendarIcon,
   UserIcon,
-  ClockIcon,
-  MapPinIcon
+  MapPinIcon,
 } from '@heroicons/react/24/outline';
+import { toast } from 'react-hot-toast';
+import { useAdminApi } from '@/hooks/useAdminApi';
+import { formatUtcDateInEastern, getEasternDateKey } from '@/lib/timezone';
+
+interface SpreadsheetSignup {
+  id: string;
+  userEmail: string;
+  userName: string | null;
+  phone?: string;
+  createdAt: string;
+}
+
+interface SpreadsheetExecMember {
+  id: string;
+  name: string;
+  email?: string;
+  role?: string;
+}
+
+interface SpreadsheetSlot {
+  id?: string;
+  title?: string;
+  startTime: string;
+  endTime?: string;
+  location: string;
+  execMember?: SpreadsheetExecMember | null;
+  capacity?: number;
+  signupCount?: number;
+  isOpen?: boolean;
+  signups?: SpreadsheetSignup[];
+}
 
 interface SpreadsheetProps {
-  slots: any[];
-  teamMembers: any[];
+  slots: SpreadsheetSlot[];
+  teamMembers: SpreadsheetExecMember[];
   onRefresh: () => void;
   currentUserEmail?: string;
 }
 
-export default function CoffeeChatSpreadsheet({ slots, teamMembers, onRefresh, currentUserEmail }: SpreadsheetProps) {
+export default function CoffeeChatSpreadsheet({
+  slots,
+  teamMembers,
+  onRefresh,
+  currentUserEmail,
+}: SpreadsheetProps) {
+  const { post } = useAdminApi();
   const [filters, setFilters] = useState({
     day: '',
     execId: '',
@@ -36,10 +72,7 @@ export default function CoffeeChatSpreadsheet({ slots, teamMembers, onRefresh, c
 
     // Apply filters
     if (filters.day) {
-      const filterDate = new Date(filters.day).toDateString();
-      filtered = filtered.filter(slot => 
-        new Date(slot.startTime).toDateString() === filterDate
-      );
+      filtered = filtered.filter((slot) => getEasternDateKey(slot.startTime) === filters.day);
     }
 
     if (filters.execId) {
@@ -116,7 +149,7 @@ export default function CoffeeChatSpreadsheet({ slots, teamMembers, onRefresh, c
       if (filters.location) params.append('location', filters.location);
 
       const response = await fetch(`/api/admin/coffee-chats/export?${params}`);
-      
+
       if (!response.ok) {
         throw new Error('Export failed');
       }
@@ -133,15 +166,22 @@ export default function CoffeeChatSpreadsheet({ slots, teamMembers, onRefresh, c
       document.body.removeChild(a);
     } catch (error) {
       console.error('Export error:', error);
-      alert('Failed to export data');
+      toast.error('Failed to export data');
     }
   };
 
-  const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDateTime = (dateString?: string) => {
+    if (!dateString) {
+      return { date: 'Not set', time: 'Not set' };
+    }
+
     return {
-      date: date.toLocaleDateString(),
-      time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      date: formatUtcDateInEastern(
+        dateString,
+        { weekday: 'short', month: 'short', day: 'numeric' },
+        false,
+      ),
+      time: formatUtcDateInEastern(dateString, { hour: 'numeric', minute: '2-digit' }),
     };
   };
 
@@ -152,37 +192,30 @@ export default function CoffeeChatSpreadsheet({ slots, teamMembers, onRefresh, c
 
   const assignSelfToSlot = async (slotId: string) => {
     if (!currentUserEmail) {
-      alert('Unable to determine current user');
+      toast.error('Unable to determine current user');
       return;
     }
 
-    // Find current user in team members
-    const currentUser = teamMembers.find(member => member.email === currentUserEmail);
+    const currentUser = teamMembers.find((member) => member.email === currentUserEmail);
     if (!currentUser) {
-      alert('Current user not found in team members');
+      toast.error('Current user not found in team list');
       return;
     }
 
     try {
-      const response = await fetch(`/api/admin/coffee-chats/${slotId}/assign-exec`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await post(
+        `/api/admin/coffee-chats/${slotId}/assign-exec`,
+        {
           slotId,
           execMemberId: currentUser.id,
           execName: currentUser.name,
           execEmail: currentUser.email,
-        }),
-      });
-
-      if (response.ok) {
-        onRefresh();
-      } else {
-        alert('Failed to assign yourself to slot');
-      }
-    } catch (error) {
-      console.error('Error assigning self to slot:', error);
-      alert('Error assigning yourself to slot');
+        },
+        { successMessage: 'Assigned yourself to this slot' },
+      );
+      onRefresh();
+    } catch {
+      // Errors surface via toast in useAdminApi
     }
   };
 
@@ -407,7 +440,7 @@ export default function CoffeeChatSpreadsheet({ slots, teamMembers, onRefresh, c
                             
                             {slot.signups && slot.signups.length > 0 ? (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {slot.signups.map((signup: any) => (
+                                {slot.signups.map((signup) => (
                                   <div key={signup.id} className="bg-white p-3 rounded-lg border border-gray-200">
                                     <div className="space-y-2">
                                       <div className="flex justify-between items-start">
@@ -418,7 +451,7 @@ export default function CoffeeChatSpreadsheet({ slots, teamMembers, onRefresh, c
                                           <div className="text-sm text-gray-500">{signup.userEmail}</div>
                                         </div>
                                         <span className="text-xs text-gray-400">
-                                          {new Date(signup.createdAt).toLocaleDateString()}
+                                          {formatUtcDateInEastern(signup.createdAt, { month: 'short', day: 'numeric' }, false)}
                                         </span>
                                       </div>
                                       

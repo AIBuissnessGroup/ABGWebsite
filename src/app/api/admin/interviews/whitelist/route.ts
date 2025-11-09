@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
 import { MongoClient, ObjectId } from 'mongodb';
+import { requireAdminSession } from '@/lib/server-admin';
 
 const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
 const client = new MongoClient(uri);
 
 // GET /api/admin/interviews/whitelist - Get approved emails
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session || !session.user?.roles?.includes('ADMIN')) {
+  const session = await requireAdminSession();
+  if (!session) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 401 });
   }
 
@@ -37,8 +36,8 @@ export async function GET(request: NextRequest) {
 
 // POST /api/admin/interviews/whitelist - Add email to whitelist
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session || !session.user?.roles?.includes('ADMIN')) {
+  const session = await requireAdminSession();
+  if (!session) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 401 });
   }
 
@@ -97,8 +96,8 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/admin/interviews/whitelist - Remove email from whitelist
 export async function DELETE(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session || !session.user?.roles?.includes('ADMIN')) {
+  const session = await requireAdminSession();
+  if (!session) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 401 });
   }
 

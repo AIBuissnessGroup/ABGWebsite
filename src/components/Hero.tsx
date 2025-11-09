@@ -34,7 +34,7 @@ export default function Hero() {
   const [showSystemWarning, setShowSystemWarning] = useState(false);
 
   useEffect(() => {
-    fetch('/api/admin/hero')
+    fetch('/api/public/hero')
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { isAdminEmail } from '@/lib/admin';
+import { isAdmin } from '@/lib/admin';
 import { MongoClient } from 'mongodb';
 import { NewsroomStats } from '@/types/newsroom';
 
@@ -22,7 +22,7 @@ function safeJson(obj: any) {
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   
-  if (!session?.user?.email || !isAdminEmail(session.user.email)) {
+  if (!session || !isAdmin(session.user)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   

@@ -1,15 +1,25 @@
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { toast } from 'react-hot-toast';
+import { useAdminApi } from '@/hooks/useAdminApi';
+
+interface SiteSetting {
+  id?: string;
+  key: string;
+  value: string;
+  description?: string;
+}
 
 interface MetadataSettingsProps {
-  settings: any[];
+  settings: SiteSetting[];
   onReload: () => void;
 }
 
 export default function MetadataSettings({ settings, onReload }: MetadataSettingsProps) {
   const [saving, setSaving] = useState(false);
-  const [localSettings, setLocalSettings] = useState<any[]>([]);
+  const [localSettings, setLocalSettings] = useState<SiteSetting[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const { put } = useAdminApi();
 
   useEffect(() => {
     setLocalSettings(settings);
@@ -24,7 +34,7 @@ export default function MetadataSettings({ settings, onReload }: MetadataSetting
     'site_theme_color'
   ];
 
-  const metadataSettings = localSettings.filter(s => metadataKeys.includes(s.key));
+  const metadataSettings = localSettings.filter((s) => metadataKeys.includes(s.key));
 
   const handleChange = (key: string, value: string) => {
     setLocalSettings(prev => 
@@ -45,12 +55,8 @@ export default function MetadataSettings({ settings, onReload }: MetadataSetting
 
       // Save all changed settings
       await Promise.all(
-        changedSettings.map(setting =>
-          fetch('/api/admin/settings', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key: setting.key, value: setting.value })
-          })
+        changedSettings.map((setting) =>
+          put('/api/admin/settings', { key: setting.key, value: setting.value }, { skipErrorToast: true })
         )
       );
 
@@ -112,10 +118,13 @@ export default function MetadataSettings({ settings, onReload }: MetadataSetting
                     placeholder="/favicon.ico"
                   />
                   {setting.value && (
-                    <img
+                    <Image
                       src={setting.value}
                       alt="Favicon preview"
-                      className="w-8 h-8 border border-gray-200 rounded"
+                      width={32}
+                      height={32}
+                      className="rounded border border-gray-200"
+                      unoptimized
                     />
                   )}
                 </div>
@@ -153,10 +162,13 @@ export default function MetadataSettings({ settings, onReload }: MetadataSetting
           <div className="bg-white p-4 rounded border border-blue-100">
             <div className="flex items-center gap-2 mb-2">
               {localSettings.find(s => s.key === 'site_favicon')?.value && (
-                <img
-                  src={localSettings.find(s => s.key === 'site_favicon')?.value}
+                <Image
+                  src={localSettings.find(s => s.key === 'site_favicon')?.value as string}
                   alt="Tab favicon"
-                  className="w-4 h-4"
+                  width={16}
+                  height={16}
+                  className="rounded"
+                  unoptimized
                 />
               )}
               <span className="font-medium">

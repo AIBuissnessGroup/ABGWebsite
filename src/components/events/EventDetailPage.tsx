@@ -37,14 +37,10 @@ interface EventDetailPageProps {
   userRegistration?: EventAttendance | null;
   userEmail?: string;
   userRoles?: string[];
-  eventStats?: {
-    confirmedCount: number;
-    waitlistCount: number;
-  };
   searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-export default function EventDetailPage({ event, userRegistration, userEmail, userRoles = [], eventStats, searchParams }: EventDetailPageProps) {
+export default function EventDetailPage({ event, userRegistration, userEmail, userRoles = [], searchParams }: EventDetailPageProps) {
   const [showAttendanceForm, setShowAttendanceForm] = useState(false);
   const [localUserEmail, setLocalUserEmail] = useState(userEmail || '');
   const [isClient, setIsClient] = useState(false);
@@ -587,31 +583,14 @@ export default function EventDetailPage({ event, userRegistration, userEmail, us
                         </div>
                         <p className="text-sm opacity-75">No longer accepting registrations</p>
                       </div>
-                    ) : event.waitlist?.enabled && eventStats && event.waitlist.maxSize && eventStats.waitlistCount < event.waitlist.maxSize ? (
-                      <div className="space-y-3">
-                        <button
-                          onClick={() => setShowAttendanceForm(true)}
-                          className="w-full bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-yellow-500/25 flex items-center justify-center gap-2"
-                        >
-                          <span className="text-lg">⏳</span>
-                          Join Waitlist
-                        </button>
-                        <div className="bg-gray-800/50 border border-gray-600/30 rounded-lg p-3 text-center">
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-2">
-                              <p className="text-green-400 font-bold">{eventStats.confirmedCount}</p>
-                              <p className="text-green-300/70">Confirmed</p>
-                            </div>
-                            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2">
-                              <p className="text-yellow-400 font-bold">{eventStats.waitlistCount}</p>
-                              <p className="text-yellow-300/70">Waitlisted</p>
-                            </div>
-                          </div>
-                          <p className="text-gray-400 text-xs mt-2">
-                            {event.waitlist.maxSize - eventStats.waitlistCount} waitlist spots remaining
-                          </p>
-                        </div>
-                      </div>
+                    ) : event.waitlist?.enabled ? (
+                      <button
+                        onClick={() => setShowAttendanceForm(true)}
+                        className="w-full bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-yellow-500/25 flex items-center justify-center gap-2"
+                      >
+                        <span className="text-lg">⏳</span>
+                        Join Waitlist
+                      </button>
                     ) : (
                       <div className="text-center">
                         <div className="text-red-300 py-4 bg-gradient-to-br from-red-500/10 to-pink-500/10 rounded-xl border-2 border-red-500/30 shadow-lg shadow-red-500/20">
@@ -621,20 +600,6 @@ export default function EventDetailPage({ event, userRegistration, userEmail, us
                           </div>
                           <p className="text-sm opacity-75">No spots available</p>
                         </div>
-                        {event.waitlist?.enabled && eventStats && (
-                          <div className="mt-3 bg-gray-800/50 border border-gray-600/30 rounded-lg p-3">
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-2">
-                                <p className="text-green-400 font-bold">{eventStats.confirmedCount}</p>
-                                <p className="text-green-300/70">Confirmed</p>
-                              </div>
-                              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2">
-                                <p className="text-yellow-400 font-bold">{eventStats.waitlistCount}</p>
-                                <p className="text-yellow-300/70">Waitlisted</p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
