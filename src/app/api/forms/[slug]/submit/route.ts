@@ -9,6 +9,74 @@ export const maxDuration = 60; // seconds
 const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
 const client = new MongoClient(uri);
 
+const normalizeId = (value: any, fallback: string) => {
+  if (typeof value === 'string' && value.trim()) return value;
+  if (typeof value === 'number') return value.toString();
+  if (value instanceof ObjectId) return value.toString();
+  if (typeof value === 'object' && typeof value?.toString === 'function') {
+    const stringified = value.toString();
+    if (stringified && stringified !== '[object Object]') {
+      return stringified;
+    }
+  }
+  return fallback;
+};
+
+const sanitizeOptions = (options: any): string[] => {
+  if (!options) return [];
+
+  if (Array.isArray(options)) {
+    return Array.from(new Set(options.map(option => `${option}`.trim()).filter(Boolean)));
+  }
+
+  if (typeof options === 'string') {
+    return Array.from(new Set(options
+      .split('\n')
+      .map(option => option.trim())
+      .filter(Boolean)
+    ));
+  }
+
+  if (typeof options === 'object') {
+    return Array.from(new Set(
+      Object.values(options)
+        .map(option => `${option}`.trim())
+        .filter(Boolean)
+    ));
+  }
+
+  return [];
+};
+
+function flattenFormQuestions(form: any) {
+  if (Array.isArray(form?.sections) && form.sections.length > 0) {
+    return form.sections
+      .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
+      .flatMap((section: any) =>
+        (Array.isArray(section?.questions) ? section.questions : [])
+          .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
+          .map((question: any, questionIndex: number) => ({
+            ...question,
+            id: normalizeId(question?.id || question?._id, `question-${section?.id}-${questionIndex}`),
+            options: sanitizeOptions(question?.options),
+            order: typeof question?.order === 'number' ? question.order : questionIndex,
+            sectionId: normalizeId(question?.sectionId || section?.id, `section-${section?.id}`),
+            sectionOrder: typeof section?.order === 'number' ? section.order : sectionIndex,
+            sectionTitle: section?.title
+          }))
+      );
+  }
+
+  return Array.isArray(form?.questions)
+    ? form.questions.map((question: any, questionIndex: number) => ({
+        ...question,
+        id: normalizeId(question?.id || question?._id, `question-${questionIndex}`),
+        options: sanitizeOptions(question?.options),
+        order: typeof question?.order === 'number' ? question.order : questionIndex
+      }))
+    : [];
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -59,7 +127,7 @@ export async function POST(
     }
 
     // Get form questions (they're embedded in the form document)
-    const questions = form.questions || [];
+    const questions = flattenFormQuestions(form);
 
     // Check authentication requirement
     if (form.requireAuth) {

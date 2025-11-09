@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { 
@@ -2504,9 +2504,60 @@ export default function FormsAdmin() {
   }
 }
 
-// Simplified Form Editor Component
+// Google Forms-inspired Form Editor Component
 function FormEditor({ form, onClose, onSave }: any) {
-  const [formData, setFormData] = useState<any>({
+  type BuilderQuestion = {
+    id: string;
+    title: string;
+    description: string;
+    type: string;
+    required: boolean;
+    options: string;
+    minLength: string;
+    maxLength: string;
+    pattern: string;
+    matrixRows: string;
+    matrixCols: string;
+    descriptionContent: string;
+  };
+
+  type BuilderSection = {
+    id: string;
+    title: string;
+    description: string;
+    questions: BuilderQuestion[];
+  };
+
+  const generateId = () => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID();
+    }
+    return `id-${Math.random().toString(36).slice(2)}`;
+  };
+
+  const createEmptyQuestion = (): BuilderQuestion => ({
+    id: generateId(),
+    title: '',
+    description: '',
+    type: 'TEXT',
+    required: false,
+    options: '',
+    minLength: '',
+    maxLength: '',
+    pattern: '',
+    matrixRows: '',
+    matrixCols: '',
+    descriptionContent: ''
+  });
+
+  const createEmptySection = (title?: string): BuilderSection => ({
+    id: generateId(),
+    title: title || 'Untitled section',
+    description: '',
+    questions: [createEmptyQuestion()]
+  });
+
+  const [formData, setFormData] = useState({
     title: '',
     description: '',
     slug: '',
@@ -2527,28 +2578,63 @@ function FormEditor({ form, onClose, onSave }: any) {
     attendanceRadiusMeters: ''
   });
 
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [sections, setSections] = useState<BuilderSection[]>([createEmptySection()]);
   const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
 
-  // Auto-save functionality
+  const convertFormToSections = (incoming: any): BuilderSection[] => {
+    if (!incoming) return [createEmptySection()];
+
+    const sourceSections = Array.isArray(incoming.sections) && incoming.sections.length
+      ? incoming.sections
+      : [{
+          id: generateId(),
+          title: incoming.title || 'Untitled section',
+          description: incoming.description || '',
+          questions: incoming.questions || []
+        }];
+
+    const builderSections = sourceSections.map((section: any, sectionIndex: number) => {
+      const sectionId = section.id || generateId();
+      const questionList = Array.isArray(section.questions) && section.questions.length
+        ? section.questions
+        : Array.isArray(incoming.questions)
+          ? incoming.questions.filter((q: any) => q.sectionId === section.id)
+          : [];
+
+      const normalizedQuestions = questionList.map((question: any) => ({
+        id: question.id || generateId(),
+        title: question.title || question.question || '',
+        description: question.description || '',
+        type: question.type || 'TEXT',
+        required: Boolean(question.required),
+        options: Array.isArray(question.options)
+          ? question.options.join('\n')
+          : (question.options || ''),
+        minLength: question.minLength != null ? String(question.minLength) : '',
+        maxLength: question.maxLength != null ? String(question.maxLength) : '',
+        pattern: question.pattern || '',
+        matrixRows: Array.isArray(question.matrixRows)
+          ? question.matrixRows.join('\n')
+          : (question.matrixRows || ''),
+        matrixCols: Array.isArray(question.matrixCols)
+          ? question.matrixCols.join('\n')
+          : (question.matrixCols || ''),
+        descriptionContent: question.descriptionContent || ''
+      }));
+
+      return {
+        id: sectionId,
+        title: section.title || `Section ${sectionIndex + 1}`,
+        description: section.description || '',
+        questions: normalizedQuestions.length ? normalizedQuestions : [createEmptyQuestion()]
+      };
+    });
+
+    return builderSections.length ? builderSections : [createEmptySection()];
+  };
+
   useEffect(() => {
-    const autoSaveData = () => {
-      if (formData.title.trim()) {
-        const draftKey = form ? `formEditor_draft_edit_${form.id}` : 'formEditor_draft_new';
-        localStorage.setItem(draftKey, JSON.stringify({
-          formData,
-          questions
-        }));
-        console.log('✓ Form editor autosaved:', formData.title, form ? '(editing)' : '(new)');
-      }
-    };
-
-    const timeoutId = setTimeout(autoSaveData, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [formData, questions, form]);
-
-  useEffect(() => {
-    console.log('FormEditor useEffect - form prop:', form);
     if (form) {
       setFormData({
         title: form.title || '',
@@ -2564,136 +2650,198 @@ function FormEditor({ form, onClose, onSave }: any) {
         notificationEmail: form.notificationEmail || '',
         requireAuth: form.requireAuth ?? false,
         backgroundColor: form.backgroundColor || '#00274c',
-        textColor: form.textColor || '#ffffff'
+        textColor: form.textColor || '#ffffff',
+        isAttendanceForm: form.isAttendanceForm ?? false,
+        attendanceLatitude: form.attendanceLatitude?.toString() || '',
+        attendanceLongitude: form.attendanceLongitude?.toString() || '',
+        attendanceRadiusMeters: form.attendanceRadiusMeters?.toString() || ''
       });
-
-      if (form.questions) {
-        console.log('Loading form questions:', form.questions);
-        const questionsWithIds = form.questions.map((q: any, index: number) => ({
-          ...q,
-          id: q.id || `question-${index}-${Date.now()}`, // Ensure each question has an ID
-          // Convert options array back to string for editing
-          options: Array.isArray(q.options) ? q.options.join('\n') : q.options,
-          // Ensure matrix fields are properly loaded
-          matrixRows: q.matrixRows || null,
-          matrixCols: q.matrixCols || null,
-          descriptionContent: q.descriptionContent || null
-        }));
-        setQuestions(questionsWithIds.sort((a: any, b: any) => a.order - b.order));
-        console.log('Questions set:', questionsWithIds);
-      } else {
-        console.log('No questions found in form:', form);
-      }
+      setSections(convertFormToSections(form));
     } else {
-      // Load draft for new forms
-      const draftKey = 'formEditor_draft_new';
-      const draft = localStorage.getItem(draftKey);
+      const draft = localStorage.getItem('formEditor_draft_new');
       if (draft) {
         try {
-          const parsedDraft = JSON.parse(draft);
-          if (parsedDraft.formData) {
-            setFormData(parsedDraft.formData);
-          }
-          if (parsedDraft.questions) {
-            const questionsWithIds = parsedDraft.questions.map((q: any, index: number) => ({
-              ...q,
-              id: q.id || `draft-question-${index}-${Date.now()}` // Ensure draft questions have IDs
-            }));
-            setQuestions(questionsWithIds);
-          }
-          console.log('✓ Form editor draft loaded:', parsedDraft.formData?.title);
+          const parsed = JSON.parse(draft);
+          if (parsed.formData) setFormData(parsed.formData);
+          if (parsed.sections) setSections(parsed.sections);
         } catch (error) {
           console.error('Error loading form editor draft:', error);
-          localStorage.removeItem(draftKey);
+          localStorage.removeItem('formEditor_draft_new');
         }
+      } else {
+        setSections([createEmptySection()]);
       }
     }
   }, [form]);
 
-  const addQuestion = () => {
-    const newQuestion = {
-      id: `question-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      title: '',
-      description: '',
-      type: 'TEXT',
-      required: false,
-      order: questions.length,
-      options: null,
-      minLength: null,
-      maxLength: null,
-      pattern: null,
-      matrixRows: null,
-      matrixCols: null,
-      descriptionContent: null
-    };
-    setQuestions([...questions, newQuestion]);
+  useEffect(() => {
+    if (!formData.title.trim()) return;
+    const draftKey = form ? `formEditor_draft_edit_${form.id}` : 'formEditor_draft_new';
+    const timeoutId = setTimeout(() => {
+      localStorage.setItem(draftKey, JSON.stringify({ formData, sections }));
+    }, 600);
+    return () => clearTimeout(timeoutId);
+  }, [formData, sections, form]);
+
+  const updateSection = (sectionId: string, field: keyof BuilderSection, value: string) => {
+    setSections(prev => prev.map(section => section.id === sectionId ? { ...section, [field]: value } : section));
   };
 
-  const updateQuestion = (index: number, field: string, value: any) => {
-    const updated = [...questions];
-    updated[index] = { ...updated[index], [field]: value };
-    setQuestions(updated);
-  };
-
-  const removeQuestion = (index: number) => {
-    const updated = questions.filter((_, i) => i !== index);
-    updated.forEach((q, i) => {
-      q.order = i;
+  const moveSection = (sectionId: string, direction: -1 | 1) => {
+    setSections(prev => {
+      const index = prev.findIndex(section => section.id === sectionId);
+      if (index === -1) return prev;
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= prev.length) return prev;
+      const updated = [...prev];
+      const [moved] = updated.splice(index, 1);
+      updated.splice(newIndex, 0, moved);
+      return updated;
     });
-    setQuestions(updated);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
+  const removeSection = (sectionId: string) => {
+    setSections(prev => {
+      if (prev.length === 1) {
+        return [createEmptySection()];
+      }
+      return prev.filter(section => section.id !== sectionId);
+    });
+  };
 
-    try {
-      const payload = {
-        ...formData,
-        // attendance options
-        isAttendanceForm: Boolean((formData as any).isAttendanceForm),
-        attendanceLatitude: (formData as any).attendanceLatitude ? Number((formData as any).attendanceLatitude) : null,
-        attendanceLongitude: (formData as any).attendanceLongitude ? Number((formData as any).attendanceLongitude) : null,
-        attendanceRadiusMeters: (formData as any).attendanceRadiusMeters ? Number((formData as any).attendanceRadiusMeters) : null,
-        deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
-        maxSubmissions: formData.maxSubmissions ? parseInt(formData.maxSubmissions) : null,
-        questions: questions.map((q, index) => ({
-          id: q.id,
-          title: q.title,
-          description: q.description || '',
-          type: q.type,
-          required: q.required || false,
-          order: index,
-          options: (q.type === 'SELECT' || q.type === 'RADIO' || q.type === 'CHECKBOX') && q.options 
-            ? q.options.split('\n').filter((option: string) => option.trim()) 
-            : null,
-          minLength: q.minLength || null,
-          maxLength: q.maxLength || null,
-          pattern: q.pattern || null,
-          matrixRows: q.matrixRows || null,
-          matrixCols: q.matrixCols || null,
-          descriptionContent: q.descriptionContent || null
-        }))
+  const addSection = () => {
+    setSections(prev => [...prev, createEmptySection(`Section ${prev.length + 1}`)]);
+  };
+
+  const addQuestion = (sectionId: string) => {
+    setSections(prev => prev.map(section => section.id === sectionId
+      ? { ...section, questions: [...section.questions, createEmptyQuestion()] }
+      : section
+    ));
+  };
+
+  const updateQuestion = (sectionId: string, questionId: string, field: keyof BuilderQuestion, value: any) => {
+    setSections(prev => prev.map(section => {
+      if (section.id !== sectionId) return section;
+      return {
+        ...section,
+        questions: section.questions.map(question => question.id === questionId
+          ? { ...question, [field]: value }
+          : question)
       };
+    }));
+  };
 
-      const url = form && form.id
-        ? `/api/admin/forms?id=${form.id}` 
-        : '/api/admin/forms';
-      
-      const method = form && form.id ? 'PUT' : 'POST';
+  const moveQuestion = (sectionId: string, questionId: string, direction: -1 | 1) => {
+    setSections(prev => prev.map(section => {
+      if (section.id !== sectionId) return section;
+      const index = section.questions.findIndex(question => question.id === questionId);
+      if (index === -1) return section;
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= section.questions.length) return section;
+      const updatedQuestions = [...section.questions];
+      const [moved] = updatedQuestions.splice(index, 1);
+      updatedQuestions.splice(newIndex, 0, moved);
+      return { ...section, questions: updatedQuestions };
+    }));
+  };
 
-      console.log('Saving form with payload:', payload);
-      console.log('Questions being sent:', payload.questions);
-      payload.questions.forEach((q: any, i: number) => {
-        console.log(`Question ${i}:`, {
-          title: q.title,
-          type: q.type,
-          matrixRows: q.matrixRows,
-          matrixCols: q.matrixCols,
-          descriptionContent: q.descriptionContent
-        });
+  const duplicateQuestion = (sectionId: string, questionId: string) => {
+    setSections(prev => prev.map(section => {
+      if (section.id !== sectionId) return section;
+      const index = section.questions.findIndex(question => question.id === questionId);
+      if (index === -1) return section;
+      const original = section.questions[index];
+      const copy: BuilderQuestion = {
+        ...original,
+        id: generateId(),
+        title: original.title ? `${original.title} (Copy)` : ''
+      };
+      const updatedQuestions = [...section.questions];
+      updatedQuestions.splice(index + 1, 0, copy);
+      return { ...section, questions: updatedQuestions };
+    }));
+  };
+
+  const removeQuestion = (sectionId: string, questionId: string) => {
+    setSections(prev => prev.map(section => {
+      if (section.id !== sectionId) return section;
+      const filtered = section.questions.filter(question => question.id !== questionId);
+      return {
+        ...section,
+        questions: filtered.length ? filtered : [createEmptyQuestion()]
+      };
+    }));
+  };
+
+  const normalizeSectionsForSave = () => {
+    return sections.map((section, sectionIndex) => {
+      const sectionId = section.id || generateId();
+      const normalizedQuestions = section.questions.map((question, questionIndex) => {
+        const shouldUseOptions = ['SELECT', 'RADIO', 'CHECKBOX'].includes(question.type);
+        const optionsArray = shouldUseOptions
+          ? (question.options || '').split('\n').map(opt => opt.trim()).filter(Boolean)
+          : null;
+
+        return {
+          id: question.id || generateId(),
+          title: question.title || `Question ${questionIndex + 1}`,
+          description: question.description || '',
+          type: question.type,
+          required: Boolean(question.required),
+          order: questionIndex,
+          options: optionsArray,
+          minLength: question.minLength ? Number(question.minLength) : null,
+          maxLength: question.maxLength ? Number(question.maxLength) : null,
+          pattern: question.pattern || null,
+          matrixRows: question.matrixRows || null,
+          matrixCols: question.matrixCols || null,
+          descriptionContent: question.descriptionContent || null,
+          sectionId,
+          sectionOrder: sectionIndex,
+          sectionTitle: section.title || `Section ${sectionIndex + 1}`
+        };
       });
 
+      return {
+        id: sectionId,
+        title: section.title || `Section ${sectionIndex + 1}`,
+        description: section.description || '',
+        order: sectionIndex,
+        questions: normalizedQuestions
+      };
+    });
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSaving(true);
+    setMessage('');
+
+    const normalizedSections = normalizeSectionsForSave();
+    const flattenedQuestions = normalizedSections.flatMap(section => section.questions);
+
+    const payload = {
+      ...formData,
+      id: form?.id,
+      deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
+      maxSubmissions: formData.maxSubmissions ? parseInt(formData.maxSubmissions) : null,
+      allowMultiple: Boolean(formData.allowMultiple),
+      isActive: Boolean(formData.isActive),
+      isPublic: Boolean(formData.isPublic),
+      notifyOnSubmission: Boolean(formData.notifyOnSubmission),
+      requireAuth: Boolean(formData.requireAuth),
+      isAttendanceForm: Boolean(formData.isAttendanceForm),
+      attendanceLatitude: formData.attendanceLatitude ? Number(formData.attendanceLatitude) : null,
+      attendanceLongitude: formData.attendanceLongitude ? Number(formData.attendanceLongitude) : null,
+      attendanceRadiusMeters: formData.attendanceRadiusMeters ? Number(formData.attendanceRadiusMeters) : null,
+      sections: normalizedSections,
+      questions: flattenedQuestions
+    };
+
+    try {
+      const url = form && form.id ? `/api/admin/forms?id=${form.id}` : '/api/admin/forms';
+      const method = form && form.id ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -2701,495 +2849,469 @@ function FormEditor({ form, onClose, onSave }: any) {
       });
 
       if (res.ok) {
-        // Clear draft on successful save
         const draftKey = form ? `formEditor_draft_edit_${form.id}` : 'formEditor_draft_new';
         localStorage.removeItem(draftKey);
-        console.log('✓ Form saved successfully, draft cleared');
+        setMessage('Form saved successfully!');
         onSave();
+        onClose();
       } else {
         const error = await res.json();
-        alert(error.message || 'Error saving form');
+        setMessage(error?.message || 'Error saving form');
       }
     } catch (error) {
       console.error('Error saving form:', error);
-      alert('Error saving form');
+      setMessage('Error saving form');
     } finally {
       setSaving(false);
+      setTimeout(() => setMessage(''), 4000);
     }
   };
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">
-          {form ? 'Edit Form' : 'Create New Form'}
-        </h2>
+      <div className="flex justify-between items-start gap-3 mb-6">
+        <div>
+          <h2 className="text-xl font-semibold">{form ? 'Edit Form' : 'Create New Form'}</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Design your form just like Google Forms – sections, questions, and validations included.
+          </p>
+          {message && (
+            <div className="mt-2 text-sm text-green-600 bg-green-50 border border-green-200 rounded px-3 py-2">
+              {message}
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <div className="text-xs text-gray-500 bg-green-50 px-2 py-1 rounded border border-green-200">
             ✓ Auto-saving
           </div>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 text-xl"
-        >
-          ✕
-        </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Form title *</label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                placeholder="e.g., Membership Application"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                rows={3}
+                placeholder="Tell respondents what this form is about"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+              >
+                <option value="general">General</option>
+                <option value="membership">Membership</option>
+                <option value="event">Event Registration</option>
+                <option value="partnership">Partnership</option>
+                <option value="internship">Internship</option>
+                <option value="feedback">Feedback</option>
+              </select>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Deadline</label>
+              <input
+                type="datetime-local"
+                value={formData.deadline}
+                onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Max submissions</label>
+              <input
+                type="number"
+                value={formData.maxSubmissions}
+                onChange={(e) => setFormData({ ...formData, maxSubmissions: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                placeholder="Leave blank for no limit"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notification email</label>
+              <input
+                type="email"
+                value={formData.notificationEmail}
+                onChange={(e) => setFormData({ ...formData, notificationEmail: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                placeholder="Where should submissions be sent?"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <label className="flex items-center gap-2 text-sm">
             <input
-              type="text"
-              value={formData.title}
-              onChange={(e) => setFormData({...formData, title: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-              required
+              type="checkbox"
+              checked={formData.isActive}
+              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+              className="h-4 w-4 text-[#00274c] border-gray-300 rounded"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({...formData, category: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-              required
-            >
-              <option value="general">General</option>
-              <option value="membership">Membership</option>
-              <option value="internship">Internship</option>
-              <option value="event">Event</option>
-              <option value="project">Project</option>
-              <option value="partnership">Partnership</option>
-            </select>
-          </div>
+            Form is active
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={formData.isPublic}
+              onChange={(e) => setFormData({ ...formData, isPublic: e.target.checked })}
+              className="h-4 w-4 text-[#00274c] border-gray-300 rounded"
+            />
+            Form is public
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={formData.requireAuth}
+              onChange={(e) => setFormData({ ...formData, requireAuth: e.target.checked })}
+              className="h-4 w-4 text-[#00274c] border-gray-300 rounded"
+            />
+            Require UMich authentication
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={formData.allowMultiple}
+              onChange={(e) => setFormData({ ...formData, allowMultiple: e.target.checked })}
+              className="h-4 w-4 text-[#00274c] border-gray-300 rounded"
+            />
+            Allow multiple submissions per user
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={formData.notifyOnSubmission}
+              onChange={(e) => setFormData({ ...formData, notifyOnSubmission: e.target.checked })}
+              className="h-4 w-4 text-[#00274c] border-gray-300 rounded"
+            />
+            Send email on new submission
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={formData.isAttendanceForm as boolean}
+              onChange={(e) => setFormData({ ...formData, isAttendanceForm: e.target.checked })}
+              className="h-4 w-4 text-[#00274c] border-gray-300 rounded"
+            />
+            Enable attendance geo-verification
+          </label>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({...formData, description: e.target.value})}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-            placeholder="Describe what this form is for..."
-          />
-        </div>
-
-        {/* Form Settings */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border-2 border-blue-200">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-2 bg-blue-600 rounded-lg">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.348 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.348a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.348 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.348a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+        {formData.isAttendanceForm && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div>
+              <label className="block text-sm font-medium text-blue-900 mb-1">Latitude</label>
+              <input
+                type="number"
+                value={formData.attendanceLatitude}
+                onChange={(e) => setFormData({ ...formData, attendanceLatitude: e.target.value })}
+                className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-400"
+                placeholder="42.2768"
+              />
             </div>
-            <h3 className="text-lg font-bold text-gray-900">⚙️ Form Configuration & Settings</h3>
-          </div>
-          <p className="text-gray-700 mb-6 text-sm">Configure authentication, deadlines, notifications, and submission limits for your form.</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div className="bg-white p-4 rounded-lg border border-blue-200">
-                <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                  🔒 Access & Security Settings
-                </h4>
-                
-                <div className="space-y-4">
-                  <label className="flex items-start gap-3 p-3 border-2 border-green-200 bg-green-50 rounded-lg hover:bg-green-100 cursor-pointer transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={formData.requireAuth}
-                      onChange={(e) => setFormData({...formData, requireAuth: e.target.checked})}
-                      className="mt-1 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                    />
-                    <div>
-                      <span className="text-sm font-bold text-gray-900">🎓 Require UMich Authentication</span>
-                      <p className="text-xs text-gray-600 mt-1">
-                        ✅ Only users with @umich.edu emails can submit this form
-                      </p>
-                      <p className="text-xs text-blue-600 mt-1 font-medium">
-                        Recommended for official university forms and applications
-                      </p>
-                    </div>
-                  </label>
-
-                  {/* Attendance / Geo-Fence Settings */}
-                  <div className="mt-4 p-3 rounded-lg border-2 border-purple-200 bg-purple-50">
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.isAttendanceForm || false}
-                        onChange={(e)=> setFormData({ ...formData, isAttendanceForm: e.target.checked })}
-                        className="mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                      />
-                      <div>
-                        <span className="text-sm font-bold text-gray-900">📍 Attendance Form (Geo‑fenced)</span>
-                        <p className="text-xs text-gray-600 mt-1">Require users to be within a radius of a specified location when submitting.</p>
-                      </div>
-                    </label>
-
-                    {formData.isAttendanceForm && (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Latitude</label>
-                          <input type="number" step="any"
-                            value={(formData.attendanceLatitude as any) || ''}
-                            onChange={(e)=> setFormData({ ...formData, attendanceLatitude: parseFloat(e.target.value) })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded"
-                            placeholder="42.2780" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Longitude</label>
-                          <input type="number" step="any"
-                            value={(formData.attendanceLongitude as any) || ''}
-                            onChange={(e)=> setFormData({ ...formData, attendanceLongitude: parseFloat(e.target.value) })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded"
-                            placeholder="-83.7382" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Radius (meters)</label>
-                          <input type="number"
-                            value={(formData.attendanceRadiusMeters as any) || ''}
-                            onChange={(e)=> setFormData({ ...formData, attendanceRadiusMeters: parseInt(e.target.value) })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded"
-                            placeholder="100" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <label className="flex items-start gap-3 p-3 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.isPublic}
-                      onChange={(e) => setFormData({...formData, isPublic: e.target.checked})}
-                      className="mt-1 rounded border-gray-300 text-[#00274c] focus:ring-[#00274c]"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">📖 Public Form</span>
-                      <p className="text-xs text-gray-500 mt-1">Form is publicly accessible via direct link</p>
-                    </div>
-                  </label>
-
-                  <label className="flex items-start gap-3 p-3 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.isActive}
-                      onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                      className="mt-1 rounded border-gray-300 text-[#00274c] focus:ring-[#00274c]"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">✅ Active Form</span>
-                      <p className="text-xs text-gray-500 mt-1">Form is currently accepting submissions</p>
-                    </div>
-                  </label>
-
-                  <label className="flex items-start gap-3 p-3 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.allowMultiple}
-                      onChange={(e) => setFormData({...formData, allowMultiple: e.target.checked})}
-                      className="mt-1 rounded border-gray-300 text-[#00274c] focus:ring-[#00274c]"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">🔄 Allow Multiple Submissions</span>
-                      <p className="text-xs text-gray-500 mt-1">Users can submit this form multiple times</p>
-                    </div>
-                  </label>
-                </div>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-blue-900 mb-1">Longitude</label>
+              <input
+                type="number"
+                value={formData.attendanceLongitude}
+                onChange={(e) => setFormData({ ...formData, attendanceLongitude: e.target.value })}
+                className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-400"
+                placeholder="-83.7382"
+              />
             </div>
-
-            <div className="space-y-4">
-              <div className="bg-white p-4 rounded-lg border border-blue-200">
-                <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                  ⏰ Deadlines & Notifications
-                </h4>
-                
-                <div className="space-y-4">
-                  <div className="p-3 border-2 border-orange-200 bg-orange-50 rounded-lg">
-                    <label className="block text-sm font-bold text-gray-900 mb-2">
-                      📅 Submission Deadline
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={formData.deadline}
-                      onChange={(e) => setFormData({...formData, deadline: e.target.value})}
-                      className="w-full px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white"
-                    />
-                    <p className="text-xs text-gray-600 mt-2">
-                      ⚠️ Leave empty for no deadline. After deadline, form will be automatically closed.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">📊 Max Submissions</label>
-                    <input
-                      type="number"
-                      value={formData.maxSubmissions}
-                      onChange={(e) => setFormData({...formData, maxSubmissions: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c] bg-white"
-                      placeholder="Leave empty for unlimited"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Limit total number of submissions accepted</p>
-                  </div>
-
-                  <div className="p-3 border-2 border-blue-200 bg-blue-50 rounded-lg">
-                    <label className="block text-sm font-bold text-gray-900 mb-2">
-                      📧 Notification Email
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.notificationEmail}
-                      onChange={(e) => setFormData({...formData, notificationEmail: e.target.value})}
-                      className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
-                      placeholder="aibusinessgroup@umich.edu"
-                    />
-                    <p className="text-xs text-gray-600 mt-2">Email address to receive submission notifications</p>
-                  </div>
-
-                  <label className="flex items-start gap-3 p-3 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.notifyOnSubmission}
-                      onChange={(e) => setFormData({...formData, notifyOnSubmission: e.target.checked})}
-                      className="mt-1 rounded border-gray-300 text-[#00274c] focus:ring-[#00274c]"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">📬 Email Notifications</span>
-                      <p className="text-xs text-gray-500 mt-1">Send email alerts when forms are submitted</p>
-                    </div>
-                  </label>
-                </div>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-blue-900 mb-1">Radius (meters)</label>
+              <input
+                type="number"
+                value={formData.attendanceRadiusMeters}
+                onChange={(e) => setFormData({ ...formData, attendanceRadiusMeters: e.target.value })}
+                className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-400"
+                placeholder="100"
+              />
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Questions */}
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">Questions</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium text-gray-900">Sections & Questions</h3>
             <button
               type="button"
-              onClick={addQuestion}
-              className="admin-save-btn bg-[#00274c] text-white px-3 py-2 rounded-lg text-sm hover:bg-[#003366] admin-white-text"
+              onClick={addSection}
+              className="px-3 py-2 bg-[#00274c] text-white rounded-lg text-sm font-medium hover:bg-[#003366]"
             >
-              Add Question
+              + Add section
             </button>
           </div>
 
-          <div className="space-y-4">
-            {questions.length === 0 && <p className="text-gray-500">No questions yet. Click "Add Question" to get started.</p>}
-            {questions.map((question, index) => (
-              <div 
-                key={question.id} 
-                className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-all duration-200 cursor-move"
-                draggable={true}
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('text/plain', index.toString());
-                  e.dataTransfer.effectAllowed = 'move';
-                  e.currentTarget.classList.add('opacity-50', 'scale-95');
-                }}
-                onDragEnd={(e) => {
-                  e.currentTarget.classList.remove('opacity-50', 'scale-95');
-                  // Remove any drag-over styling from all items
-                  document.querySelectorAll('.drag-over').forEach(el => {
-                    el.classList.remove('drag-over');
-                  });
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                }}
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  e.currentTarget.classList.add('drag-over');
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  // Only remove if we're actually leaving this element
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                    e.currentTarget.classList.remove('drag-over');
-                  }
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.currentTarget.classList.remove('drag-over');
-                  
-                  const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
-                  const dropIndex = index;
-                  
-                  if (dragIndex !== dropIndex && !isNaN(dragIndex)) {
-                    const newQuestions = [...questions];
-                    const draggedQuestion = newQuestions[dragIndex];
-                    newQuestions.splice(dragIndex, 1);
-                    newQuestions.splice(dropIndex, 0, draggedQuestion);
-                    setQuestions(newQuestions);
-                  }
-                }}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="cursor-move text-gray-400 hover:text-gray-600" title="Drag to reorder">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900">Question {index + 1}</h4>
-                      <p className="text-sm text-gray-500">Type: {question.type}</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeQuestion(index)}
-                    className="text-red-600 hover:text-red-800 text-sm"
-                  >
-                    Remove
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Question Title *</label>
-                      <input
-                        type="text"
-                        value={question.title}
-                        onChange={(e) => updateQuestion(index, 'title', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
-                        placeholder="e.g., What is your academic year?"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                      <select
-                        value={question.type}
-                        onChange={(e) => updateQuestion(index, 'type', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
-                      >
-                        <option value="TEXT">Short Text</option>
-                        <option value="TEXTAREA">Long Text</option>
-                        <option value="EMAIL">Email</option>
-                        <option value="PHONE">Phone</option>
-                        <option value="NUMBER">Number</option>
-                        <option value="DATE">Date</option>
-                        <option value="SELECT">Dropdown</option>
-                        <option value="RADIO">Radio Buttons</option>
-                        <option value="CHECKBOX">Checkboxes</option>
-                        <option value="FILE">File Upload</option>
-                        <option value="URL">URL</option>
-                        <option value="BOOLEAN">Yes/No</option>
-                        <option value="DESCRIPTION">Description Section</option>
-                        <option value="MATRIX">Matrix/Grid (Ranking)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="p-3 border-2 border-green-200 bg-green-50 rounded-lg">
-                    <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                      💬 Question Description (Optional)
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">Clarification Feature</span>
-                    </label>
+          <div className="space-y-6">
+            {sections.map((section, sectionIndex) => (
+              <div key={section.id} className="border border-gray-200 rounded-xl shadow-sm bg-white">
+                <div className="flex items-start justify-between gap-4 p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+                  <div className="flex-1 space-y-3">
                     <input
                       type="text"
-                      value={question.description || ''}
-                      onChange={(e) => updateQuestion(index, 'description', e.target.value)}
-                      className="w-full px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 bg-white"
-                      placeholder="e.g., 'Please provide your current GPA on a 4.0 scale' or 'Include any relevant experience with Python, R, or SQL'"
+                      value={section.title}
+                      onChange={(e) => updateSection(section.id, 'title', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                      placeholder={`Section ${sectionIndex + 1}`}
                     />
-                    <p className="text-xs text-gray-700 mt-2 font-medium">
-                      ℹ️ This description will appear below the question title to provide additional context and clarification for users
-                    </p>
-                    <p className="text-xs text-blue-600 mt-1">
-                      💡 Use this to explain requirements, provide examples, or clarify what kind of answer you're looking for
-                    </p>
+                    <textarea
+                      value={section.description}
+                      onChange={(e) => updateSection(section.id, 'description', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                      rows={2}
+                      placeholder="Describe this section (optional)"
+                    />
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => moveSection(section.id, -1)}
+                      disabled={sectionIndex === 0}
+                      className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded disabled:opacity-40"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveSection(section.id, 1)}
+                      disabled={sectionIndex === sections.length - 1}
+                      className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded disabled:opacity-40"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeSection(section.id)}
+                      className="px-2 py-1 text-xs text-red-600 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
                   </div>
                 </div>
 
-                {(question.type === 'SELECT' || question.type === 'RADIO' || question.type === 'CHECKBOX') && (
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Options (one per line)</label>
-                    <textarea
-                      value={question.options || ''}
-                      onChange={(e) => updateQuestion(index, 'options', e.target.value)}
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
-                      placeholder="Option 1&#10;Option 2&#10;Option 3"
-                    />
-                  </div>
-                )}
+                <div className="space-y-4 p-4">
+                  {section.questions.map((question, questionIndex) => (
+                    <div key={question.id} className="border border-gray-200 rounded-lg p-4 bg-white/70">
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                        <div className="flex-1 space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Question title *</label>
+                            <input
+                              type="text"
+                              value={question.title}
+                              onChange={(e) => updateQuestion(section.id, question.id, 'title', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                              placeholder={`Question ${questionIndex + 1}`}
+                              required
+                            />
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Question type</label>
+                              <select
+                                value={question.type}
+                                onChange={(e) => updateQuestion(section.id, question.id, 'type', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                              >
+                                <option value="TEXT">Short Answer</option>
+                                <option value="TEXTAREA">Paragraph</option>
+                                <option value="EMAIL">Email</option>
+                                <option value="PHONE">Phone Number</option>
+                                <option value="NUMBER">Number</option>
+                                <option value="DATE">Date</option>
+                                <option value="SELECT">Dropdown</option>
+                                <option value="RADIO">Multiple Choice</option>
+                                <option value="CHECKBOX">Checkboxes</option>
+                                <option value="FILE">File Upload</option>
+                                <option value="URL">URL</option>
+                                <option value="BOOLEAN">Yes / No</option>
+                                <option value="DESCRIPTION">Description</option>
+                                <option value="MATRIX">Matrix/Grid</option>
+                              </select>
+                            </div>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => moveQuestion(section.id, question.id, -1)}
+                                disabled={questionIndex === 0}
+                                className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded disabled:opacity-40"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveQuestion(section.id, question.id, 1)}
+                                disabled={questionIndex === section.questions.length - 1}
+                                className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded disabled:opacity-40"
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => duplicateQuestion(section.id, question.id)}
+                                className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded"
+                              >
+                                Duplicate
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeQuestion(section.id, question.id)}
+                                className="px-2 py-1 text-xs text-red-600 hover:text-red-700"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Helper text</label>
+                            <input
+                              type="text"
+                              value={question.description}
+                              onChange={(e) => updateQuestion(section.id, question.id, 'description', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                              placeholder="Optional context for respondents"
+                            />
+                          </div>
+                        </div>
+                      </div>
 
-                {question.type === 'MATRIX' && (
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Matrix Rows (one per line)</label>
-                      <textarea
-                        value={question.matrixRows || ''}
-                        onChange={(e) => updateQuestion(index, 'matrixRows', e.target.value)}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
-                        placeholder="Row 1 (e.g., Quality)&#10;Row 2 (e.g., Price)&#10;Row 3 (e.g., Service)"
-                      />
+                      {(question.type === 'SELECT' || question.type === 'RADIO' || question.type === 'CHECKBOX') && (
+                        <div className="mt-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Options (one per line)</label>
+                          <textarea
+                            value={question.options}
+                            onChange={(e) => updateQuestion(section.id, question.id, 'options', e.target.value)}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                            placeholder={`Option 1\nOption 2\nOption 3`}
+                          />
+                        </div>
+                      )}
+
+                      {question.type === 'MATRIX' && (
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Rows</label>
+                            <textarea
+                              value={question.matrixRows}
+                              onChange={(e) => updateQuestion(section.id, question.id, 'matrixRows', e.target.value)}
+                              rows={3}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                              placeholder={`Row 1\nRow 2\nRow 3`}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Columns</label>
+                            <textarea
+                              value={question.matrixCols}
+                              onChange={(e) => updateQuestion(section.id, question.id, 'matrixCols', e.target.value)}
+                              rows={3}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                              placeholder={`Column 1\nColumn 2\nColumn 3`}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {question.type === 'DESCRIPTION' && (
+                        <div className="mt-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Description content</label>
+                          <textarea
+                            value={question.descriptionContent}
+                            onChange={(e) => updateQuestion(section.id, question.id, 'descriptionContent', e.target.value)}
+                            rows={4}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                            placeholder="Rich description shown to respondents"
+                          />
+                        </div>
+                      )}
+
+                      {['TEXT', 'TEXTAREA', 'NUMBER'].includes(question.type) && (
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Min length</label>
+                            <input
+                              type="number"
+                              value={question.minLength}
+                              onChange={(e) => updateQuestion(section.id, question.id, 'minLength', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Max length</label>
+                            <input
+                              type="number"
+                              value={question.maxLength}
+                              onChange={(e) => updateQuestion(section.id, question.id, 'maxLength', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Pattern (regex)</label>
+                            <input
+                              type="text"
+                              value={question.pattern}
+                              onChange={(e) => updateQuestion(section.id, question.id, 'pattern', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                              placeholder="Optional validation pattern"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-4 flex items-center justify-between">
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={question.required}
+                            onChange={(e) => updateQuestion(section.id, question.id, 'required', e.target.checked)}
+                            className="h-4 w-4 text-[#00274c] border-gray-300 rounded"
+                          />
+                          Required question
+                        </label>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Matrix Columns (one per line)</label>
-                      <textarea
-                        value={question.matrixCols || ''}
-                        onChange={(e) => updateQuestion(index, 'matrixCols', e.target.value)}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
-                        placeholder="Excellent&#10;Good&#10;Fair&#10;Poor"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {question.type === 'DESCRIPTION' && (
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Description Content</label>
-                    <textarea
-                      value={question.descriptionContent || ''}
-                      onChange={(e) => updateQuestion(index, 'descriptionContent', e.target.value)}
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
-                      placeholder="Enter the text content to display. Line breaks will be preserved."
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      This content will be displayed as formatted text with line breaks preserved.
-                    </p>
-                  </div>
-                )}
-
-                <div className="mt-4 flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={question.required}
-                    onChange={(e) => updateQuestion(index, 'required', e.target.checked)}
-                    className="rounded border-gray-300 text-[#00274c] focus:ring-[#00274c]"
-                  />
-                  <label className="ml-2 text-sm text-gray-700">Required</label>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addQuestion(section.id)}
+                    className="px-3 py-2 text-sm text-[#00274c] border border-[#00274c] rounded-lg hover:bg-[#00274c]/10"
+                  >
+                    + Add question
+                  </button>
                 </div>
               </div>
             ))}
-
-            {questions.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No questions yet. Click "Add Question" to get started.
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Submit */}
-        <div className="flex justify-end gap-3 pt-6 border-t">
+        <div className="flex justify-end gap-3 pt-4">
           <button
             type="button"
             onClick={onClose}
@@ -3202,7 +3324,7 @@ function FormEditor({ form, onClose, onSave }: any) {
             disabled={saving}
             className="px-4 py-2 bg-[#00274c] text-white hover:bg-[#003366] rounded-lg disabled:opacity-50 admin-white-text"
           >
-            {saving ? 'Saving...' : (form ? 'Update Form' : 'Create Form')}
+            {saving ? 'Saving...' : form ? 'Update Form' : 'Create Form'}
           </button>
         </div>
       </form>
