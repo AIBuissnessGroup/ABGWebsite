@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useSession, signIn, signOut } from 'next-auth/react';
 
@@ -19,6 +19,15 @@ interface Question {
   matrixRows?: string;
   matrixCols?: string;
   descriptionContent?: string;
+  sectionId?: string;
+}
+
+interface FormSection {
+  id: string;
+  title: string;
+  description?: string;
+  order: number;
+  questions: Question[];
 }
 
 interface FormData {
@@ -32,13 +41,21 @@ interface FormData {
   backgroundColor: string;
   textColor: string;
   questions: Question[];
+  sections?: FormSection[];
   submissionCount: number;
   isAttendanceForm?: boolean;
+  allowMultiple?: boolean;
+  userSubmissionSummary?: {
+    submissionId: string;
+    submittedAt: string;
+    status: string;
+  } | null;
 }
 
 export default function FormPage() {
   const params = useParams();
   const slug = params.slug as string;
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   
   const [form, setForm] = useState<FormData | null>(null);
@@ -46,6 +63,12 @@ export default function FormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [existingSubmission, setExistingSubmission] = useState<FormData['userSubmissionSummary']>(null);
+  const [lockedByPreviousSubmission, setLockedByPreviousSubmission] = useState(false);
+  const [submissionPreview, setSubmissionPreview] = useState<any | null>(null);
+  const [submissionPreviewError, setSubmissionPreviewError] = useState('');
+  const [loadingSubmissionPreview, setLoadingSubmissionPreview] = useState(false);
+  const [showSubmissionPreview, setShowSubmissionPreview] = useState(false);
   // Geo / attendance state
   const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
   const [geoError, setGeoError] = useState('');
@@ -68,13 +91,100 @@ export default function FormPage() {
   
   // File processing state
   const [processingFiles, setProcessingFiles] = useState<Record<string, boolean>>({});
+  const [fileInputKeys, setFileInputKeys] = useState<Record<string, number>>({});
+
+  // Section navigation state
+  const [activeSectionIndex, setActiveSectionIndex] = useState(0);
+  const [sectionError, setSectionError] = useState('');
 
   // Auto-save timer ref
   const autoSaveTimer = useRef<NodeJS.Timeout | null>(null);
 
+  const sectionsToRender: FormSection[] = form
+    ? ((form.sections && form.sections.length
+        ? form.sections
+        : [{
+            id: `section-${form.id}`,
+            title: form.title || 'Section 1',
+            description: form.description || '',
+            order: 0,
+            questions: form.questions || []
+          }]) as FormSection[])
+        .map((section) => ({
+          ...section,
+          questions: [...(section.questions || [])].sort((a, b) => a.order - b.order)
+        }))
+        .sort((a, b) => a.order - b.order)
+    : [];
+
+  const totalSections = sectionsToRender.length;
+  const effectiveSectionIndex = Math.min(activeSectionIndex, Math.max(totalSections - 1, 0));
+  const activeSection = sectionsToRender[effectiveSectionIndex] || null;
+  const allQuestions = sectionsToRender.flatMap(section => section.questions);
+  const progressPercentage = totalSections > 0
+    ? Math.round(((effectiveSectionIndex + 1) / totalSections) * 100)
+    : 0;
+  const isLastSection = totalSections === 0 || effectiveSectionIndex === totalSections - 1;
+  const allowMultipleSubmissions = Boolean(form?.allowMultiple);
+  const lockDueToPrevious = lockedByPreviousSubmission && !allowMultipleSubmissions;
+  const isFormLocked = submitted || lockDueToPrevious;
+
   useEffect(() => {
     loadForm();
   }, [slug]);
+
+  const openSubmissionPreview = useCallback(async (targetSubmissionId?: string | null) => {
+    if (!session?.user?.email) {
+      setSubmissionPreviewError('Please sign in to view your submission history.');
+      setSubmissionPreview(null);
+      setShowSubmissionPreview(true);
+      return;
+    }
+
+    try {
+      // Show the modal immediately with loading state
+      setShowSubmissionPreview(true);
+      setLoadingSubmissionPreview(true);
+      setSubmissionPreviewError('');
+      setSubmissionPreview(null);
+
+      const query = targetSubmissionId ? `?submissionId=${encodeURIComponent(targetSubmissionId)}` : '';
+      const res = await fetch(`/api/forms/${slug}/submission${query}`);
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to load submission' }));
+        setSubmissionPreviewError(err.error || 'Unable to load your submission.');
+        return;
+      }
+
+      const data = await res.json();
+      setSubmissionPreview(data);
+    } catch (error) {
+      console.error('Error loading submission preview:', error);
+      setSubmissionPreviewError('Unable to load your submission. Please try again later.');
+    } finally {
+      setLoadingSubmissionPreview(false);
+    }
+  }, [session?.user?.email, slug]);
+
+  useEffect(() => {
+    if (!searchParams) return;
+    const submissionId = searchParams.get('submission');
+    if (submissionId && session?.user?.email) {
+      openSubmissionPreview(submissionId);
+    }
+  }, [searchParams, session?.user?.email, openSubmissionPreview]);
+
+  useEffect(() => {
+    if (totalSections === 0) {
+      setActiveSectionIndex(0);
+      return;
+    }
+
+    if (activeSectionIndex >= totalSections) {
+      setActiveSectionIndex(totalSections - 1);
+    }
+  }, [totalSections, activeSectionIndex]);
 
   // Auto-fill email if user is authenticated
   useEffect(() => {
@@ -89,13 +199,13 @@ export default function FormPage() {
 
   // Load draft when form and session are ready
   useEffect(() => {
-    if (form && session?.user?.email && !submitted) {
+    if (form && session?.user?.email && !submitted && !lockedByPreviousSubmission) {
       loadDraft();
     } else if (form && !form.requireAuth && !submitted) {
       // For forms that don't require auth, initialize draft state
       setDraftInitialized(true);
     }
-  }, [form, session, submitted]);
+  }, [form, session, submitted, lockedByPreviousSubmission]);
 
   // Auto-request location for attendance forms when form loads
   useEffect(() => {
@@ -129,7 +239,7 @@ export default function FormPage() {
 
   // Auto-save functionality
   useEffect(() => {
-    if (!session?.user?.email || !form || submitted || isDraftLoading || !draftInitialized) return;
+    if (!session?.user?.email || !form || submitted || isDraftLoading || !draftInitialized || lockedByPreviousSubmission) return;
 
     // Clear existing timer
     if (autoSaveTimer.current) {
@@ -154,7 +264,70 @@ export default function FormPage() {
       const res = await fetch(`/api/forms/${slug}`);
       if (res.ok) {
         const formData = await res.json();
-        setForm(formData);
+
+        const normalizedSections: FormSection[] = (formData.sections && formData.sections.length
+          ? formData.sections
+          : [
+              {
+                id: `section-${formData.id || 'default'}`,
+                title: formData.title || 'Section 1',
+                description: formData.description || '',
+                order: 0,
+                questions: formData.questions || []
+              }
+            ])
+          .map((section: any, sectionIndex: number) => {
+            const sectionId = section.id || `section-${sectionIndex}`;
+            const sectionQuestions: Question[] = (Array.isArray(section.questions) ? section.questions : [])
+              .map((question: any, questionIndex: number) => {
+                const options = Array.isArray(question?.options)
+                  ? question.options
+                  : typeof question?.options === 'string'
+                    ? question.options.split('\n').map((option: string) => option.trim()).filter(Boolean)
+                    : [];
+
+                return {
+                  id: question.id || `question-${sectionId}-${questionIndex}`,
+                  title: question.title || question.question || `Question ${questionIndex + 1}`,
+                  description: question.description || '',
+                  type: question.type || 'TEXT',
+                  required: Boolean(question.required),
+                  order: typeof question.order === 'number' ? question.order : questionIndex,
+                  options,
+                  minLength: question.minLength ?? undefined,
+                  maxLength: question.maxLength ?? undefined,
+                  pattern: question.pattern || undefined,
+                  matrixRows: question.matrixRows || undefined,
+                  matrixCols: question.matrixCols || undefined,
+                  descriptionContent: question.descriptionContent || undefined,
+                  sectionId
+                };
+              })
+              .sort((a: Question, b: Question) => a.order - b.order);
+
+            return {
+              id: sectionId,
+              title: section.title || `Section ${sectionIndex + 1}`,
+              description: section.description || '',
+              order: typeof section.order === 'number' ? section.order : sectionIndex,
+              questions: sectionQuestions
+            };
+          })
+          .sort((a: FormSection, b: FormSection) => a.order - b.order);
+
+        const flattenedQuestions = normalizedSections.flatMap(section => section.questions);
+
+        setForm({
+          ...formData,
+          sections: normalizedSections,
+          questions: flattenedQuestions
+        });
+        const summary = formData.userSubmissionSummary || null;
+        setExistingSubmission(summary);
+        setLockedByPreviousSubmission(Boolean(summary) && !formData.allowMultiple);
+        setActiveSectionIndex(0);
+        setSectionError('');
+        setFileInputKeys({});
       } else {
         const errorData = await res.json();
         setError(errorData.error || 'Form not found');
@@ -194,7 +367,7 @@ export default function FormPage() {
   };
 
   const saveDraft = async () => {
-    if (!session?.user?.email || !form || submitted || draftSaving) return;
+    if (!session?.user?.email || !form || submitted || draftSaving || lockedByPreviousSubmission) return;
 
     // Only save if there's actual content
     const hasContent = applicantInfo.name || applicantInfo.phone || 
@@ -240,8 +413,89 @@ export default function FormPage() {
     }
   };
 
+  const bumpFileInputKey = (questionId: string) => {
+    setFileInputKeys(prev => ({
+      ...prev,
+      [questionId]: (prev[questionId] || 0) + 1
+    }));
+  };
+
+  const handleRemoveFile = (questionId: string) => {
+    setResponses(prev => {
+      const updated = { ...prev };
+      delete updated[questionId];
+      return updated;
+    });
+    setProcessingFiles(prev => {
+      const updated = { ...prev };
+      delete updated[questionId];
+      return updated;
+    });
+    bumpFileInputKey(questionId);
+    setSectionError('');
+    setError('');
+  };
+
+  const updateResponse = (questionId: string, value: any) => {
+    setResponses(prev => ({
+      ...prev,
+      [questionId]: value
+    }));
+    setSectionError('');
+    setError('');
+  };
+
+  const findMissingRequiredQuestion = (section: FormSection | null) => {
+    if (!section) return null;
+
+    for (const question of section.questions) {
+      if (!question.required) continue;
+      const value = responses[question.id];
+
+      if (question.type === 'CHECKBOX') {
+        if (!Array.isArray(value) || value.length === 0) {
+          return question;
+        }
+        continue;
+      }
+
+      if (question.type === 'FILE') {
+        if (!value || (typeof value === 'object' && !value.fileData)) {
+          return question;
+        }
+        continue;
+      }
+
+      if (value === undefined || value === null || value === '') {
+        return question;
+      }
+    }
+
+    return null;
+  };
+
+  const goToNextSection = () => {
+    const missing = findMissingRequiredQuestion(activeSection);
+    if (missing) {
+      const message = `Please answer the required question: ${missing.title}`;
+      setSectionError(message);
+      setError(message);
+      return;
+    }
+
+    setSectionError('');
+    setError('');
+    setActiveSectionIndex(prev => Math.min(prev + 1, Math.max(totalSections - 1, 0)));
+  };
+
+  const goToPreviousSection = () => {
+    setSectionError('');
+    setError('');
+    setActiveSectionIndex(prev => Math.max(prev - 1, 0));
+  };
+
   const handleGoogleSignIn = () => {
-    signIn('google', { 
+    signIn('google', {
       callbackUrl: window.location.href,
       hd: 'umich.edu', // Restrict to UMich domain
       redirect: false
@@ -256,28 +510,59 @@ export default function FormPage() {
     });
   };
 
+  const handleViewSubmission = () => {
+    openSubmissionPreview(existingSubmission?.submissionId || undefined);
+  };
+
+  const handleSubmitAnother = () => {
+    setSubmitted(false);
+    setError('');
+    setSectionError('');
+    setResponses({});
+    setProcessingFiles({});
+    setFileInputKeys({});
+    setActiveSectionIndex(0);
+    setGeoError('');
+    setCoords({ lat: null, lng: null });
+  };
+
+  const closeSubmissionPreview = () => {
+    setShowSubmissionPreview(false);
+    setSubmissionPreviewError('');
+    setSubmissionPreview(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!form) return;
-    
+
+    if (lockedByPreviousSubmission && !form.allowMultiple) {
+      setError('You have already submitted this form.');
+      return;
+    }
+
     // Check authentication requirement
     if (form.requireAuth && (!session?.user?.email || !session.user.email.endsWith('@umich.edu'))) {
       setError('This form requires authentication with a University of Michigan email address.');
       return;
     }
     
-    // Validate required fields
-    const requiredQuestions = form.questions.filter(q => q.required);
-    for (const question of requiredQuestions) {
-      if (!responses[question.id] || responses[question.id] === '') {
-        setError(`Please answer the required question: ${question.title}`);
+    const sectionsForValidation = sectionsToRender.length ? sectionsToRender : [];
+    for (let i = 0; i < sectionsForValidation.length; i++) {
+      const missing = findMissingRequiredQuestion(sectionsForValidation[i]);
+      if (missing) {
+        const message = `Please answer the required question: ${missing.title}`;
+        setError(message);
+        setSectionError(message);
+        setActiveSectionIndex(i);
         return;
       }
     }
 
     setSubmitting(true);
     setError('');
+    setSectionError('');
 
     try {
       const submissionData: any = {
@@ -308,7 +593,14 @@ export default function FormPage() {
       });
 
       if (res.ok) {
+        const resultData = await res.json();
         setSubmitted(true);
+        setExistingSubmission({
+          submissionId: resultData.applicationId,
+          submittedAt: new Date().toISOString(),
+          status: 'SUBMITTED',
+        });
+        setLockedByPreviousSubmission(!form.allowMultiple);
         // Delete draft after successful submission
         await deleteDraft();
       } else {
@@ -353,7 +645,7 @@ export default function FormPage() {
             type={question.type === 'EMAIL' ? 'email' : question.type === 'PHONE' ? 'tel' : question.type === 'URL' ? 'url' : 'text'}
             value={value}
             className={inputBaseClass}
-            onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
+            onChange={(e) => updateResponse(question.id, e.target.value)}
             style={textColorStyle}
             placeholder={`Enter your response here.`}
             required={question.required}
@@ -368,7 +660,7 @@ export default function FormPage() {
           <textarea
             value={value}
             className={inputBaseClass}
-            onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
+            onChange={(e) => updateResponse(question.id, e.target.value)}
             style={textColorStyle}
             placeholder={`Enter your ${question.title.toLowerCase()}`}
             rows={4}
@@ -384,7 +676,7 @@ export default function FormPage() {
             type="number"
             value={value}
             className={inputBaseClass}
-            onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
+            onChange={(e) => updateResponse(question.id, e.target.value)}
             style={textColorStyle}
             placeholder={`Enter ${question.title.toLowerCase()}`}
             required={question.required}
@@ -397,7 +689,7 @@ export default function FormPage() {
             type="date"
             value={value}
             className={inputBaseClass}
-            onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
+            onChange={(e) => updateResponse(question.id, e.target.value)}
             required={question.required}
           />
         );
@@ -411,7 +703,7 @@ export default function FormPage() {
             value={value}
             className={inputBaseClass}
             style={textColorStyle}
-            onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
+            onChange={(e) => updateResponse(question.id, e.target.value)}
             required={question.required}
           >
             <option value="">Select an option</option>
@@ -439,7 +731,7 @@ export default function FormPage() {
                   name={question.id}
                   value={option}
                   checked={value === option}
-                  onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
+                  onChange={(e) => updateResponse(question.id, e.target.value)}
                   className="mr-3"
                   required={question.required}
                 />
@@ -467,9 +759,12 @@ export default function FormPage() {
                   onChange={(e) => {
                     const currentValues = Array.isArray(value) ? value : [];
                     if (e.target.checked) {
-                      setResponses({...responses, [question.id]: [...currentValues, option]});
+                      const nextValues = currentValues.includes(option)
+                        ? currentValues
+                        : [...currentValues, option];
+                      updateResponse(question.id, nextValues);
                     } else {
-                      setResponses({...responses, [question.id]: currentValues.filter(v => v !== option)});
+                      updateResponse(question.id, currentValues.filter(v => v !== option));
                     }
                   }}
                   className="mr-3"
@@ -492,7 +787,7 @@ export default function FormPage() {
                 name={question.id}
                 value="true"
                 checked={value === 'true'}
-                onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
+                onChange={(e) => updateResponse(question.id, e.target.value)}
                 className="mr-2"
                 required={question.required}
               />
@@ -504,7 +799,7 @@ export default function FormPage() {
                 name={question.id}
                 value="false"
                 checked={value === 'false'}
-                onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
+                onChange={(e) => updateResponse(question.id, e.target.value)}
                 className="mr-2"
                 required={question.required}
               />
@@ -519,41 +814,38 @@ export default function FormPage() {
             <input
               type="file"
               accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
+              key={fileInputKeys[question.id] || 0}
               onChange={async (e) => {
                 const file = e.target.files?.[0];
-                if (file) {
-                  // Check file size (10MB limit)
-                  if (file.size > 10 * 1024 * 1024) {
-                    alert('File size must be less than 10MB');
-                    e.target.value = '';
-                    return;
-                  }
-                  
-                  // Start processing
-                  setProcessingFiles(prev => ({ ...prev, [question.id]: true }));
-                  
-                  // Convert file to base64 for storage
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    const base64 = reader.result as string;
-                    setResponses({
-                      ...responses, 
-                      [question.id]: {
-                        fileName: file.name,
-                        fileSize: file.size,
-                        fileType: file.type,
-                        fileData: base64
-                      }
-                    });
-                    // Finish processing
-                    setProcessingFiles(prev => ({ ...prev, [question.id]: false }));
-                  };
-                  reader.onerror = () => {
-                    setProcessingFiles(prev => ({ ...prev, [question.id]: false }));
-                    alert('Error reading file. Please try again.');
-                  };
-                  reader.readAsDataURL(file);
+                if (!file) {
+                  handleRemoveFile(question.id);
+                  return;
                 }
+
+                if (file.size > 10 * 1024 * 1024) {
+                  alert('File size must be less than 10MB');
+                  bumpFileInputKey(question.id);
+                  return;
+                }
+
+                setProcessingFiles(prev => ({ ...prev, [question.id]: true }));
+
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const base64 = reader.result as string;
+                  updateResponse(question.id, {
+                    fileName: file.name,
+                    fileSize: file.size,
+                    fileType: file.type,
+                    fileData: base64
+                  });
+                  setProcessingFiles(prev => ({ ...prev, [question.id]: false }));
+                };
+                reader.onerror = () => {
+                  setProcessingFiles(prev => ({ ...prev, [question.id]: false }));
+                  alert('Error reading file. Please try again.');
+                };
+                reader.readAsDataURL(file);
               }}
               className="w-full text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-white/20 file:text-white hover:file:bg-white/30"
               required={question.required}
@@ -568,9 +860,18 @@ export default function FormPage() {
               </div>
             )}
             {responses[question.id] && typeof responses[question.id] === 'object' && !processingFiles[question.id] && (
-              <p className="text-xs text-green-300 mt-2">
-                ✓ {(responses[question.id] as any).fileName} ({Math.round((responses[question.id] as any).fileSize / 1024)}KB)
-              </p>
+              <div className="flex items-center justify-between text-xs text-green-300 mt-2">
+                <span>
+                  ✓ {(responses[question.id] as any).fileName} ({Math.round((responses[question.id] as any).fileSize / 1024)}KB)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveFile(question.id)}
+                  className="ml-3 text-red-300 hover:text-red-200 underline-offset-2 hover:underline"
+                >
+                  Remove file
+                </button>
+              </div>
             )}
           </div>
         );
@@ -636,7 +937,7 @@ export default function FormPage() {
                           onChange={(e) => {
                             const newMatrixValue = Array.isArray(value) ? [...value] : new Array(matrixRows.length);
                             newMatrixValue[rowIndex] = e.target.value;
-                            setResponses({...responses, [question.id]: newMatrixValue});
+                            updateResponse(question.id, newMatrixValue);
                           }}
                           className="w-4 h-4"
                           required={question.required}
@@ -655,7 +956,7 @@ export default function FormPage() {
           <input
             type="text"
             value={value}
-            onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
+            onChange={(e) => updateResponse(question.id, e.target.value)}
             style={textColorStyle}
             placeholder={`Enter your response here.`}
             required={question.required}
@@ -771,35 +1072,151 @@ export default function FormPage() {
     );
   }
 
-  if (submitted) {
+  if (submitted || lockDueToPrevious) {
+    const isPreviousSubmission = lockDueToPrevious && !submitted;
+    const submittedAt = existingSubmission?.submittedAt
+      ? new Date(existingSubmission.submittedAt).toLocaleString()
+      : null;
+
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#00274c] to-[#5e6472] flex items-center justify-center">
+      <>
+      <div className="min-h-screen bg-gradient-to-br from-[#00274c] to-[#5e6472] flex items-center justify-center px-4">
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="text-center max-w-md mx-auto p-8"
+          className="text-center max-w-lg mx-auto p-8"
         >
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-8 border border-white/20">
-            <div className="text-green-400 text-6xl mb-4">✓</div>
-            <h1 className="text-2xl font-bold text-white mb-4">Application Submitted!</h1>
-            <p className="text-white/80 mb-6">
-              Thank you for your submission. We'll review your application and get back to you soon.
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-8 border border-white/20">
+            <div className={`${isPreviousSubmission ? 'text-blue-200' : 'text-green-400'} text-6xl mb-4`}>
+              {isPreviousSubmission ? '✓' : '✓'}
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-4">
+              {isPreviousSubmission ? 'You already submitted this form' : 'Application Submitted!'}
+            </h1>
+            <p className="text-white/80 mb-4">
+              {isPreviousSubmission
+                ? 'Our records show that you have already submitted this form. You can review your submission below.'
+                : "Thank you for your submission. We'll review your responses and get back to you soon."}
             </p>
-            <button
-              onClick={() => window.location.href = '/'}
-              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 rounded-lg px-6 py-3 text-white font-medium transition-all duration-300"
-            >
-              Return to Home
-            </button>
+            {submittedAt && (
+              <p className="text-white/60 text-sm mb-6">Submitted on {submittedAt}</p>
+            )}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              {existingSubmission && (
+                <button
+                  type="button"
+                  onClick={handleViewSubmission}
+                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 rounded-lg px-6 py-3 text-white font-medium transition-all duration-300"
+                >
+                  View your submission
+                </button>
+              )}
+              {submitted && allowMultipleSubmissions && (
+                <button
+                  type="button"
+                  onClick={handleSubmitAnother}
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 rounded-lg px-6 py-3 text-white font-medium transition-all duration-300"
+                >
+                  Submit another response
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => window.location.href = '/'}
+                className="bg-white/0 hover:bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-6 py-3 text-white font-medium transition-all duration-300"
+              >
+                Return to Home
+              </button>
+            </div>
+            {!allowMultipleSubmissions && (
+              <p className="text-white/60 text-xs mt-6">
+                Multiple submissions are disabled for this form.
+              </p>
+            )}
           </div>
         </motion.div>
       </div>
+      
+      {/* Submission Preview Modal */}
+      {showSubmissionPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
+          <div className="submission-preview-modal relative w-full max-w-3xl max-h-[80vh] overflow-y-auto rounded-xl bg-white p-6 shadow-2xl">
+            <button
+              type="button"
+              onClick={closeSubmissionPreview}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
+            >
+              ✕
+            </button>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              {submissionPreview?.form?.title || form?.title || 'Your submission'}
+            </h2>
+            {submissionPreview?.submittedAt && (
+              <p className="text-sm text-gray-500 mb-4">
+                Submitted on {new Date(submissionPreview.submittedAt).toLocaleString()}
+              </p>
+            )}
+            {loadingSubmissionPreview ? (
+              <div className="flex items-center justify-center py-16 text-gray-600">
+                <div className="animate-spin h-8 w-8 border-b-2 border-gray-400 rounded-full mr-3"></div>
+                Loading submission...
+              </div>
+            ) : submissionPreviewError ? (
+              <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded">
+                {submissionPreviewError}
+              </div>
+            ) : submissionPreview ? (
+              <div className="space-y-4">
+                {console.log('Rendering responses:', submissionPreview.responses)}
+                {submissionPreview.responses?.length ? (
+                  submissionPreview.responses.map((response: any) => {
+                    console.log('Response item:', response);
+                    return (
+                    <div key={response.questionId} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '16px', backgroundColor: '#f9fafb', marginBottom: '16px' }}>
+                      <h3 style={{ color: '#000000', fontWeight: '700', fontSize: '18px', marginBottom: '12px' }}>
+                        Question: {response.questionTitle || response.question || 'Untitled Question'}
+                      </h3>
+                      <div style={{ backgroundColor: '#ffffff', color: '#000000', padding: '12px', borderRadius: '6px', border: '1px solid #e5e7eb', fontWeight: '500' }}>
+                        {Array.isArray(response.value) ? (
+                          <ul style={{ color: '#000000', paddingLeft: '20px', listStyleType: 'disc' }}>
+                            {response.value.map((item: any, index: number) => (
+                              <li key={index} style={{ color: '#000000', fontWeight: '500', marginBottom: '4px' }}>{String(item)}</li>
+                            ))}
+                          </ul>
+                        ) : typeof response.value === 'object' && response.value?.downloadUrl ? (
+                          <a
+                            href={response.value.downloadUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: '#2563eb', textDecoration: 'underline', fontWeight: '600' }}
+                          >
+                            {response.value.fileName || 'Download file'}
+                          </a>
+                        ) : (
+                          <span style={{ color: '#000000', fontWeight: '500' }}>{response.value === null ? '—' : String(response.value)}</span>
+                        )}
+                      </div>
+                    </div>
+                    );
+                  })
+                ) : (
+                  <p style={{ color: '#6b7280' }}>No responses found.</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">Unable to display submission details.</p>
+            )}
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
   if (!form) return null;
 
   return (
+    <>
     <div 
       className="form-page min-h-screen bg-gradient-to-br from-[#00274c] to-[#5e6472] py-12 px-4"
       style={{ 
@@ -877,6 +1294,31 @@ export default function FormPage() {
                 )}
               </div>
             )}
+
+            {existingSubmission && (
+              <div className="mt-6 bg-white/5 border border-white/20 rounded-lg p-4 text-left">
+                <p className="text-white font-medium mb-2">
+                  You submitted this form on{' '}
+                  <span className="font-semibold">
+                    {new Date(existingSubmission.submittedAt).toLocaleString()}
+                  </span>
+                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleViewSubmission}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-white/20 hover:bg-white/30 transition-all text-white"
+                  >
+                    <span>View your submission</span>
+                  </button>
+                  <p className="text-white/70 text-sm">
+                    {allowMultipleSubmissions
+                      ? 'You can submit another response if needed.'
+                      : 'Multiple submissions are disabled for this form.'}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {error && (
@@ -887,33 +1329,34 @@ export default function FormPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            {Boolean(form.isAttendanceForm) && (
-              <div className="border border-blue-400/30 bg-blue-900/30 rounded-lg p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm text-blue-100">
-                    {coords.lat != null && coords.lng != null ? (
-                      <span>Location captured ✓</span>
-                    ) : requestingGeo ? (
-                      <span>Requesting your location…</span>
-                    ) : (
-                      <span>Location required to submit this attendance form.</span>
-                    )}
-                    {geoError && <div className="text-red-200 mt-1">{geoError}</div>}
+            <fieldset disabled={isFormLocked} className="space-y-6 disabled:opacity-60">
+              {Boolean(form.isAttendanceForm) && (
+                <div className="border border-blue-400/30 bg-blue-900/30 rounded-lg p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm text-blue-100">
+                      {coords.lat != null && coords.lng != null ? (
+                        <span>Location captured ✓</span>
+                      ) : requestingGeo ? (
+                        <span>Requesting your location…</span>
+                      ) : (
+                        <span>Location required to submit this attendance form.</span>
+                      )}
+                      {geoError && <div className="text-red-200 mt-1">{geoError}</div>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={requestLocation}
+                      className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm"
+                      disabled={requestingGeo}
+                    >
+                      {coords.lat != null ? 'Refresh Location' : 'Share Location'}
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={requestLocation}
-                    className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm"
-                    disabled={requestingGeo}
-                  >
-                    {coords.lat != null ? 'Refresh Location' : 'Share Location'}
-                  </button>
                 </div>
-              </div>
-            )}
-            
-            {/* Applicant Information */}
-            <div className="bg-white/5 rounded-lg p-6 mb-8">
+              )}
+
+              {/* Applicant Information */}
+              <div className="bg-white/5 rounded-lg p-6 mb-8">
               <h2 className="text-xl font-semibold text-white mb-6 text-left flex items-center gap-2">
                 👤 Your Information
               </h2>
@@ -970,14 +1413,48 @@ export default function FormPage() {
 
             {/* Form Questions */}
             <div className="bg-white/5 rounded-lg p-6">
-              <h2 className="text-xl font-semibold text-white mb-6 text-left flex items-center gap-2">
-                📝 Application Questions
-              </h2>
-              
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-xl font-semibold text-white text-left flex items-center gap-2">
+                    📝 {activeSection?.title || 'Application Questions'}
+                  </h2>
+                  <p className="text-sm text-white/70 mt-1">
+                    {totalSections > 1
+                      ? 'Complete each section to continue to the next.'
+                      : 'Provide your responses below.'}
+                  </p>
+                </div>
+                <div className="w-full md:w-1/3 min-w-[220px]">
+                  <div className="text-right text-xs text-white/60 mb-2">
+                    Section {totalSections === 0 ? 1 : effectiveSectionIndex + 1} of {Math.max(totalSections, 1)}
+                  </div>
+                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-400/70 transition-all duration-300"
+                      style={{ width: `${progressPercentage}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {sectionError && (
+                <div className="mb-4 bg-red-500/15 border border-red-500/40 text-red-100 text-sm rounded-lg px-4 py-3">
+                  {sectionError}
+                </div>
+              )}
+
+              {activeSection?.description && (
+                <div
+                  className="mb-6 bg-white/10 border border-white/20 rounded-lg p-4 text-sm leading-relaxed"
+                  style={{ color: form?.textColor || '#ffffff' }}
+                >
+                  {activeSection.description}
+                </div>
+              )}
+
               <div className="space-y-6">
-                {form.questions
-                  .sort((a, b) => a.order - b.order)
-                  .map((question) => (
+                {activeSection && activeSection.questions.length > 0 ? (
+                  activeSection.questions.map((question) => (
                     <div key={question.id} className="border border-white/10 rounded-lg p-4 bg-white/5">
                       <label className="block text-lg font-medium text-white mb-3">
                         {question.title}
@@ -990,31 +1467,134 @@ export default function FormPage() {
                       )}
                       {renderQuestion(question)}
                     </div>
-                  ))}
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <div className="mt-8 pt-6 border-t border-white/20">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full bg-gradient-to-r from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 backdrop-blur-sm border border-blue-400/30 rounded-lg px-6 py-4 font-semibold text-lg transition-all duration-300 disabled:opacity-50 transform hover:scale-[1.02]"
-                style={{ color: form?.textColor || '#ffffff' }}
-              >
-                {submitting ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Submitting...
-                  </div>
+                  ))
                 ) : (
-                  '🚀 Submit Application'
+                  <div className="text-white/70 text-sm italic">
+                    {totalSections > 0
+                      ? 'No questions in this section yet.'
+                      : 'No questions configured for this form.'}
+                  </div>
                 )}
-              </button>
-            </div>
+              </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-8 pt-6 border-t border-white/20">
+                <div className="w-full md:w-auto">
+                  {effectiveSectionIndex > 0 && (
+                    <button
+                      type="button"
+                      onClick={goToPreviousSection}
+                      className="w-full md:w-auto px-4 py-3 rounded-lg border border-white/30 text-white/80 hover:bg-white/10 transition"
+                    >
+                      ← Previous Section
+                    </button>
+                  )}
+                </div>
+                <div className="flex w-full md:w-auto gap-3 justify-end md:justify-start">
+                  {!isLastSection ? (
+                    <button
+                      type="button"
+                      onClick={goToNextSection}
+                      className="w-full md:w-auto px-6 py-3 rounded-lg bg-blue-500/70 hover:bg-blue-500 text-white font-semibold transition"
+                    >
+                      Next Section →
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="w-full md:w-auto bg-gradient-to-r from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 backdrop-blur-sm border border-blue-400/30 rounded-lg px-6 py-4 font-semibold text-lg transition-all duration-300 disabled:opacity-50 transform hover:scale-[1.02]"
+                      style={{ color: form?.textColor || '#ffffff' }}
+                    >
+                      {submitting ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          Submitting...
+                        </div>
+                      ) : (
+                        '🚀 Submit Application'
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </fieldset>
+            {isFormLocked && lockDueToPrevious && (
+              <div className="bg-yellow-500/20 border border-yellow-500/40 rounded-lg p-4 text-yellow-100">
+                Multiple submissions are disabled for this form. You can view your previous submission above.
+              </div>
+            )}
           </form>
         </motion.div>
       </div>
     </div>
+    {showSubmissionPreview && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
+        <div className="submission-preview-modal relative w-full max-w-3xl max-h-[80vh] overflow-y-auto rounded-xl bg-white p-6 shadow-2xl">
+          <button
+            type="button"
+            onClick={closeSubmissionPreview}
+            className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
+          >
+            ✕
+          </button>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+            {submissionPreview?.form?.title || form?.title || 'Your submission'}
+          </h2>
+          {submissionPreview?.submittedAt && (
+            <p className="text-sm text-gray-500 mb-4">
+              Submitted on {new Date(submissionPreview.submittedAt).toLocaleString()}
+            </p>
+          )}
+          {loadingSubmissionPreview ? (
+            <div className="flex items-center justify-center py-16 text-gray-600">
+              <div className="animate-spin h-8 w-8 border-b-2 border-gray-400 rounded-full mr-3"></div>
+              Loading submission...
+            </div>
+          ) : submissionPreviewError ? (
+            <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded">
+              {submissionPreviewError}
+            </div>
+          ) : submissionPreview ? (
+            <div className="space-y-4">
+              {submissionPreview.responses?.length ? (
+                submissionPreview.responses.map((response: any) => (
+                  <div key={response.questionId} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '16px', backgroundColor: '#f9fafb', marginBottom: '16px' }}>
+                    <h3 style={{ color: '#000000', fontWeight: '700', fontSize: '18px', marginBottom: '12px' }}>
+                      Question: {response.questionTitle || response.question || 'Untitled Question'}
+                    </h3>
+                    <div style={{ backgroundColor: '#ffffff', color: '#000000', padding: '12px', borderRadius: '6px', border: '1px solid #e5e7eb', fontWeight: '500' }}>
+                      {Array.isArray(response.value) ? (
+                        <ul style={{ color: '#000000', paddingLeft: '20px', listStyleType: 'disc' }}>
+                          {response.value.map((item: any, index: number) => (
+                            <li key={index} style={{ color: '#000000', fontWeight: '500', marginBottom: '4px' }}>{String(item)}</li>
+                          ))}
+                        </ul>
+                      ) : typeof response.value === 'object' && response.value?.downloadUrl ? (
+                        <a
+                          href={response.value.downloadUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#2563eb', textDecoration: 'underline', fontWeight: '600' }}
+                        >
+                          {response.value.fileName || 'Download file'}
+                        </a>
+                      ) : (
+                        <span style={{ color: '#000000', fontWeight: '500' }}>{response.value === null ? '—' : String(response.value)}</span>
+                      )}
+                    </div>
+                  </div>
+                ))
+                ) : (
+                  <p style={{ color: '#6b7280' }}>No responses found.</p>
+                )}
+              </div>
+            ) : (
+            <p className="text-gray-500 text-sm">Unable to display submission details.</p>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   );
-} 
+}

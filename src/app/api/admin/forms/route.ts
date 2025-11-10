@@ -15,6 +15,241 @@ function safeJson(obj: any) {
   ));
 }
 
+const normalizeId = (value: any) => {
+  if (!value) {
+    return crypto.randomUUID();
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value.toString();
+  }
+
+  if (value instanceof ObjectId) {
+    return value.toString();
+  }
+
+  if (typeof value === 'object' && typeof value.toString === 'function') {
+    return value.toString();
+  }
+
+  return crypto.randomUUID();
+};
+
+const coerceOrder = (value: any, fallback: number) => {
+  return Number.isFinite(value) ? Number(value) : fallback;
+};
+
+const sanitizeOptions = (options: any): string[] => {
+  if (!options) return [];
+
+  if (Array.isArray(options)) {
+    return Array.from(new Set(options.map(option => `${option}`.trim()).filter(Boolean)));
+  }
+
+  if (typeof options === 'string') {
+    return Array.from(new Set(options
+      .split('\n')
+      .map(option => option.trim())
+      .filter(Boolean)
+    ));
+  }
+
+  if (typeof options === 'object') {
+    return Array.from(new Set(
+      Object.values(options)
+        .map(option => `${option}`.trim())
+        .filter(Boolean)
+    ));
+  }
+
+  return [];
+};
+
+function normalizeFormStructure(
+  input: any,
+  fallback?: { sections?: any[]; questions?: any[]; title?: string; slug?: string }
+) {
+  const baseTitle = input?.title || fallback?.title || 'Untitled Section';
+
+  const rawSections = Array.isArray(input?.sections)
+    ? input.sections
+    : Array.isArray(fallback?.sections)
+      ? fallback.sections
+      : [];
+
+  const rawQuestions = Array.isArray(input?.questions)
+    ? input.questions
+    : Array.isArray(fallback?.questions)
+      ? fallback.questions
+      : [];
+
+  let workingSections = rawSections;
+
+  if (!workingSections.length) {
+    const defaultSectionId = rawSections?.[0]?.id || crypto.randomUUID();
+    workingSections = [
+      {
+        id: defaultSectionId,
+        title: baseTitle,
+        description: '',
+        questions: rawQuestions
+      }
+    ];
+  }
+
+  const normalizedSections = workingSections
+    .map((section: any, sectionIndex: number) => {
+      const sectionId = normalizeId(section?.id || section?._id);
+      const sectionTitle = section?.title || `Section ${sectionIndex + 1}`;
+      const sectionDescription = section?.description || '';
+      const sectionOrder = coerceOrder(section?.order, sectionIndex);
+      const sectionQuestions = Array.isArray(section?.questions)
+        ? section.questions
+        : section?.questionList
+          ? section.questionList
+          : [];
+
+      const normalizedQuestions = sectionQuestions
+        .map((question: any, questionIndex: number) => {
+          const questionId = normalizeId(question?.id || question?._id);
+          const order = coerceOrder(question?.order, questionIndex);
+
+          return {
+            id: questionId,
+            title: question?.title || question?.question || `Question ${questionIndex + 1}`,
+            question: question?.title || question?.question || `Question ${questionIndex + 1}`,
+            description: question?.description || '',
+            type: question?.type || 'TEXT',
+            required: Boolean(question?.required),
+            order,
+            options: sanitizeOptions(question?.options),
+            minLength: question?.minLength ?? null,
+            maxLength: question?.maxLength ?? null,
+            pattern: question?.pattern || '',
+            matrixRows: question?.matrixRows || '',
+            matrixCols: question?.matrixCols || '',
+            descriptionContent: question?.descriptionContent || '',
+            sectionId,
+            sectionOrder,
+            sectionTitle,
+            createdAt: question?.createdAt || Date.now(),
+            updatedAt: question?.updatedAt || Date.now()
+          };
+        })
+        .sort((a: any, b: any) => a.order - b.order)
+        .map((question: any, index: number) => ({
+          ...question,
+          order: index
+        }));
+
+      return {
+        id: sectionId,
+        title: sectionTitle,
+        description: sectionDescription,
+        order: sectionOrder,
+        questions: normalizedQuestions
+      };
+    })
+    .sort((a: any, b: any) => a.order - b.order)
+    .map((section: any, index: number) => ({
+      ...section,
+      order: index,
+      questions: section.questions.map((question: any) => ({
+        ...question,
+        sectionOrder: index,
+        sectionTitle: section.title,
+        sectionId: section.id
+      }))
+    }));
+
+  const normalizedQuestions = normalizedSections
+    .flatMap((section: any) => section.questions)
+    .sort((a: any, b: any) =>
+      (a.sectionOrder - b.sectionOrder) ||
+      (a.order - b.order)
+    );
+
+  return {
+    sections: normalizedSections,
+    questions: normalizedQuestions
+  };
+}
+
+function sanitizeSlackTargets(targets: any[]): any[] {
+  if (!Array.isArray(targets)) {
+    return [];
+  }
+
+  return targets
+    .map((target: any) => {
+      if (!target || !target.id || !target.type) {
+        return null;
+      }
+
+      return {
+        id: String(target.id),
+        name: target.name || '',
+        type: target.type === 'user' ? 'user' : 'channel',
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildNotificationConfig(payload: any, fallback: any, defaultEmail: string) {
+  const previous = fallback || {};
+
+  const incomingConfig = payload?.notificationConfig || {};
+  const slackTargets = sanitizeSlackTargets(
+    incomingConfig?.slack?.targets || payload?.slackTargets || previous?.slack?.targets || []
+  );
+
+  const rawWebhook =
+    incomingConfig?.slack?.webhookUrl ??
+    payload?.slackWebhookUrl ??
+    previous?.slack?.webhookUrl ??
+    null;
+
+  const webhookUrl = rawWebhook === '' ? null : rawWebhook;
+
+  const notificationEmail =
+    incomingConfig?.email?.notificationEmail ??
+    payload?.notificationEmail ??
+    previous?.email?.notificationEmail ??
+    defaultEmail;
+
+  const notifyOnSubmission =
+    typeof incomingConfig?.email?.notifyOnSubmission === 'boolean'
+      ? incomingConfig.email.notifyOnSubmission
+      : typeof payload?.notifyOnSubmission === 'boolean'
+        ? payload.notifyOnSubmission
+        : typeof previous?.email?.notifyOnSubmission === 'boolean'
+          ? previous.email.notifyOnSubmission
+          : true;
+
+  const sendReceiptToSubmitter =
+    typeof incomingConfig?.email?.sendReceiptToSubmitter === 'boolean'
+      ? incomingConfig.email.sendReceiptToSubmitter
+      : typeof payload?.sendReceiptToSubmitter === 'boolean'
+        ? payload.sendReceiptToSubmitter
+        : Boolean(previous?.email?.sendReceiptToSubmitter);
+
+  return {
+    slack: {
+      webhookUrl,
+      targets: slackTargets,
+    },
+    email: {
+      notificationEmail,
+      notifyOnSubmission,
+      sendReceiptToSubmitter,
+    },
+  };
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -87,13 +322,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'A form with this title already exists' }, { status: 400 });
     }
 
-    const { questions, ...formData } = data;
+    const { questions, sections, ...formData } = data;
+    const notificationConfig = buildNotificationConfig(data, undefined, user.email);
+    const normalized = normalizeFormStructure(
+      {
+        ...formData,
+        questions,
+        sections
+      },
+      undefined
+    );
 
     const form = {
       ...formData,
       id: crypto.randomUUID(),
       slug,
-      questions: questions || [], // Include questions in the form
+      questions: normalized.questions,
+      sections: normalized.sections,
       createdBy: user._id.toString(),
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -102,10 +347,14 @@ export async function POST(request: NextRequest) {
       textColor: formData.textColor || '#000000',
       category: formData.category || 'general',
       notificationEmail: formData.notificationEmail || user.email,
-      allowMultiple: formData.allowMultiple ? 1 : 0,
-      isAttendanceForm: formData.isAttendanceForm ? 1 : 0,
-      isPublic: formData.isPublic ? 1 : 0,
-      published: formData.published ? 1 : 0
+      allowMultiple: Boolean(formData.allowMultiple),
+      isAttendanceForm: Boolean(formData.isAttendanceForm),
+      isPublic: Boolean(formData.isPublic),
+      published: Boolean(formData.published),
+      notificationConfig,
+      notifyOnSubmission: notificationConfig.email?.notifyOnSubmission ?? true,
+      notificationEmail: notificationConfig.email?.notificationEmail || user.email,
+      sendReceiptToSubmitter: notificationConfig.email?.sendReceiptToSubmitter ?? false
     };
 
     const result = await db.collection('Form').insertOne(form);
@@ -157,7 +406,10 @@ export async function PUT(request: NextRequest) {
     const db = client.db();
 
     // Get current form to check if title changed
-    const currentForm = await db.collection('Form').findOne({ id }, { projection: { title: 1, slug: 1 } });
+    const currentForm = await db.collection('Form').findOne(
+      { id },
+      { projection: { title: 1, slug: 1, notificationConfig: 1, notificationEmail: 1, notifyOnSubmission: 1, sendReceiptToSubmitter: 1 } }
+    );
 
     if (!currentForm) {
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
@@ -183,24 +435,34 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    const normalized = normalizeFormStructure(updateData, currentForm);
+    const notificationConfig = buildNotificationConfig(
+      updateData,
+      currentForm.notificationConfig,
+      currentForm.notificationEmail || session.user.email || ''
+    );
+
     // Only include fields that can be updated
     const allowedFields: any = {
       title: updateData.title,
       description: updateData.description,
       category: updateData.category,
       slug,
-      questions: updateData.questions || [], // Include questions in updates
+      questions: normalized.questions,
+      sections: normalized.sections,
       isActive: updateData.isActive,
       isPublic: updateData.isPublic,
       allowMultiple: updateData.allowMultiple,
       deadline: updateData.deadline,
       maxSubmissions: updateData.maxSubmissions,
-      notifyOnSubmission: updateData.notifyOnSubmission,
-      notificationEmail: updateData.notificationEmail,
+      notifyOnSubmission: notificationConfig.email?.notifyOnSubmission,
+      notificationEmail: notificationConfig.email?.notificationEmail,
       requireAuth: updateData.requireAuth,
       backgroundColor: updateData.backgroundColor,
       textColor: updateData.textColor,
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      notificationConfig,
+      sendReceiptToSubmitter: notificationConfig.email?.sendReceiptToSubmitter
     };
 
     // Remove undefined values

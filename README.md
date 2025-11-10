@@ -201,6 +201,7 @@ sudo journalctl -u abg-website -f
 ### Essential Links
 - **Repository**: AIBuissnessGroup/ABGWebsite
 - **Production Site**: https://abgumich.org
+- **Slack integration guide**: [docs/integrations/slack.md](./docs/integrations/slack.md)
 - **Next.js Docs**: https://nextjs.org/docs
 - **Tailwind Docs**: https://tailwindcss.com/docs
 - **TypeScript Docs**: https://www.typescriptlang.org/docs

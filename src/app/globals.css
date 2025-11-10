@@ -10,9 +10,6 @@
   --brand-blue-hover: #134a7a;
   }
 
-/* Font Integration - Using Google Fonts fallback */
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto:wght@400;700&display=swap');
-
 /* Smooth Scrolling */
 html {
   scroll-behavior: smooth;
@@ -85,7 +82,7 @@ html {
 }
 
 body {
-  font-family: 'Roboto', sans-serif;
+  font-family: var(--font-roboto), 'Roboto', sans-serif;
   font-weight: 700;
   background: linear-gradient(135deg, var(--deep-blue) 0%, var(--blue-gradient) 100%);
   color: var(--white);
@@ -877,7 +874,6 @@ body {
   }
   
   /* Draft saved indicator */
-  .form-page div[class*="text-green-300"]:has-text("Draft saved"),
   .form-page div.text-sm.text-green-300 {
     color: #1f2937 !important;
     background-color: rgba(255, 255, 255, 0.9) !important;
@@ -885,4 +881,28 @@ body {
     border-radius: 0.375rem !important;
   }
 }
+
+/* Submission preview modal - force dark text on white background */
+.submission-preview-modal,
+.submission-preview-modal * {
+  color: #000000 !important;
+}
+
+.submission-preview-modal h1,
+.submission-preview-modal h2,
+.submission-preview-modal h3,
+.submission-preview-modal h4,
+.submission-preview-modal h5,
+.submission-preview-modal h6,
+.submission-preview-modal p,
+.submission-preview-modal span,
+.submission-preview-modal div,
+.submission-preview-modal li {
+  color: #000000 !important;
+}
+
+.submission-preview-modal a {
+  color: #2563eb !important;
+}
+
 

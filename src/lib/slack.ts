@@ -1,51 +1,50 @@
+import type { FormNotificationConfig, SlackTargetOption } from '@/types/forms';
+
 /**
  * Slack notification utilities
  * Send notifications to Slack when important events occur
  */
 
-/**
- * Format file size in bytes to human readable format
- */
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-  
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-}
-
-interface SlackField {
+type SlackField = {
   title: string;
   value: string;
   short?: boolean;
-}
+};
 
-interface SlackAttachment {
+type SlackAttachment = {
   color?: string;
   title?: string;
   text?: string;
   fields?: SlackField[];
   footer?: string;
   ts?: number;
-}
+};
 
-interface SlackMessage {
+type SlackMessage = {
   text?: string;
   attachments?: SlackAttachment[];
   username?: string;
   icon_emoji?: string;
-}
+};
 
 /**
- * Send a notification to Slack
+ * Format file size in bytes to human readable format
  */
-export async function sendSlackNotification(message: SlackMessage): Promise<boolean> {
-  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+}
+
+export async function sendSlackNotification(message: SlackMessage, overrideWebhook?: string | null): Promise<boolean> {
+  const webhookUrl = overrideWebhook || process.env.SLACK_WEBHOOK_URL;
 
   if (!webhookUrl) {
-    console.warn('Slack webhook URL not configured. Skipping notification.');
+    console.warn('Slack webhook URL not configured. Skipping webhook notification.');
     return false;
   }
 
@@ -60,20 +59,91 @@ export async function sendSlackNotification(message: SlackMessage): Promise<bool
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Failed to send Slack notification:', response.status, errorText);
+      console.error('Failed to send Slack webhook notification:', response.status, errorText);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('Error sending Slack notification:', error);
+    console.error('Error sending Slack webhook notification:', error);
     return false;
   }
 }
 
-/**
- * Send a form submission notification to Slack
- */
+async function openDirectConversation(userId: string): Promise<string | null> {
+  const token = process.env.SLACK_BOT_TOKEN;
+  if (!token) {
+    console.warn('SLACK_BOT_TOKEN not configured; cannot open direct conversation.');
+    return null;
+  }
+
+  try {
+    const response = await fetch('https://slack.com/api/conversations.open', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ users: userId }),
+    });
+
+    const data = await response.json();
+    if (!data.ok) {
+      console.error('Failed to open Slack conversation', data.error);
+      return null;
+    }
+
+    return data.channel?.id ?? null;
+  } catch (error) {
+    console.error('Error opening Slack conversation', error);
+    return null;
+  }
+}
+
+async function postToSlackTarget(target: SlackTargetOption, text: string, blocks: any[]): Promise<boolean> {
+  const token = process.env.SLACK_BOT_TOKEN;
+  if (!token) {
+    console.warn('SLACK_BOT_TOKEN not configured; skipping targeted Slack notification.');
+    return false;
+  }
+
+  let channelId = target.type === 'channel' ? target.id : null;
+
+  if (target.type === 'user') {
+    channelId = await openDirectConversation(target.id);
+  }
+
+  if (!channelId) {
+    return false;
+  }
+
+  try {
+    const response = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        channel: channelId,
+        text,
+        blocks,
+      }),
+    });
+
+    const data = await response.json();
+    if (!data.ok) {
+      console.error('Failed to post Slack notification', data.error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error posting Slack notification', error);
+    return false;
+  }
+}
+
 export async function notifyFormSubmission(params: {
   formTitle: string;
   formSlug: string;
@@ -87,6 +157,7 @@ export async function notifyFormSubmission(params: {
     questionId?: string;
   }>;
   submissionUrl?: string;
+  slackConfig?: FormNotificationConfig['slack'] | null;
 }): Promise<boolean> {
   const {
     formTitle,
@@ -97,6 +168,7 @@ export async function notifyFormSubmission(params: {
     applicationId,
     responses = [],
     submissionUrl,
+    slackConfig,
   } = params;
 
   const fields: SlackField[] = [
@@ -120,15 +192,13 @@ export async function notifyFormSubmission(params: {
     });
   }
 
-  // Track file attachments separately for special handling
   const fileAttachments: Array<{ fileName: string; fileUrl: string; questionTitle: string; fileSize?: number }> = [];
 
-  // First, scan ALL responses to find files (not just preview ones)
   responses.forEach((response) => {
     if (typeof response.value === 'object' && response.value?.fileName && response.value?.fileData) {
       const baseUrl = process.env.NEXTAUTH_URL || 'https://abgumich.org';
       const fileUrl = `${baseUrl}/api/files/${applicationId}/${response.questionId}`;
-      
+
       fileAttachments.push({
         fileName: response.value.fileName,
         fileUrl: fileUrl,
@@ -138,22 +208,15 @@ export async function notifyFormSubmission(params: {
     }
   });
 
-  // Add first few responses as preview (limit to 5)
   const previewResponses = responses.slice(0, 5);
   previewResponses.forEach((response) => {
     let displayValue = response.value;
-    
-    // Format complex values
+
     if (typeof displayValue === 'object') {
       if (displayValue?.fileName && displayValue?.fileData) {
-        // For file uploads, create a download link
         const baseUrl = process.env.NEXTAUTH_URL || 'https://abgumich.org';
         const fileUrl = `${baseUrl}/api/files/${applicationId}/${response.questionId}`;
-        
-        // Format file size if available
-        const fileSize = displayValue.fileSize 
-          ? ` (${formatFileSize(displayValue.fileSize)})` 
-          : '';
+        const fileSize = displayValue.fileSize ? ` (${formatFileSize(displayValue.fileSize)})` : '';
         displayValue = `📎 <${fileUrl}|${displayValue.fileName}>${fileSize}`;
       } else if (Array.isArray(displayValue)) {
         displayValue = displayValue.join(', ');
@@ -162,7 +225,6 @@ export async function notifyFormSubmission(params: {
       }
     }
 
-    // Truncate long values
     if (typeof displayValue === 'string' && displayValue.length > 100) {
       displayValue = displayValue.substring(0, 97) + '...';
     }
@@ -182,15 +244,14 @@ export async function notifyFormSubmission(params: {
     });
   }
 
-  // Add file summary if there are files
   if (fileAttachments.length > 0) {
     const fileList = fileAttachments
-      .map(f => {
+      .map((f) => {
         const fileSize = f.fileSize ? ` (${formatFileSize(f.fileSize)})` : '';
         return `• <${f.fileUrl}|📥 Download ${f.fileName}>${fileSize}`;
       })
       .join('\n');
-    
+
     fields.push({
       title: `📎 Attached Files (${fileAttachments.length})`,
       value: fileList,
@@ -198,33 +259,103 @@ export async function notifyFormSubmission(params: {
     });
   }
 
-  const message: SlackMessage = {
-    text: `📝 New Form Submission: *${formTitle}*`,
+  const slackMessage: SlackMessage = {
+    text: `New submission for ${formTitle}`,
     attachments: [
       {
-        color: '#36a64f',
+        color: '#6366F1',
+        title: `New form submission: ${formTitle}`,
+        text: `A new submission was received for the form *${formTitle}* (${formSlug}).`,
         fields,
-        footer: submissionUrl ? `<${submissionUrl}|View Full Submission>` : `Form: ${formSlug}`,
+        footer: 'ABG Forms System',
         ts: Math.floor(Date.now() / 1000),
       },
     ],
-    username: 'ABG Forms',
-    icon_emoji: ':clipboard:',
   };
 
-  return sendSlackNotification(message);
+  if (submissionUrl) {
+    slackMessage.attachments?.[0]?.fields?.push({
+      title: 'View Submission',
+      value: `<${submissionUrl}|Open in admin console>`,
+      short: false,
+    });
+  }
+
+  const messageText = `📥 New submission for *${formTitle}*\n• Name: ${applicantName}\n• Email: ${applicantEmail}${
+    applicantPhone ? `\n• Phone: ${applicantPhone}` : ''
+  }`;
+
+  const messageBlocks = [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `📥 *New submission* for *${formTitle}*`,
+      },
+    },
+    {
+      type: 'section',
+      fields: [
+        {
+          type: 'mrkdwn',
+          text: `*Name*\n${applicantName}`,
+        },
+        {
+          type: 'mrkdwn',
+          text: `*Email*\n${applicantEmail}`,
+        },
+        applicantPhone
+          ? {
+              type: 'mrkdwn',
+              text: `*Phone*\n${applicantPhone}`,
+            }
+          : undefined,
+      ].filter(Boolean),
+    },
+  ];
+
+  if (submissionUrl) {
+    messageBlocks.push({
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: {
+            type: 'plain_text',
+            text: 'Open submission',
+          },
+          url: submissionUrl,
+        },
+      ],
+    });
+  }
+
+  const results: boolean[] = [];
+
+  if (!slackConfig || slackConfig.webhookUrl !== null) {
+    results.push(await sendSlackNotification(slackMessage, slackConfig?.webhookUrl));
+  }
+
+  if (slackConfig?.targets?.length) {
+    await Promise.all(
+      slackConfig.targets.map(async (target) => {
+        const ok = await postToSlackTarget(target, messageText, messageBlocks);
+        results.push(ok);
+      })
+    );
+  }
+
+  return results.some(Boolean);
 }
 
-/**
- * Send a generic notification to Slack
- */
 export async function notifySlack(params: {
   title: string;
   message: string;
   color?: 'good' | 'warning' | 'danger' | string;
   fields?: SlackField[];
+  slackConfig?: FormNotificationConfig['slack'] | null;
 }): Promise<boolean> {
-  const { title, message, color = 'good', fields = [] } = params;
+  const { title, message, color = 'good', fields = [], slackConfig } = params;
 
   const slackMessage: SlackMessage = {
     text: title,
@@ -238,5 +369,30 @@ export async function notifySlack(params: {
     ],
   };
 
-  return sendSlackNotification(slackMessage);
+  const messageBlocks = [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*${title}*\n${message}`,
+      },
+    },
+  ];
+
+  const results: boolean[] = [];
+
+  if (!slackConfig || slackConfig.webhookUrl !== null) {
+    results.push(await sendSlackNotification(slackMessage, slackConfig?.webhookUrl));
+  }
+
+  if (slackConfig?.targets?.length) {
+    await Promise.all(
+      slackConfig.targets.map(async (target) => {
+        const ok = await postToSlackTarget(target, message, messageBlocks);
+        results.push(ok);
+      })
+    );
+  }
+
+  return results.some(Boolean);
 }
