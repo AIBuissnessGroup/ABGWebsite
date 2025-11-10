@@ -10,7 +10,6 @@ const nextConfig = {
     } : false,
   },
   images: {
-    domains: ['images.unsplash.com', 'img.icons8.com', 'msofficestore.us', 'i.ibb.co'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -49,9 +48,6 @@ const nextConfig = {
         ],
       },
     ]
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
