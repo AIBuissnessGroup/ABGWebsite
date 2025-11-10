@@ -59,6 +59,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  runtime: 'nodejs', // Force Node.js runtime for MongoDB compatibility
   matcher: [
     /*
      * Match all request paths except for the ones starting with:

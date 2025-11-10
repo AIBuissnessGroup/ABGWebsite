@@ -72,7 +72,7 @@ export default function Hero() {
   return (
     <section 
       id="hero" 
-      className="min-h-screen flex flex-col justify-center relative overflow-hidden px-4 sm:px-6 md:px-8"
+      className="min-h-screen flex flex-col justify-center relative overflow-hidden px-4 sm:px-6 md:px-8 pt-16"
       style={{
         background: `linear-gradient(135deg, #00274c 0%, #1a2c45 50%, #2d3e5a 100%)`,
       }}

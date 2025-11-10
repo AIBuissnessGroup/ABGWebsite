@@ -129,8 +129,7 @@ function normalizeQuestion(question: any, index: number): FormQuestion {
   const options = Array.isArray(rawOptions)
     ? rawOptions
     : typeof rawOptions === 'string'
-      ? rawOptions.split('
-').map((option: string) => option.trim()).filter(Boolean)
+      ? rawOptions.split('\n').map((option: string) => option.trim()).filter(Boolean)
       : [];
 
   return {
@@ -936,12 +935,10 @@ export default function FormsAdminPage() {
                               <div>
                                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Options (one per line)</label>
                                 <textarea
-                                  value={question.options.join('
-')}
+                                  value={question.options.join('')}
                                   onChange={(event) =>
                                     updateQuestion(section.id, question.id, {
-                                      options: event.target.value.split('
-').map((option) => option.trim()).filter(Boolean),
+                                      options: event.target.value.split('').map((option) => option.trim()).filter(Boolean),
                                     })
                                   }
                                   rows={3}
