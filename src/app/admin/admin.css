@@ -1,5 +1,5 @@
 /* Admin-specific styles */
-@import "tailwindcss";
+/* Tailwind CSS is already imported in the root layout */
 
 /* Custom scrollbar for admin sidebar */
 .admin-page .overflow-y-auto {
@@ -64,19 +64,19 @@
 }
 
 /* EXCEPTION: Dark theme pages (like interviews) should have white text */
-.admin-page .bg-\[#00274c\] h1,
-.admin-page .bg-\[#00274c\] h2,
-.admin-page .bg-\[#00274c\] h3,
-.admin-page .bg-\[#00274c\] h4,
-.admin-page .bg-\[#00274c\] h5,
-.admin-page .bg-\[#00274c\] h6,
-.admin-page .bg-\[#00274c\] p,
-.admin-page .bg-\[#00274c\] span,
-.admin-page .bg-\[#00274c\] div,
-.admin-page .bg-\[#00274c\] label,
-.admin-page .bg-\[#00274c\] a,
-.admin-page .bg-\[#00274c\] td,
-.admin-page .bg-\[#00274c\] th {
+.admin-page [class*="bg-[#00274c]"] h1,
+.admin-page [class*="bg-[#00274c]"] h2,
+.admin-page [class*="bg-[#00274c]"] h3,
+.admin-page [class*="bg-[#00274c]"] h4,
+.admin-page [class*="bg-[#00274c]"] h5,
+.admin-page [class*="bg-[#00274c]"] h6,
+.admin-page [class*="bg-[#00274c]"] p,
+.admin-page [class*="bg-[#00274c]"] span,
+.admin-page [class*="bg-[#00274c]"] div,
+.admin-page [class*="bg-[#00274c]"] label,
+.admin-page [class*="bg-[#00274c]"] a,
+.admin-page [class*="bg-[#00274c]"] td,
+.admin-page [class*="bg-[#00274c]"] th {
   color: white !important;
 }
 
@@ -94,36 +94,73 @@
 /* CRITICAL: Override any specific gray colors used in components */
 .admin-page [class*="text-[#5e6472]"],
 .admin-page [class*="text-[#BBBBBB]"],
-.admin-page .text-\[#5e6472\],
-.admin-page .text-\[#BBBBBB\] {
+.admin-page [class*="text-[#5e6472]"],
+.admin-page [class*="text-[#BBBBBB]"] {
   color: #1f2937 !important;
 }
 
+/* EXCEPTION: Preserve colored text for badges and buttons */
+.admin-page .text-red-700,
+.admin-page .text-red-600,
+.admin-page .text-red-800 {
+  color: #b91c1c !important;
+}
+
+.admin-page .text-orange-700,
+.admin-page .text-orange-600,
+.admin-page .text-orange-800 {
+  color: #c2410c !important;
+}
+
+.admin-page .text-blue-700,
+.admin-page .text-blue-600,
+.admin-page .text-blue-800 {
+  color: #1d4ed8 !important;
+}
+
+.admin-page .text-green-700,
+.admin-page .text-green-600,
+.admin-page .text-green-800 {
+  color: #15803d !important;
+}
+
+.admin-page .text-yellow-700,
+.admin-page .text-yellow-600,
+.admin-page .text-yellow-800 {
+  color: #a16207 !important;
+}
+
+.admin-page .text-purple-700,
+.admin-page .text-purple-600,
+.admin-page .text-purple-800 {
+  color: #7e22ce !important;
+}
+
 /* Exception: Keep sidebar gray colors as white */
-.admin-page .bg-\[#00274c\] [class*="text-[#5e6472]"],
-.admin-page .bg-\[#00274c\] [class*="text-[#BBBBBB]"],
-.admin-page .bg-\[#00274c\] .text-\[#5e6472\],
-.admin-page .bg-\[#00274c\] .text-\[#BBBBBB\] {
+.admin-page [class*="bg-[#00274c]"] [class*="text-[#5e6472]"],
+.admin-page [class*="bg-[#00274c]"] [class*="text-[#BBBBBB]"],
+.admin-page [class*="bg-[#00274c]"] [class*="text-[#5e6472]"],
+.admin-page [class*="bg-[#00274c]"] [class*="text-[#BBBBBB]"] {
   color: white !important;
 }
 
 /* NUCLEAR OPTION - Force white text in sidebar with maximum specificity */
-html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] h1,
-html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] p,
-html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] span,
-html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] a,
-html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] nav,
-html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] nav *,
-html body div.admin-page div.w-48.md\:w-64.bg-\[#00274c\] * {
+html body div.admin-page div.w-48[class*="md:w-64"][class*="bg-[#00274c]"] h1,
+html body div.admin-page div.w-48[class*="md:w-64"][class*="bg-[#00274c]"] p,
+html body div.admin-page div.w-48[class*="md:w-64"][class*="bg-[#00274c]"] span,
+html body div.admin-page div.w-48[class*="md:w-64"][class*="bg-[#00274c]"] a,
+html body div.admin-page div.w-48[class*="md:w-64"][class*="bg-[#00274c]"] nav,
+html body div.admin-page div.w-48[class*="md:w-64"][class*="bg-[#00274c]"] nav *,
+html body div.admin-page div.w-48[class*="md:w-64"][class*="bg-[#00274c]"] * {
   color: white !important;
   fill: white !important;
 }
 
 /* Target sidebar by structure */
 .admin-page > div.h-screen > div.w-48 *,
-.admin-page > div.h-screen > div.md\:w-64 *,
-div[class*="w-48"][class*="bg-[#00274c]"] *,
-div[class*="md:w-64"][class*="bg-[#00274c]"] * {
+.admin-page > div.h-screen > div[class*="md:w-64"] *,
+.admin-page div[class*="w-48"][class*="bg-[#00274c]"] *,
+.admin-page div[class*="md:w-64"][class*="bg-[#00274c]"] * {
   color: white !important;
   fill: white !important;
 }
@@ -251,74 +288,74 @@ div[class*="md:w-64"][class*="bg-[#00274c]"] * {
 .admin-page .text-gray-800 { color: #1f2937 !important; }
 
 /* Admin navigation - Keep white text on dark backgrounds */
-.admin-nav,
-.bg-\[#00274c\] {
+.admin-page .admin-nav,
+.admin-page [class*="bg-[#00274c]"] {
   background: #00274c !important;
   color: white !important;
 }
 
-.admin-nav a,
-.admin-nav button,
-.admin-nav span,
-.bg-\[#00274c\] a,
-.bg-\[#00274c\] button,
-.bg-\[#00274c\] span,
-.bg-\[#00274c\] h1,
-.bg-\[#00274c\] h2,
-.bg-\[#00274c\] h3,
-.bg-\[#00274c\] p {
+.admin-page .admin-nav a,
+.admin-page .admin-nav button,
+.admin-page .admin-nav span,
+.admin-page [class*="bg-[#00274c]"] a,
+.admin-page [class*="bg-[#00274c]"] button,
+.admin-page [class*="bg-[#00274c]"] span,
+.admin-page [class*="bg-[#00274c]"] h1,
+.admin-page [class*="bg-[#00274c]"] h2,
+.admin-page [class*="bg-[#00274c]"] h3,
+.admin-page [class*="bg-[#00274c]"] p {
   color: white !important;
 }
 
-.admin-nav a:hover {
+.admin-page .admin-nav a:hover {
   background: rgba(255, 255, 255, 0.1) !important;
 }
 
 /* Admin sidebar - Force white text on dark backgrounds with maximum specificity */
-.admin-page .bg-\[#00274c\],
+.admin-page [class*="bg-[#00274c]"],
 .admin-page .w-48,
-.admin-page .md\:w-64,
-div.bg-\[#00274c\],
-div.w-48.md\:w-64.bg-\[#00274c\] {
+.admin-page [class*="md:w-64"],
+.admin-page div[class*="bg-[#00274c]"],
+.admin-page div.w-48[class*="md:w-64"][class*="bg-[#00274c]"] {
   background: #00274c !important;
   color: white !important;
 }
 
 /* Force all sidebar text to be white */
-.admin-page .bg-\[#00274c\] *,
+.admin-page [class*="bg-[#00274c]"] *,
 .admin-page .w-48 *,
-.admin-page .md\:w-64 *,
-div.bg-\[#00274c\] *,
-div.w-48.md\:w-64.bg-\[#00274c\] *,
-.admin-page .bg-\[#00274c\] h1,
-.admin-page .bg-\[#00274c\] h2,
-.admin-page .bg-\[#00274c\] h3,
-.admin-page .bg-\[#00274c\] p,
-.admin-page .bg-\[#00274c\] span,
-.admin-page .bg-\[#00274c\] a,
-.admin-page .bg-\[#00274c\] button,
-.admin-page .bg-\[#00274c\] div,
-.admin-page .bg-\[#00274c\] label {
+.admin-page [class*="md:w-64"] *,
+div[class*="bg-[#00274c]"] *,
+div.w-48[class*="md:w-64"][class*="bg-[#00274c]"] *,
+.admin-page [class*="bg-[#00274c]"] h1,
+.admin-page [class*="bg-[#00274c]"] h2,
+.admin-page [class*="bg-[#00274c]"] h3,
+.admin-page [class*="bg-[#00274c]"] p,
+.admin-page [class*="bg-[#00274c]"] span,
+.admin-page [class*="bg-[#00274c]"] a,
+.admin-page [class*="bg-[#00274c]"] button,
+.admin-page [class*="bg-[#00274c]"] div,
+.admin-page [class*="bg-[#00274c]"] label {
   color: white !important;
 }
 
 /* Specific targeting for navigation links */
-.admin-page .bg-\[#00274c\] nav a,
-.admin-page .bg-\[#00274c\] .flex.items-center,
-.admin-page .bg-\[#00274c\] .text-\[#BBBBBB\],
-.admin-page .bg-\[#00274c\] .text-sm,
-.admin-page .bg-\[#00274c\] .text-base,
-.admin-page .bg-\[#00274c\] .text-lg,
-.admin-page .bg-\[#00274c\] .text-xl {
+.admin-page [class*="bg-[#00274c]"] nav a,
+.admin-page [class*="bg-[#00274c]"] .flex.items-center,
+.admin-page [class*="bg-[#00274c]"] [class*="text-[#BBBBBB]"],
+.admin-page [class*="bg-[#00274c]"] .text-sm,
+.admin-page [class*="bg-[#00274c]"] .text-base,
+.admin-page [class*="bg-[#00274c]"] .text-lg,
+.admin-page [class*="bg-[#00274c]"] .text-xl {
   color: white !important;
 }
 
 /* Override any gray text classes in sidebar */
-.admin-page .bg-\[#00274c\] .text-\[#5e6472\] {
+.admin-page [class*="bg-[#00274c]"] [class*="text-[#5e6472]"] {
   color: #BBBBBB !important;
 }
 
-.admin-page .bg-\[#00274c\] a:hover {
+.admin-page [class*="bg-[#00274c]"] a:hover {
   background: rgba(255, 255, 255, 0.1) !important;
   color: white !important;
 }
@@ -527,7 +564,7 @@ div.w-48.md\:w-64.bg-\[#00274c\] *,
 }
 
 /* Target specific preview containers with dark blue gradients */
-.admin-page .bg-gradient-to-br.from-\[#1a2c45\] *,
+.admin-page .bg-gradient-to-br[class*="from-[#1a2c45]"] *,
 .admin-page [style*="background: linear-gradient"] *,
 .admin-page [style*="background-image: linear-gradient"] * {
   color: white !important;
@@ -544,10 +581,10 @@ div.w-48.md\:w-64.bg-\[#00274c\] *,
 }
 
 /* Specific targeting for dark blue preview containers */
-.admin-page .bg-\[#1a2c45\] *,
-.admin-page .from-\[#1a2c45\] *,
-.admin-page .via-\[#00274c\] *,
-.admin-page .to-\[#0d1d35\] * {
+.admin-page [class*="bg-[#1a2c45]"] *,
+.admin-page [class*="from-[#1a2c45]"] *,
+.admin-page [class*="via-[#00274c]"] *,
+.admin-page [class*="to-[#0d1d35]"] * {
   color: white !important;
 }
 
@@ -572,30 +609,30 @@ div.w-48.md\:w-64.bg-\[#00274c\] *,
 }
 
 /* CRITICAL: Target the exact preview structure from join/page.tsx */
-.admin-page .bg-gradient-to-br.from-\[#00274c\].to-\[#1a2c45\] h2,
-.admin-page .bg-gradient-to-br.from-\[#00274c\].to-\[#1a2c45\] h4,
-.admin-page .bg-gradient-to-br.from-\[#00274c\].to-\[#1a2c45\] p,
-.admin-page .bg-gradient-to-br.from-\[#00274c\].to-\[#1a2c45\] .text-\[#BBBBBB\] {
+.admin-page .bg-gradient-to-br[class*="from-[#00274c]"][class*="to-[#1a2c45]"] h2,
+.admin-page .bg-gradient-to-br[class*="from-[#00274c]"][class*="to-[#1a2c45]"] h4,
+.admin-page .bg-gradient-to-br[class*="from-[#00274c]"][class*="to-[#1a2c45]"] p,
+.admin-page .bg-gradient-to-br[class*="from-[#00274c]"][class*="to-[#1a2c45]"] [class*="text-[#BBBBBB]"] {
   color: white !important;
 }
 
 /* Target the other gradient direction used in content/page.tsx */
-.admin-page .bg-gradient-to-br.from-\[#1a2c45\].to-\[#00274c\] h2,
-.admin-page .bg-gradient-to-br.from-\[#1a2c45\].to-\[#00274c\] h3,
-.admin-page .bg-gradient-to-br.from-\[#1a2c45\].to-\[#00274c\] p,
-.admin-page .bg-gradient-to-br.from-\[#1a2c45\].to-\[#00274c\] .text-\[#BBBBBB\],
-.admin-page .bg-gradient-to-br.from-\[#1a2c45\].to-\[#00274c\] button {
+.admin-page .bg-gradient-to-br[class*="from-[#1a2c45]"][class*="to-[#00274c]"] h2,
+.admin-page .bg-gradient-to-br[class*="from-[#1a2c45]"][class*="to-[#00274c]"] h3,
+.admin-page .bg-gradient-to-br[class*="from-[#1a2c45]"][class*="to-[#00274c]"] p,
+.admin-page .bg-gradient-to-br[class*="from-[#1a2c45]"][class*="to-[#00274c]"] [class*="text-[#BBBBBB]"],
+.admin-page .bg-gradient-to-br[class*="from-[#1a2c45]"][class*="to-[#00274c]"] button {
   color: white !important;
 }
 
 /* Force white text for any BBBBBB colored text in gradient containers */
-.admin-page [class*="bg-gradient"] .text-\[#BBBBBB\],
+.admin-page [class*="bg-gradient"] [class*="text-[#BBBBBB]"],
 .admin-page [class*="bg-gradient"] [class*="text-[#BBBBBB]"] {
   color: white !important;
 }
 
 /* Nuclear option: Force white text for ANY text-[#BBBBBB] elements in admin pages */
-.admin-page .text-\[#BBBBBB\],
+.admin-page [class*="text-[#BBBBBB]"],
 .admin-page [class*="text-[#BBBBBB]"],
 .admin-page [style*="color: #BBBBBB"],
 .admin-page [style*="color: rgb(187, 187, 187)"] {

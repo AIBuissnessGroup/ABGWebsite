@@ -21,6 +21,8 @@ function normalizeQuestionMap(form: any) {
             id,
             title: question?.title || question?.question || 'Untitled question',
             type: question?.type || 'TEXT',
+            matrixRows: question?.matrixRows || undefined,
+            matrixColumns: question?.matrixColumns || undefined,
           });
         }
       });
@@ -33,6 +35,8 @@ function normalizeQuestionMap(form: any) {
           id,
           title: question?.title || question?.question || 'Untitled question',
           type: question?.type || 'TEXT',
+          matrixRows: question?.matrixRows || undefined,
+          matrixColumns: question?.matrixColumns || undefined,
         });
       }
     });
@@ -73,6 +77,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const client = new MongoClient(uri);
   try {
     const session = await getServerSession(authOptions);
 
@@ -83,6 +88,7 @@ export async function GET(
     const { slug } = await params;
     const { searchParams } = new URL(request.url);
     const submissionId = searchParams.get('submissionId');
+    const getAllSubmissions = searchParams.get('all') === 'true';
 
     await client.connect();
     const db = client.db();
@@ -96,6 +102,66 @@ export async function GET(
     }
 
     const questionMap = normalizeQuestionMap(form);
+
+    // If requesting all submissions
+    if (getAllSubmissions) {
+      const allSubmissions = await applicationsCollection.find(
+        { formId: form.id, applicantEmail: session.user.email },
+        { sort: { submittedAt: -1, createdAt: -1 } }
+      ).toArray();
+
+      const submissions = allSubmissions.map(submission => ({
+        submissionId: submission._id.toString(),
+        submittedAt: submission.submittedAt || submission.createdAt,
+        status: submission.status || 'SUBMITTED',
+        responses: (submission.responses || []).map((response: any) => {
+          const question = questionMap.get(String(response.questionId));
+          const questionType = question?.type || 'TEXT';
+
+          let value: any = null;
+          if (response.textValue !== undefined) {
+            value = response.textValue;
+          } else if (response.numberValue !== undefined) {
+            value = response.numberValue;
+          } else if (response.dateValue) {
+            value = response.dateValue;
+          } else if (response.booleanValue !== undefined) {
+            value = response.booleanValue;
+          } else if (response.selectedOptions) {
+            try {
+              const parsed = JSON.parse(response.selectedOptions);
+              value = parsed;
+            } catch (error) {
+              value = response.selectedOptions;
+            }
+          } else if (response.fileName) {
+            value = {
+              fileName: response.fileName,
+              fileSize: response.fileSize,
+              fileType: response.fileType,
+              downloadUrl: `${process.env.NEXTAUTH_URL || 'https://abgumich.org'}/api/files/${submission._id}/${response.questionId}`,
+            };
+          }
+
+          return {
+            questionId: response.questionId,
+            questionTitle: question?.title || 'Untitled question',
+            type: questionType,
+            matrixRows: question?.matrixRows,
+            matrixColumns: question?.matrixColumns,
+            value: formatResponseValue(value, questionType),
+          };
+        })
+      }));
+
+      return NextResponse.json({
+        form: {
+          id: form.id,
+          title: form.title,
+        },
+        submissions,
+      });
+    }
 
     const query: any = { formId: form.id, applicantEmail: session.user.email };
 
@@ -144,6 +210,8 @@ export async function GET(
         questionId: response.questionId,
         questionTitle: question?.title || 'Untitled question',
         type: questionType,
+        matrixRows: question?.matrixRows,
+        matrixColumns: question?.matrixColumns,
         value: formatResponseValue(value, questionType),
       };
     });

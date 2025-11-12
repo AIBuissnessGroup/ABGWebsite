@@ -15,6 +15,11 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Ensure main site pages (non-admin) maintain proper text colors */
+body:not(.admin-page) {
+  color: white;
+}
+
 /* Hide scrollbar for horizontal timeline */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* Internet Explorer 10+ */

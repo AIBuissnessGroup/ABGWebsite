@@ -473,6 +473,7 @@ export async function PUT(request: NextRequest) {
     });
 
     console.log('Updating form with fields:', allowedFields);
+    console.log('📧 Email receipt setting being saved:', notificationConfig.email?.sendReceiptToSubmitter);
 
     await db.collection('Form').updateOne(
       { id },
@@ -480,6 +481,8 @@ export async function PUT(request: NextRequest) {
     );
 
     const form = await db.collection('Form').findOne({ id });
+    console.log('📧 Form after update - sendReceiptToSubmitter:', form?.sendReceiptToSubmitter);
+    console.log('📧 Form after update - notificationConfig:', JSON.stringify(form?.notificationConfig, null, 2));
 
     if (!form) {
       return NextResponse.json({ error: 'Form not found after update' }, { status: 404 });

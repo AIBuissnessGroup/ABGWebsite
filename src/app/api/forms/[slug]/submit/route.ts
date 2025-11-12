@@ -53,7 +53,7 @@ function flattenFormQuestions(form: any) {
   if (Array.isArray(form?.sections) && form.sections.length > 0) {
     return form.sections
       .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
-      .flatMap((section: any) =>
+      .flatMap((section: any, sectionIndex: number) =>
         (Array.isArray(section?.questions) ? section.questions : [])
           .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
           .map((question: any, questionIndex: number) => ({
@@ -354,10 +354,16 @@ export async function POST(
       });
     }
 
+    console.log('📧 Checking email receipt settings...');
+    console.log('   sendReceiptToSubmitter:', form.notificationConfig?.email?.sendReceiptToSubmitter);
+    console.log('   applicantEmail:', applicationData.applicantEmail);
+    console.log('   Full notificationConfig:', JSON.stringify(form.notificationConfig, null, 2));
+
     if (
       form.notificationConfig?.email?.sendReceiptToSubmitter &&
       applicationData.applicantEmail
     ) {
+      console.log('✅ Conditions met - preparing to send email receipt');
       const responseSummary = responses
         .filter((r: any) => r.value !== null && r.value !== undefined && r.value !== '')
         .slice(0, 10)

@@ -16,8 +16,9 @@ interface Question {
   minLength?: number;
   maxLength?: number;
   pattern?: string;
-  matrixRows?: string;
-  matrixCols?: string;
+  matrixRows?: string | string[];
+  matrixCols?: string | string[];
+  matrixColumns?: string | string[];
   descriptionContent?: string;
   sectionId?: string;
 }
@@ -49,6 +50,7 @@ interface FormData {
     submissionId: string;
     submittedAt: string;
     status: string;
+    totalSubmissions?: number;
   } | null;
 }
 
@@ -66,6 +68,8 @@ export default function FormPage() {
   const [existingSubmission, setExistingSubmission] = useState<FormData['userSubmissionSummary']>(null);
   const [lockedByPreviousSubmission, setLockedByPreviousSubmission] = useState(false);
   const [submissionPreview, setSubmissionPreview] = useState<any | null>(null);
+  const [allSubmissions, setAllSubmissions] = useState<any[]>([]);
+  const [selectedSubmissionIndex, setSelectedSubmissionIndex] = useState(0);
   const [submissionPreviewError, setSubmissionPreviewError] = useState('');
   const [loadingSubmissionPreview, setLoadingSubmissionPreview] = useState(false);
   const [showSubmissionPreview, setShowSubmissionPreview] = useState(false);
@@ -137,31 +141,56 @@ export default function FormPage() {
     if (!session?.user?.email) {
       setSubmissionPreviewError('Please sign in to view your submission history.');
       setSubmissionPreview(null);
+      setAllSubmissions([]);
       setShowSubmissionPreview(true);
       return;
     }
 
     try {
-      // Show the modal immediately with loading state
+      // Show modal with loading state
       setShowSubmissionPreview(true);
       setLoadingSubmissionPreview(true);
       setSubmissionPreviewError('');
       setSubmissionPreview(null);
+      setAllSubmissions([]);
 
-      const query = targetSubmissionId ? `?submissionId=${encodeURIComponent(targetSubmissionId)}` : '';
-      const res = await fetch(`/api/forms/${slug}/submission${query}`);
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed to load submission' }));
-        setSubmissionPreviewError(err.error || 'Unable to load your submission.');
-        return;
+      // Fetch all submissions for this form
+      const allRes = await fetch(`/api/forms/${slug}/submission?all=true`);
+      
+      if (allRes.ok) {
+        const allData = await allRes.json();
+        console.log('Fetched all submissions:', allData);
+        console.log('Number of submissions:', allData.submissions?.length);
+        
+        const submissions = allData.submissions || [];
+        setAllSubmissions(submissions);
+        console.log('Set allSubmissions state to:', submissions.length, 'submissions');
+        
+        // Set the first submission as the preview or find the target one
+        if (submissions.length > 0) {
+          let targetIndex = 0;
+          if (targetSubmissionId) {
+            const foundIndex = submissions.findIndex(
+              (s: any) => s.submissionId === targetSubmissionId
+            );
+            if (foundIndex >= 0) targetIndex = foundIndex;
+          }
+          setSelectedSubmissionIndex(targetIndex);
+          console.log('Setting submission preview for index:', targetIndex);
+          setSubmissionPreview({
+            ...submissions[targetIndex],
+            form: allData.form
+          });
+        } else {
+          setSubmissionPreviewError('No submissions found.');
+        }
+      } else {
+        const err = await allRes.json().catch(() => ({ error: 'Failed to load submissions' }));
+        setSubmissionPreviewError(err.error || 'Unable to load your submissions.');
       }
-
-      const data = await res.json();
-      setSubmissionPreview(data);
     } catch (error) {
       console.error('Error loading submission preview:', error);
-      setSubmissionPreviewError('Unable to load your submission. Please try again later.');
+      setSubmissionPreviewError('Unable to load your submissions. Please try again later.');
     } finally {
       setLoadingSubmissionPreview(false);
     }
@@ -298,7 +327,8 @@ export default function FormPage() {
                   maxLength: question.maxLength ?? undefined,
                   pattern: question.pattern || undefined,
                   matrixRows: question.matrixRows || undefined,
-                  matrixCols: question.matrixCols || undefined,
+                  matrixCols: question.matrixCols || question.matrixColumns || undefined,
+                  matrixColumns: question.matrixColumns || question.matrixCols || undefined,
                   descriptionContent: question.descriptionContent || undefined,
                   sectionId
                 };
@@ -889,15 +919,25 @@ export default function FormPage() {
         );
 
       case 'MATRIX':
-        const matrixRows = question.matrixRows ? question.matrixRows.split('\n').filter(row => row.trim()) : [];
-        const matrixCols = question.matrixCols ? question.matrixCols.split('\n').filter(col => col.trim()) : [];
+        let matrixRows = Array.isArray(question.matrixRows) 
+          ? question.matrixRows.filter((row: string) => row && row.trim())
+          : (question.matrixRows && typeof question.matrixRows === 'string' 
+              ? question.matrixRows.split('\n').filter((row: string) => row.trim()) 
+              : []);
+        let matrixCols = Array.isArray(question.matrixColumns) 
+          ? question.matrixColumns.filter((col: string) => col && col.trim())
+          : Array.isArray(question.matrixCols)
+            ? question.matrixCols.filter((col: string) => col && col.trim())
+            : (question.matrixCols && typeof question.matrixCols === 'string' 
+                ? question.matrixCols.split('\n').filter((col: string) => col.trim()) 
+                : []);
         
-        if (matrixRows.length === 0 || matrixCols.length === 0) {
-          return (
-            <div className="text-white/70 text-sm">
-              Matrix configuration incomplete. Please contact the form administrator.
-            </div>
-          );
+        // Provide defaults if empty (for forms created before proper validation)
+        if (matrixRows.length === 0) {
+          matrixRows = ['Row 1', 'Row 2', 'Row 3'];
+        }
+        if (matrixCols.length === 0) {
+          matrixCols = ['Strongly Disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly Agree'];
         }
 
         return (
@@ -1094,21 +1134,36 @@ export default function FormPage() {
               {isPreviousSubmission ? 'You already submitted this form' : 'Application Submitted!'}
             </h1>
             <p className="text-white/80 mb-4">
-              {isPreviousSubmission
-                ? 'Our records show that you have already submitted this form. You can review your submission below.'
-                : "Thank you for your submission. We'll review your responses and get back to you soon."}
+              {(existingSubmission?.totalSubmissions || 1) > 1 ? (
+                <>
+                  You have submitted this form{' '}
+                  <span className="font-semibold">{existingSubmission?.totalSubmissions} times</span>.
+                  {submittedAt && (
+                    <>
+                      {' '}Most recent submission on{' '}
+                      <span className="font-semibold">{submittedAt}</span>
+                    </>
+                  )}
+                </>
+              ) : isPreviousSubmission ? (
+                'Our records show that you have already submitted this form. You can review your submission below.'
+              ) : (
+                "Thank you for your submission. We'll review your responses and get back to you soon."
+              )}
             </p>
-            {submittedAt && (
+            {submittedAt && (existingSubmission?.totalSubmissions || 1) === 1 && (
               <p className="text-white/60 text-sm mb-6">Submitted on {submittedAt}</p>
             )}
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               {existingSubmission && (
                 <button
                   type="button"
-                  onClick={handleViewSubmission}
+                  onClick={() => openSubmissionPreview()}
                   className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 rounded-lg px-6 py-3 text-white font-medium transition-all duration-300"
                 >
-                  View your submission
+                  {(existingSubmission.totalSubmissions || 1) > 1 
+                    ? `View your ${existingSubmission.totalSubmissions} submissions` 
+                    : 'View your submission'}
                 </button>
               )}
               {submitted && allowMultipleSubmissions && (
@@ -1138,19 +1193,56 @@ export default function FormPage() {
       </div>
       
       {/* Submission Preview Modal */}
+      {console.log('showSubmissionPreview:', showSubmissionPreview)}
+      {console.log('submissionPreview:', submissionPreview)}
       {showSubmissionPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
           <div className="submission-preview-modal relative w-full max-w-3xl max-h-[80vh] overflow-y-auto rounded-xl bg-white p-6 shadow-2xl">
+            {console.log('MODAL IS RENDERING NOW')}
             <button
               type="button"
               onClick={closeSubmissionPreview}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl font-bold"
             >
               ✕
             </button>
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              {submissionPreview?.form?.title || form?.title || 'Your submission'}
+              {submissionPreview?.form?.title || form?.title || 'Your submissions'}
             </h2>
+            
+            {console.log('Modal rendering - allSubmissions.length:', allSubmissions.length)}
+            {console.log('Modal rendering - showing dropdown?', allSubmissions.length > 1)}
+            
+            {/* Submission selector dropdown - Always show if more than 1 */}
+            {allSubmissions.length > 1 && (
+              <div className="mb-4 bg-blue-50 border-2 border-blue-300 p-4 rounded-lg">
+                <label className="block text-base font-bold text-gray-900 mb-2">
+                  📋 You have {allSubmissions.length} submissions - Select one to view:
+                </label>
+                <select
+                  value={selectedSubmissionIndex}
+                  onChange={(e) => {
+                    const newIndex = parseInt(e.target.value);
+                    console.log('Switching to submission index:', newIndex, allSubmissions[newIndex]);
+                    setSelectedSubmissionIndex(newIndex);
+                    setSubmissionPreview({
+                      ...allSubmissions[newIndex],
+                      form: submissionPreview?.form
+                    });
+                  }}
+                  className="w-full border-2 border-gray-400 rounded-lg px-4 py-3 text-gray-900 bg-white font-medium text-base"
+                >
+                  {allSubmissions.map((sub: any, index: number) => (
+                    <option key={sub.submissionId} value={index}>
+                      Submission #{index + 1} - {new Date(sub.submittedAt).toLocaleString()}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {console.log('Current allSubmissions:', allSubmissions)}
+            {console.log('Current selectedSubmissionIndex:', selectedSubmissionIndex)}
+            
             {submissionPreview?.submittedAt && (
               <p className="text-sm text-gray-500 mb-4">
                 Submitted on {new Date(submissionPreview.submittedAt).toLocaleString()}
@@ -1171,6 +1263,57 @@ export default function FormPage() {
                 {submissionPreview.responses?.length ? (
                   submissionPreview.responses.map((response: any) => {
                     console.log('Response item:', response);
+                    console.log('Response type:', response.type);
+                    console.log('Is array?', Array.isArray(response.value));
+                    console.log('Has matrixRows?', response.matrixRows);
+                    
+                    // Handle Matrix type specially
+                    if (response.type === 'MATRIX' && Array.isArray(response.value)) {
+                      console.log('Matrix response detected:', response);
+                      // Get matrix rows for labels
+                      let matrixRows = Array.isArray(response.matrixRows) 
+                        ? response.matrixRows.filter((row: string) => row && row.trim())
+                        : [];
+                      
+                      console.log('Matrix rows:', matrixRows);
+                      console.log('Matrix value:', response.value);
+                      
+                      // If no rows provided, use generic labels
+                      if (matrixRows.length === 0) {
+                        matrixRows = response.value.map((_: any, idx: number) => `Row ${idx + 1}`);
+                      }
+
+                      return (
+                        <div key={response.questionId} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '16px', backgroundColor: '#f9fafb', marginBottom: '16px' }}>
+                          <h3 style={{ color: '#000000', fontWeight: '700', fontSize: '18px', marginBottom: '12px' }}>
+                            {response.questionTitle || response.question || 'Untitled Question'}
+                          </h3>
+                          <div style={{ backgroundColor: '#ffffff', color: '#000000', padding: '12px', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                            <div style={{ color: '#000000', paddingLeft: '0px' }}>
+                              {response.value.map((columnSelection: any, index: number) => (
+                                <div key={index} style={{ 
+                                  color: '#000000', 
+                                  fontWeight: '500', 
+                                  marginBottom: '8px',
+                                  padding: '8px',
+                                  backgroundColor: '#f3f4f6',
+                                  borderRadius: '4px',
+                                  borderLeft: '3px solid #3b82f6'
+                                }}>
+                                  <span style={{ fontWeight: '700', color: '#1f2937' }}>
+                                    {matrixRows[index] || `Row ${index + 1}`}:
+                                  </span>{' '}
+                                  <span style={{ color: '#4b5563' }}>
+                                    {columnSelection || '—'}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
                     return (
                     <div key={response.questionId} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '16px', backgroundColor: '#f9fafb', marginBottom: '16px' }}>
                       <h3 style={{ color: '#000000', fontWeight: '700', fontSize: '18px', marginBottom: '12px' }}>
@@ -1298,18 +1441,35 @@ export default function FormPage() {
             {existingSubmission && (
               <div className="mt-6 bg-white/5 border border-white/20 rounded-lg p-4 text-left">
                 <p className="text-white font-medium mb-2">
-                  You submitted this form on{' '}
-                  <span className="font-semibold">
-                    {new Date(existingSubmission.submittedAt).toLocaleString()}
-                  </span>
+                  {(existingSubmission.totalSubmissions || 1) > 1 ? (
+                    <>
+                      You have submitted this form{' '}
+                      <span className="font-semibold">{existingSubmission.totalSubmissions} times</span>.
+                      Most recent submission on{' '}
+                      <span className="font-semibold">
+                        {new Date(existingSubmission.submittedAt).toLocaleString()}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      You submitted this form on{' '}
+                      <span className="font-semibold">
+                        {new Date(existingSubmission.submittedAt).toLocaleString()}
+                      </span>
+                    </>
+                  )}
                 </p>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <button
                     type="button"
-                    onClick={handleViewSubmission}
+                    onClick={() => openSubmissionPreview()}
                     className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-white/20 hover:bg-white/30 transition-all text-white"
                   >
-                    <span>View your submission</span>
+                    <span>
+                      {(existingSubmission.totalSubmissions || 1) > 1 
+                        ? `View your ${existingSubmission.totalSubmissions} submissions` 
+                        : 'View your submission'}
+                    </span>
                   </button>
                   <p className="text-white/70 text-sm">
                     {allowMultipleSubmissions
@@ -1539,8 +1699,37 @@ export default function FormPage() {
             ✕
           </button>
           <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-            {submissionPreview?.form?.title || form?.title || 'Your submission'}
+            {submissionPreview?.form?.title || form?.title || 'Your submissions'}
           </h2>
+          
+          {/* Submission selector dropdown - Always show if more than 1 */}
+          {allSubmissions.length > 1 && (
+            <div className="mb-4 bg-blue-50 border-2 border-blue-300 p-4 rounded-lg">
+              <label className="block text-base font-bold text-gray-900 mb-2">
+                📋 You have {allSubmissions.length} submissions - Select one to view:
+              </label>
+              <select
+                value={selectedSubmissionIndex}
+                onChange={(e) => {
+                  const newIndex = parseInt(e.target.value);
+                  console.log('Switching to submission index:', newIndex, allSubmissions[newIndex]);
+                  setSelectedSubmissionIndex(newIndex);
+                  setSubmissionPreview({
+                    ...allSubmissions[newIndex],
+                    form: submissionPreview?.form
+                  });
+                }}
+                className="w-full border-2 border-gray-400 rounded-lg px-4 py-3 text-gray-900 bg-white font-medium text-base"
+              >
+                {allSubmissions.map((sub: any, index: number) => (
+                  <option key={sub.submissionId} value={index}>
+                    Submission #{index + 1} - {new Date(sub.submittedAt).toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          
           {submissionPreview?.submittedAt && (
             <p className="text-sm text-gray-500 mb-4">
               Submitted on {new Date(submissionPreview.submittedAt).toLocaleString()}
@@ -1558,7 +1747,51 @@ export default function FormPage() {
           ) : submissionPreview ? (
             <div className="space-y-4">
               {submissionPreview.responses?.length ? (
-                submissionPreview.responses.map((response: any) => (
+                submissionPreview.responses.map((response: any) => {
+                  // Handle Matrix type specially
+                  if (response.type === 'MATRIX' && Array.isArray(response.value)) {
+                    // Get matrix rows for labels
+                    let matrixRows = Array.isArray(response.matrixRows) 
+                      ? response.matrixRows.filter((row: string) => row && row.trim())
+                      : [];
+                    
+                    // If no rows provided, use generic labels
+                    if (matrixRows.length === 0) {
+                      matrixRows = response.value.map((_: any, idx: number) => `Row ${idx + 1}`);
+                    }
+
+                    return (
+                      <div key={response.questionId} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '16px', backgroundColor: '#f9fafb', marginBottom: '16px' }}>
+                        <h3 style={{ color: '#000000', fontWeight: '700', fontSize: '18px', marginBottom: '12px' }}>
+                          {response.questionTitle || response.question || 'Untitled Question'}
+                        </h3>
+                        <div style={{ backgroundColor: '#ffffff', color: '#000000', padding: '12px', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                          <div style={{ color: '#000000', paddingLeft: '0px' }}>
+                            {response.value.map((columnSelection: any, index: number) => (
+                              <div key={index} style={{ 
+                                color: '#000000', 
+                                fontWeight: '500', 
+                                marginBottom: '8px',
+                                padding: '8px',
+                                backgroundColor: '#f3f4f6',
+                                borderRadius: '4px',
+                                borderLeft: '3px solid #3b82f6'
+                              }}>
+                                <span style={{ fontWeight: '700', color: '#1f2937' }}>
+                                  {matrixRows[index] || `Row ${index + 1}`}:
+                                </span>{' '}
+                                <span style={{ color: '#4b5563' }}>
+                                  {columnSelection || '—'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  return (
                   <div key={response.questionId} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '16px', backgroundColor: '#f9fafb', marginBottom: '16px' }}>
                     <h3 style={{ color: '#000000', fontWeight: '700', fontSize: '18px', marginBottom: '12px' }}>
                       Question: {response.questionTitle || response.question || 'Untitled Question'}
@@ -1584,12 +1817,13 @@ export default function FormPage() {
                       )}
                     </div>
                   </div>
-                ))
-                ) : (
-                  <p style={{ color: '#6b7280' }}>No responses found.</p>
-                )}
-              </div>
-            ) : (
+                  );
+                })
+              ) : (
+                <p style={{ color: '#6b7280' }}>No responses found.</p>
+              )}
+            </div>
+          ) : (
             <p className="text-gray-500 text-sm">Unable to display submission details.</p>
           )}
         </div>
