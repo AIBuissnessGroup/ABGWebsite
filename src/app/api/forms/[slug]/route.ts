@@ -127,8 +127,9 @@ export async function GET(
       return NextResponse.json({ error: 'Form not found' }, { status: 404 });
     }
 
-    if (!form.isPublic) {
-      return NextResponse.json({ error: 'This form is not publicly accessible' }, { status: 403 });
+    // Check if form is active (not isPublic, use isActive)
+    if (!form.isActive) {
+      return NextResponse.json({ error: 'This form is not currently available' }, { status: 403 });
     }
 
     // Get application count

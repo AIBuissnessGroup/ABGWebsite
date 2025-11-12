@@ -820,7 +820,7 @@ export default function FormsAdminPage() {
 
   if (status === 'loading' || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white hover:bg-gray-100 text-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-white text-gray-900">
         <div className="flex flex-col items-center gap-2 text-gray-700">
           <ArrowPathIcon className="h-8 w-8 animate-spin" />
           <span>Loading admin forms…</span>
@@ -830,8 +830,8 @@ export default function FormsAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white hover:bg-gray-100 text-gray-900">
-      <header className="border-b border-gray-200 bg-white hover:bg-gray-100">
+    <div className="min-h-screen bg-white text-gray-900">
+      <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Form builder</h1>

@@ -346,15 +346,11 @@ export async function POST(request: NextRequest) {
       backgroundColor: formData.backgroundColor || '#ffffff',
       textColor: formData.textColor || '#000000',
       category: formData.category || 'general',
-      notificationEmail: formData.notificationEmail || user.email,
       allowMultiple: Boolean(formData.allowMultiple),
       isAttendanceForm: Boolean(formData.isAttendanceForm),
-      isPublic: Boolean(formData.isPublic),
+      isActive: Boolean(formData.isActive ?? formData.isPublic ?? true),
       published: Boolean(formData.published),
-      notificationConfig,
-      notifyOnSubmission: notificationConfig.email?.notifyOnSubmission ?? true,
-      notificationEmail: notificationConfig.email?.notificationEmail || user.email,
-      sendReceiptToSubmitter: notificationConfig.email?.sendReceiptToSubmitter ?? false
+      notificationConfig
     };
 
     const result = await db.collection('Form').insertOne(form);
@@ -435,7 +431,7 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const normalized = normalizeFormStructure(updateData, currentForm);
+    const normalized = normalizeFormStructure(updateData, currentForm as any);
     const notificationConfig = buildNotificationConfig(
       updateData,
       currentForm.notificationConfig,
@@ -450,19 +446,15 @@ export async function PUT(request: NextRequest) {
       slug,
       questions: normalized.questions,
       sections: normalized.sections,
-      isActive: updateData.isActive,
-      isPublic: updateData.isPublic,
+      isActive: updateData.isActive ?? updateData.isPublic,
       allowMultiple: updateData.allowMultiple,
       deadline: updateData.deadline,
       maxSubmissions: updateData.maxSubmissions,
-      notifyOnSubmission: notificationConfig.email?.notifyOnSubmission,
-      notificationEmail: notificationConfig.email?.notificationEmail,
       requireAuth: updateData.requireAuth,
       backgroundColor: updateData.backgroundColor,
       textColor: updateData.textColor,
       updatedAt: new Date(),
-      notificationConfig,
-      sendReceiptToSubmitter: notificationConfig.email?.sendReceiptToSubmitter
+      notificationConfig
     };
 
     // Remove undefined values
