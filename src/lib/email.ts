@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { google } from 'googleapis';
 
 type ReceiptAttachment = {
   title: string;
@@ -17,41 +18,73 @@ export interface FormReceiptOptions {
 
 let cachedTransporter: nodemailer.Transporter | null = null;
 
-function getTransporter() {
+async function getTransporter() {
   if (cachedTransporter) {
     return cachedTransporter;
   }
 
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD;
+  // Gmail API OAuth2 credentials
+  const clientId = process.env.GMAIL_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+  const userEmail = process.env.GMAIL_USER_EMAIL || process.env.SMTP_FROM_EMAIL;
 
-  if (!host) {
-    console.warn('SMTP_HOST is not configured; email receipts will be skipped.');
+  if (!clientId || !clientSecret || !refreshToken) {
+    console.warn('Gmail API credentials not configured; email receipts will be skipped.');
+    console.warn('Required: GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN');
     return null;
   }
 
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: process.env.SMTP_SECURE === 'true' || port === 465,
-    auth: user && pass ? { user, pass } : undefined,
-  });
+  try {
+    // Create OAuth2 client
+    const oauth2Client = new google.auth.OAuth2(
+      clientId,
+      clientSecret,
+      'https://developers.google.com/oauthplayground' // Redirect URL used when getting refresh token
+    );
 
-  cachedTransporter = transporter;
-  return transporter;
+    oauth2Client.setCredentials({
+      refresh_token: refreshToken,
+    });
+
+    // Get access token
+    const accessToken = await oauth2Client.getAccessToken();
+
+    if (!accessToken.token) {
+      console.error('Failed to obtain Gmail API access token');
+      return null;
+    }
+
+    // Create transporter with Gmail API
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type: 'OAuth2',
+        user: userEmail,
+        clientId,
+        clientSecret,
+        refreshToken,
+        accessToken: accessToken.token,
+      },
+    } as any);
+
+    cachedTransporter = transporter;
+    return transporter;
+  } catch (error) {
+    console.error('Error creating Gmail API transporter:', error);
+    return null;
+  }
 }
 
 export async function sendFormReceiptEmail(options: FormReceiptOptions) {
-  const transporter = getTransporter();
+  const transporter = await getTransporter();
   if (!transporter) {
     return false;
   }
 
-  const from = process.env.SMTP_FROM_EMAIL;
+  const from = process.env.GMAIL_USER_EMAIL || process.env.SMTP_FROM_EMAIL;
   if (!from) {
-    console.warn('SMTP_FROM_EMAIL is not configured; skipping email receipt.');
+    console.warn('GMAIL_USER_EMAIL or SMTP_FROM_EMAIL is not configured; skipping email receipt.');
     return false;
   }
 
