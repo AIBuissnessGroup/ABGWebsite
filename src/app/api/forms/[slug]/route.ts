@@ -137,7 +137,12 @@ export async function GET(
       .countDocuments({ formId: form.id });
 
     let userSubmissionSummary: any = null;
+    let userSubmissionCount = 0;
     if (userEmail) {
+      userSubmissionCount = await applicationsCollection.countDocuments(
+        { formId: form.id, applicantEmail: userEmail }
+      );
+
       const latestSubmission = await applicationsCollection.findOne(
         { formId: form.id, applicantEmail: userEmail },
         { sort: { submittedAt: -1, createdAt: -1 } }
@@ -148,6 +153,7 @@ export async function GET(
           submissionId: latestSubmission._id.toString(),
           submittedAt: latestSubmission.submittedAt || latestSubmission.createdAt,
           status: latestSubmission.status || 'SUBMITTED',
+          totalSubmissions: userSubmissionCount,
         };
       }
     }

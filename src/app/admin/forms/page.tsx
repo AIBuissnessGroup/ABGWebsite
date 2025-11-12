@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import {
@@ -12,6 +12,11 @@ import {
   Cog6ToothIcon,
   CheckCircleIcon,
   XMarkIcon,
+  LinkIcon,
+  ArrowTopRightOnSquareIcon,
+  ArchiveBoxIcon,
+  ArchiveBoxXMarkIcon,
+  ClipboardDocumentIcon,
 } from '@heroicons/react/24/outline';
 import type { FormNotificationConfig, SlackTargetOption } from '@/types/forms';
 
@@ -26,7 +31,8 @@ type QuestionType =
   | 'RADIO'
   | 'CHECKBOX'
   | 'FILE'
-  | 'BOOLEAN';
+  | 'BOOLEAN'
+  | 'MATRIX';
 
 type FormQuestion = {
   id: string;
@@ -35,6 +41,8 @@ type FormQuestion = {
   type: QuestionType;
   required: boolean;
   options: string[];
+  matrixRows?: string[];
+  matrixColumns?: string[];
 };
 
 type FormSection = {
@@ -84,7 +92,12 @@ type ApplicationResponse = {
   submittedAt: string;
   responses: Array<{
     questionId: string;
-    question: { title?: string; type?: QuestionType };
+    question: { 
+      title?: string; 
+      type?: QuestionType;
+      matrixRows?: string[];
+      matrixColumns?: string[];
+    };
     textValue?: string;
     numberValue?: number;
     booleanValue?: boolean;
@@ -113,6 +126,7 @@ const QUESTION_TYPES: { label: string; value: QuestionType }[] = [
   { label: 'Dropdown', value: 'SELECT' },
   { label: 'File upload', value: 'FILE' },
   { label: 'Yes / No', value: 'BOOLEAN' },
+  { label: 'Matrix / Grid', value: 'MATRIX' },
 ];
 
 const MULTIPLE_CHOICE: QuestionType[] = ['RADIO', 'CHECKBOX', 'SELECT'];
@@ -132,6 +146,28 @@ function normalizeQuestion(question: any, index: number): FormQuestion {
       ? rawOptions.split('\n').map((option: string) => option.trim()).filter(Boolean)
       : [];
 
+  // Filter out empty strings and provide defaults if needed
+  let matrixRows = Array.isArray(question?.matrixRows)
+    ? question.matrixRows.filter((row: string) => row && row.trim())
+    : [];
+  
+  let matrixColumns = Array.isArray(question?.matrixColumns)
+    ? question.matrixColumns.filter((col: string) => col && col.trim())
+    : [];
+
+  // If matrix type but no valid rows/columns, provide defaults
+  if (question?.type === 'MATRIX') {
+    if (matrixRows.length === 0) {
+      matrixRows = ['Row 1', 'Row 2', 'Row 3'];
+    }
+    if (matrixColumns.length === 0) {
+      matrixColumns = ['Strongly Disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly Agree'];
+    }
+  }
+
+  const finalMatrixRows = question?.type === 'MATRIX' ? matrixRows : undefined;
+  const finalMatrixColumns = question?.type === 'MATRIX' ? matrixColumns : undefined;
+
   return {
     id: question?.id || makeId(),
     title: question?.title || question?.question || `Question ${index + 1}`,
@@ -139,6 +175,8 @@ function normalizeQuestion(question: any, index: number): FormQuestion {
     type: (question?.type || 'TEXT') as QuestionType,
     required: Boolean(question?.required),
     options,
+    matrixRows: finalMatrixRows,
+    matrixColumns: finalMatrixColumns,
   };
 }
 
@@ -263,6 +301,10 @@ export default function FormsAdminPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [slackTargets, setSlackTargets] = useState<SlackTargetState>({ channels: [], users: [], needsToken: false });
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [showCopiedMessage, setShowCopiedMessage] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -420,7 +462,13 @@ export default function FormsAdminPage() {
   }
 
   function updateDraft(update: (current: FormDraft) => FormDraft) {
-    setDraft((current) => (current ? update(current) : current));
+    setDraft((current) => {
+      const updated = current ? update(current) : current;
+      if (updated && updated.id) {
+        triggerAutoSave();
+      }
+      return updated;
+    });
   }
 
   function updateSection(sectionId: string, updates: Partial<FormSection>) {
@@ -598,6 +646,8 @@ export default function FormsAdminPage() {
           type: question.type,
           required: question.required,
           options: question.options,
+          matrixRows: question.matrixRows,
+          matrixColumns: question.matrixColumns,
           order: questionIndex,
         })),
       })),
@@ -635,6 +685,112 @@ export default function FormsAdminPage() {
     }
   }
 
+  const triggerAutoSave = useCallback(() => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+    
+    autoSaveTimerRef.current = setTimeout(async () => {
+      if (!draft || !draft.id) return; // Only autosave existing forms
+      
+      setAutoSaving(true);
+      try {
+        const payload = {
+          id: draft.id,
+          title: draft.title,
+          description: draft.description,
+          category: draft.category,
+          isActive: draft.isActive,
+          allowMultiple: draft.allowMultiple,
+          requireAuth: draft.requireAuth,
+          backgroundColor: draft.backgroundColor,
+          textColor: draft.textColor,
+          sections: draft.sections.map((section, sectionIndex) => ({
+            id: section.id,
+            title: section.title,
+            description: section.description,
+            order: sectionIndex,
+            questions: section.questions.map((question, questionIndex) => ({
+              id: question.id,
+              title: question.title,
+              description: question.description,
+              type: question.type,
+              required: question.required,
+              options: question.options,
+              matrixRows: question.matrixRows,
+              matrixColumns: question.matrixColumns,
+              order: questionIndex,
+            })),
+          })),
+          notificationConfig: draft.notificationConfig,
+          notifyOnSubmission: draft.notificationConfig.email?.notifyOnSubmission ?? true,
+          notificationEmail: draft.notificationConfig.email?.notificationEmail || '',
+          sendReceiptToSubmitter: draft.notificationConfig.email?.sendReceiptToSubmitter ?? false,
+        };
+
+        const res = await fetch(`/api/admin/forms?id=${draft.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        
+        if (res.ok) {
+          setLastSaved(new Date());
+        }
+      } catch (error) {
+        console.error('Autosave error:', error);
+      } finally {
+        setAutoSaving(false);
+      }
+    }, 2000); // Wait 2 seconds after last change
+  }, [draft]);
+
+  const copyFormLink = useCallback(() => {
+    if (!draft?.id) return;
+    const form = forms.find(f => f.id === draft.id);
+    if (!form?.slug) return;
+    
+    const link = `${window.location.origin}/forms/${form.slug}`;
+    navigator.clipboard.writeText(link);
+    setShowCopiedMessage(true);
+    setTimeout(() => setShowCopiedMessage(false), 2000);
+  }, [draft, forms]);
+
+  const openFormInNewTab = useCallback(() => {
+    if (!draft?.id) return;
+    const form = forms.find(f => f.id === draft.id);
+    if (!form?.slug) return;
+    
+    window.open(`/forms/${form.slug}`, '_blank');
+  }, [draft, forms]);
+
+  const toggleArchiveForm = useCallback(async () => {
+    if (!draft?.id) return;
+    
+    const form = forms.find(f => f.id === draft.id);
+    if (!form) return;
+    
+    const newActiveState = !form.isActive;
+    
+    try {
+      const res = await fetch(`/api/admin/forms?id=${draft.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...draft, isActive: newActiveState }),
+      });
+      
+      if (res.ok) {
+        setSaveMessage(newActiveState ? 'Form activated' : 'Form archived');
+        await loadForms();
+        setTimeout(() => setSaveMessage(null), 3000);
+      }
+    } catch (error) {
+      console.error('Error toggling archive:', error);
+      setSaveError('Failed to update form status');
+      setTimeout(() => setSaveError(null), 3000);
+    }
+  }, [draft, forms]);
+
   async function exportResponses(type: 'summary' | 'detailed') {
     if (!draft?.id) return;
     try {
@@ -664,8 +820,8 @@ export default function FormsAdminPage() {
 
   if (status === 'loading' || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-        <div className="flex flex-col items-center gap-2 text-slate-300">
+      <div className="min-h-screen flex items-center justify-center bg-white hover:bg-gray-100 text-gray-900">
+        <div className="flex flex-col items-center gap-2 text-gray-700">
           <ArrowPathIcon className="h-8 w-8 animate-spin" />
           <span>Loading admin forms…</span>
         </div>
@@ -674,18 +830,71 @@ export default function FormsAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-white/10 bg-slate-900/70 backdrop-blur">
+    <div className="min-h-screen bg-white hover:bg-gray-100 text-gray-900">
+      <header className="border-b border-gray-200 bg-white hover:bg-gray-100">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Form builder</h1>
-            <p className="text-sm text-slate-400">Google Forms–style sections, response insights, and notification controls.</p>
+            <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Form builder</h1>
+            <p className="text-sm text-gray-600">Sections, response insights, and notification controls.</p>
+            {lastSaved && !autoSaving && (
+              <p className="text-xs text-gray-500 mt-1">Last saved: {lastSaved.toLocaleTimeString()}</p>
+            )}
+            {autoSaving && (
+              <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                <ArrowPathIcon className="h-3 w-3 animate-spin" /> Auto-saving...
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            {draft?.id && (
+              <>
+                <button
+                  onClick={copyFormLink}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 hover:shadow-md hover:scale-105 transition-all duration-200"
+                  title="Copy form link"
+                >
+                  {showCopiedMessage ? (
+                    <>
+                      <CheckCircleIcon className="h-4 w-4 text-green-600" /> Copied!
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardDocumentIcon className="h-4 w-4" /> Copy Link
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={openFormInNewTab}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 hover:shadow-md hover:scale-105 transition-all duration-200"
+                  title="Open form in new tab"
+                >
+                  <ArrowTopRightOnSquareIcon className="h-4 w-4" /> Open
+                </button>
+                <button
+                  onClick={toggleArchiveForm}
+                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium shadow-sm hover:shadow-md hover:scale-105 transition-all duration-200 ${
+                    draft.isActive
+                      ? 'border-orange-200 bg-white text-orange-700 hover:bg-orange-50'
+                      : 'border-green-200 bg-white text-green-700 hover:bg-green-50'
+                  }`}
+                  title={draft.isActive ? 'Archive form' : 'Activate form'}
+                >
+                  {draft.isActive ? (
+                    <>
+                      <ArchiveBoxIcon className="h-4 w-4" /> Archive
+                    </>
+                  ) : (
+                    <>
+                      <ArchiveBoxXMarkIcon className="h-4 w-4" /> Activate
+                    </>
+                  )}
+                </button>
+              </>
+            )}
             <button
               onClick={handleSave}
               disabled={!draft || saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-500/50"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-blue-600 hover:shadow-lg hover:scale-105 disabled:cursor-not-allowed disabled:bg-blue-500/50 disabled:hover:scale-100 transition-all duration-200"
             >
               {saving ? (
                 <>
@@ -699,7 +908,7 @@ export default function FormsAdminPage() {
             </button>
             <button
               onClick={() => setSelectedFormId('new')}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/20 px-4 py-2 text-sm font-medium text-white hover:bg-white/10"
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 hover:shadow-md hover:scale-105 transition-all duration-200"
             >
               <PlusIcon className="h-4 w-4" /> New form
             </button>
@@ -707,63 +916,52 @@ export default function FormsAdminPage() {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[280px,1fr]">
-        <aside className="space-y-6">
-          <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4">
+      <main className="mx-auto max-w-7xl gap-6 px-6 py-8">
+        <div className="space-y-6">
+          {/* Forms Grid Section */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Forms</span>
-              <span className="text-xs text-slate-500">{forms.length}</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Forms</span>
+              <span className="text-xs text-gray-500">{forms.length}</span>
             </div>
             <input
               type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search"
-              className="mb-4 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
+              className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none"
             />
-            <nav className="space-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
               {filteredForms.map((form) => (
                 <button
                   key={form.id}
                   onClick={() => setSelectedFormId(form.id)}
-                  className={`w-full rounded-lg px-3 py-2 text-left text-sm transition ${
+                  className={`relative rounded-lg px-3 py-2 text-left text-xs transition-all duration-200 ${
                     selectedFormId === form.id
-                      ? 'bg-blue-500/20 text-white'
-                      : 'bg-slate-950 text-slate-300 hover:bg-white/5'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-md'
+                      : 'bg-white text-gray-700 hover:bg-gray-50 hover:shadow-md border border-gray-200'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{form.title}</span>
-                    {!form.isActive && <span className="rounded bg-red-500/20 px-2 py-0.5 text-[10px] text-red-200">Archived</span>}
-                  </div>
-                  <p className="text-xs text-slate-500">{form.category || 'general'}</p>
+                  <div className="font-medium truncate" title={form.title}>{form.title}</div>
+                  <div className="text-[10px] text-gray-500 truncate">{form.category || 'general'}</div>
+                  {!form.isActive && (
+                    <span className="absolute top-1 right-1 rounded bg-red-100 px-1.5 py-0.5 text-[8px] text-red-700">Archived</span>
+                  )}
                 </button>
               ))}
               <button
                 onClick={() => setSelectedFormId('new')}
-                className={`w-full rounded-lg px-3 py-2 text-left text-sm ${
+                className={`rounded-lg px-3 py-2 text-left text-xs transition-all duration-200 ${
                   selectedFormId === 'new'
-                    ? 'bg-blue-500/20 text-white'
-                    : 'bg-white/10 text-slate-200 hover:bg-white/20'
+                    ? 'bg-blue-500 text-white shadow-md'
+                    : 'bg-white text-gray-900 hover:bg-gray-50 hover:shadow-md border border-dashed border-gray-300'
                 }`}
               >
-                + Create new form
+                <div className="font-medium">+ Create new</div>
               </button>
-            </nav>
+            </div>
             {formsError && <p className="mt-4 text-xs text-red-300">{formsError}</p>}
           </div>
-
-          <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-300">
-            <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              <Cog6ToothIcon className="h-4 w-4" /> Quick tips
-            </h3>
-            <ul className="space-y-2 text-xs text-slate-400">
-              <li>Use sections to create multi-step forms like Google Forms.</li>
-              <li>The responses tab groups answers by question with live counts.</li>
-              <li>Configure Slack channels or users per form for targeted alerts.</li>
-            </ul>
-          </div>
-        </aside>
 
         <section className="space-y-6">
           {saveMessage && (
@@ -780,8 +978,8 @@ export default function FormsAdminPage() {
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => setActiveTab('questions')}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium ${
-                activeTab === 'questions' ? 'bg-blue-500 text-white' : 'bg-white/10 text-slate-200 hover:bg-white/20'
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                activeTab === 'questions' ? 'bg-blue-500 text-white shadow-md hover:bg-blue-600 hover:shadow-lg' : 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 hover:shadow-md'
               }`}
             >
               <DocumentTextIcon className="h-4 w-4" /> Questions
@@ -789,16 +987,16 @@ export default function FormsAdminPage() {
             <button
               onClick={() => setActiveTab('responses')}
               disabled={!draft?.id}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium ${
-                activeTab === 'responses' ? 'bg-blue-500 text-white' : 'bg-white/10 text-slate-200 hover:bg-white/20'
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                activeTab === 'responses' ? 'bg-blue-500 text-white shadow-md hover:bg-blue-600 hover:shadow-lg' : 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 hover:shadow-md'
               } ${!draft?.id ? 'opacity-40' : ''}`}
             >
               <ChatBubbleLeftRightIcon className="h-4 w-4" /> Responses
             </button>
             <button
               onClick={() => setActiveTab('settings')}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium ${
-                activeTab === 'settings' ? 'bg-blue-500 text-white' : 'bg-white/10 text-slate-200 hover:bg-white/20'
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                activeTab === 'settings' ? 'bg-blue-500 text-white shadow-md hover:bg-blue-600 hover:shadow-lg' : 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 hover:shadow-md'
               }`}
             >
               <Cog6ToothIcon className="h-4 w-4" /> Settings
@@ -806,52 +1004,52 @@ export default function FormsAdminPage() {
           </div>
 
           {!draft && (
-            <div className="rounded-xl border border-white/10 bg-slate-900/60 p-12 text-center text-sm text-slate-300">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 p-12 text-center text-sm text-gray-700">
               Select a form to begin editing or create a new one.
             </div>
           )}
 
           {draft && activeTab === 'questions' && (
             <div className="space-y-6">
-              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-6">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-6">
                 <div className="space-y-4">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-200">Form title</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-900">Form title</label>
                     <input
                       type="text"
                       value={draft.title}
                       onChange={(event) => updateDraft((current) => ({ ...current, title: event.target.value }))}
-                      className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-white focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-200">Description</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-900">Description</label>
                     <textarea
                       value={draft.description}
                       onChange={(event) => updateDraft((current) => ({ ...current, description: event.target.value }))}
                       rows={3}
-                      className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-white focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               {draft.sections.map((section, sectionIndex) => (
-                <div key={section.id} className="space-y-4 rounded-xl border border-white/10 bg-slate-900/60 p-6">
+                <div key={section.id} className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-6">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="flex-1 space-y-2">
                       <input
                         type="text"
                         value={section.title}
                         onChange={(event) => updateSection(section.id, { title: event.target.value })}
-                        className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-white focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
                         placeholder="Section title"
                       />
                       <textarea
                         value={section.description}
                         onChange={(event) => updateSection(section.id, { description: event.target.value })}
                         rows={2}
-                        className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-white focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
                         placeholder="Description (optional)"
                       />
                     </div>
@@ -859,21 +1057,21 @@ export default function FormsAdminPage() {
                       <button
                         onClick={() => moveSection(section.id, -1)}
                         disabled={sectionIndex === 0}
-                        className="rounded-lg border border-white/10 px-3 py-2 text-slate-200 hover:bg-white/10 disabled:opacity-40"
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 hover:bg-gray-50 hover:shadow-md disabled:opacity-40 disabled:hover:shadow-none transition-all duration-200"
                       >
                         Move up
                       </button>
                       <button
                         onClick={() => moveSection(section.id, 1)}
                         disabled={sectionIndex === draft.sections.length - 1}
-                        className="rounded-lg border border-white/10 px-3 py-2 text-slate-200 hover:bg-white/10 disabled:opacity-40"
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 hover:bg-gray-50 hover:shadow-md disabled:opacity-40 disabled:hover:shadow-none transition-all duration-200"
                       >
                         Move down
                       </button>
                       <button
                         onClick={() => removeSection(section.id)}
                         disabled={draft.sections.length === 1}
-                        className="rounded-lg border border-red-500/30 px-3 py-2 text-red-200 hover:bg-red-500/20 disabled:opacity-40"
+                        className="rounded-lg border border-red-200 bg-white px-3 py-2 text-red-700 hover:bg-red-50 hover:shadow-md disabled:opacity-40 disabled:hover:shadow-none transition-all duration-200"
                       >
                         Remove
                       </button>
@@ -882,37 +1080,49 @@ export default function FormsAdminPage() {
 
                   <div className="space-y-4">
                     {section.questions.map((question, questionIndex) => (
-                      <div key={question.id} className="rounded-lg border border-white/10 bg-slate-950 p-4">
+                      <div key={question.id} className="rounded-lg border border-gray-200 bg-white p-4">
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                           <div className="flex-1 space-y-3">
                             <input
                               type="text"
                               value={question.title}
                               onChange={(event) => updateQuestion(section.id, question.id, { title: event.target.value })}
-                              className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white focus:border-blue-500 focus:outline-none"
+                              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
                               placeholder="Question"
                             />
                             <textarea
                               value={question.description}
                               onChange={(event) => updateQuestion(section.id, question.id, { description: event.target.value })}
                               rows={2}
-                              className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white focus:border-blue-500 focus:outline-none"
+                              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
                               placeholder="Description (optional)"
                             />
                             <div className="grid gap-3 md:grid-cols-2">
                               <div>
-                                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Type</label>
+                                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Type</label>
                                 <select
                                   value={question.type}
-                                  onChange={(event) =>
-                                    updateQuestion(section.id, question.id, {
-                                      type: event.target.value as QuestionType,
-                                      options: MULTIPLE_CHOICE.includes(event.target.value as QuestionType)
-                                        ? question.options
-                                        : [],
-                                    })
-                                  }
-                                  className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                                  onChange={(event) => {
+                                    const newType = event.target.value as QuestionType;
+                                    const updates: Partial<FormQuestion> = { type: newType };
+                                    
+                                    if (MULTIPLE_CHOICE.includes(newType)) {
+                                      updates.options = question.options.length ? question.options : [''];
+                                    } else {
+                                      updates.options = [];
+                                    }
+                                    
+                                    if (newType === 'MATRIX') {
+                                      updates.matrixRows = question.matrixRows?.length ? question.matrixRows : ['Row 1', 'Row 2', 'Row 3'];
+                                      updates.matrixColumns = question.matrixColumns?.length ? question.matrixColumns : ['Strongly Disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly Agree'];
+                                    } else {
+                                      updates.matrixRows = undefined;
+                                      updates.matrixColumns = undefined;
+                                    }
+                                    
+                                    updateQuestion(section.id, question.id, updates);
+                                  }}
+                                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                                 >
                                   {QUESTION_TYPES.map((type) => (
                                     <option key={type.value} value={type.value} className="text-slate-900">
@@ -921,29 +1131,134 @@ export default function FormsAdminPage() {
                                   ))}
                                 </select>
                               </div>
-                              <label className="mt-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                              <label className="mt-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-700">
                                 <input
                                   type="checkbox"
                                   checked={question.required}
                                   onChange={(event) => updateQuestion(section.id, question.id, { required: event.target.checked })}
-                                  className="h-4 w-4 rounded border-white/30 bg-slate-900 text-blue-500 focus:ring-0"
+                                  className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
                                 />
                                 Required
                               </label>
                             </div>
                             {MULTIPLE_CHOICE.includes(question.type) && (
                               <div>
-                                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Options (one per line)</label>
-                                <textarea
-                                  value={question.options.join('')}
-                                  onChange={(event) =>
-                                    updateQuestion(section.id, question.id, {
-                                      options: event.target.value.split('').map((option) => option.trim()).filter(Boolean),
-                                    })
-                                  }
-                                  rows={3}
-                                  className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                                />
+                                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-600">Options</label>
+                                <div className="space-y-2">
+                                  {question.options.map((option, optIndex) => (
+                                    <div key={optIndex} className="flex items-center gap-2">
+                                      <input
+                                        type="text"
+                                        value={option}
+                                        onChange={(event) => {
+                                          const newOptions = [...question.options];
+                                          newOptions[optIndex] = event.target.value;
+                                          updateQuestion(section.id, question.id, { options: newOptions });
+                                        }}
+                                        className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none shadow-sm"
+                                        placeholder={`Option ${optIndex + 1}`}
+                                      />
+                                      <button
+                                        onClick={() => {
+                                          const newOptions = question.options.filter((_, i) => i !== optIndex);
+                                          updateQuestion(section.id, question.id, { options: newOptions.length ? newOptions : [''] });
+                                        }}
+                                        className="rounded-lg border border-red-200 bg-white px-3 py-2 text-red-700 hover:bg-red-50 hover:shadow-md transition-all duration-200"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <button
+                                    onClick={() => {
+                                      const newOptions = [...question.options, ''];
+                                      updateQuestion(section.id, question.id, { options: newOptions });
+                                    }}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                                  >
+                                    <PlusIcon className="h-4 w-4" /> Add option
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            {question.type === 'MATRIX' && (
+                              <div className="space-y-4">
+                                <div>
+                                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-600">Rows (Questions)</label>
+                                  <div className="space-y-2">
+                                    {(question.matrixRows || ['']).map((row, rowIndex) => (
+                                      <div key={rowIndex} className="flex items-center gap-2">
+                                        <input
+                                          type="text"
+                                          value={row}
+                                          onChange={(event) => {
+                                            const newRows = [...(question.matrixRows || [''])];
+                                            newRows[rowIndex] = event.target.value;
+                                            updateQuestion(section.id, question.id, { matrixRows: newRows });
+                                          }}
+                                          className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none shadow-sm"
+                                          placeholder={`Row ${rowIndex + 1}`}
+                                        />
+                                        <button
+                                          onClick={() => {
+                                            const newRows = (question.matrixRows || ['']).filter((_, i) => i !== rowIndex);
+                                            updateQuestion(section.id, question.id, { matrixRows: newRows.length ? newRows : [''] });
+                                          }}
+                                          className="rounded-lg border border-red-200 bg-white px-3 py-2 text-red-700 hover:bg-red-50 hover:shadow-md transition-all duration-200"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <button
+                                      onClick={() => {
+                                        const newRows = [...(question.matrixRows || ['']), ''];
+                                        updateQuestion(section.id, question.id, { matrixRows: newRows });
+                                      }}
+                                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                                    >
+                                      <PlusIcon className="h-4 w-4" /> Add row
+                                    </button>
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-600">Columns (Rating Scale)</label>
+                                  <div className="space-y-2">
+                                    {(question.matrixColumns || ['']).map((col, colIndex) => (
+                                      <div key={colIndex} className="flex items-center gap-2">
+                                        <input
+                                          type="text"
+                                          value={col}
+                                          onChange={(event) => {
+                                            const newCols = [...(question.matrixColumns || [''])];
+                                            newCols[colIndex] = event.target.value;
+                                            updateQuestion(section.id, question.id, { matrixColumns: newCols });
+                                          }}
+                                          className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none shadow-sm"
+                                          placeholder={`Column ${colIndex + 1} (e.g., "Strongly Disagree")`}
+                                        />
+                                        <button
+                                          onClick={() => {
+                                            const newCols = (question.matrixColumns || ['']).filter((_, i) => i !== colIndex);
+                                            updateQuestion(section.id, question.id, { matrixColumns: newCols.length ? newCols : [''] });
+                                          }}
+                                          className="rounded-lg border border-red-200 bg-white px-3 py-2 text-red-700 hover:bg-red-50 hover:shadow-md transition-all duration-200"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <button
+                                      onClick={() => {
+                                        const newCols = [...(question.matrixColumns || ['']), ''];
+                                        updateQuestion(section.id, question.id, { matrixColumns: newCols });
+                                      }}
+                                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                                    >
+                                      <PlusIcon className="h-4 w-4" /> Add column
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -951,21 +1266,21 @@ export default function FormsAdminPage() {
                             <button
                               onClick={() => moveQuestion(section.id, question.id, -1)}
                               disabled={questionIndex === 0}
-                              className="rounded-lg border border-white/10 px-3 py-2 text-slate-200 hover:bg-white/10 disabled:opacity-40"
+                              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 hover:bg-gray-50 hover:shadow-md disabled:opacity-40 disabled:hover:shadow-none transition-all duration-200"
                             >
                               Move up
                             </button>
                             <button
                               onClick={() => moveQuestion(section.id, question.id, 1)}
                               disabled={questionIndex === section.questions.length - 1}
-                              className="rounded-lg border border-white/10 px-3 py-2 text-slate-200 hover:bg-white/10 disabled:opacity-40"
+                              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 hover:bg-gray-50 hover:shadow-md disabled:opacity-40 disabled:hover:shadow-none transition-all duration-200"
                             >
                               Move down
                             </button>
                             <button
                               onClick={() => removeQuestion(section.id, question.id)}
                               disabled={section.questions.length === 1}
-                              className="rounded-lg border border-red-500/30 px-3 py-2 text-red-200 hover:bg-red-500/20 disabled:opacity-40"
+                              className="rounded-lg border border-red-200 bg-white px-3 py-2 text-red-700 hover:bg-red-50 hover:shadow-md disabled:opacity-40 disabled:hover:shadow-none transition-all duration-200"
                             >
                               Remove
                             </button>
@@ -975,7 +1290,7 @@ export default function FormsAdminPage() {
                     ))}
                     <button
                       onClick={() => addQuestion(section.id)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-200 hover:bg-white/10"
+                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md transition-all duration-200"
                     >
                       <PlusIcon className="h-4 w-4" /> Add question
                     </button>
@@ -985,7 +1300,7 @@ export default function FormsAdminPage() {
 
               <button
                 onClick={addSection}
-                className="inline-flex items-center gap-2 rounded-lg border border-dashed border-white/20 px-4 py-3 text-sm text-slate-200 hover:bg-white/10"
+                className="inline-flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 hover:bg-blue-50 hover:border-blue-400 hover:shadow-md transition-all duration-200"
               >
                 <PlusIcon className="h-4 w-4" /> Add section
               </button>
@@ -994,19 +1309,19 @@ export default function FormsAdminPage() {
 
           {draft && activeTab === 'responses' && (
             <div className="space-y-6">
-              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-6">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-6">
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="rounded-lg border border-white/10 bg-slate-950 p-4">
-                    <p className="text-xs uppercase tracking-wide text-slate-400">Total responses</p>
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-600">Total responses</p>
                     <p className="mt-2 text-2xl font-semibold">{responsesSummary.total}</p>
                   </div>
-                  <div className="rounded-lg border border-white/10 bg-slate-950 p-4">
-                    <p className="text-xs uppercase tracking-wide text-slate-400">Unique emails</p>
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-600">Unique emails</p>
                     <p className="mt-2 text-2xl font-semibold">{responsesSummary.unique}</p>
                   </div>
-                  <div className="rounded-lg border border-white/10 bg-slate-950 p-4">
-                    <p className="text-xs uppercase tracking-wide text-slate-400">Last submission</p>
-                    <p className="mt-2 text-sm text-slate-200">
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-600">Last submission</p>
+                    <p className="mt-2 text-sm text-gray-900">
                       {responsesSummary.last ? new Date(responsesSummary.last).toLocaleString() : '—'}
                     </p>
                   </div>
@@ -1014,46 +1329,46 @@ export default function FormsAdminPage() {
                 <div className="mt-4 flex gap-3">
                   <button
                     onClick={() => exportResponses('summary')}
-                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-200 hover:bg-white/10"
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md transition-all duration-200"
                   >
                     <ArrowDownTrayIcon className="h-4 w-4" /> Export summary
                   </button>
                   <button
                     onClick={() => exportResponses('detailed')}
-                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-200 hover:bg-white/10"
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md transition-all duration-200"
                   >
                     <ArrowDownTrayIcon className="h-4 w-4" /> Export detailed
                   </button>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-6">
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-300">Question insights</h3>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-6">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-700">Question insights</h3>
                 {responsesSummary.questions.length === 0 ? (
-                  <p className="text-sm text-slate-400">Responses will appear here once submissions arrive.</p>
+                  <p className="text-sm text-gray-600">Responses will appear here once submissions arrive.</p>
                 ) : (
                   <div className="space-y-4">
                     {responsesSummary.questions.map((question) => (
-                      <div key={question.id} className="rounded-lg border border-white/10 bg-slate-950 p-4">
+                      <div key={question.id} className="rounded-lg border border-gray-200 bg-white p-4">
                         <div className="flex items-center justify-between">
-                          <p className="font-medium text-slate-100">{question.title}</p>
-                          <span className="text-xs text-slate-500">{question.answers} answers</span>
+                          <p className="font-medium text-gray-900">{question.title}</p>
+                          <span className="text-xs text-gray-500">{question.answers} answers</span>
                         </div>
                         {question.distribution.length > 0 ? (
-                          <ul className="mt-3 space-y-1 text-sm text-slate-300">
+                          <ul className="mt-3 space-y-1 text-sm text-gray-700">
                             {question.distribution.slice(0, 4).map((entry) => (
                               <li key={entry.label} className="flex justify-between">
                                 <span>{entry.label}</span>
-                                <span className="text-slate-500">{entry.count}</span>
+                                <span className="text-gray-500">{entry.count}</span>
                               </li>
                             ))}
                           </ul>
                         ) : (
-                          <ul className="mt-3 space-y-1 text-sm text-slate-300">
+                          <ul className="mt-3 space-y-1 text-sm text-gray-700">
                             {question.samples.map((sample, index) => (
-                              <li key={index} className="truncate text-slate-200">{sample || '—'}</li>
+                              <li key={index} className="truncate text-gray-900">{sample || '—'}</li>
                             ))}
-                            {question.samples.length === 0 && <li className="text-slate-500">No responses yet.</li>}
+                            {question.samples.length === 0 && <li className="text-gray-500">No responses yet.</li>}
                           </ul>
                         )}
                       </div>
@@ -1062,40 +1377,68 @@ export default function FormsAdminPage() {
                 )}
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-6">
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-300">Individual responses</h3>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-6">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-700">Individual responses</h3>
                 {responsesLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
                     <ArrowPathIcon className="h-4 w-4 animate-spin" /> Loading responses…
                   </div>
                 ) : responsesError ? (
                   <p className="text-sm text-red-300">{responsesError}</p>
                 ) : responses.length === 0 ? (
-                  <p className="text-sm text-slate-400">No submissions yet.</p>
+                  <p className="text-sm text-gray-600">No submissions yet.</p>
                 ) : (
                   <div className="space-y-3">
                     {responses.map((response) => (
-                      <div key={response.id} className="rounded-lg border border-white/10 bg-slate-950 p-4">
+                      <div key={response.id} className="rounded-lg border border-gray-200 bg-white p-4">
                         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                           <div>
-                            <p className="font-medium text-slate-100">{response.applicantName || 'Unnamed'}</p>
-                            <p className="text-xs text-slate-500">{response.applicantEmail}</p>
+                            <p className="font-medium text-gray-900">{response.applicantName || 'Unnamed'}</p>
+                            <p className="text-xs text-gray-500">{response.applicantEmail}</p>
                           </div>
-                          <div className="text-xs text-slate-400">
+                          <div className="text-xs text-gray-600">
                             Submitted {new Date(response.submittedAt).toLocaleString()}
                           </div>
                         </div>
-                        <details className="mt-4 text-sm text-slate-200">
-                          <summary className="cursor-pointer text-slate-300">View answers</summary>
-                          <div className="mt-3 space-y-2 text-xs text-slate-300">
-                            {response.responses.map((answer) => (
-                              <div key={`${response.id}-${answer.questionId}`} className="rounded border border-white/10 bg-slate-900 p-3">
-                                <p className="font-medium text-slate-200">{answer.question?.title || 'Question'}</p>
-                                <p className="mt-1 text-slate-400">
-                                  {formatValue(extractResponseValue(answer, (answer.question?.type || 'TEXT') as QuestionType))}
-                                </p>
-                              </div>
-                            ))}
+                        <details className="mt-4 text-sm text-gray-900">
+                          <summary className="cursor-pointer text-gray-700">View answers</summary>
+                          <div className="mt-3 space-y-2 text-xs text-gray-700">
+                            {response.responses.map((answer) => {
+                              const questionType = (answer.question?.type || 'TEXT') as QuestionType;
+                              const value = extractResponseValue(answer, questionType);
+                              
+                              // Handle Matrix type specially
+                              if (questionType === 'MATRIX' && Array.isArray(value)) {
+                                // Get matrix rows from the question
+                                const matrixRows = answer.question?.matrixRows?.filter((row: string) => row && row.trim()) || [];
+                                
+                                return (
+                                  <div key={`${response.id}-${answer.questionId}`} className="rounded border border-gray-200 bg-white p-3">
+                                    <p className="font-medium text-gray-900 mb-2">{answer.question?.title || 'Question'}</p>
+                                    <div className="space-y-1">
+                                      {value.map((columnSelection: string, index: number) => (
+                                        <div key={index} className="flex items-start gap-2 py-1 px-2 bg-gray-50 rounded border-l-2 border-blue-500">
+                                          <span className="font-semibold text-gray-900">
+                                            {matrixRows[index] || `Row ${index + 1}`}:
+                                          </span>
+                                          <span className="text-gray-700">{columnSelection || '—'}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              
+                              // Regular question display
+                              return (
+                                <div key={`${response.id}-${answer.questionId}`} className="rounded border border-gray-200 bg-white hover:bg-gray-100 p-3">
+                                  <p className="font-medium text-gray-900">{answer.question?.title || 'Question'}</p>
+                                  <p className="mt-1 text-gray-600">
+                                    {formatValue(value)}
+                                  </p>
+                                </div>
+                              );
+                            })}
                           </div>
                         </details>
                       </div>
@@ -1108,53 +1451,53 @@ export default function FormsAdminPage() {
 
           {draft && activeTab === 'settings' && (
             <div className="space-y-6">
-              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-6">
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-300">Form settings</h3>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-6">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-700">Form settings</h3>
                 <div className="grid gap-4 md:grid-cols-2">
-                  <label className="flex items-center gap-2 text-sm text-slate-200">
+                  <label className="flex items-center gap-2 text-sm text-gray-900">
                     <input
                       type="checkbox"
                       checked={draft.isActive}
                       onChange={(event) => updateDraft((current) => ({ ...current, isActive: event.target.checked }))}
-                      className="h-4 w-4 rounded border-white/30 bg-slate-900 text-blue-500 focus:ring-0"
+                      className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
                     />
                     Form is active
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-slate-200">
+                  <label className="flex items-center gap-2 text-sm text-gray-900">
                     <input
                       type="checkbox"
                       checked={draft.requireAuth}
                       onChange={(event) => updateDraft((current) => ({ ...current, requireAuth: event.target.checked }))}
-                      className="h-4 w-4 rounded border-white/30 bg-slate-900 text-blue-500 focus:ring-0"
+                      className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
                     />
                     Require UMich login
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-slate-200">
+                  <label className="flex items-center gap-2 text-sm text-gray-900">
                     <input
                       type="checkbox"
                       checked={draft.allowMultiple}
                       onChange={(event) => updateDraft((current) => ({ ...current, allowMultiple: event.target.checked }))}
-                      className="h-4 w-4 rounded border-white/30 bg-slate-900 text-blue-500 focus:ring-0"
+                      className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
                     />
                     Allow multiple submissions
                   </label>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Category</label>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Category</label>
                     <input
                       type="text"
                       value={draft.category}
                       onChange={(event) => updateDraft((current) => ({ ...current, category: event.target.value }))}
-                      className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 bg-white hover:bg-gray-100 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-6 space-y-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">Notifications</h3>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-6 space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700">Notifications</h3>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Notification email</label>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Notification email</label>
                     <input
                       type="email"
                       value={draft.notificationConfig.email?.notificationEmail || ''}
@@ -1170,10 +1513,10 @@ export default function FormsAdminPage() {
                           },
                         }))
                       }
-                      className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 bg-white hover:bg-gray-100 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                     />
                   </div>
-                  <label className="flex items-center gap-2 text-sm text-slate-200">
+                  <label className="flex items-center gap-2 text-sm text-gray-900">
                     <input
                       type="checkbox"
                       checked={draft.notificationConfig.email?.notifyOnSubmission ?? true}
@@ -1189,32 +1532,37 @@ export default function FormsAdminPage() {
                           },
                         }))
                       }
-                      className="h-4 w-4 rounded border-white/30 bg-slate-900 text-blue-500 focus:ring-0"
+                      className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
                     />
                     Email on submission
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-slate-200">
+                  <label className="flex items-center gap-2 text-sm text-gray-900">
                     <input
                       type="checkbox"
                       checked={draft.notificationConfig.email?.sendReceiptToSubmitter ?? false}
-                      onChange={(event) =>
-                        updateDraft((current) => ({
-                          ...current,
-                          notificationConfig: {
-                            ...current.notificationConfig,
-                            email: {
-                              ...current.notificationConfig.email,
-                              sendReceiptToSubmitter: event.target.checked,
+                      onChange={(event) => {
+                        console.log('📧 Checkbox clicked! New value:', event.target.checked);
+                        updateDraft((current) => {
+                          const updated = {
+                            ...current,
+                            notificationConfig: {
+                              ...current.notificationConfig,
+                              email: {
+                                ...current.notificationConfig.email,
+                                sendReceiptToSubmitter: event.target.checked,
+                              },
                             },
-                          },
-                        }))
-                      }
-                      className="h-4 w-4 rounded border-white/30 bg-slate-900 text-blue-500 focus:ring-0"
+                          };
+                          console.log('📧 Updated draft sendReceiptToSubmitter:', updated.notificationConfig.email?.sendReceiptToSubmitter);
+                          return updated;
+                        });
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
                     />
                     Send receipt to submitter
                   </label>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Override Slack webhook (optional)</label>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Override Slack webhook (optional)</label>
                     <input
                       type="url"
                       value={draft.notificationConfig.slack?.webhookUrl || ''}
@@ -1230,61 +1578,61 @@ export default function FormsAdminPage() {
                           },
                         }))
                       }
-                      className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 bg-white hover:bg-gray-100 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                     />
-                    <p className="mt-1 text-xs text-slate-500">Leave blank to use the global webhook.</p>
+                    <p className="mt-1 text-xs text-gray-500">Leave blank to use the global webhook.</p>
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Slack recipients</h4>
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600">Slack recipients</h4>
                   {slackTargets.error ? (
-                    <p className="text-xs text-red-300">{slackTargets.error}</p>
+                    <p className="text-xs text-red-600">{slackTargets.error}</p>
                   ) : slackTargets.needsToken ? (
-                    <p className="text-xs text-slate-400">Set SLACK_BOT_TOKEN to list Slack channels and users.</p>
+                    <p className="text-xs text-gray-600">Set SLACK_BOT_TOKEN to list Slack channels and users.</p>
                   ) : (
                     <div className="space-y-3">
                       <div>
-                        <p className="text-xs font-semibold text-slate-400">Channels</p>
+                        <p className="text-xs font-semibold text-gray-600">Channels</p>
                         <div className="mt-2 grid gap-2 sm:grid-cols-2">
                           {slackTargets.channels.map((channel) => {
                             const selected = draft.notificationConfig.slack?.targets?.some((target) => target.id === channel.id);
                             return (
-                              <label key={channel.id} className="flex items-center gap-2 rounded border border-white/10 bg-slate-950 px-3 py-2 text-xs text-slate-200">
+                              <label key={channel.id} className="flex items-center gap-2 rounded border border-gray-200 bg-white hover:bg-gray-100 px-3 py-2 text-xs text-gray-900">
                                 <input
                                   type="checkbox"
                                   checked={selected}
                                   onChange={() => toggleSlackTarget(channel)}
-                                  className="h-4 w-4 rounded border-white/30 bg-slate-900 text-blue-500 focus:ring-0"
+                                  className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
                                 />
                                 #{channel.name || channel.id}
                               </label>
                             );
                           })}
                           {!slackTargets.channels.length && (
-                            <p className="text-xs text-slate-500">No channels returned.</p>
+                            <p className="text-xs text-gray-500">No channels returned.</p>
                           )}
                         </div>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold text-slate-400">Users</p>
+                        <p className="text-xs font-semibold text-gray-600">Users</p>
                         <div className="mt-2 grid gap-2 sm:grid-cols-2">
                           {slackTargets.users.map((user) => {
                             const selected = draft.notificationConfig.slack?.targets?.some((target) => target.id === user.id);
                             return (
-                              <label key={user.id} className="flex items-center gap-2 rounded border border-white/10 bg-slate-950 px-3 py-2 text-xs text-slate-200">
+                              <label key={user.id} className="flex items-center gap-2 rounded border border-gray-200 bg-white hover:bg-gray-100 px-3 py-2 text-xs text-gray-900">
                                 <input
                                   type="checkbox"
                                   checked={selected}
                                   onChange={() => toggleSlackTarget(user)}
-                                  className="h-4 w-4 rounded border-white/30 bg-slate-900 text-blue-500 focus:ring-0"
+                                  className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
                                 />
                                 {user.name || user.id}
                               </label>
                             );
                           })}
                           {!slackTargets.users.length && (
-                            <p className="text-xs text-slate-500">No users returned.</p>
+                            <p className="text-xs text-gray-500">No users returned.</p>
                           )}
                         </div>
                       </div>
@@ -1295,7 +1643,58 @@ export default function FormsAdminPage() {
             </div>
           )}
         </section>
+        </div>
       </main>
+
+      {/* Floating Action Buttons */}
+      {draft && (
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+          {/* Save Button */}
+          <button
+            onClick={handleSave}
+            disabled={!draft || saving}
+            className="inline-flex items-center gap-2 rounded-full bg-blue-500 px-6 py-3 text-sm font-medium text-white shadow-2xl hover:bg-blue-600 hover:shadow-3xl hover:scale-110 disabled:cursor-not-allowed disabled:bg-blue-500/50 disabled:hover:scale-100 transition-all duration-200"
+          >
+            {saving ? (
+              <>
+                <ArrowPathIcon className="h-5 w-5 animate-spin" /> Saving…
+              </>
+            ) : autoSaving ? (
+              <>
+                <ArrowPathIcon className="h-5 w-5 animate-spin" /> Auto-saving…
+              </>
+            ) : (
+              <>
+                <CheckCircleIcon className="h-5 w-5" /> Save
+              </>
+            )}
+          </button>
+          
+          {/* Copy Link & Open Buttons (only for existing forms) */}
+          {draft.id && (
+            <div className="flex gap-2">
+              <button
+                onClick={copyFormLink}
+                className="inline-flex items-center justify-center rounded-full bg-gray-700 p-3 text-white shadow-xl hover:bg-gray-600 hover:shadow-2xl hover:scale-110 transition-all duration-200"
+                title="Copy form link"
+              >
+                {showCopiedMessage ? (
+                  <CheckCircleIcon className="h-5 w-5 text-green-400" />
+                ) : (
+                  <ClipboardDocumentIcon className="h-5 w-5" />
+                )}
+              </button>
+              <button
+                onClick={openFormInNewTab}
+                className="inline-flex items-center justify-center rounded-full bg-gray-700 p-3 text-white shadow-xl hover:bg-gray-600 hover:shadow-2xl hover:scale-110 transition-all duration-200"
+                title="Open form in new tab"
+              >
+                <ArrowTopRightOnSquareIcon className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -4,9 +4,9 @@ import { MongoClient } from 'mongodb';
 import { isAdmin } from '@/lib/admin';
 
 const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri);
 
 export async function GET(request: NextRequest) {
+  const client = new MongoClient(uri);
   try {
     const session = await getServerSession();
     
@@ -59,8 +59,25 @@ export async function GET(request: NextRequest) {
       applications.map(async (app) => {
         const form = await formsCollection.findOne(
           { id: app.formId },
-          { projection: { title: 1, slug: 1, category: 1, questions: 1 } }
+          { projection: { title: 1, slug: 1, category: 1, questions: 1, sections: 1 } }
         );
+
+        // Build a question map from both sections and questions
+        const questionMap = new Map();
+        if (form?.sections && Array.isArray(form.sections)) {
+          form.sections.forEach((section: any) => {
+            if (Array.isArray(section.questions)) {
+              section.questions.forEach((q: any) => {
+                questionMap.set(q.id, q);
+              });
+            }
+          });
+        }
+        if (form?.questions && Array.isArray(form.questions)) {
+          form.questions.forEach((q: any) => {
+            questionMap.set(q.id, q);
+          });
+        }
 
         // Load reviewer info if application has been reviewed
         let reviewer = null;
@@ -75,8 +92,8 @@ export async function GET(request: NextRequest) {
         // Responses are now embedded in the application document
         // Transform them to match the expected format for the admin panel
         const responses = (app.responses || []).map((response: any, index: number) => {
-          // Find the question details from the form
-          const question = form?.questions?.find((q: any) => q.id === response.questionId);
+          // Find the question details from the form using the map
+          const question = questionMap.get(response.questionId);
           
           if (!question) {
             console.log(`Warning: Question not found for ID ${response.questionId} in form ${form?.title}`);
@@ -121,6 +138,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const client = new MongoClient(uri);
   try {
     const session = await getServerSession();
     

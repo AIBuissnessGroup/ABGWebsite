@@ -695,16 +695,72 @@ export default function FormsManager({
 
                 {/* Application Responses */}
                 <div className="space-y-2">
-                  {app.responses.map((response: any) => (
-                    <div key={response.id} className="text-sm">
-                      <span className="font-medium text-gray-900">{response.question.title}:</span>
-                      <span className="ml-2 text-gray-600">
-                        {response.textValue || response.numberValue || response.dateValue || 
-                         (response.booleanValue !== null ? (response.booleanValue ? 'Yes' : 'No') : '') ||
-                         response.selectedOptions || response.fileUrl || 'No answer'}
-                      </span>
-                    </div>
-                  ))}
+                  {app.responses.map((response: any) => {
+                    // Handle Matrix type specially
+                    if (response.question?.type === 'MATRIX') {
+                      console.log('Admin Matrix Response:', response);
+                      console.log('Admin Matrix Question:', response.question);
+                      let matrixValue: any[] = [];
+                      let matrixRows: string[] = [];
+                      
+                      try {
+                        if (Array.isArray(response.selectedOptions)) {
+                          matrixValue = response.selectedOptions;
+                        } else if (typeof response.selectedOptions === 'string') {
+                          matrixValue = JSON.parse(response.selectedOptions);
+                        }
+                      } catch (e) {
+                        matrixValue = [];
+                      }
+
+                      console.log('Admin Matrix Value:', matrixValue);
+
+                      // Get row labels
+                      if (Array.isArray(response.question?.matrixRows)) {
+                        matrixRows = response.question.matrixRows.filter((r: string) => r && r.trim());
+                      }
+                      
+                      console.log('Admin Matrix Rows:', matrixRows);
+                      
+                      // Fallback to generic labels if needed
+                      if (matrixRows.length === 0) {
+                        matrixRows = matrixValue.map((_, idx) => `Row ${idx + 1}`);
+                      }
+
+                      return (
+                        <div key={response.id} className="text-sm border-l-4 border-blue-500 pl-3 py-1">
+                          <span className="font-medium text-gray-900 block mb-2">{response.question.title}:</span>
+                          {matrixValue.length > 0 ? (
+                            <div className="ml-2 space-y-1">
+                              {matrixValue.map((columnSelection: any, idx: number) => (
+                                <div key={idx} className="text-gray-700 bg-gray-50 px-2 py-1 rounded">
+                                  <span className="font-semibold text-gray-900">
+                                    {matrixRows[idx] || `Row ${idx + 1}`}:
+                                  </span>{' '}
+                                  <span className="text-gray-600">
+                                    {columnSelection || '—'}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-gray-500 italic ml-2">No answer</span>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={response.id} className="text-sm">
+                        <span className="font-medium text-gray-900">{response.question.title}:</span>
+                        <span className="ml-2 text-gray-600">
+                          {response.textValue || response.numberValue || response.dateValue || 
+                           (response.booleanValue !== null ? (response.booleanValue ? 'Yes' : 'No') : '') ||
+                           response.selectedOptions || response.fileUrl || 'No answer'}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Admin Notes */}
