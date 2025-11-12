@@ -36,22 +36,30 @@ async function getTransporter() {
   }
 
   try {
-    // Create OAuth2 client
+    console.log('🔐 Gmail API Configuration:');
+    console.log('  Client ID:', clientId?.substring(0, 20) + '...');
+    console.log('  Refresh Token:', refreshToken?.substring(0, 20) + '...');
+    console.log('  User Email:', userEmail);
+
+    // Create OAuth2 client (redirect URI not needed for refresh token flow)
     const oauth2Client = new google.auth.OAuth2(
       clientId,
-      clientSecret,
-      'https://developers.google.com/oauthplayground' // Redirect URL used when getting refresh token
+      clientSecret
     );
 
     oauth2Client.setCredentials({
       refresh_token: refreshToken,
     });
 
-    // Get access token
+    console.log('🔑 Attempting to get Gmail API access token...');
+
+    // Get access token - this will automatically refresh if expired
     const accessToken = await oauth2Client.getAccessToken();
 
+    console.log('✅ Access token obtained:', accessToken.token?.substring(0, 30) + '...');
+
     if (!accessToken.token) {
-      console.error('Failed to obtain Gmail API access token');
+      console.error('❌ Failed to obtain Gmail API access token');
       return null;
     }
 
@@ -70,8 +78,14 @@ async function getTransporter() {
 
     cachedTransporter = transporter;
     return transporter;
-  } catch (error) {
-    console.error('Error creating Gmail API transporter:', error);
+  } catch (error: any) {
+    console.error('❌ Error creating Gmail API transporter:', error.message);
+    if (error.response?.data) {
+      console.error('   Response data:', JSON.stringify(error.response.data, null, 2));
+    }
+    if (error.code) {
+      console.error('   Error code:', error.code);
+    }
     return null;
   }
 }
