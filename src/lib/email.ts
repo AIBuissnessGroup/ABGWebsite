@@ -17,30 +17,122 @@ export interface FormReceiptOptions {
 
 let cachedTransporter: nodemailer.Transporter | null = null;
 
+/**
+ * Get email transporter with support for multiple providers.
+ * 
+ * IMPORTANT: Digital Ocean blocks outbound SMTP traffic on ports 25, 587, and 465.
+ * To use email on Digital Ocean, you MUST use one of these alternatives:
+ * 
+ * 1. SendGrid (Recommended - Free tier available):
+ *    - Set EMAIL_PROVIDER=sendgrid
+ *    - Set SENDGRID_API_KEY=your_api_key
+ *    - SMTP not blocked: Uses port 587 but with API key authentication
+ * 
+ * 2. AWS SES (Cost-effective for high volume):
+ *    - Set EMAIL_PROVIDER=ses
+ *    - Configure AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION)
+ * 
+ * 3. Mailgun (Alternative):
+ *    - Set EMAIL_PROVIDER=mailgun
+ *    - Set MAILGUN_API_KEY and MAILGUN_DOMAIN
+ * 
+ * 4. Gmail with App Password (Development/Low volume only):
+ *    - Set EMAIL_PROVIDER=gmail
+ *    - Set GMAIL_USER and GMAIL_APP_PASSWORD
+ *    - Note: Gmail has sending limits (500/day)
+ * 
+ * 5. Digital Ocean Managed SMTP:
+ *    - Contact DO support to enable SMTP on your droplet (usually requires business account)
+ *    - Set EMAIL_PROVIDER=smtp with standard SMTP settings
+ * 
+ * For legacy compatibility, SMTP settings without EMAIL_PROVIDER will use direct SMTP.
+ */
 function getTransporter() {
   if (cachedTransporter) {
     return cachedTransporter;
   }
 
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD;
+  const provider = process.env.EMAIL_PROVIDER?.toLowerCase() || 'smtp';
+  
+  try {
+    switch (provider) {
+      case 'sendgrid': {
+        // SendGrid SMTP relay - Works on Digital Ocean
+        const apiKey = process.env.SENDGRID_API_KEY;
+        if (!apiKey) {
+          console.warn('SENDGRID_API_KEY is not configured; email receipts will be skipped.');
+          return null;
+        }
+        
+        console.log('📧 Using SendGrid email provider');
+        cachedTransporter = nodemailer.createTransport({
+          host: 'smtp.sendgrid.net',
+          port: 587,
+          secure: false, // Use STARTTLS
+          auth: {
+            user: 'apikey', // This is literal string 'apikey'
+            pass: apiKey,
+          },
+        });
+        break;
+      }
+      
+      case 'gmail': {
+        // Gmail with App Password - Works anywhere but has daily limits
+        const user = process.env.GMAIL_USER;
+        const pass = process.env.GMAIL_APP_PASSWORD;
+        
+        if (!user || !pass) {
+          console.warn('GMAIL_USER or GMAIL_APP_PASSWORD not configured; email receipts will be skipped.');
+          return null;
+        }
+        
+        console.log('📧 Using Gmail email provider');
+        cachedTransporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: { user, pass },
+        });
+        break;
+      }
+      
+      case 'smtp':
+      default: {
+        // Direct SMTP - May not work on Digital Ocean without special configuration
+        const host = process.env.SMTP_HOST;
+        const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
+        const user = process.env.SMTP_USER;
+        const pass = process.env.SMTP_PASSWORD;
 
-  if (!host) {
-    console.warn('SMTP_HOST is not configured; email receipts will be skipped.');
+        if (!host) {
+          console.warn('⚠️  SMTP_HOST is not configured; email receipts will be skipped.');
+          console.warn('⚠️  Note: If using Digital Ocean, standard SMTP ports may be blocked.');
+          console.warn('⚠️  Consider using SendGrid (set EMAIL_PROVIDER=sendgrid) instead.');
+          return null;
+        }
+
+        console.log('📧 Using direct SMTP email provider');
+        console.log(`   Host: ${host}:${port}`);
+        if (provider === 'smtp' && host !== 'smtp.sendgrid.net' && host !== 'localhost') {
+          console.warn('⚠️  WARNING: Digital Ocean blocks outbound SMTP on ports 25, 587, 465.');
+          console.warn('⚠️  If emails fail to send, switch to SendGrid or another service.');
+          console.warn('⚠️  Set EMAIL_PROVIDER=sendgrid and SENDGRID_API_KEY to use SendGrid.');
+        }
+        
+        cachedTransporter = nodemailer.createTransport({
+          host,
+          port,
+          secure: process.env.SMTP_SECURE === 'true' || port === 465,
+          auth: user && pass ? { user, pass } : undefined,
+        });
+        break;
+      }
+    }
+    
+    return cachedTransporter;
+  } catch (error) {
+    console.error('❌ Failed to create email transporter:', error);
     return null;
   }
-
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: process.env.SMTP_SECURE === 'true' || port === 465,
-    auth: user && pass ? { user, pass } : undefined,
-  });
-
-  cachedTransporter = transporter;
-  return transporter;
 }
 
 export async function sendFormReceiptEmail(options: FormReceiptOptions) {

@@ -9,7 +9,8 @@
     "clean:force": "rimraf .next",
     "build": "npm run clean && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:email": "node scripts/test-email.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

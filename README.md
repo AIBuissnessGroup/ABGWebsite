@@ -152,6 +152,7 @@ Internet → Nginx (Port 80/443) → Next.js App (Port 3001) → MongoDB (Port 2
 - **Application System**: Recruitment and application forms
 - **Admin Dashboard**: Special access for leadership
 - **Member Directory**: User profiles and information
+- **Email Notifications**: Form submission receipts (SendGrid recommended)
 - **SMS Notifications**: Twilio integration for alerts
 - **Analytics**: Google Analytics tracking
 
@@ -160,6 +161,23 @@ Internet → Nginx (Port 80/443) → Next.js App (Port 3001) → MongoDB (Port 2
 - Twilio SMS
 - Google OAuth
 - MongoDB
+- Email Service (SendGrid/Gmail/SES)
+
+### ⚠️ Important: Email Configuration for Digital Ocean
+
+**Digital Ocean blocks outbound SMTP traffic by default!** If you're deploying to Digital Ocean, standard SMTP will not work. You must use an email service provider like SendGrid.
+
+**Quick Setup:**
+1. Sign up for SendGrid (free tier: 100 emails/day)
+2. Get your API key
+3. Add to `.env`:
+   ```
+   EMAIL_PROVIDER=sendgrid
+   SENDGRID_API_KEY=your-key-here
+   SMTP_FROM_EMAIL=notifications@abgumich.org
+   ```
+
+**For detailed setup instructions, see [docs/email-setup.md](./docs/email-setup.md)**
 
 ---
 
@@ -201,6 +219,7 @@ sudo journalctl -u abg-website -f
 ### Essential Links
 - **Repository**: AIBuissnessGroup/ABGWebsite
 - **Production Site**: https://abgumich.org
+- **Email setup guide**: [docs/email-setup.md](./docs/email-setup.md) ⚠️ **Important for Digital Ocean**
 - **Slack integration guide**: [docs/integrations/slack.md](./docs/integrations/slack.md)
 - **Next.js Docs**: https://nextjs.org/docs
 - **Tailwind Docs**: https://tailwindcss.com/docs
