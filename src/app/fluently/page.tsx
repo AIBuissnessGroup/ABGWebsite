@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import FloatingShapes from '../../components/FloatingShapes';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
@@ -10,6 +10,36 @@ import Team from '../../components/Team';
 import '../../app/globals.css';
 
 export default function FluentlyPage() {
+  // Load ABG team images to match headshots used on the Team page
+  const [teamImages, setTeamImages] = useState<Record<string, string | undefined>>({});
+
+  useEffect(() => {
+    const loadTeam = async () => {
+      try {
+        const res = await fetch('/api/public/team');
+        if (!res.ok) return;
+        const data: any[] = await res.json();
+        const names = [
+          'Julia Lotz',
+          'Nicholas Kozierowski',
+          'Michael Koury',
+          'Yashish Manohar',
+        ];
+        const map: Record<string, string | undefined> = {};
+        for (const name of names) {
+          const found = data.find(
+            (m: any) => m?.name && m.name.toLowerCase().trim() === name.toLowerCase()
+          );
+          if (found?.imageUrl) map[name] = found.imageUrl as string;
+        }
+        setTeamImages(map);
+      } catch (e) {
+        // ignore and fall back to initials
+        console.warn('Failed to load team images for Fluently page');
+      }
+    };
+    loadTeam();
+  }, []);
   return (
     <>
       <main 
@@ -140,7 +170,19 @@ export default function FluentlyPage() {
                 {/* Avatar */}
                 <div className="relative mb-6">
                   <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-[#BBBBBB]/30 to-[#5e6472]/30 border-4 border-white/20 overflow-hidden relative">
-                    <div className="w-full h-full bg-gradient-to-br from-[#00274c] to-[#1a2c45] flex items-center justify-center">
+                    {teamImages['Julia Lotz'] ? (
+                      <img
+                        src={teamImages['Julia Lotz']!}
+                        alt="Julia Lotz"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const t = e.target as HTMLImageElement;
+                          t.style.display = 'none';
+                          t.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-full h-full bg-gradient-to-br from-[#00274c] to-[#1a2c45] flex items-center justify-center ${teamImages['Julia Lotz'] ? 'hidden' : ''}`}>
                       <span className="text-2xl font-bold text-white">JL</span>
                     </div>
                   </div>
@@ -156,7 +198,19 @@ export default function FluentlyPage() {
               <div className="glass-card p-8 text-center group glow-on-hover">
                 <div className="relative mb-6">
                   <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-[#BBBBBB]/30 to-[#5e6472]/30 border-4 border-white/20 overflow-hidden relative">
-                    <div className="w-full h-full bg-gradient-to-br from-[#00274c] to-[#1a2c45] flex items-center justify-center">
+                    {teamImages['Nicholas Kozierowski'] ? (
+                      <img
+                        src={teamImages['Nicholas Kozierowski']!}
+                        alt="Nicholas Kozierowski"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const t = e.target as HTMLImageElement;
+                          t.style.display = 'none';
+                          t.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-full h-full bg-gradient-to-br from-[#00274c] to-[#1a2c45] flex items-center justify-center ${teamImages['Nicholas Kozierowski'] ? 'hidden' : ''}`}>
                       <span className="text-2xl font-bold text-white">NK</span>
                     </div>
                   </div>
@@ -171,7 +225,19 @@ export default function FluentlyPage() {
               <div className="glass-card p-8 text-center group glow-on-hover">
                 <div className="relative mb-6">
                   <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-[#BBBBBB]/30 to-[#5e6472]/30 border-4 border-white/20 overflow-hidden relative">
-                    <div className="w-full h-full bg-gradient-to-br from-[#00274c] to-[#1a2c45] flex items-center justify-center">
+                    {teamImages['Michael Koury'] ? (
+                      <img
+                        src={teamImages['Michael Koury']!}
+                        alt="Michael Koury"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const t = e.target as HTMLImageElement;
+                          t.style.display = 'none';
+                          t.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-full h-full bg-gradient-to-br from-[#00274c] to-[#1a2c45] flex items-center justify-center ${teamImages['Michael Koury'] ? 'hidden' : ''}`}>
                       <span className="text-2xl font-bold text-white">MK</span>
                     </div>
                   </div>
@@ -179,14 +245,26 @@ export default function FluentlyPage() {
                 <div className="space-y-3">
                   <h3 className="heading-secondary text-xl text-white">Michael Koury</h3>
                   <p className="text-[#BBBBBB] font-bold text-sm">Business Analyst</p>
-                  <p className="text-[#5e6472] text-sm">Strategy & Operations</p>
+                  <p className="text-[#5e6472] text-sm">Market Research</p>
                 </div>
               </div>
 
               <div className="glass-card p-8 text-center group glow-on-hover">
                 <div className="relative mb-6">
                   <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-[#BBBBBB]/30 to-[#5e6472]/30 border-4 border-white/20 overflow-hidden relative">
-                    <div className="w-full h-full bg-gradient-to-br from-[#00274c] to-[#1a2c45] flex items-center justify-center">
+                    {teamImages['Yashish Manohar'] ? (
+                      <img
+                        src={teamImages['Yashish Manohar']!}
+                        alt="Yashish Manohar"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const t = e.target as HTMLImageElement;
+                          t.style.display = 'none';
+                          t.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-full h-full bg-gradient-to-br from-[#00274c] to-[#1a2c45] flex items-center justify-center ${teamImages['Yashish Manohar'] ? 'hidden' : ''}`}>
                       <span className="text-2xl font-bold text-white">YM</span>
                     </div>
                   </div>
@@ -194,7 +272,7 @@ export default function FluentlyPage() {
                 <div className="space-y-3">
                   <h3 className="heading-secondary text-xl text-white">Yashish Manohar</h3>
                   <p className="text-[#BBBBBB] font-bold text-sm">Business Analyst</p>
-                  <p className="text-[#5e6472] text-sm">Market Research</p>
+                  <p className="text-[#5e6472] text-sm">Strategy & Operations</p>
                 </div>
               </div>
             </div>
@@ -211,6 +289,5 @@ export default function FluentlyPage() {
       </main>
       <Footer />
     </>
-  // ...existing code...
   );
 }
