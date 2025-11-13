@@ -306,3 +306,88 @@ Focused Contributors (5-10)
 **Welcome to the ABG Tech Committee! 🎉**
 
 Questions? Reach out on Slack: #tech-committee
+
+---
+
+## 🔐 Project-Startup API Integration
+
+### Overview
+The Project-Startup functionality from the Python repository has been converted to TypeScript and integrated as a secure server-side API with a demo page.
+
+### Files Added
+- `src/lib/projectStartup.ts` - Core library with three async functions (generateStartupPlan, getInterviewHelp, ingestText)
+- `src/app/api/project-startup/route.ts` - Next.js API route handler
+- `src/app/project-startup/page.tsx` - Demo UI page at `/project-startup`
+
+### OPENAI_API_KEY Configuration
+
+**IMPORTANT SECURITY NOTES:**
+
+1. **No API keys are hardcoded** in this repository. The code uses `process.env.OPENAI_API_KEY` for the AI provider key.
+
+2. **Mock Responses**: When `OPENAI_API_KEY` is not set, the API returns deterministic mock responses so the site remains functional in development without secrets.
+
+3. **Key Rotation Required**: If you have access to the original AIBuissnessGroup/Project-Startup repository:
+   - **DO NOT copy any API keys found there into this repository**
+   - **IMMEDIATELY rotate/revoke any OpenAI API keys discovered in Project-Startup**
+   - The old keys may have been exposed in git history or logs
+
+4. **Proper Key Storage**:
+   - Store replacement API keys as environment variables in `.env.local` for development
+   - Add keys to GitHub Secrets for CI/CD pipelines
+   - Never commit API keys to version control
+   - Add `.env.local` to `.gitignore` if not already present
+
+### Setting Up for Local Development
+
+1. Create a `.env.local` file in the project root (if it doesn't exist):
+   ```bash
+   OPENAI_API_KEY=your_new_key_here
+   ```
+
+2. Or run without the key to use mock responses:
+   ```bash
+   npm run dev
+   ```
+
+3. Visit `http://localhost:3001/project-startup` to test the demo page
+
+### API Usage
+
+**Endpoint**: `POST /api/project-startup`
+
+**Actions**:
+- `generate` - Generate a startup plan (requires `payload.idea`)
+- `interview` - Get interview questions (optional `payload.role`, `payload.level`)
+- `read` - Summarize text (requires `payload.text`)
+
+**Example Request**:
+```json
+{
+  "action": "generate",
+  "payload": {
+    "idea": "A platform connecting students with local businesses",
+    "stage": "early"
+  }
+}
+```
+
+**Response Format**:
+```json
+{
+  "ok": true,
+  "data": {
+    "provider": "openai" | "mock",
+    "plan": "...",
+    "raw": { /* OpenAI response payload */ }
+  }
+}
+```
+
+### Security Best Practices
+
+- **Never** share API keys in Slack, Discord, or public channels
+- **Rotate keys** immediately if accidentally exposed
+- **Use GitHub Secrets** for production deployments
+- **Monitor API usage** for unexpected spikes that might indicate key compromise
+- **Set spending limits** in your OpenAI account to prevent abuse
