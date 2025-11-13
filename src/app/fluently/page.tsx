@@ -7,11 +7,13 @@ import Link from 'next/link';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
 import Team from '../../components/Team';
+import ProjectStartupModal from '../../components/ProjectStartupModal';
 import '../../app/globals.css';
 
 export default function FluentlyPage() {
   // Load ABG team images to match headshots used on the Team page
   const [teamImages, setTeamImages] = useState<Record<string, string | undefined>>({});
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const loadTeam = async () => {
@@ -41,6 +43,7 @@ export default function FluentlyPage() {
     };
     loadTeam();
   }, []);
+
   return (
     <>
       <main 
@@ -103,9 +106,12 @@ export default function FluentlyPage() {
             <h1 className="text-5xl md:text-7xl font-bold mb-3 text-center">Fluently</h1>
             <p className="text-2xl md:text-3xl mb-2 text-center text-blue-200 font-medium">AI-Powered Interview and Job-Matching App</p>
             <p className="text-xl md:text-2xl mb-6 text-center text-blue-300">Making language a bridge, not a barrier.</p>
-            <Link href="https://fluently-demo.com" target="_blank">
-              <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg text-lg shadow transition">Try Now</button>
-            </Link>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg text-lg shadow transition"
+            >
+              Try Now
+            </button>
           </section>
 
           {/* Main Content Grid */}
@@ -308,14 +314,20 @@ export default function FluentlyPage() {
 
           {/* Try Fluently CTA */}
           <section className="w-full flex flex-col items-center py-12 relative z-10">
-            <Link href="https://fluently-demo.com" target="_blank">
-              <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-10 rounded-lg text-xl shadow transition">Try Fluently Now</button>
-            </Link>
-            <p className="mt-4 text-blue-200 text-center">Experience Fluently’s AI-powered interview simulation.</p>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-10 rounded-lg text-xl shadow transition"
+            >
+              Try Fluently Now
+            </button>
+            <p className="mt-4 text-blue-200 text-center">Experience Fluently's AI-powered interview simulation.</p>
           </section>
         </div>
       </main>
       <Footer />
+      
+      {/* Project Startup Modal */}
+      <ProjectStartupModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </>
   );
 }
