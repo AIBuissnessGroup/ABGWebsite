@@ -24,6 +24,7 @@ export default function FluentlyPage() {
           'Nicholas Kozierowski',
           'Michael Koury',
           'Yashish Manohar',
+          'Haven Gier',
         ];
         const map: Record<string, string | undefined> = {};
         for (const name of names) {
@@ -165,7 +166,7 @@ export default function FluentlyPage() {
           {/* Team Section */}
           <section className="mb-12">
             <h2 className="text-2xl font-semibold mb-8 text-center">Team</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
               <div className="glass-card p-8 text-center group glow-on-hover">
                 {/* Avatar */}
                 <div className="relative mb-6">
@@ -273,6 +274,33 @@ export default function FluentlyPage() {
                   <h3 className="heading-secondary text-xl text-white">Yashish Manohar</h3>
                   <p className="text-[#BBBBBB] font-bold text-sm">Business Analyst</p>
                   <p className="text-[#5e6472] text-sm">Strategy & Operations</p>
+                </div>
+              </div>
+
+              <div className="glass-card p-8 text-center group glow-on-hover">
+                <div className="relative mb-6">
+                  <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-[#BBBBBB]/30 to-[#5e6472]/30 border-4 border-white/20 overflow-hidden relative">
+                    {teamImages['Haven Gier'] ? (
+                      <img
+                        src={teamImages['Haven Gier']!}
+                        alt="Haven Gier"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const t = e.target as HTMLImageElement;
+                          t.style.display = 'none';
+                          t.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-full h-full bg-gradient-to-br from-[#00274c] to-[#1a2c45] flex items-center justify-center ${teamImages['Haven Gier'] ? 'hidden' : ''}`}>
+                      <span className="text-2xl font-bold text-white">HG</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <h3 className="heading-secondary text-xl text-white">Haven Gier</h3>
+                  <p className="text-[#BBBBBB] font-bold text-sm">Engineering Analyst</p>
+                  <p className="text-[#5e6472] text-sm">Software Engineer</p>
                 </div>
               </div>
             </div>
