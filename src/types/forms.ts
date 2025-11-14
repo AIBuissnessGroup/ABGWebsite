@@ -10,7 +10,8 @@ export type FormNotificationConfig = {
     targets?: SlackTargetOption[];
   };
   email?: {
-    notificationEmail?: string;
+    notificationEmails?: string[]; // Changed to array to support multiple emails
+    notificationEmail?: string; // Keep for backward compatibility
     notifyOnSubmission?: boolean;
     sendReceiptToSubmitter?: boolean;
   };

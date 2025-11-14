@@ -208,9 +208,25 @@ function normalizeForm(form: FormRecord): FormDraft {
         targets: form.notificationConfig?.slack?.targets ?? [],
       },
       email: {
+        notificationEmails: form.notificationConfig?.email?.notificationEmails ?? 
+          (form.notificationConfig?.email?.notificationEmail ? [form.notificationConfig.email.notificationEmail] : 
+          (form.notificationEmail ? [form.notificationEmail] : [])),
         notificationEmail: form.notificationConfig?.email?.notificationEmail ?? form.notificationEmail ?? '',
         notifyOnSubmission: form.notificationConfig?.email?.notifyOnSubmission ?? form.notifyOnSubmission ?? true,
-        sendReceiptToSubmitter: form.notificationConfig?.email?.sendReceiptToSubmitter ?? form.sendReceiptToSubmitter ?? false,
+        sendReceiptToSubmitter: (() => {
+          console.log('🔍 normalizeForm checking sendReceiptToSubmitter for form:', form.title);
+          console.log('🔍 Nested value:', form.notificationConfig?.email?.sendReceiptToSubmitter, 'Type:', typeof form.notificationConfig?.email?.sendReceiptToSubmitter);
+          console.log('🔍 Top-level value:', form.sendReceiptToSubmitter, 'Type:', typeof form.sendReceiptToSubmitter);
+          
+          const result = typeof form.notificationConfig?.email?.sendReceiptToSubmitter === 'boolean'
+            ? form.notificationConfig.email.sendReceiptToSubmitter
+            : typeof form.sendReceiptToSubmitter === 'boolean'
+              ? form.sendReceiptToSubmitter
+              : false;
+          
+          console.log('🔍 Final normalized value:', result);
+          return result;
+        })(),
       },
     },
     sections: sections.map((section: any, index: number) => ({
@@ -236,7 +252,7 @@ function createEmptyDraft(): FormDraft {
     textColor: '#ffffff',
     notificationConfig: {
       slack: { webhookUrl: null, targets: [] },
-      email: { notificationEmail: '', notifyOnSubmission: true, sendReceiptToSubmitter: false },
+      email: { notificationEmails: [], notificationEmail: '', notifyOnSubmission: true, sendReceiptToSubmitter: false },
     },
     sections: [
       {
@@ -305,6 +321,10 @@ export default function FormsAdminPage() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
+  const isUpdatingRef = useRef(false);
+  const draftRef = useRef<FormDraft | null>(null);
+  const [availableUsers, setAvailableUsers] = useState<Array<{ email: string; name?: string }>>([]);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -319,6 +339,7 @@ export default function FormsAdminPage() {
     }
     void loadForms();
     void loadSlackTargets();
+    void loadUsers();
   }, [session, status]);
 
   useEffect(() => {
@@ -334,11 +355,20 @@ export default function FormsAdminPage() {
       setDraft(createEmptyDraft());
       return;
     }
+    // Don't overwrite draft if we're currently saving/updating
+    if (isUpdatingRef.current) {
+      return;
+    }
     const record = forms.find((form) => form.id === selectedFormId);
     if (record) {
       setDraft(normalizeForm(record));
     }
   }, [forms, selectedFormId]);
+
+  // Keep draftRef in sync with draft state
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
 
   useEffect(() => {
     if (activeTab === 'responses' && draft?.id) {
@@ -439,6 +469,25 @@ export default function FormsAdminPage() {
     } catch (error) {
       console.error('Failed to fetch Slack targets:', error);
       setSlackTargets({ channels: [], users: [], needsToken: false, error: 'Unable to load Slack options.' });
+    }
+  }
+
+  async function loadUsers() {
+    try {
+      console.log('Fetching users from /api/admin/forms/users...');
+      const res = await fetch('/api/admin/forms/users');
+      console.log('Users API response status:', res.status);
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Failed to load users' }));
+        console.error('Users API error:', error);
+        throw new Error(error.error || 'Failed to load users');
+      }
+      const data = await res.json();
+      console.log('Users loaded:', data.length, 'users');
+      setAvailableUsers(data);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      setAvailableUsers([]);
     }
   }
 
@@ -620,9 +669,17 @@ export default function FormsAdminPage() {
       setSaveError('A form title is required.');
       return;
     }
+    
+    // Cancel any pending autosave since we're doing a manual save
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    
     setSaving(true);
     setSaveMessage(null);
     setSaveError(null);
+    isUpdatingRef.current = true;
 
     const payload = {
       id: draft.id,
@@ -654,8 +711,12 @@ export default function FormsAdminPage() {
       notificationConfig: draft.notificationConfig,
       notifyOnSubmission: draft.notificationConfig.email?.notifyOnSubmission ?? true,
       notificationEmail: draft.notificationConfig.email?.notificationEmail || '',
+      notificationEmails: draft.notificationConfig.email?.notificationEmails || [],
       sendReceiptToSubmitter: draft.notificationConfig.email?.sendReceiptToSubmitter ?? false,
     };
+
+    console.log('📧 Frontend sending sendReceiptToSubmitter:', payload.sendReceiptToSubmitter);
+    console.log('📧 Frontend draft value:', draft.notificationConfig.email?.sendReceiptToSubmitter);
 
     try {
       const isUpdate = Boolean(draft.id);
@@ -670,14 +731,27 @@ export default function FormsAdminPage() {
       }
       const saved = await res.json();
       setSaveMessage(isUpdate ? 'Form updated.' : 'Form created.');
-      setSelectedFormId(saved.id);
-      await loadForms();
-      setActiveTab('questions');
+      
+      // If creating a new form, update the draft with the saved ID and switch to it
+      if (!isUpdate) {
+        setDraft((current) => current ? { ...current, id: saved.id } : current);
+        setSelectedFormId(saved.id);
+        // Reload forms list in background to update sidebar (with small delay to avoid connection pool issues)
+        setTimeout(() => {
+          loadForms().catch(console.error);
+        }, 500);
+      }
+      
+      // Don't switch tabs after saving - stay on current tab
     } catch (error) {
       console.error('Error saving form:', error);
       setSaveError(error instanceof Error ? error.message : 'Failed to save form.');
     } finally {
       setSaving(false);
+      // Keep the flag set for a bit longer to prevent race conditions
+      setTimeout(() => {
+        isUpdatingRef.current = false;
+      }, 1000);
       setTimeout(() => {
         setSaveMessage(null);
         setSaveError(null);
@@ -691,21 +765,23 @@ export default function FormsAdminPage() {
     }
     
     autoSaveTimerRef.current = setTimeout(async () => {
-      if (!draft || !draft.id) return; // Only autosave existing forms
+      const currentDraft = draftRef.current;
+      if (!currentDraft || !currentDraft.id) return; // Only autosave existing forms
       
       setAutoSaving(true);
+      isUpdatingRef.current = true;
       try {
         const payload = {
-          id: draft.id,
-          title: draft.title,
-          description: draft.description,
-          category: draft.category,
-          isActive: draft.isActive,
-          allowMultiple: draft.allowMultiple,
-          requireAuth: draft.requireAuth,
-          backgroundColor: draft.backgroundColor,
-          textColor: draft.textColor,
-          sections: draft.sections.map((section, sectionIndex) => ({
+          id: currentDraft.id,
+          title: currentDraft.title,
+          description: currentDraft.description,
+          category: currentDraft.category,
+          isActive: currentDraft.isActive,
+          allowMultiple: currentDraft.allowMultiple,
+          requireAuth: currentDraft.requireAuth,
+          backgroundColor: currentDraft.backgroundColor,
+          textColor: currentDraft.textColor,
+          sections: currentDraft.sections.map((section, sectionIndex) => ({
             id: section.id,
             title: section.title,
             description: section.description,
@@ -722,13 +798,14 @@ export default function FormsAdminPage() {
               order: questionIndex,
             })),
           })),
-          notificationConfig: draft.notificationConfig,
-          notifyOnSubmission: draft.notificationConfig.email?.notifyOnSubmission ?? true,
-          notificationEmail: draft.notificationConfig.email?.notificationEmail || '',
-          sendReceiptToSubmitter: draft.notificationConfig.email?.sendReceiptToSubmitter ?? false,
+          notificationConfig: currentDraft.notificationConfig,
+          notifyOnSubmission: currentDraft.notificationConfig.email?.notifyOnSubmission ?? true,
+          notificationEmail: currentDraft.notificationConfig.email?.notificationEmail || '',
+          notificationEmails: currentDraft.notificationConfig.email?.notificationEmails || [],
+          sendReceiptToSubmitter: currentDraft.notificationConfig.email?.sendReceiptToSubmitter ?? false,
         };
 
-        const res = await fetch(`/api/admin/forms?id=${draft.id}`, {
+        const res = await fetch(`/api/admin/forms?id=${currentDraft.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -741,9 +818,13 @@ export default function FormsAdminPage() {
         console.error('Autosave error:', error);
       } finally {
         setAutoSaving(false);
+        // Keep the flag set for a bit longer to prevent race conditions
+        setTimeout(() => {
+          isUpdatingRef.current = false;
+        }, 1000);
       }
     }, 2000); // Wait 2 seconds after last change
-  }, [draft]);
+  }, []); // Remove draft from dependencies
 
   const copyFormLink = useCallback(() => {
     if (!draft?.id) return;
@@ -1495,72 +1576,127 @@ export default function FormsAdminPage() {
 
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-6 space-y-4">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700">Notifications</h3>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-4">
                   <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Notification email</label>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">
+                      Notification emails
+                    </label>
+                    <p className="mb-2 text-xs text-gray-500">Select users to notify when form is submitted</p>
+                    
+                    {/* Search input */}
                     <input
-                      type="email"
-                      value={draft.notificationConfig.email?.notificationEmail || ''}
-                      onChange={(event) =>
-                        updateDraft((current) => ({
-                          ...current,
-                          notificationConfig: {
-                            ...current.notificationConfig,
-                            email: {
-                              ...current.notificationConfig.email,
-                              notificationEmail: event.target.value,
-                            },
-                          },
-                        }))
-                      }
-                      className="w-full rounded-lg border border-gray-200 bg-white hover:bg-gray-100 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+                      type="text"
+                      placeholder="Search admins by name or email..."
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                      className="w-full mb-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
                     />
+                    
+                    <div className="max-h-48 overflow-y-auto space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+                      {availableUsers.length === 0 ? (
+                        <p className="text-xs text-gray-500">Loading admin users... If this persists, check console for errors.</p>
+                      ) : (
+                        availableUsers
+                          .filter((user) => {
+                            if (!userSearchTerm.trim()) return true;
+                            const search = userSearchTerm.toLowerCase();
+                            return (
+                              user.email.toLowerCase().includes(search) ||
+                              (user.name?.toLowerCase() || '').includes(search)
+                            );
+                          })
+                          .map((user) => {
+                            const isSelected = draft.notificationConfig.email?.notificationEmails?.includes(user.email) ?? false;
+                            return (
+                              <label
+                                key={user.email}
+                                className="flex items-center gap-2 rounded border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 text-sm text-gray-900 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    const emails = draft.notificationConfig.email?.notificationEmails || [];
+                                    const newEmails = e.target.checked
+                                      ? [...emails, user.email]
+                                      : emails.filter((email) => email !== user.email);
+                                    updateDraft((current) => ({
+                                      ...current,
+                                      notificationConfig: {
+                                        ...current.notificationConfig,
+                                        email: {
+                                          ...current.notificationConfig.email,
+                                          notificationEmails: newEmails,
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
+                                />
+                                <div className="flex-1">
+                                  <div className="font-medium">{user.name || 'Unnamed User'}</div>
+                                  <div className="text-xs text-gray-500">{user.email}</div>
+                                </div>
+                              </label>
+                            );
+                          })
+                      )}
+                    </div>
+                    {draft.notificationConfig.email?.notificationEmails && draft.notificationConfig.email.notificationEmails.length > 0 && (
+                      <p className="mt-2 text-xs text-gray-600">
+                        {draft.notificationConfig.email.notificationEmails.length} email(s) selected
+                      </p>
+                    )}
                   </div>
-                  <label className="flex items-center gap-2 text-sm text-gray-900">
-                    <input
-                      type="checkbox"
-                      checked={draft.notificationConfig.email?.notifyOnSubmission ?? true}
-                      onChange={(event) =>
-                        updateDraft((current) => ({
-                          ...current,
-                          notificationConfig: {
-                            ...current.notificationConfig,
-                            email: {
-                              ...current.notificationConfig.email,
-                              notifyOnSubmission: event.target.checked,
-                            },
-                          },
-                        }))
-                      }
-                      className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
-                    />
-                    Email on submission
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-gray-900">
-                    <input
-                      type="checkbox"
-                      checked={draft.notificationConfig.email?.sendReceiptToSubmitter ?? false}
-                      onChange={(event) => {
-                        console.log('📧 Checkbox clicked! New value:', event.target.checked);
-                        updateDraft((current) => {
-                          const updated = {
+                  
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="flex items-center gap-2 text-sm text-gray-900">
+                      <input
+                        type="checkbox"
+                        checked={draft.notificationConfig.email?.notifyOnSubmission ?? true}
+                        onChange={(event) =>
+                          updateDraft((current) => ({
                             ...current,
                             notificationConfig: {
                               ...current.notificationConfig,
                               email: {
                                 ...current.notificationConfig.email,
-                                sendReceiptToSubmitter: event.target.checked,
+                                notifyOnSubmission: event.target.checked,
                               },
                             },
-                          };
-                          console.log('📧 Updated draft sendReceiptToSubmitter:', updated.notificationConfig.email?.sendReceiptToSubmitter);
-                          return updated;
-                        });
-                      }}
-                      className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
-                    />
-                    Send receipt to submitter
-                  </label>
+                          }))
+                        }
+                        className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
+                      />
+                      Email on submission
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-900">
+                      <input
+                        type="checkbox"
+                        checked={draft.notificationConfig.email?.sendReceiptToSubmitter ?? false}
+                        onChange={(event) => {
+                          console.log('📧 Checkbox clicked! New value:', event.target.checked);
+                          updateDraft((current) => {
+                            const updated = {
+                              ...current,
+                              notificationConfig: {
+                                ...current.notificationConfig,
+                                email: {
+                                  ...current.notificationConfig.email,
+                                  sendReceiptToSubmitter: event.target.checked,
+                                },
+                              },
+                            };
+                            console.log('📧 Updated draft sendReceiptToSubmitter:', updated.notificationConfig.email?.sendReceiptToSubmitter);
+                            return updated;
+                          });
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
+                      />
+                      Send receipt to submitter
+                    </label>
+                  </div>
+                  
                   <div>
                     <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Override Slack webhook (optional)</label>
                     <input

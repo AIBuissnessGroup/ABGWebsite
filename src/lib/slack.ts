@@ -285,7 +285,7 @@ export async function notifyFormSubmission(params: {
     applicantPhone ? `\n• Phone: ${applicantPhone}` : ''
   }`;
 
-  const messageBlocks = [
+  const messageBlocks: any[] = [
     {
       type: 'section',
       text: {
@@ -313,6 +313,58 @@ export async function notifyFormSubmission(params: {
       ].filter(Boolean),
     },
   ];
+
+  // Add responses to the message blocks (limit to first 10 for readability)
+  if (responses.length > 0) {
+    const responsesToShow = responses.slice(0, 10);
+    const responseFields: any[] = [];
+    
+    responsesToShow.forEach((response) => {
+      let displayValue = response.value;
+
+      if (typeof displayValue === 'object') {
+        if (displayValue?.fileName && displayValue?.fileData) {
+          const baseUrl = process.env.NEXTAUTH_URL || 'https://abgumich.org';
+          const fileUrl = `${baseUrl}/api/files/${applicationId}/${response.questionId}`;
+          const fileSize = displayValue.fileSize ? ` (${formatFileSize(displayValue.fileSize)})` : '';
+          displayValue = `📎 <${fileUrl}|${displayValue.fileName}>${fileSize}`;
+        } else if (Array.isArray(displayValue)) {
+          displayValue = displayValue.join(', ');
+        } else {
+          displayValue = JSON.stringify(displayValue);
+        }
+      }
+
+      if (typeof displayValue === 'string' && displayValue.length > 200) {
+        displayValue = displayValue.substring(0, 197) + '...';
+      }
+
+      responseFields.push({
+        type: 'mrkdwn',
+        text: `*${response.questionTitle}*\n${String(displayValue || '_No answer_')}`,
+      });
+    });
+
+    // Add responses in batches of 10 (Slack limit)
+    for (let i = 0; i < responseFields.length; i += 10) {
+      messageBlocks.push({
+        type: 'section',
+        fields: responseFields.slice(i, i + 10),
+      });
+    }
+
+    if (responses.length > 10) {
+      messageBlocks.push({
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: `_...and ${responses.length - 10} more response(s)_`,
+          },
+        ],
+      });
+    }
+  }
 
   if (submissionUrl) {
     messageBlocks.push({
