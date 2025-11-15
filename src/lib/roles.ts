@@ -10,7 +10,19 @@ export const USER_ROLES: UserRole[] = [
   'GENERAL_MEMBER',
   'ROUND1',
   'ROUND2',
-  'SPECIAL_PRIVS'
+  'SPECIAL_PRIVS',
+  'PRESIDENT',
+  'VP_EXTERNAL',
+  'VP_OPERATIONS',
+  'VP_EDUCATION',
+  'VP_MARKETING',
+  'VP_CONFERENCES',
+  'VP_FINANCE',
+  'VP_COMMUNITY',
+  'VP_SPONSORSHIPS',
+  'VP_RECRUITMENT',
+  'VP_TECHNOLOGY',
+  'ADVISOR'
 ];
 
 /**
@@ -32,6 +44,34 @@ export function hasAnyRole(userRoles: UserRole[], requiredRoles: UserRole[]): bo
  */
 export function isAdmin(userRoles: UserRole[]): boolean {
   return userRoles.includes('ADMIN');
+}
+
+/**
+ * Check if a user is an executive board member
+ */
+export function isExecutiveBoard(userRoles: UserRole[]): boolean {
+  const execRoles: UserRole[] = [
+    'PRESIDENT',
+    'VP_EXTERNAL',
+    'VP_OPERATIONS',
+    'VP_EDUCATION',
+    'VP_MARKETING',
+    'VP_CONFERENCES',
+    'VP_FINANCE',
+    'VP_COMMUNITY',
+    'VP_SPONSORSHIPS',
+    'VP_RECRUITMENT',
+    'VP_TECHNOLOGY',
+    'ADVISOR'
+  ];
+  return hasAnyRole(userRoles, execRoles);
+}
+
+/**
+ * Check if a user has admin or executive board privileges
+ */
+export function hasAdminOrExecAccess(userRoles: UserRole[]): boolean {
+  return isAdmin(userRoles) || isExecutiveBoard(userRoles);
 }
 
 /**
@@ -58,7 +98,19 @@ export function getRoleDisplayName(role: UserRole): string {
     'GENERAL_MEMBER': 'General Member',
     'ROUND1': 'Round 1 Member',
     'ROUND2': 'Round 2 Member',
-    'SPECIAL_PRIVS': 'Special Privileges'
+    'SPECIAL_PRIVS': 'Special Privileges',
+    'PRESIDENT': 'President',
+    'VP_EXTERNAL': 'VP External Affairs',
+    'VP_OPERATIONS': 'VP Operations',
+    'VP_EDUCATION': 'VP Education',
+    'VP_MARKETING': 'VP Marketing',
+    'VP_CONFERENCES': 'VP Conferences',
+    'VP_FINANCE': 'VP Finance',
+    'VP_COMMUNITY': 'VP Community Engagement',
+    'VP_SPONSORSHIPS': 'VP Sponsorships',
+    'VP_RECRUITMENT': 'VP Recruitment',
+    'VP_TECHNOLOGY': 'VP Technology',
+    'ADVISOR': 'Advisor'
   };
   
   return roleNames[role] || role;
