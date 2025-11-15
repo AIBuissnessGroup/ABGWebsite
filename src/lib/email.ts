@@ -17,6 +17,7 @@ export interface FormReceiptOptions {
 }
 
 let cachedGmailClient: any | null = null;
+let cachedDriveClient: any | null = null;
 
 async function getGmailClient() {
   if (cachedGmailClient) {
@@ -47,6 +48,93 @@ async function getGmailClient() {
     return null;
   }
 }
+
+async function getDriveClient() {
+  if (cachedDriveClient) {
+    return cachedDriveClient;
+  }
+
+  const clientId = process.env.GMAIL_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    console.error('❌ Google Drive API credentials not configured');
+    return null;
+  }
+
+  try {
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    
+    cachedDriveClient = drive;
+    console.log('✅ Google Drive API client initialized');
+    return drive;
+  } catch (error: any) {
+    console.error('❌ Error creating Google Drive API client:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Upload a file to Google Drive and return a shareable link
+ */
+export async function uploadToDrive(
+  filename: string,
+  content: string,
+  mimeType: string = 'application/octet-stream'
+): Promise<{ fileId: string; webViewLink: string; webContentLink: string } | null> {
+  try {
+    const drive = await getDriveClient();
+    if (!drive) {
+      throw new Error('Drive client not available');
+    }
+
+    // Convert base64 to buffer
+    const buffer = Buffer.from(content, 'base64');
+
+    // Upload file
+    const fileMetadata = {
+      name: filename,
+    };
+
+    const media = {
+      mimeType,
+      body: require('stream').Readable.from(buffer),
+    };
+
+    const file = await drive.files.create({
+      requestBody: fileMetadata,
+      media: media,
+      fields: 'id, webViewLink, webContentLink',
+    });
+
+    const fileId = file.data.id;
+    
+    // Make the file publicly accessible (anyone with link can view)
+    await drive.permissions.create({
+      fileId: fileId,
+      requestBody: {
+        role: 'reader',
+        type: 'anyone',
+      },
+    });
+
+    console.log(`✅ Uploaded ${filename} to Google Drive: ${file.data.webViewLink}`);
+
+    return {
+      fileId: fileId!,
+      webViewLink: file.data.webViewLink!,
+      webContentLink: file.data.webContentLink!,
+    };
+  } catch (error: any) {
+    console.error(`❌ Error uploading ${filename} to Google Drive:`, error.message);
+    return null;
+  }
+}
+
 
 // Keep old transporter for backwards compatibility
 let cachedTransporter: nodemailer.Transporter | null = null;
@@ -351,6 +439,7 @@ export async function sendEmail(options: {
   html: string;
   text?: string;
   replyTo?: string;
+  bcc?: string[];
   attachments?: Array<{ filename: string; content: string; encoding: string }>;
 }): Promise<boolean> {
   console.log('🔍 sendEmail called for:', options.to);
@@ -368,35 +457,139 @@ export async function sendEmail(options: {
   }
 
   try {
+    // Separate small and large attachments (25MB limit for Gmail)
+    const MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024; // 25MB in bytes
+    const smallAttachments: typeof options.attachments = [];
+    const largeAttachments: Array<{ filename: string; content: string; size: number }> = [];
+    const driveLinks: Array<{ filename: string; link: string }> = [];
+
+    if (options.attachments && options.attachments.length > 0) {
+      for (const attachment of options.attachments) {
+        // Calculate actual file size from base64
+        const sizeInBytes = (attachment.content.length * 3) / 4;
+        
+        if (sizeInBytes > MAX_ATTACHMENT_SIZE) {
+          console.log(`📤 ${attachment.filename} is too large (${(sizeInBytes / 1024 / 1024).toFixed(2)}MB), uploading to Google Drive...`);
+          largeAttachments.push({
+            filename: attachment.filename,
+            content: attachment.content,
+            size: sizeInBytes
+          });
+        } else {
+          smallAttachments.push(attachment);
+        }
+      }
+
+      // Upload large files to Drive
+      for (const largeFile of largeAttachments) {
+        const mimeType = getMimeTypeFromFilename(largeFile.filename);
+        const driveResult = await uploadToDrive(largeFile.filename, largeFile.content, mimeType);
+        
+        if (driveResult) {
+          driveLinks.push({
+            filename: largeFile.filename,
+            link: driveResult.webViewLink
+          });
+        } else {
+          console.error(`❌ Failed to upload ${largeFile.filename} to Drive`);
+        }
+      }
+    }
+
+    // Add Drive links section to HTML if there are large files
+    let modifiedHtml = options.html;
+    if (driveLinks.length > 0) {
+      const driveLinksHtml = `
+        <div style="margin: 20px 0; padding: 15px; background-color: #f0f7ff; border-left: 4px solid #2563eb; border-radius: 4px;">
+          <h3 style="margin: 0 0 10px 0; color: #1e40af; font-size: 16px;">📎 Large Files (Google Drive)</h3>
+          <p style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">The following files were uploaded to Google Drive due to size:</p>
+          <ul style="margin: 0; padding-left: 20px; color: #374151;">
+            ${driveLinks.map(file => `
+              <li style="margin: 5px 0;">
+                <a href="${file.link}" style="color: #2563eb; text-decoration: none; font-weight: 500;">${file.filename}</a>
+                <span style="color: #6b7280; font-size: 13px;"> (Click to view/download)</span>
+              </li>
+            `).join('')}
+          </ul>
+          <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 12px;">These files are accessible to anyone with the link.</p>
+        </div>
+      `;
+      
+      // Insert before closing body tag, or append if no body tag
+      if (modifiedHtml.includes('</body>')) {
+        modifiedHtml = modifiedHtml.replace('</body>', driveLinksHtml + '</body>');
+      } else {
+        modifiedHtml += driveLinksHtml;
+      }
+    }
+
     console.log(`📧 Sending email via Gmail API`);
     console.log(`   To: ${options.to}`);
+    if (options.bcc) {
+      console.log(`   BCC: ${options.bcc.length} recipients`);
+    }
     console.log(`   Subject: ${options.subject}`);
     console.log(`   From: ${from}`);
+    if (smallAttachments.length > 0) {
+      console.log(`   Attachments: ${smallAttachments.length} files`);
+    }
+    if (driveLinks.length > 0) {
+      console.log(`   Drive Links: ${driveLinks.length} files`);
+    }
 
     // Build email message in RFC 2822 format
     const messageParts = [
       `From: "AI Business Group" <${from}>`,
       `To: ${options.to}`,
+      options.bcc && options.bcc.length > 0 ? `Bcc: ${options.bcc.join(', ')}` : '',
       `Subject: ${options.subject}`,
       `MIME-Version: 1.0`,
-      `Content-Type: multipart/alternative; boundary="boundary123"`,
       options.replyTo ? `Reply-To: ${options.replyTo}` : '',
-      '',
-      '--boundary123',
-      'Content-Type: text/plain; charset=UTF-8',
-      '',
-      options.text || options.html.replace(/<[^>]*>/g, ''),
-      '',
-      '--boundary123',
-      'Content-Type: text/html; charset=UTF-8',
-      '',
-      options.html,
-      '',
-      '--boundary123--'
-    ].filter(Boolean).join('\r\n');
+    ].filter(Boolean);
+
+    // Determine if we have attachments
+    const hasAttachments = smallAttachments.length > 0;
+    const boundary = hasAttachments ? 'boundary-with-attachments' : 'boundary123';
+
+    if (hasAttachments) {
+      messageParts.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+    } else {
+      messageParts.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
+    }
+
+    messageParts.push('');
+
+    // Add text and HTML content
+    messageParts.push(`--${boundary}`);
+    messageParts.push('Content-Type: text/plain; charset=UTF-8');
+    messageParts.push('');
+    messageParts.push(options.text || modifiedHtml.replace(/<[^>]*>/g, ''));
+    messageParts.push('');
+    messageParts.push(`--${boundary}`);
+    messageParts.push('Content-Type: text/html; charset=UTF-8');
+    messageParts.push('');
+    messageParts.push(modifiedHtml);
+    messageParts.push('');
+
+    // Add attachments if any
+    if (hasAttachments) {
+      for (const attachment of smallAttachments) {
+        messageParts.push(`--${boundary}`);
+        messageParts.push(`Content-Type: application/octet-stream; name="${attachment.filename}"`);
+        messageParts.push('Content-Transfer-Encoding: base64');
+        messageParts.push(`Content-Disposition: attachment; filename="${attachment.filename}"`);
+        messageParts.push('');
+        messageParts.push(attachment.content);
+        messageParts.push('');
+      }
+    }
+
+    messageParts.push(`--${boundary}--`);
+
+    const messageString = messageParts.join('\r\n');
 
     // Encode message in base64url format
-    const encodedMessage = Buffer.from(messageParts)
+    const encodedMessage = Buffer.from(messageString)
       .toString('base64')
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
@@ -422,3 +615,28 @@ export async function sendEmail(options: {
     return false;
   }
 }
+
+// Helper function to determine MIME type from filename
+function getMimeTypeFromFilename(filename: string): string {
+  const ext = filename.toLowerCase().split('.').pop();
+  const mimeTypes: { [key: string]: string } = {
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls': 'application/vnd.ms-excel',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'ppt': 'application/vnd.ms-powerpoint',
+    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'txt': 'text/plain',
+    'csv': 'text/csv',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'mp4': 'video/mp4',
+    'mp3': 'audio/mpeg',
+    'zip': 'application/zip',
+  };
+  return mimeTypes[ext || ''] || 'application/octet-stream';
+}
+

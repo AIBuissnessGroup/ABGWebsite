@@ -48,38 +48,33 @@ export async function POST(request: NextRequest) {
     console.log(`   Subject: ${subject}`);
     console.log(`   Sender: ${session.user.email}`);
 
-    let sent = 0;
-    let failed = 0;
-    const errors: string[] = [];
-
-    // Send emails one by one to track success/failure
-    for (const recipientEmail of recipients) {
-      try {
-        await sendEmail({
-          to: recipientEmail,
-          subject,
-          html: htmlContent,
-          replyTo: 'ABGcontact@umich.edu', // Always use ABG contact email as reply-to
-          attachments: attachments || []
-        });
-        sent++;
-        console.log(`✓ Sent to ${recipientEmail}`);
-      } catch (error) {
-        failed++;
-        const errorMsg = `Failed to send to ${recipientEmail}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-        console.error(`✗ ${errorMsg}`);
-        errors.push(errorMsg);
-      }
+    // Send one email with all recipients in BCC
+    try {
+      await sendEmail({
+        to: session.user.email, // Send to yourself
+        bcc: recipients, // All recipients in BCC
+        subject,
+        html: htmlContent,
+        replyTo: 'ABGcontact@umich.edu',
+        attachments: attachments || []
+      });
+      
+      console.log(`✅ Bulk email sent successfully via BCC to ${recipients.length} recipients`);
+      
+      return NextResponse.json({
+        success: true,
+        sent: recipients.length,
+        failed: 0,
+      });
+    } catch (error) {
+      console.error('❌ Failed to send bulk email:', error);
+      return NextResponse.json({
+        success: false,
+        sent: 0,
+        failed: recipients.length,
+        errors: [error instanceof Error ? error.message : 'Unknown error']
+      });
     }
-
-    console.log(`📧 Bulk email complete: ${sent} sent, ${failed} failed`);
-
-    return NextResponse.json({
-      success: true,
-      sent,
-      failed,
-      errors: errors.length > 0 ? errors : undefined
-    });
 
   } catch (error) {
     console.error('Error sending bulk emails:', error);

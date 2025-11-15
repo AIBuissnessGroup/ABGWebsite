@@ -40,6 +40,7 @@ interface ContentSection {
   content: string;
   buttonUrl?: string;
   imageUrl?: string;
+  imageData?: string; // base64 encoded image data
   isBold?: boolean;
   imageWidth?: number;
   imagePosition?: 'left' | 'right' | 'center';
@@ -400,10 +401,12 @@ export default function NotificationsPage() {
           return `<hr style="border: none; border-top: 2px solid #e5e7eb; margin: 20px 0;" />`;
         case 'image':
           const alignStyle = section.imagePosition === 'left' ? 'text-align: left;' : section.imagePosition === 'right' ? 'text-align: right;' : 'text-align: center;';
-          return `<div style="margin: 20px 0; ${alignStyle}"><img src="${section.imageUrl || ''}" alt="${section.content}" style="${getImageSizeStyle(section.imageSize)} height: auto; border-radius: 10px;" /></div>`;
+          const imageSrc = section.imageData || section.imageUrl || '';
+          return `<div style="margin: 20px 0; ${alignStyle}"><img src="${imageSrc}" alt="${section.content}" style="${getImageSizeStyle(section.imageSize)} height: auto; border-radius: 10px;" /></div>`;
         case 'text-image':
           const imageFloat = section.imagePosition === 'left' ? 'float: left; margin: 0 20px 10px 0;' : 'float: right; margin: 0 0 10px 20px;';
-          return `<div style="margin: 20px 0; overflow: auto;"><img src="${section.imageUrl || ''}" alt="Image" style="${imageFloat} ${getImageSizeStyle(section.imageSize)} height: auto; border-radius: 10px;" /><div style="line-height: 1.6;">${formatText(section.content, section.isBold)}</div></div>`;
+          const textImageSrc = section.imageData || section.imageUrl || '';
+          return `<div style="margin: 20px 0; overflow: auto;"><img src="${textImageSrc}" alt="Image" style="${imageFloat} ${getImageSizeStyle(section.imageSize)} height: auto; border-radius: 10px;" /><div style="line-height: 1.6;">${formatText(section.content, section.isBold)}</div></div>`;
         default:
           return '';
       }
@@ -412,7 +415,8 @@ export default function NotificationsPage() {
     let bannerStyle = '';
     if (bannerBackgroundImage) {
       const overlayOpacity = bannerGradientOpacity * 0.7;
-      bannerStyle = `background: linear-gradient(rgba(0, 39, 76, ${overlayOpacity}), rgba(0, 39, 76, ${overlayOpacity})), url('${bannerBackgroundImage}'); background-size: cover; background-position: center;`;
+      const fullImageUrl = bannerBackgroundImage.startsWith('http') ? bannerBackgroundImage : `https://abgumich.org${bannerBackgroundImage}`;
+      bannerStyle = `background: linear-gradient(rgba(0, 39, 76, ${overlayOpacity}), rgba(0, 39, 76, ${overlayOpacity})), url('${fullImageUrl}'); background-size: cover; background-position: center;`;
     } else if (bannerGradient) {
       // Convert hex to rgba with opacity
       const colorWithOpacity = (hex: string, opacity: number) => {
@@ -427,7 +431,7 @@ export default function NotificationsPage() {
     }
     
     const shapesHtml = bannerShapes ? `
-      <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none;">
+      <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;">
         <div style="position: absolute; width: 40px; height: 40px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; top: 20%; left: 10%;"></div>
         <div style="position: absolute; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.2); top: 60%; left: 80%; transform: rotate(45deg);"></div>
         <div style="position: absolute; width: 50px; height: 50px; border: 2px solid rgba(255,255,255,0.25); border-radius: 50%; top: 70%; left: 15%;"></div>
@@ -441,7 +445,8 @@ export default function NotificationsPage() {
     if (bottomBannerEnabled) {
       if (bottomBannerBackgroundImage) {
         const overlayOpacity = bottomBannerGradientOpacity * 0.7;
-        bottomBannerStyle = `background: linear-gradient(rgba(0, 39, 76, ${overlayOpacity}), rgba(0, 39, 76, ${overlayOpacity})), url('${bottomBannerBackgroundImage}'); background-size: cover; background-position: center;`;
+        const fullImageUrl = bottomBannerBackgroundImage.startsWith('http') ? bottomBannerBackgroundImage : `https://abgumich.org${bottomBannerBackgroundImage}`;
+        bottomBannerStyle = `background: linear-gradient(rgba(0, 39, 76, ${overlayOpacity}), rgba(0, 39, 76, ${overlayOpacity})), url('${fullImageUrl}'); background-size: cover; background-position: center;`;
       } else if (bottomBannerGradient) {
         const colorWithOpacity = (hex: string, opacity: number) => {
           const r = parseInt(hex.slice(1, 3), 16);
@@ -456,7 +461,7 @@ export default function NotificationsPage() {
     }
 
     const bottomShapesHtml = (bottomBannerEnabled && bottomBannerShapes) ? `
-      <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none;">
+      <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;">
         <div style="position: absolute; width: 35px; height: 35px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; top: 30%; left: 15%;"></div>
         <div style="position: absolute; width: 40px; height: 40px; border: 2px solid rgba(255,255,255,0.2); top: 50%; left: 75%; transform: rotate(45deg);"></div>
         <div style="position: absolute; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.25); border-radius: 50%; top: 60%; left: 20%;"></div>
@@ -485,17 +490,17 @@ export default function NotificationsPage() {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
-    .container { max-width: 600px; margin: 20px auto; background-color: white; border-radius: 15px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f4f4f4; }
+    .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 15px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .header { ${bannerStyle} color: white; padding: 30px 20px; text-align: center; position: relative; }
-    .content { padding: 30px 20px; }
+    .content { padding: 30px 20px; background-color: white; position: relative; z-index: 1; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       ${shapesHtml}
-      <h1 style="margin: 0; font-size: 28px; position: relative; z-index: 1;">${emailTitle}</h1>
+      <h1 style="margin: 0; font-size: 28px; position: relative; z-index: 10;">${emailTitle}</h1>
     </div>
     <div class="content">
       ${sectionsHtml}
@@ -628,29 +633,8 @@ export default function NotificationsPage() {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    // Check for files that are too large (3MB limit per file after compression)
-    const oversizedFiles: string[] = [];
-    const maxSize = 3; // MB
-    
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      // For non-image files, check size directly
-      if (!file.type.startsWith('image/') && isFileTooLarge(file, maxSize)) {
-        oversizedFiles.push(`${file.name} (${formatFileSize(file.size)})`);
-      }
-    }
-
-    if (oversizedFiles.length > 0) {
-      setMessage({ 
-        type: 'error', 
-        text: `The following files are too large (max ${maxSize}MB per file): ${oversizedFiles.join(', ')}. Please compress or split the file before uploading.` 
-      });
-      // Reset the input
-      event.target.value = '';
-      return;
-    }
-
-    setMessage({ type: 'info', text: 'Compressing and processing files...' });
+    // Note: Files over 25MB will be automatically uploaded to Google Drive by the backend
+    setMessage({ type: 'success', text: 'Processing files...' });
 
     try {
       const newAttachments: Array<{ filename: string; content: string; encoding: string }> = [];
@@ -658,23 +642,13 @@ export default function NotificationsPage() {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         
-        // Compress and convert to base64
-        const compressed = await fileToBase64(file, true, {
-          maxSizeMB: 1.5,
+        // Only compress images, pass through other files as-is
+        const shouldCompress = file.type.startsWith('image/');
+        const compressed = await fileToBase64(file, shouldCompress, shouldCompress ? {
+          maxSizeMB: 3,
           maxWidthOrHeight: 1600,
           quality: 0.7
-        });
-
-        // Check if compressed size is still too large
-        const compressedSizeMB = (compressed.content.length * 0.75) / (1024 * 1024); // base64 is ~33% larger
-        if (compressedSizeMB > maxSize) {
-          setMessage({ 
-            type: 'error', 
-            text: `${file.name} is still too large after compression (${compressedSizeMB.toFixed(2)}MB). Maximum is ${maxSize}MB. Please use a smaller file or compress it further.` 
-          });
-          event.target.value = '';
-          return;
-        }
+        } : undefined);
 
         newAttachments.push({
           filename: compressed.filename,
@@ -682,15 +656,24 @@ export default function NotificationsPage() {
           encoding: compressed.encoding
         });
 
-        // Log compression results
-        const savedKB = (compressed.originalSize - compressed.compressedSize) / 1024;
-        if (savedKB > 10) {
-          console.log(`✓ Compressed ${file.name}: saved ${savedKB.toFixed(0)}KB (${formatFileSize(compressed.originalSize)} → ${formatFileSize(compressed.compressedSize)})`);
+        // Log results
+        if (shouldCompress) {
+          const savedKB = (compressed.originalSize - compressed.compressedSize) / 1024;
+          if (savedKB > 10) {
+            console.log(`✓ Compressed ${file.name}: saved ${savedKB.toFixed(0)}KB (${formatFileSize(compressed.originalSize)} → ${formatFileSize(compressed.compressedSize)})`);
+          }
+        } else {
+          const sizeMB = file.size / (1024 * 1024);
+          if (sizeMB > 25) {
+            console.log(`✓ Added ${file.name}: ${formatFileSize(file.size)} - Will be uploaded to Google Drive`);
+          } else {
+            console.log(`✓ Added ${file.name}: ${formatFileSize(file.size)}`);
+          }
         }
       }
 
       setAttachments([...attachments, ...newAttachments]);
-      setMessage({ type: 'success', text: `Added ${files.length} file(s)` });
+      setMessage({ type: 'success', text: `Added ${files.length} file(s). Large files (>25MB) will be uploaded to Google Drive.` });
     } catch (error) {
       console.error('Error processing files:', error);
       setMessage({ type: 'error', text: 'Failed to process files' });
@@ -699,6 +682,29 @@ export default function NotificationsPage() {
 
   const handleRemoveAttachment = (index: number) => {
     setAttachments(attachments.filter((_, i) => i !== index));
+  };
+
+  const handleImageUpload = async (sectionId: string, file: File) => {
+    try {
+      // Compress and convert to base64
+      const compressed = await fileToBase64(file, true, {
+        maxSizeMB: 0.5, // Smaller size for inline images
+        maxWidthOrHeight: 1200,
+        quality: 0.8
+      });
+
+      // Update the section with base64 image data
+      updateSection(sectionId, { 
+        imageData: `data:image/jpeg;base64,${compressed.content}`,
+        imageUrl: '' // Clear the URL if it was set
+      });
+
+      const savedKB = (compressed.originalSize - compressed.compressedSize) / 1024;
+      console.log(`✓ Image uploaded for section ${sectionId}: ${formatFileSize(compressed.compressedSize)} (saved ${savedKB.toFixed(0)}KB)`);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      setMessage({ type: 'error', text: 'Failed to upload image' });
+    }
   };
 
   const handleSaveDraft = async () => {
@@ -1078,6 +1084,22 @@ export default function NotificationsPage() {
 
   return (
     <div className="min-h-full">
+      <style jsx global>{`
+        .scrollbar-visible::-webkit-scrollbar {
+          width: 8px;
+        }
+        .scrollbar-visible::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 4px;
+        }
+        .scrollbar-visible::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 4px;
+        }
+        .scrollbar-visible::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+      `}</style>
       {/* Header */}
       <div className="bg-white border-b border-gray-200 mb-6">
         <div className="px-6 py-4">
@@ -1305,14 +1327,21 @@ export default function NotificationsPage() {
                 
                 {/* Background Image */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Background Image URL (Optional)</label>
-                  <input
-                    type="url"
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Background Image (Optional)</label>
+                  <select
                     value={bannerBackgroundImage}
                     onChange={(e) => setBannerBackgroundImage(e.target.value)}
-                    placeholder="https://example.com/image.jpg"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  />
+                  >
+                    <option value="">None</option>
+                    <option value="/emailImages/cccb.jpg">CCCB Building</option>
+                    <option value="/emailImages/eng.jpg">Engineering Building</option>
+                    <option value="/emailImages/fireSide.JPG">Fireside Chat</option>
+                    <option value="/emailImages/fireSide0.JPG">Fireside Chat (Alt)</option>
+                    <option value="/emailImages/massMeeting.jpeg">Mass Meeting</option>
+                    <option value="/emailImages/massMeeting0.jpeg">Mass Meeting (Alt)</option>
+                    <option value="/emailImages/ross.jpg">Ross Building</option>
+                  </select>
                 </div>
                 
                 {/* Add Shapes Toggle */}
@@ -1409,14 +1438,21 @@ export default function NotificationsPage() {
 
                     {/* Bottom Banner Background Image */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Background Image URL (Optional)</label>
-                      <input
-                        type="url"
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Background Image (Optional)</label>
+                      <select
                         value={bottomBannerBackgroundImage}
                         onChange={(e) => setBottomBannerBackgroundImage(e.target.value)}
-                        placeholder="https://example.com/image.jpg"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                      />
+                      >
+                        <option value="">None</option>
+                        <option value="/emailImages/cccb.jpg">CCCB Building</option>
+                        <option value="/emailImages/eng.jpg">Engineering Building</option>
+                        <option value="/emailImages/fireSide.JPG">Fireside Chat</option>
+                        <option value="/emailImages/fireSide0.JPG">Fireside Chat (Alt)</option>
+                        <option value="/emailImages/massMeeting.jpeg">Mass Meeting</option>
+                        <option value="/emailImages/massMeeting0.jpeg">Mass Meeting (Alt)</option>
+                        <option value="/emailImages/ross.jpg">Ross Building</option>
+                      </select>
                     </div>
 
                     {/* Bottom Banner Shapes */}
@@ -1506,7 +1542,7 @@ export default function NotificationsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Attach Files
                     <span className="ml-2 text-xs text-gray-500 font-normal">
-                      (Max 3MB per file. Images will be automatically compressed. PowerPoint/large files should be compressed externally first.)
+                      (Any file size/format. Files &gt;25MB automatically uploaded to Google Drive with download links in email.)
                     </span>
                   </label>
                   <input
@@ -1653,13 +1689,35 @@ export default function NotificationsPage() {
                     
                     {section.type === 'image' && (
                       <>
-                        <input
-                          type="url"
-                          value={section.imageUrl || ''}
-                          onChange={(e) => updateSection(section.id, { imageUrl: e.target.value })}
-                          placeholder="Image URL (e.g., https://example.com/image.png)"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm mt-2"
-                        />
+                        <div className="mt-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Upload Image</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleImageUpload(section.id, file);
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          />
+                          {(section.imageData || section.imageUrl) && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <img 
+                                src={section.imageData || section.imageUrl} 
+                                alt="Preview" 
+                                className="h-16 w-auto rounded border"
+                              />
+                              <button
+                                onClick={() => updateSection(section.id, { imageData: '', imageUrl: '' })}
+                                className="text-red-600 hover:text-red-700 text-xs"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <div className="mt-2 space-y-2">
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">Image Size</label>
@@ -1703,13 +1761,35 @@ export default function NotificationsPage() {
                     
                     {section.type === 'text-image' && (
                       <>
-                        <input
-                          type="url"
-                          value={section.imageUrl || ''}
-                          onChange={(e) => updateSection(section.id, { imageUrl: e.target.value })}
-                          placeholder="Image URL (e.g., https://example.com/image.png)"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm mt-2"
-                        />
+                        <div className="mt-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Upload Image</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleImageUpload(section.id, file);
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          />
+                          {(section.imageData || section.imageUrl) && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <img 
+                                src={section.imageData || section.imageUrl} 
+                                alt="Preview" 
+                                className="h-16 w-auto rounded border"
+                              />
+                              <button
+                                onClick={() => updateSection(section.id, { imageData: '', imageUrl: '' })}
+                                className="text-red-600 hover:text-red-700 text-xs"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <div className="mt-2 space-y-2">
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">Image Size</label>
@@ -1783,7 +1863,7 @@ export default function NotificationsPage() {
             <div className="p-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900">Mcommunity Groups</h2>
             </div>
-            <div className="p-4 space-y-3 max-h-96 overflow-y-auto">{MCOMMUNITY_GROUPS.map(group => (
+            <div className="p-4 space-y-3 max-h-96 overflow-y-scroll scrollbar-visible" style={{scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9'}}>{MCOMMUNITY_GROUPS.map(group => (
                 <label key={group.email} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
                   <input
                     type="checkbox"
@@ -1866,7 +1946,7 @@ export default function NotificationsPage() {
               </div>
 
               {/* User List */}
-              <div className="max-h-96 overflow-y-auto space-y-2">
+              <div className="max-h-96 overflow-y-scroll space-y-2 scrollbar-visible" style={{scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9'}}>
                 {filteredUsers.map(user => (
                   <label key={user.email} className="flex items-start gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
                     <input
