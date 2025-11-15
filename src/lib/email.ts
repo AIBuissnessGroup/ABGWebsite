@@ -318,6 +318,7 @@ export async function sendEmail(options: {
   html: string;
   text?: string;
   replyTo?: string;
+  attachments?: Array<{ filename: string; content: string; encoding: string }>;
 }): Promise<boolean> {
   const transporter = await getTransporter();
   if (!transporter) {
@@ -345,6 +346,7 @@ export async function sendEmail(options: {
       html: options.html,
       text: options.text || options.html.replace(/<[^>]*>/g, ''), // Strip HTML tags for plain text version
       replyTo: options.replyTo, // Add reply-to header if provided
+      attachments: options.attachments || [], // Add attachments if provided
     });
 
     console.log('✅ Email sent successfully!');

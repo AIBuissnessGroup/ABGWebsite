@@ -65,6 +65,7 @@ interface EmailDraft {
   bottomBannerSettings: any;
   signatureSize?: 'small' | 'medium' | 'large';
   signatureStyle?: 'white' | 'black';
+  attachments?: Array<{ filename: string; content: string; encoding: string }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -359,6 +360,7 @@ export default function NotificationsPage() {
   const [showDrafts, setShowDrafts] = useState(false);
   const [signatureSize, setSignatureSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [signatureStyle, setSignatureStyle] = useState<'white' | 'black'>('white');
+  const [attachments, setAttachments] = useState<Array<{ filename: string; content: string; encoding: string }>>([]);
   const previewRef = useRef<HTMLIFrameElement>(null);
 
   // Generate HTML from content sections
@@ -562,7 +564,8 @@ export default function NotificationsPage() {
           bannerSettings,
           bottomBannerSettings,
           signatureSize,
-          signatureStyle
+          signatureStyle,
+          attachments
         };
 
         await fetch('/api/admin/notifications/drafts', {
@@ -579,7 +582,7 @@ export default function NotificationsPage() {
   }, [currentDraftId, draftName, subject, emailTitle, contentSections, selectedUsers, selectedMcommunityGroups, 
       bannerColor, bannerGradient, bannerGradientEnd, bannerGradientOpacity, bannerBackgroundImage, bannerShapes,
       bottomBannerEnabled, bottomBannerColor, bottomBannerGradient, bottomBannerGradientEnd, bottomBannerGradientOpacity,
-      bottomBannerBackgroundImage, bottomBannerShapes, bottomBannerText, signatureSize, signatureStyle]);
+      bottomBannerBackgroundImage, bottomBannerShapes, bottomBannerText, signatureSize, signatureStyle, attachments]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -620,6 +623,38 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const newAttachments: Array<{ filename: string; content: string; encoding: string }> = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target?.result as string;
+        // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
+        const base64Content = base64.split(',')[1];
+        newAttachments.push({
+          filename: file.name,
+          content: base64Content,
+          encoding: 'base64'
+        });
+
+        if (newAttachments.length === files.length) {
+          setAttachments([...attachments, ...newAttachments]);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments(attachments.filter((_, i) => i !== index));
+  };
+
   const handleSaveDraft = async () => {
     if (!draftName.trim()) {
       setMessage({ type: 'error', text: 'Please enter a draft name' });
@@ -657,7 +692,8 @@ export default function NotificationsPage() {
         bannerSettings,
         bottomBannerSettings,
         signatureSize,
-        signatureStyle
+        signatureStyle,
+        attachments
       };
 
       let response;
@@ -729,6 +765,8 @@ export default function NotificationsPage() {
       setSignatureStyle(draft.signatureStyle);
     }
     
+    setAttachments(draft.attachments || []);
+    
     setShowDrafts(false);
     setMessage({ type: 'success', text: 'Draft loaded! Auto-save is active.' });
   };
@@ -780,6 +818,7 @@ export default function NotificationsPage() {
     setBottomBannerText('Thank you!');
     setSignatureSize('medium');
     setSignatureStyle('white');
+    setAttachments([]);
     setMessage(null);
   };
 
@@ -816,7 +855,8 @@ export default function NotificationsPage() {
           recipients: allRecipients,
           subject,
           htmlContent,
-          scheduledFor: scheduledFor.toISOString()
+          scheduledFor: scheduledFor.toISOString(),
+          attachments
         })
       });
 
@@ -934,7 +974,8 @@ export default function NotificationsPage() {
         body: JSON.stringify({
           recipients: allRecipients,
           subject,
-          htmlContent
+          htmlContent,
+          attachments
         })
       });
 
@@ -1409,6 +1450,36 @@ export default function NotificationsPage() {
                       Large
                     </button>
                   </div>
+                </div>
+              </div>
+
+              {/* File Attachments */}
+              <div className="space-y-3 border-t pt-3">
+                <h3 className="text-sm font-semibold text-gray-700">File Attachments</h3>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Attach Files</label>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  {attachments.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs text-gray-600">Attached files:</p>
+                      {attachments.map((attachment, index) => (
+                        <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg">
+                          <span className="text-sm text-gray-700 truncate">{attachment.filename}</span>
+                          <button
+                            onClick={() => handleRemoveAttachment(index)}
+                            className="text-red-600 hover:text-red-700 ml-2"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 

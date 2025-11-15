@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
-    const { recipients, subject, htmlContent } = await request.json();
+    const { recipients, subject, htmlContent, attachments } = await request.json();
 
     if (!Array.isArray(recipients) || recipients.length === 0) {
       return NextResponse.json({ error: 'Recipients array is required' }, { status: 400 });
@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
           subject,
           html: htmlContent,
           replyTo: 'ABGcontact@umich.edu', // Always use ABG contact email as reply-to
+          attachments: attachments || []
         });
         sent++;
         console.log(`✓ Sent to ${recipientEmail}`);

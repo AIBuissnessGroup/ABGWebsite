@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
-    const { recipients, subject, htmlContent, scheduledFor } = await request.json();
+    const { recipients, subject, htmlContent, scheduledFor, attachments } = await request.json();
 
     if (!Array.isArray(recipients) || recipients.length === 0) {
       return NextResponse.json({ error: 'Recipients array is required' }, { status: 400 });
@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       status: 'pending',
       createdBy: session.user.email,
       createdAt: new Date(),
+      attachments: attachments || [],
     };
 
     const result = await db.collection('scheduledEmails').insertOne(scheduledEmail);
