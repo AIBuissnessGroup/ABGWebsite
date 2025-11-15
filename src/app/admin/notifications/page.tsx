@@ -525,6 +525,62 @@ export default function NotificationsPage() {
     loadDrafts();
   }, []);
 
+  // Auto-save draft when content changes
+  useEffect(() => {
+    // Only auto-save if there's a current draft and draft name
+    if (!currentDraftId || !draftName.trim()) return;
+
+    const autoSave = async () => {
+      try {
+        const bannerSettings = {
+          bannerColor,
+          bannerGradient,
+          bannerGradientEnd,
+          bannerGradientOpacity,
+          bannerBackgroundImage,
+          bannerShapes
+        };
+
+        const bottomBannerSettings = {
+          bottomBannerEnabled,
+          bottomBannerColor,
+          bottomBannerGradient,
+          bottomBannerGradientEnd,
+          bottomBannerGradientOpacity,
+          bottomBannerBackgroundImage,
+          bottomBannerShapes,
+          bottomBannerText
+        };
+
+        const draftData = {
+          name: draftName,
+          subject,
+          emailTitle,
+          contentSections,
+          selectedUsers,
+          selectedMcommunityGroups,
+          bannerSettings,
+          bottomBannerSettings,
+          signatureSize,
+          signatureStyle
+        };
+
+        await fetch('/api/admin/notifications/drafts', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...draftData, id: currentDraftId })
+        });
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+      }
+    };
+
+    autoSave();
+  }, [currentDraftId, draftName, subject, emailTitle, contentSections, selectedUsers, selectedMcommunityGroups, 
+      bannerColor, bannerGradient, bannerGradientEnd, bannerGradientOpacity, bannerBackgroundImage, bannerShapes,
+      bottomBannerEnabled, bottomBannerColor, bottomBannerGradient, bottomBannerGradientEnd, bottomBannerGradientOpacity,
+      bottomBannerBackgroundImage, bottomBannerShapes, bottomBannerText, signatureSize, signatureStyle]);
+
   const loadUsers = async () => {
     setLoading(true);
     try {
@@ -622,7 +678,7 @@ export default function NotificationsPage() {
       }
 
       if (response.ok) {
-        setMessage({ type: 'success', text: `Draft ${currentDraftId ? 'updated' : 'saved'} successfully!` });
+        setMessage({ type: 'success', text: `Draft ${currentDraftId ? 'saved' : 'created'}! Auto-save is now active.` });
         loadDrafts();
         if (!currentDraftId) {
           const data = await response.json();
@@ -674,7 +730,7 @@ export default function NotificationsPage() {
     }
     
     setShowDrafts(false);
-    setMessage({ type: 'success', text: 'Draft loaded successfully!' });
+    setMessage({ type: 'success', text: 'Draft loaded! Auto-save is active.' });
   };
 
   const handleDeleteDraft = async (id: string) => {
@@ -1076,7 +1132,7 @@ export default function NotificationsPage() {
                   </button>
                 </div>
                 {currentDraftId && (
-                  <p className="text-xs text-green-600 mt-1">Currently editing: {draftName}</p>
+                  <p className="text-xs text-green-600 mt-1">✓ Auto-save active for: {draftName}</p>
                 )}
               </div>
 
