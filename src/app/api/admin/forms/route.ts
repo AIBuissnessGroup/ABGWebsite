@@ -235,7 +235,9 @@ function buildNotificationConfig(payload: any, fallback: any, defaultEmail: stri
       ? incomingConfig.email.sendReceiptToSubmitter
       : typeof payload?.sendReceiptToSubmitter === 'boolean'
         ? payload.sendReceiptToSubmitter
-        : Boolean(previous?.email?.sendReceiptToSubmitter);
+        : typeof previous?.email?.sendReceiptToSubmitter === 'boolean'
+          ? previous.email.sendReceiptToSubmitter
+          : false;
 
   return {
     slack: {
@@ -350,7 +352,11 @@ export async function POST(request: NextRequest) {
       isAttendanceForm: Boolean(formData.isAttendanceForm),
       isActive: Boolean(formData.isActive ?? formData.isPublic ?? true),
       published: Boolean(formData.published),
-      notificationConfig
+      notificationConfig,
+      // Also set top-level fields for backward compatibility
+      notificationEmail: notificationConfig.email?.notificationEmail,
+      notifyOnSubmission: notificationConfig.email?.notifyOnSubmission,
+      sendReceiptToSubmitter: notificationConfig.email?.sendReceiptToSubmitter,
     };
 
     const result = await db.collection('Form').insertOne(form);
@@ -454,10 +460,14 @@ export async function PUT(request: NextRequest) {
       backgroundColor: updateData.backgroundColor,
       textColor: updateData.textColor,
       updatedAt: new Date(),
-      notificationConfig
+      notificationConfig,
+      // Also set top-level fields for backward compatibility
+      notificationEmail: notificationConfig.email?.notificationEmail,
+      notifyOnSubmission: notificationConfig.email?.notifyOnSubmission,
+      sendReceiptToSubmitter: notificationConfig.email?.sendReceiptToSubmitter,
     };
 
-    // Remove undefined values
+    // Remove undefined values (but keep false and other falsy values that are valid)
     Object.keys(allowedFields).forEach(key => {
       if (allowedFields[key] === undefined) {
         delete allowedFields[key];
@@ -466,6 +476,7 @@ export async function PUT(request: NextRequest) {
 
     console.log('Updating form with fields:', allowedFields);
     console.log('📧 Email receipt setting being saved:', notificationConfig.email?.sendReceiptToSubmitter);
+    console.log('📧 Top-level sendReceiptToSubmitter being saved:', allowedFields.sendReceiptToSubmitter);
 
     await db.collection('Form').updateOne(
       { id },
