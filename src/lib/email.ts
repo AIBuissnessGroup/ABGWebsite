@@ -308,3 +308,51 @@ export async function sendFormReceiptEmail(options: FormReceiptOptions) {
     return false;
   }
 }
+
+/**
+ * Send a custom email with HTML content
+ */
+export async function sendEmail(options: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  replyTo?: string;
+}): Promise<boolean> {
+  const transporter = await getTransporter();
+  if (!transporter) {
+    console.warn('Email transporter not available');
+    return false;
+  }
+
+  const from = process.env.GMAIL_USER_EMAIL || process.env.SMTP_FROM_EMAIL;
+  if (!from) {
+    console.warn('No sender email configured (GMAIL_USER_EMAIL or SMTP_FROM_EMAIL)');
+    return false;
+  }
+
+  try {
+    console.log(`📧 Sending email to ${options.to}`);
+    console.log(`   Subject: ${options.subject}`);
+    if (options.replyTo) {
+      console.log(`   Reply-To: ${options.replyTo}`);
+    }
+
+    const info = await transporter.sendMail({
+      from: `"AI Business Group" <${from}>`,
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
+      text: options.text || options.html.replace(/<[^>]*>/g, ''), // Strip HTML tags for plain text version
+      replyTo: options.replyTo, // Add reply-to header if provided
+    });
+
+    console.log('✅ Email sent successfully!');
+    console.log('   Message ID:', info.messageId);
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send email:', error);
+    return false;
+  }
+}

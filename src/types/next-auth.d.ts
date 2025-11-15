@@ -7,7 +7,19 @@ export type UserRole =
   | 'GENERAL_MEMBER' 
   | 'ROUND1' 
   | 'ROUND2' 
-  | 'SPECIAL_PRIVS';
+  | 'SPECIAL_PRIVS'
+  | 'PRESIDENT'
+  | 'VP_EXTERNAL'
+  | 'VP_OPERATIONS'
+  | 'VP_EDUCATION'
+  | 'VP_MARKETING'
+  | 'VP_CONFERENCES'
+  | 'VP_FINANCE'
+  | 'VP_COMMUNITY'
+  | 'VP_SPONSORSHIPS'
+  | 'VP_RECRUITMENT'
+  | 'VP_TECHNOLOGY'
+  | 'ADVISOR';
 
 declare module 'next-auth' {
   interface Session {
