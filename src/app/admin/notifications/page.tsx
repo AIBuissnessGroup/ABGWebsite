@@ -15,7 +15,9 @@ import {
   PlusIcon,
   TrashIcon,
   ArrowUpIcon,
-  ArrowDownIcon
+  ArrowDownIcon,
+  BookmarkIcon,
+  FolderIcon
 } from '@heroicons/react/24/outline';
 
 interface User {
@@ -33,11 +35,14 @@ interface EmailTemplate {
 
 interface ContentSection {
   id: string;
-  type: 'text' | 'heading' | 'button' | 'divider' | 'image';
+  type: 'text' | 'heading' | 'button' | 'divider' | 'image' | 'text-image';
   content: string;
   buttonUrl?: string;
   imageUrl?: string;
   isBold?: boolean;
+  imageWidth?: number;
+  imagePosition?: 'left' | 'right' | 'center';
+  imageSize?: 'small' | 'medium' | 'large' | 'full';
 }
 
 interface ScheduledEmail {
@@ -46,6 +51,22 @@ interface ScheduledEmail {
   recipients: string[];
   scheduledFor: Date;
   status: 'pending' | 'sent' | 'failed';
+}
+
+interface EmailDraft {
+  _id: string;
+  name: string;
+  subject: string;
+  emailTitle: string;
+  contentSections: ContentSection[];
+  selectedUsers: string[];
+  selectedMcommunityGroups: string[];
+  bannerSettings: any;
+  bottomBannerSettings: any;
+  signatureSize?: 'small' | 'medium' | 'large';
+  signatureStyle?: 'white' | 'black';
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const MCOMMUNITY_GROUPS = [
@@ -83,13 +104,13 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
 <body>
   <div class="container">
     <div class="header">
-      <img src="https://abgumich.org/email-signature.png" alt="ABG Logo" style="max-width: 500px; width: 100%; height: auto; border-radius: 10px;">
+      <img src="https://abgumich.org/white-abg-email-signature.png" alt="ABG Logo" style="max-width: 500px; width: 100%; height: auto; border-radius: 10px;">
     </div>
     <div class="content">
       <p>Your content here...</p>
       
       <div class="signature">
-        <img src="https://abgumich.org/email-signature.png" alt="AI Business Group Signature" style="max-width: 100%; border-radius: 10px;">
+        <img src="https://abgumich.org/white-abg-email-signature.png" alt="AI Business Group Signature" style="max-width: 100%; border-radius: 10px;">
       </div>
     </div>
   </div>
@@ -128,7 +149,7 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
       <center><a href="#" class="button">Learn More</a></center>
       
       <div class="signature">
-        <img src="https://abgumich.org/email-signature.png" alt="AI Business Group Signature" style="max-width: 100%; border-radius: 10px;">
+        <img src="https://abgumich.org/white-abg-email-signature.png" alt="AI Business Group Signature" style="max-width: 100%; border-radius: 10px;">
       </div>
     </div>
   </div>
@@ -191,7 +212,7 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
       </p>
       
       <div class="signature">
-        <img src="https://abgumich.org/email-signature.png" alt="AI Business Group Signature" style="max-width: 100%; border-radius: 10px;">
+        <img src="https://abgumich.org/white-abg-email-signature.png" alt="AI Business Group Signature" style="max-width: 100%; border-radius: 10px;">
       </div>
     </div>
   </div>
@@ -244,7 +265,7 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
       </div>
       
       <div class="signature">
-        <img src="https://abgumich.org/email-signature.png" alt="AI Business Group Signature" style="max-width: 100%; border-radius: 10px;">
+        <img src="https://abgumich.org/white-abg-email-signature.png" alt="AI Business Group Signature" style="max-width: 100%; border-radius: 10px;">
       </div>
     </div>
   </div>
@@ -291,7 +312,7 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
       <center><a href="#" class="button">Take Action</a></center>
       
       <div class="signature">
-        <img src="https://abgumich.org/email-signature.png" alt="AI Business Group Signature" style="max-width: 100%; border-radius: 10px;">
+        <img src="https://abgumich.org/white-abg-email-signature.png" alt="AI Business Group Signature" style="max-width: 100%; border-radius: 10px;">
       </div>
     </div>
   </div>
@@ -332,6 +353,12 @@ export default function NotificationsPage() {
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
   const [scheduledEmails, setScheduledEmails] = useState<ScheduledEmail[]>([]);
+  const [drafts, setDrafts] = useState<EmailDraft[]>([]);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState('');
+  const [showDrafts, setShowDrafts] = useState(false);
+  const [signatureSize, setSignatureSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [signatureStyle, setSignatureStyle] = useState<'white' | 'black'>('white');
   const previewRef = useRef<HTMLIFrameElement>(null);
 
   // Generate HTML from content sections
@@ -347,6 +374,16 @@ export default function NotificationsPage() {
     };
 
     const sectionsHtml = contentSections.map(section => {
+      const getImageSizeStyle = (size?: string) => {
+        switch (size) {
+          case 'small': return 'max-width: 150px;';
+          case 'medium': return 'max-width: 300px;';
+          case 'large': return 'max-width: 450px;';
+          case 'full': return 'max-width: 100%;';
+          default: return 'max-width: 100%;';
+        }
+      };
+
       switch (section.type) {
         case 'heading':
           return `<h2 style="color: #00274c; font-size: 24px; margin: 20px 0 10px 0;">${formatText(section.content, section.isBold)}</h2>`;
@@ -357,7 +394,11 @@ export default function NotificationsPage() {
         case 'divider':
           return `<hr style="border: none; border-top: 2px solid #e5e7eb; margin: 20px 0;" />`;
         case 'image':
-          return `<div style="margin: 20px 0; text-align: center;"><img src="${section.imageUrl || ''}" alt="${section.content}" style="max-width: 100%; height: auto; border-radius: 10px;" /></div>`;
+          const alignStyle = section.imagePosition === 'left' ? 'text-align: left;' : section.imagePosition === 'right' ? 'text-align: right;' : 'text-align: center;';
+          return `<div style="margin: 20px 0; ${alignStyle}"><img src="${section.imageUrl || ''}" alt="${section.content}" style="${getImageSizeStyle(section.imageSize)} height: auto; border-radius: 10px;" /></div>`;
+        case 'text-image':
+          const imageFloat = section.imagePosition === 'left' ? 'float: left; margin: 0 20px 10px 0;' : 'float: right; margin: 0 0 10px 20px;';
+          return `<div style="margin: 20px 0; overflow: auto;"><img src="${section.imageUrl || ''}" alt="Image" style="${imageFloat} ${getImageSizeStyle(section.imageSize)} height: auto; border-radius: 10px;" /><div style="line-height: 1.6;">${formatText(section.content, section.isBold)}</div></div>`;
         default:
           return '';
       }
@@ -417,11 +458,21 @@ export default function NotificationsPage() {
         <div style="position: absolute; width: 45px; height: 45px; border: 2px solid rgba(255,255,255,0.2); top: 20%; left: 80%;"></div>
       </div>` : '';
 
+    const signatureUrl = signatureStyle === 'white' ? 'https://abgumich.org/white-abg-email-signature.png' : 'https://abgumich.org/black-abg-email-signature.png';
+
     const bottomBannerHtml = bottomBannerEnabled ? `
-      <div class="bottom-banner" style="${bottomBannerStyle} color: white; padding: 20px; text-align: center; position: relative; margin-top: 20px;">
+      <div class="bottom-banner" style="${bottomBannerStyle} color: white; padding: 20px; text-align: center; position: relative;">
         ${bottomShapesHtml}
-        <p style="margin: 0; font-size: 18px; position: relative; z-index: 1;">${bottomBannerText}</p>
-      </div>` : '';
+        <p style="margin: 0 0 15px 0; font-size: 18px; position: relative; z-index: 2;">${bottomBannerText}</p>
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid rgba(255,255,255,0.3); position: relative; z-index: 2;">
+          <img src="${signatureUrl}" alt="AI Business Group Signature" style="max-width: ${signatureSize === 'small' ? '300px' : signatureSize === 'large' ? '600px' : '450px'}; width: 100%; border-radius: 10px; display: block; margin: 0 auto;">
+        </div>
+      </div>` : `
+      <div class="signature-section" style="padding: 20px; text-align: center; background-color: white;">
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #00274c;">
+          <img src="${signatureUrl}" alt="AI Business Group Signature" style="max-width: ${signatureSize === 'small' ? '300px' : signatureSize === 'large' ? '600px' : '450px'}; width: 100%; border-radius: 10px; display: block; margin: 0 auto;">
+        </div>
+      </div>`;
 
     return `<!DOCTYPE html>
 <html>
@@ -433,8 +484,6 @@ export default function NotificationsPage() {
     .container { max-width: 600px; margin: 20px auto; background-color: white; border-radius: 15px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .header { ${bannerStyle} color: white; padding: 30px 20px; text-align: center; position: relative; }
     .content { padding: 30px 20px; }
-    .signature { margin-top: 30px; padding-top: 20px; border-top: 2px solid #00274c; }
-    .signature img { max-width: 100%; height: auto; border-radius: 10px; }
   </style>
 </head>
 <body>
@@ -445,9 +494,6 @@ export default function NotificationsPage() {
     </div>
     <div class="content">
       ${sectionsHtml}
-      <div class="signature">
-        <img src="https://abgumich.org/images/email-signature.png" alt="AI Business Group Signature" style="max-width: 100%; border-radius: 10px;">
-      </div>
     </div>
     ${bottomBannerHtml}
   </div>
@@ -469,11 +515,12 @@ export default function NotificationsPage() {
         doc.close();
       }
     }
-  }, [contentSections, subject, emailTitle, bannerColor, bannerGradient, bannerGradientEnd, bannerGradientOpacity, bannerBackgroundImage, bannerShapes, bottomBannerEnabled, bottomBannerColor, bottomBannerGradient, bottomBannerGradientEnd, bottomBannerGradientOpacity, bottomBannerBackgroundImage, bottomBannerShapes, bottomBannerText]);
+  }, [contentSections, subject, emailTitle, bannerColor, bannerGradient, bannerGradientEnd, bannerGradientOpacity, bannerBackgroundImage, bannerShapes, bottomBannerEnabled, bottomBannerColor, bottomBannerGradient, bottomBannerGradientEnd, bottomBannerGradientOpacity, bottomBannerBackgroundImage, bottomBannerShapes, bottomBannerText, signatureSize, signatureStyle]);
 
   useEffect(() => {
     loadUsers();
     loadScheduledEmails();
+    loadDrafts();
   }, []);
 
   const loadUsers = async () => {
@@ -501,6 +548,181 @@ export default function NotificationsPage() {
     } catch (error) {
       console.error('Failed to load scheduled emails:', error);
     }
+  };
+
+  const loadDrafts = async () => {
+    try {
+      const response = await fetch('/api/admin/notifications/drafts');
+      if (response.ok) {
+        const data = await response.json();
+        setDrafts(data.drafts || []);
+      }
+    } catch (error) {
+      console.error('Failed to load drafts:', error);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!draftName.trim()) {
+      setMessage({ type: 'error', text: 'Please enter a draft name' });
+      return;
+    }
+
+    try {
+      const bannerSettings = {
+        bannerColor,
+        bannerGradient,
+        bannerGradientEnd,
+        bannerGradientOpacity,
+        bannerBackgroundImage,
+        bannerShapes
+      };
+
+      const bottomBannerSettings = {
+        bottomBannerEnabled,
+        bottomBannerColor,
+        bottomBannerGradient,
+        bottomBannerGradientEnd,
+        bottomBannerGradientOpacity,
+        bottomBannerBackgroundImage,
+        bottomBannerShapes,
+        bottomBannerText
+      };
+
+      const draftData = {
+        name: draftName,
+        subject,
+        emailTitle,
+        contentSections,
+        selectedUsers,
+        selectedMcommunityGroups,
+        bannerSettings,
+        bottomBannerSettings,
+        signatureSize,
+        signatureStyle
+      };
+
+      let response;
+      if (currentDraftId) {
+        // Update existing draft
+        response = await fetch('/api/admin/notifications/drafts', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...draftData, id: currentDraftId })
+        });
+      } else {
+        // Create new draft
+        response = await fetch('/api/admin/notifications/drafts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(draftData)
+        });
+      }
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: `Draft ${currentDraftId ? 'updated' : 'saved'} successfully!` });
+        loadDrafts();
+        if (!currentDraftId) {
+          const data = await response.json();
+          setCurrentDraftId(data.draft._id);
+        }
+      } else {
+        throw new Error('Failed to save draft');
+      }
+    } catch (error) {
+      console.error('Save draft error:', error);
+      setMessage({ type: 'error', text: 'Failed to save draft' });
+    }
+  };
+
+  const handleLoadDraft = (draft: EmailDraft) => {
+    setCurrentDraftId(draft._id);
+    setDraftName(draft.name);
+    setSubject(draft.subject);
+    setEmailTitle(draft.emailTitle);
+    setContentSections(draft.contentSections);
+    setSelectedUsers(draft.selectedUsers || []);
+    setSelectedMcommunityGroups(draft.selectedMcommunityGroups || []);
+    
+    if (draft.bannerSettings) {
+      setBannerColor(draft.bannerSettings.bannerColor || '#00274c');
+      setBannerGradient(draft.bannerSettings.bannerGradient || false);
+      setBannerGradientEnd(draft.bannerSettings.bannerGradientEnd || '#00509e');
+      setBannerGradientOpacity(draft.bannerSettings.bannerGradientOpacity || 1);
+      setBannerBackgroundImage(draft.bannerSettings.bannerBackgroundImage || '');
+      setBannerShapes(draft.bannerSettings.bannerShapes || false);
+    }
+    
+    if (draft.bottomBannerSettings) {
+      setBottomBannerEnabled(draft.bottomBannerSettings.bottomBannerEnabled || false);
+      setBottomBannerColor(draft.bottomBannerSettings.bottomBannerColor || '#00274c');
+      setBottomBannerGradient(draft.bottomBannerSettings.bottomBannerGradient || false);
+      setBottomBannerGradientEnd(draft.bottomBannerSettings.bottomBannerGradientEnd || '#00509e');
+      setBottomBannerGradientOpacity(draft.bottomBannerSettings.bottomBannerGradientOpacity || 1);
+      setBottomBannerBackgroundImage(draft.bottomBannerSettings.bottomBannerBackgroundImage || '');
+      setBottomBannerShapes(draft.bottomBannerSettings.bottomBannerShapes || false);
+      setBottomBannerText(draft.bottomBannerSettings.bottomBannerText || 'Thank you!');
+    }
+    
+    if (draft.signatureSize) {
+      setSignatureSize(draft.signatureSize);
+    }
+    if (draft.signatureStyle) {
+      setSignatureStyle(draft.signatureStyle);
+    }
+    
+    setShowDrafts(false);
+    setMessage({ type: 'success', text: 'Draft loaded successfully!' });
+  };
+
+  const handleDeleteDraft = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this draft?')) return;
+    
+    try {
+      const response = await fetch(`/api/admin/notifications/drafts?id=${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Draft deleted successfully!' });
+        loadDrafts();
+        if (currentDraftId === id) {
+          handleNewDraft();
+        }
+      } else {
+        throw new Error('Failed to delete draft');
+      }
+    } catch (error) {
+      console.error('Delete draft error:', error);
+      setMessage({ type: 'error', text: 'Failed to delete draft' });
+    }
+  };
+
+  const handleNewDraft = () => {
+    setCurrentDraftId(null);
+    setDraftName('');
+    setSubject('');
+    setEmailTitle('Email from ABG');
+    setContentSections([{ id: '1', type: 'text', content: 'Hello Team,' }]);
+    setSelectedUsers([]);
+    setSelectedMcommunityGroups([]);
+    setBannerColor('#00274c');
+    setBannerGradient(false);
+    setBannerGradientEnd('#00509e');
+    setBannerGradientOpacity(1);
+    setBannerBackgroundImage('');
+    setBannerShapes(false);
+    setBottomBannerEnabled(false);
+    setBottomBannerColor('#00274c');
+    setBottomBannerGradient(false);
+    setBottomBannerGradientEnd('#00509e');
+    setBottomBannerGradientOpacity(1);
+    setBottomBannerBackgroundImage('');
+    setBottomBannerShapes(false);
+    setBottomBannerText('Thank you!');
+    setSignatureSize('medium');
+    setSignatureStyle('white');
+    setMessage(null);
   };
 
   const handleScheduledSend = async () => {
@@ -586,9 +808,11 @@ export default function NotificationsPage() {
     const newSection: ContentSection = {
       id: Date.now().toString(),
       type,
-      content: type === 'heading' ? 'New Heading' : type === 'button' ? 'Click Here' : type === 'image' ? 'Image description' : type === 'divider' ? '' : 'New paragraph...',
+      content: type === 'heading' ? 'New Heading' : type === 'button' ? 'Click Here' : type === 'image' ? 'Image description' : type === 'text-image' ? 'Your text here...' : type === 'divider' ? '' : 'New paragraph...',
       buttonUrl: type === 'button' ? 'https://abgumich.org' : undefined,
-      imageUrl: type === 'image' ? 'https://abgumich.org/images/placeholder.png' : undefined
+      imageUrl: (type === 'image' || type === 'text-image') ? 'https://abgumich.org/images/placeholder.png' : undefined,
+      imagePosition: (type === 'image' || type === 'text-image') ? 'left' : undefined,
+      imageSize: (type === 'image' || type === 'text-image') ? 'medium' : undefined
     };
     setContentSections([...contentSections, newSection]);
   };
@@ -717,15 +941,81 @@ export default function NotificationsPage() {
               <h1 className="text-2xl font-bold text-gray-900">Notification Center</h1>
               <p className="text-gray-600 text-sm">Send custom HTML emails to users</p>
             </div>
-            <Link 
-              href="/admin"
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              ← Back
-            </Link>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDrafts(!showDrafts)}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <FolderIcon className="w-5 h-5" />
+                Drafts ({drafts.length})
+              </button>
+              <Link 
+                href="/admin"
+                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                ← Back
+              </Link>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Drafts Panel */}
+      {showDrafts && (
+        <div className="mx-6 mb-6 bg-white rounded-lg shadow border border-gray-200">
+          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Saved Drafts</h2>
+            <button
+              onClick={handleNewDraft}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+            >
+              <PlusIcon className="w-4 h-4" />
+              New Draft
+            </button>
+          </div>
+          <div className="p-4">
+            {drafts.length === 0 ? (
+              <p className="text-center text-gray-500 py-4">No saved drafts</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {drafts.map((draft) => (
+                  <div
+                    key={draft._id}
+                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                      currentDraftId === draft._id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold text-gray-900 truncate flex-1">{draft.name}</h3>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteDraft(draft._id);
+                        }}
+                        className="text-red-600 hover:text-red-700 ml-2"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-600 truncate mb-2">{draft.subject || 'No subject'}</p>
+                    <p className="text-xs text-gray-500 mb-3">
+                      Updated: {new Date(draft.updatedAt).toLocaleDateString()}
+                    </p>
+                    <button
+                      onClick={() => handleLoadDraft(draft)}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm"
+                    >
+                      Load Draft
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Message */}
       {message && (
@@ -748,14 +1038,46 @@ export default function NotificationsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Email Content Builder */}
           <div className="bg-white rounded-lg shadow border border-gray-200">
-            <div className="p-4 border-b border-gray-200">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <CodeBracketIcon className="w-5 h-5" />
                 Email Content Builder
               </h2>
+              <button
+                onClick={() => setShowDrafts(true)}
+                className="text-purple-600 hover:text-purple-700 text-sm flex items-center gap-1"
+              >
+                <FolderIcon className="w-4 h-4" />
+                View Drafts
+              </button>
             </div>
 
             <div className="p-4 space-y-4 overflow-y-auto">
+              {/* Draft Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Draft Name</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    placeholder="Enter draft name to save..."
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                  <button
+                    onClick={handleSaveDraft}
+                    disabled={!draftName.trim()}
+                    className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+                  >
+                    <BookmarkIcon className="w-4 h-4" />
+                    {currentDraftId ? 'Update' : 'Save'}
+                  </button>
+                </div>
+                {currentDraftId && (
+                  <p className="text-xs text-green-600 mt-1">Currently editing: {draftName}</p>
+                )}
+              </div>
+
               {/* Subject */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Email Subject</label>
@@ -967,6 +1289,71 @@ export default function NotificationsPage() {
                 )}
               </div>
 
+              {/* Signature Size Control */}
+              <div className="space-y-3 border-t pt-3">
+                <h3 className="text-sm font-semibold text-gray-700">Signature Settings</h3>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Signature Style</label>
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() => setSignatureStyle('white')}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm ${
+                        signatureStyle === 'white'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      White Background
+                    </button>
+                    <button
+                      onClick={() => setSignatureStyle('black')}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm ${
+                        signatureStyle === 'black'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Black Background
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Signature Size</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSignatureSize('small')}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm ${
+                        signatureSize === 'small'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Small
+                    </button>
+                    <button
+                      onClick={() => setSignatureSize('medium')}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm ${
+                        signatureSize === 'medium'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Medium
+                    </button>
+                    <button
+                      onClick={() => setSignatureSize('large')}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm ${
+                        signatureSize === 'large'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Large
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Add Section Buttons */}
               <div className="flex gap-2 flex-wrap border-t pt-3">
                 <button
@@ -998,6 +1385,13 @@ export default function NotificationsPage() {
                   Add Image
                 </button>
                 <button
+                  onClick={() => addSection('text-image')}
+                  className="px-3 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-sm flex items-center gap-1"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  Text + Image
+                </button>
+                <button
                   onClick={() => addSection('divider')}
                   className="px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm flex items-center gap-1"
                 >
@@ -1013,9 +1407,9 @@ export default function NotificationsPage() {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-gray-500 uppercase">
-                          {section.type}
+                          {section.type === 'text-image' ? 'Text + Image' : section.type}
                         </span>
-                        {(section.type === 'text' || section.type === 'heading') && (
+                        {(section.type === 'text' || section.type === 'heading' || section.type === 'text-image') && (
                           <label className="flex items-center gap-1 text-xs">
                             <input
                               type="checkbox"
@@ -1078,13 +1472,103 @@ export default function NotificationsPage() {
                     )}
                     
                     {section.type === 'image' && (
-                      <input
-                        type="url"
-                        value={section.imageUrl || ''}
-                        onChange={(e) => updateSection(section.id, { imageUrl: e.target.value })}
-                        placeholder="Image URL (e.g., https://example.com/image.png)"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm mt-2"
-                      />
+                      <>
+                        <input
+                          type="url"
+                          value={section.imageUrl || ''}
+                          onChange={(e) => updateSection(section.id, { imageUrl: e.target.value })}
+                          placeholder="Image URL (e.g., https://example.com/image.png)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm mt-2"
+                        />
+                        <div className="mt-2 space-y-2">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Image Size</label>
+                            <div className="flex gap-1">
+                              {['small', 'medium', 'large', 'full'].map(size => (
+                                <button
+                                  key={size}
+                                  onClick={() => updateSection(section.id, { imageSize: size as any })}
+                                  className={`flex-1 px-2 py-1 rounded text-xs ${
+                                    section.imageSize === size
+                                      ? 'bg-blue-600 text-white'
+                                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                  }`}
+                                >
+                                  {size.charAt(0).toUpperCase() + size.slice(1)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Position</label>
+                            <div className="flex gap-1">
+                              {['left', 'center', 'right'].map(pos => (
+                                <button
+                                  key={pos}
+                                  onClick={() => updateSection(section.id, { imagePosition: pos as any })}
+                                  className={`flex-1 px-2 py-1 rounded text-xs ${
+                                    section.imagePosition === pos
+                                      ? 'bg-blue-600 text-white'
+                                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                  }`}
+                                >
+                                  {pos.charAt(0).toUpperCase() + pos.slice(1)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    
+                    {section.type === 'text-image' && (
+                      <>
+                        <input
+                          type="url"
+                          value={section.imageUrl || ''}
+                          onChange={(e) => updateSection(section.id, { imageUrl: e.target.value })}
+                          placeholder="Image URL (e.g., https://example.com/image.png)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm mt-2"
+                        />
+                        <div className="mt-2 space-y-2">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Image Size</label>
+                            <div className="flex gap-1">
+                              {['small', 'medium', 'large'].map(size => (
+                                <button
+                                  key={size}
+                                  onClick={() => updateSection(section.id, { imageSize: size as any })}
+                                  className={`flex-1 px-2 py-1 rounded text-xs ${
+                                    section.imageSize === size
+                                      ? 'bg-blue-600 text-white'
+                                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                  }`}
+                                >
+                                  {size.charAt(0).toUpperCase() + size.slice(1)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Image Position</label>
+                            <div className="flex gap-1">
+                              {['left', 'right'].map(pos => (
+                                <button
+                                  key={pos}
+                                  onClick={() => updateSection(section.id, { imagePosition: pos as any })}
+                                  className={`flex-1 px-2 py-1 rounded text-xs ${
+                                    section.imagePosition === pos
+                                      ? 'bg-blue-600 text-white'
+                                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                  }`}
+                                >
+                                  {pos.charAt(0).toUpperCase() + pos.slice(1)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
                 ))}
