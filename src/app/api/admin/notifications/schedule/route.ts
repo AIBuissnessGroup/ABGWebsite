@@ -4,6 +4,10 @@ import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
 import { MongoClient } from 'mongodb';
 
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const uri = process.env.MONGODB_URI!;
 const client = new MongoClient(uri);
 

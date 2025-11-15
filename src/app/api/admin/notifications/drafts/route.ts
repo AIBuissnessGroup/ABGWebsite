@@ -4,6 +4,24 @@ import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
 import { MongoClient } from 'mongodb';
 
+// Configure route to handle large payloads
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+// Handle OPTIONS for CORS preflight
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Allow': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
+}
+
 const uri = process.env.MONGODB_URI || '';
 const client = new MongoClient(uri);
 
@@ -76,9 +94,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { id, name, subject, emailTitle, contentSections, selectedUsers, selectedMcommunityGroups, bannerSettings, bottomBannerSettings } = body;
-
+    const { id, name, subject, emailTitle, contentSections, selectedUsers, selectedMcommunityGroups, bannerSettings, bottomBannerSettings } = await request.json();
     const db = await getDb();
     const { ObjectId } = require('mongodb');
     

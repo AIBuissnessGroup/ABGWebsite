@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { hasRole, isAdmin } from '@/lib/roles';
+import { fileToBase64, isFileTooLarge, formatFileSize } from '@/lib/client-compression';
 import { 
   EnvelopeIcon, 
   UserGroupIcon, 
@@ -627,27 +628,72 @@ export default function NotificationsPage() {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    const newAttachments: Array<{ filename: string; content: string; encoding: string }> = [];
-
+    // Check for files that are too large (3MB limit per file after compression)
+    const oversizedFiles: string[] = [];
+    const maxSize = 3; // MB
+    
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      // Convert file to base64
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const base64 = e.target?.result as string;
-        // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
-        const base64Content = base64.split(',')[1];
-        newAttachments.push({
-          filename: file.name,
-          content: base64Content,
-          encoding: 'base64'
+      // For non-image files, check size directly
+      if (!file.type.startsWith('image/') && isFileTooLarge(file, maxSize)) {
+        oversizedFiles.push(`${file.name} (${formatFileSize(file.size)})`);
+      }
+    }
+
+    if (oversizedFiles.length > 0) {
+      setMessage({ 
+        type: 'error', 
+        text: `The following files are too large (max ${maxSize}MB per file): ${oversizedFiles.join(', ')}. Please compress or split the file before uploading.` 
+      });
+      // Reset the input
+      event.target.value = '';
+      return;
+    }
+
+    setMessage({ type: 'info', text: 'Compressing and processing files...' });
+
+    try {
+      const newAttachments: Array<{ filename: string; content: string; encoding: string }> = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Compress and convert to base64
+        const compressed = await fileToBase64(file, true, {
+          maxSizeMB: 1.5,
+          maxWidthOrHeight: 1600,
+          quality: 0.7
         });
 
-        if (newAttachments.length === files.length) {
-          setAttachments([...attachments, ...newAttachments]);
+        // Check if compressed size is still too large
+        const compressedSizeMB = (compressed.content.length * 0.75) / (1024 * 1024); // base64 is ~33% larger
+        if (compressedSizeMB > maxSize) {
+          setMessage({ 
+            type: 'error', 
+            text: `${file.name} is still too large after compression (${compressedSizeMB.toFixed(2)}MB). Maximum is ${maxSize}MB. Please use a smaller file or compress it further.` 
+          });
+          event.target.value = '';
+          return;
         }
-      };
-      reader.readAsDataURL(file);
+
+        newAttachments.push({
+          filename: compressed.filename,
+          content: compressed.content,
+          encoding: compressed.encoding
+        });
+
+        // Log compression results
+        const savedKB = (compressed.originalSize - compressed.compressedSize) / 1024;
+        if (savedKB > 10) {
+          console.log(`✓ Compressed ${file.name}: saved ${savedKB.toFixed(0)}KB (${formatFileSize(compressed.originalSize)} → ${formatFileSize(compressed.compressedSize)})`);
+        }
+      }
+
+      setAttachments([...attachments, ...newAttachments]);
+      setMessage({ type: 'success', text: `Added ${files.length} file(s)` });
+    } catch (error) {
+      console.error('Error processing files:', error);
+      setMessage({ type: 'error', text: 'Failed to process files' });
     }
   };
 
@@ -1457,7 +1503,12 @@ export default function NotificationsPage() {
               <div className="space-y-3 border-t pt-3">
                 <h3 className="text-sm font-semibold text-gray-700">File Attachments</h3>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Attach Files</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Attach Files
+                    <span className="ml-2 text-xs text-gray-500 font-normal">
+                      (Max 3MB per file. Images will be automatically compressed. PowerPoint/large files should be compressed externally first.)
+                    </span>
+                  </label>
                   <input
                     type="file"
                     multiple

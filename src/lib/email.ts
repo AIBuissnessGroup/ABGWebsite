@@ -16,6 +16,39 @@ export interface FormReceiptOptions {
   responses?: ReceiptAttachment[];
 }
 
+let cachedGmailClient: any | null = null;
+
+async function getGmailClient() {
+  if (cachedGmailClient) {
+    return cachedGmailClient;
+  }
+
+  const clientId = process.env.GMAIL_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    console.error('❌ Gmail API credentials not configured');
+    console.error('   Required: GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN');
+    return null;
+  }
+
+  try {
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    
+    cachedGmailClient = gmail;
+    console.log('✅ Gmail API client initialized');
+    return gmail;
+  } catch (error: any) {
+    console.error('❌ Error creating Gmail API client:', error.message);
+    return null;
+  }
+}
+
+// Keep old transporter for backwards compatibility
 let cachedTransporter: nodemailer.Transporter | null = null;
 
 async function getTransporter() {
@@ -320,41 +353,72 @@ export async function sendEmail(options: {
   replyTo?: string;
   attachments?: Array<{ filename: string; content: string; encoding: string }>;
 }): Promise<boolean> {
-  const transporter = await getTransporter();
-  if (!transporter) {
-    console.warn('Email transporter not available');
+  console.log('🔍 sendEmail called for:', options.to);
+  
+  const gmail = await getGmailClient();
+  if (!gmail) {
+    console.error('❌ Gmail API client not available');
     return false;
   }
 
   const from = process.env.GMAIL_USER_EMAIL || process.env.SMTP_FROM_EMAIL;
   if (!from) {
-    console.warn('No sender email configured (GMAIL_USER_EMAIL or SMTP_FROM_EMAIL)');
+    console.error('❌ No sender email configured');
     return false;
   }
 
   try {
-    console.log(`📧 Sending email to ${options.to}`);
+    console.log(`📧 Sending email via Gmail API`);
+    console.log(`   To: ${options.to}`);
     console.log(`   Subject: ${options.subject}`);
-    if (options.replyTo) {
-      console.log(`   Reply-To: ${options.replyTo}`);
-    }
+    console.log(`   From: ${from}`);
 
-    const info = await transporter.sendMail({
-      from: `"AI Business Group" <${from}>`,
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-      text: options.text || options.html.replace(/<[^>]*>/g, ''), // Strip HTML tags for plain text version
-      replyTo: options.replyTo, // Add reply-to header if provided
-      attachments: options.attachments || [], // Add attachments if provided
+    // Build email message in RFC 2822 format
+    const messageParts = [
+      `From: "AI Business Group" <${from}>`,
+      `To: ${options.to}`,
+      `Subject: ${options.subject}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/alternative; boundary="boundary123"`,
+      options.replyTo ? `Reply-To: ${options.replyTo}` : '',
+      '',
+      '--boundary123',
+      'Content-Type: text/plain; charset=UTF-8',
+      '',
+      options.text || options.html.replace(/<[^>]*>/g, ''),
+      '',
+      '--boundary123',
+      'Content-Type: text/html; charset=UTF-8',
+      '',
+      options.html,
+      '',
+      '--boundary123--'
+    ].filter(Boolean).join('\r\n');
+
+    // Encode message in base64url format
+    const encodedMessage = Buffer.from(messageParts)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    // Send via Gmail API
+    const response = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw: encodedMessage,
+      },
     });
 
-    console.log('✅ Email sent successfully!');
-    console.log('   Message ID:', info.messageId);
+    console.log('✅ Email sent successfully via Gmail API!');
+    console.log('   Message ID:', response.data.id);
     
     return true;
-  } catch (error) {
-    console.error('❌ Failed to send email:', error);
+  } catch (error: any) {
+    console.error('❌ Failed to send email:', error.message);
+    if (error.response?.data) {
+      console.error('   API Error:', JSON.stringify(error.response.data, null, 2));
+    }
     return false;
   }
 }

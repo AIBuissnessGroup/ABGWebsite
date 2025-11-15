@@ -8,7 +8,8 @@
     "clean": "rimraf .next",
     "clean:force": "rimraf .next",
     "build": "npm run clean && next build",
-    "start": "next start",
+    "start": "node server.js",
+    "start:default": "next start",
     "lint": "next lint"
   },
   "dependencies": {

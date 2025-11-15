@@ -9,6 +9,12 @@ const nextConfig = {
       exclude: ['error'] // Keep console.error for debugging critical issues
     } : false,
   },
+  // Increase body size limit for API routes (for email drafts with attachments)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '100mb',
+    },
+  },
   images: {
     remotePatterns: [
       {
