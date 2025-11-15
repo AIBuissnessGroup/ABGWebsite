@@ -364,8 +364,10 @@ export default function NotificationsPage() {
   // Generate HTML from content sections
   const generateHtmlFromSections = () => {
     const formatText = (text: string, isBold?: boolean) => {
+      // Replace Discord-style links: <text>(url) becomes <a href="url">text</a>
+      let formatted = text.replace(/<([^>]+)>\(([^)]+)\)/g, '<a href="$2" style="color: #00274c; text-decoration: underline;">$1</a>');
       // Replace line breaks with <br> tags
-      let formatted = text.replace(/\n/g, '<br>');
+      formatted = formatted.replace(/\n/g, '<br>');
       // Apply bold if needed
       if (isBold) {
         formatted = `<strong>${formatted}</strong>`;
