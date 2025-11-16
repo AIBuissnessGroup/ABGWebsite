@@ -67,7 +67,8 @@ interface EmailDraft {
   bottomBannerSettings: any;
   signatureSize?: 'small' | 'medium' | 'large';
   signatureStyle?: 'white' | 'black';
-  attachments?: Array<{ filename: string; content: string; encoding: string }>;
+  emailBackgroundColor?: string;
+  attachments?: Array<{ name: string; url: string }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -285,7 +286,7 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #bcbcbcff; margin: 0; padding: 0; }
     .container { max-width: 600px; margin: 20px auto; background-color: white; border-radius: 15px; overflow: hidden; }
     .header { background: linear-gradient(135deg, #ff9900 0%, #ffcc00 100%); color: white; padding: 40px 20px; text-align: center; }
     .content { padding: 30px; }
@@ -343,6 +344,7 @@ export default function NotificationsPage() {
   const [bottomBannerGradientOpacity, setBottomBannerGradientOpacity] = useState(1);
   const [bottomBannerBackgroundImage, setBottomBannerBackgroundImage] = useState('');
   const [bottomBannerShapes, setBottomBannerShapes] = useState(false);
+  const [emailBackgroundColor, setEmailBackgroundColor] = useState('#f4f4f4');
   const [bottomBannerText, setBottomBannerText] = useState('Thank you!');
   const [htmlContent, setHtmlContent] = useState('');
   const [loading, setLoading] = useState(false);
@@ -362,7 +364,7 @@ export default function NotificationsPage() {
   const [showDrafts, setShowDrafts] = useState(false);
   const [signatureSize, setSignatureSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [signatureStyle, setSignatureStyle] = useState<'white' | 'black'>('white');
-  const [attachments, setAttachments] = useState<Array<{ filename: string; content: string; encoding: string }>>([]);
+  const [attachments, setAttachments] = useState<Array<{ name: string; url: string }>>([]);
   const previewRef = useRef<HTMLIFrameElement>(null);
 
   // Generate HTML from content sections
@@ -401,52 +403,60 @@ export default function NotificationsPage() {
           return `<hr style="border: none; border-top: 2px solid #e5e7eb; margin: 20px 0;" />`;
         case 'image':
           const alignStyle = section.imagePosition === 'left' ? 'text-align: left;' : section.imagePosition === 'right' ? 'text-align: right;' : 'text-align: center;';
-          const imageSrc = section.imageData || section.imageUrl || '';
+          const imageSrc = section.imageUrl || section.imageData || '';
           return `<div style="margin: 20px 0; ${alignStyle}"><img src="${imageSrc}" alt="${section.content}" style="${getImageSizeStyle(section.imageSize)} height: auto; border-radius: 10px;" /></div>`;
         case 'text-image':
           const imageFloat = section.imagePosition === 'left' ? 'float: left; margin: 0 20px 10px 0;' : 'float: right; margin: 0 0 10px 20px;';
-          const textImageSrc = section.imageData || section.imageUrl || '';
+          const textImageSrc = section.imageUrl || section.imageData || '';
           return `<div style="margin: 20px 0; overflow: auto;"><img src="${textImageSrc}" alt="Image" style="${imageFloat} ${getImageSizeStyle(section.imageSize)} height: auto; border-radius: 10px;" /><div style="line-height: 1.6;">${formatText(section.content, section.isBold)}</div></div>`;
         default:
           return '';
       }
     }).join('\n');
 
-    let bannerStyle = '';
+    // SVG shapes as data URL for reliable email rendering - layer on top of existing background
+    const shapesOverlay = bannerShapes ? `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='200'%3E%3Ccircle cx='60' cy='40' r='20' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'/%3E%3Crect x='480' y='120' width='15' height='15' fill='none' stroke='rgba(255,255,255,0.2)' stroke-width='2' transform='rotate(45 487.5 127.5)'/%3E%3Ccircle cx='90' cy='140' r='25' fill='none' stroke='rgba(255,255,255,0.25)' stroke-width='2'/%3E%3Crect x='510' y='60' width='17.5' height='17.5' fill='none' stroke='rgba(255,255,255,0.2)' stroke-width='2' transform='rotate(45 518.75 68.75)'/%3E%3Cpolygon points='420,160 407.5,172.5 432.5,172.5' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'/%3E%3Ccircle cx='420' cy='30' r='22.5' fill='none' stroke='rgba(255,255,255,0.2)' stroke-width='2'/%3E%3C/svg%3E"), ` : '';
+    
+    let bannerStyleWithShapes = '';
     if (bannerBackgroundImage) {
       const overlayOpacity = bannerGradientOpacity * 0.7;
       const fullImageUrl = bannerBackgroundImage.startsWith('http') ? bannerBackgroundImage : `https://abgumich.org${bannerBackgroundImage}`;
-      bannerStyle = `background: linear-gradient(rgba(0, 39, 76, ${overlayOpacity}), rgba(0, 39, 76, ${overlayOpacity})), url('${fullImageUrl}'); background-size: cover; background-position: center;`;
+      if (bannerShapes) {
+        bannerStyleWithShapes = `background-image: ${shapesOverlay}linear-gradient(rgba(0, 39, 76, ${overlayOpacity}), rgba(0, 39, 76, ${overlayOpacity})), url('${fullImageUrl}'); background-size: auto, auto, cover; background-position: center, center, center; background-repeat: no-repeat, no-repeat, no-repeat;`;
+      } else {
+        bannerStyleWithShapes = `background-image: linear-gradient(rgba(0, 39, 76, ${overlayOpacity}), rgba(0, 39, 76, ${overlayOpacity})), url('${fullImageUrl}'); background-size: auto, cover; background-position: center, center; background-repeat: no-repeat, no-repeat;`;
+      }
     } else if (bannerGradient) {
-      // Convert hex to rgba with opacity
       const colorWithOpacity = (hex: string, opacity: number) => {
         const r = parseInt(hex.slice(1, 3), 16);
         const g = parseInt(hex.slice(3, 5), 16);
         const b = parseInt(hex.slice(5, 7), 16);
         return `rgba(${r}, ${g}, ${b}, ${opacity})`;
       };
-      bannerStyle = `background: linear-gradient(135deg, ${colorWithOpacity(bannerColor, bannerGradientOpacity)} 0%, ${colorWithOpacity(bannerGradientEnd, bannerGradientOpacity)} 100%);`;
+      if (bannerShapes) {
+        bannerStyleWithShapes = `background-image: ${shapesOverlay}linear-gradient(135deg, ${colorWithOpacity(bannerColor, bannerGradientOpacity)} 0%, ${colorWithOpacity(bannerGradientEnd, bannerGradientOpacity)} 100%); background-size: auto, auto; background-position: center, center; background-repeat: no-repeat, no-repeat;`;
+      } else {
+        bannerStyleWithShapes = `background-image: linear-gradient(135deg, ${colorWithOpacity(bannerColor, bannerGradientOpacity)} 0%, ${colorWithOpacity(bannerGradientEnd, bannerGradientOpacity)} 100%);`;
+      }
     } else {
-      bannerStyle = `background-color: ${bannerColor};`;
+      bannerStyleWithShapes = bannerShapes 
+        ? `background-color: ${bannerColor}; background-image: ${shapesOverlay.slice(0, -2)}; background-size: auto; background-position: center; background-repeat: no-repeat;`
+        : `background-color: ${bannerColor};`;
     }
-    
-    const shapesHtml = bannerShapes ? `
-      <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;">
-        <div style="position: absolute; width: 40px; height: 40px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; top: 20%; left: 10%;"></div>
-        <div style="position: absolute; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.2); top: 60%; left: 80%; transform: rotate(45deg);"></div>
-        <div style="position: absolute; width: 50px; height: 50px; border: 2px solid rgba(255,255,255,0.25); border-radius: 50%; top: 70%; left: 15%;"></div>
-        <div style="position: absolute; width: 35px; height: 35px; border: 2px solid rgba(255,255,255,0.2); top: 30%; left: 85%; transform: rotate(45deg);"></div>
-        <div style="position: absolute; width: 25px; height: 25px; border: 2px solid rgba(255,255,255,0.3); top: 80%; left: 70%; clip-path: polygon(50% 0%, 0% 100%, 100% 100%);"></div>
-        <div style="position: absolute; width: 45px; height: 45px; border: 2px solid rgba(255,255,255,0.2); border-radius: 50%; top: 15%; left: 70%;"></div>
-      </div>` : '';
 
-    // Bottom banner generation
-    let bottomBannerStyle = '';
+    // Bottom banner shapes overlay - using single quotes to avoid breaking HTML attributes
+    const bottomShapesOverlay = bottomBannerShapes ? `url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27600%27 height=%27150%27%3E%3Ccircle cx=%2790%27 cy=%2745%27 r=%2717.5%27 fill=%27none%27 stroke=%27rgba(255,255,255,0.3)%27 stroke-width=%272%27/%3E%3Crect x=%27450%27 y=%2775%27 width=%2720%27 height=%2720%27 fill=%27none%27 stroke=%27rgba(255,255,255,0.2)%27 stroke-width=%272%27 transform=%27rotate(45 460 85)%27/%3E%3Ccircle cx=%27120%27 cy=%2790%27 r=%2715%27 fill=%27none%27 stroke=%27rgba(255,255,255,0.25)%27 stroke-width=%272%27/%3E%3Crect x=%27480%27 y=%2730%27 width=%2722.5%27 height=%2722.5%27 fill=%27none%27 stroke=%27rgba(255,255,255,0.2)%27 stroke-width=%272%27/%3E%3C/svg%3E'), ` : '';
+    
+    let bottomBannerStyleWithShapes = '';
     if (bottomBannerEnabled) {
       if (bottomBannerBackgroundImage) {
         const overlayOpacity = bottomBannerGradientOpacity * 0.7;
         const fullImageUrl = bottomBannerBackgroundImage.startsWith('http') ? bottomBannerBackgroundImage : `https://abgumich.org${bottomBannerBackgroundImage}`;
-        bottomBannerStyle = `background: linear-gradient(rgba(0, 39, 76, ${overlayOpacity}), rgba(0, 39, 76, ${overlayOpacity})), url('${fullImageUrl}'); background-size: cover; background-position: center;`;
+        if (bottomBannerShapes) {
+          bottomBannerStyleWithShapes = `background-image: ${bottomShapesOverlay}linear-gradient(rgba(0, 39, 76, ${overlayOpacity}), rgba(0, 39, 76, ${overlayOpacity})), url('${fullImageUrl}'); background-size: auto, auto, cover; background-position: center, center, center; background-repeat: no-repeat, no-repeat, no-repeat;`;
+        } else {
+          bottomBannerStyleWithShapes = `background-image: linear-gradient(rgba(0, 39, 76, ${overlayOpacity}), rgba(0, 39, 76, ${overlayOpacity})), url('${fullImageUrl}'); background-size: auto, cover; background-position: center, center; background-repeat: no-repeat, no-repeat;`;
+        }
       } else if (bottomBannerGradient) {
         const colorWithOpacity = (hex: string, opacity: number) => {
           const r = parseInt(hex.slice(1, 3), 16);
@@ -454,27 +464,26 @@ export default function NotificationsPage() {
           const b = parseInt(hex.slice(5, 7), 16);
           return `rgba(${r}, ${g}, ${b}, ${opacity})`;
         };
-        bottomBannerStyle = `background: linear-gradient(135deg, ${colorWithOpacity(bottomBannerColor, bottomBannerGradientOpacity)} 0%, ${colorWithOpacity(bottomBannerGradientEnd, bottomBannerGradientOpacity)} 100%);`;
+        if (bottomBannerShapes) {
+          bottomBannerStyleWithShapes = `background-image: ${bottomShapesOverlay}linear-gradient(135deg, ${colorWithOpacity(bottomBannerColor, bottomBannerGradientOpacity)} 0%, ${colorWithOpacity(bottomBannerGradientEnd, bottomBannerGradientOpacity)} 100%); background-size: auto, auto; background-position: center, center; background-repeat: no-repeat, no-repeat;`;
+        } else {
+          bottomBannerStyleWithShapes = `background-image: linear-gradient(135deg, ${colorWithOpacity(bottomBannerColor, bottomBannerGradientOpacity)} 0%, ${colorWithOpacity(bottomBannerGradientEnd, bottomBannerGradientOpacity)} 100%);`;
+        }
       } else {
-        bottomBannerStyle = `background-color: ${bottomBannerColor};`;
+        if (bottomBannerShapes) {
+          bottomBannerStyleWithShapes = `background-color: ${bottomBannerColor}; background-image: ${bottomShapesOverlay.slice(0, -2)}; background-size: auto; background-position: center; background-repeat: no-repeat;`;
+        } else {
+          bottomBannerStyleWithShapes = `background-color: ${bottomBannerColor};`;
+        }
       }
     }
-
-    const bottomShapesHtml = (bottomBannerEnabled && bottomBannerShapes) ? `
-      <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;">
-        <div style="position: absolute; width: 35px; height: 35px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; top: 30%; left: 15%;"></div>
-        <div style="position: absolute; width: 40px; height: 40px; border: 2px solid rgba(255,255,255,0.2); top: 50%; left: 75%; transform: rotate(45deg);"></div>
-        <div style="position: absolute; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.25); border-radius: 50%; top: 60%; left: 20%;"></div>
-        <div style="position: absolute; width: 45px; height: 45px; border: 2px solid rgba(255,255,255,0.2); top: 20%; left: 80%;"></div>
-      </div>` : '';
 
     const signatureUrl = signatureStyle === 'white' ? 'https://abgumich.org/white-abg-email-signature.png' : 'https://abgumich.org/black-abg-email-signature.png';
 
     const bottomBannerHtml = bottomBannerEnabled ? `
-      <div class="bottom-banner" style="${bottomBannerStyle} color: white; padding: 20px; text-align: center; position: relative;">
-        ${bottomShapesHtml}
-        <p style="margin: 0 0 15px 0; font-size: 18px; position: relative; z-index: 2;">${bottomBannerText}</p>
-        <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid rgba(255,255,255,0.3); position: relative; z-index: 2;">
+      <div class="bottom-banner" style="${bottomBannerStyleWithShapes} color: white; padding: 20px; text-align: center; position: relative; overflow: hidden;">
+        <p style="margin: 0 0 15px 0; font-size: 18px; position: relative; z-index: 10; color: white; font-weight: normal;">${bottomBannerText}</p>
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid rgba(255,255,255,0.3); position: relative; z-index: 10;">
           <img src="${signatureUrl}" alt="AI Business Group Signature" style="max-width: ${signatureSize === 'small' ? '300px' : signatureSize === 'large' ? '600px' : '450px'}; width: 100%; border-radius: 10px; display: block; margin: 0 auto;">
         </div>
       </div>` : `
@@ -490,16 +499,15 @@ export default function NotificationsPage() {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f4f4f4; }
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: ${emailBackgroundColor}; }
     .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 15px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .header { ${bannerStyle} color: white; padding: 30px 20px; text-align: center; position: relative; }
+    .header { ${bannerStyleWithShapes} color: white; padding: 30px 20px; text-align: center; position: relative; overflow: hidden; }
     .content { padding: 30px 20px; background-color: white; position: relative; z-index: 1; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      ${shapesHtml}
       <h1 style="margin: 0; font-size: 28px; position: relative; z-index: 10;">${emailTitle}</h1>
     </div>
     <div class="content">
@@ -588,7 +596,7 @@ export default function NotificationsPage() {
   }, [currentDraftId, draftName, subject, emailTitle, contentSections, selectedUsers, selectedMcommunityGroups, 
       bannerColor, bannerGradient, bannerGradientEnd, bannerGradientOpacity, bannerBackgroundImage, bannerShapes,
       bottomBannerEnabled, bottomBannerColor, bottomBannerGradient, bottomBannerGradientEnd, bottomBannerGradientOpacity,
-      bottomBannerBackgroundImage, bottomBannerShapes, bottomBannerText, signatureSize, signatureStyle, attachments]);
+      bottomBannerBackgroundImage, bottomBannerShapes, bottomBannerText, signatureSize, signatureStyle, emailBackgroundColor, attachments]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -629,78 +637,35 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
 
-    // Note: Files over 25MB will be automatically uploaded to Google Drive by the backend
-    setMessage({ type: 'success', text: 'Processing files...' });
-
-    try {
-      const newAttachments: Array<{ filename: string; content: string; encoding: string }> = [];
-
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        
-        // Only compress images, pass through other files as-is
-        const shouldCompress = file.type.startsWith('image/');
-        const compressed = await fileToBase64(file, shouldCompress, shouldCompress ? {
-          maxSizeMB: 3,
-          maxWidthOrHeight: 1600,
-          quality: 0.7
-        } : undefined);
-
-        newAttachments.push({
-          filename: compressed.filename,
-          content: compressed.content,
-          encoding: compressed.encoding
-        });
-
-        // Log results
-        if (shouldCompress) {
-          const savedKB = (compressed.originalSize - compressed.compressedSize) / 1024;
-          if (savedKB > 10) {
-            console.log(`✓ Compressed ${file.name}: saved ${savedKB.toFixed(0)}KB (${formatFileSize(compressed.originalSize)} → ${formatFileSize(compressed.compressedSize)})`);
-          }
-        } else {
-          const sizeMB = file.size / (1024 * 1024);
-          if (sizeMB > 25) {
-            console.log(`✓ Added ${file.name}: ${formatFileSize(file.size)} - Will be uploaded to Google Drive`);
-          } else {
-            console.log(`✓ Added ${file.name}: ${formatFileSize(file.size)}`);
-          }
-        }
-      }
-
-      setAttachments([...attachments, ...newAttachments]);
-      setMessage({ type: 'success', text: `Added ${files.length} file(s). Large files (>25MB) will be uploaded to Google Drive.` });
-    } catch (error) {
-      console.error('Error processing files:', error);
-      setMessage({ type: 'error', text: 'Failed to process files' });
-    }
-  };
-
-  const handleRemoveAttachment = (index: number) => {
-    setAttachments(attachments.filter((_, i) => i !== index));
-  };
 
   const handleImageUpload = async (sectionId: string, file: File) => {
     try {
-      // Compress and convert to base64
-      const compressed = await fileToBase64(file, true, {
-        maxSizeMB: 0.5, // Smaller size for inline images
-        maxWidthOrHeight: 1200,
-        quality: 0.8
+      setMessage({ type: 'success', text: 'Uploading image...' });
+
+      // Create FormData and upload to server
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/admin/notifications/upload-image', {
+        method: 'POST',
+        body: formData,
       });
 
-      // Update the section with base64 image data
+      if (!response.ok) {
+        throw new Error('Failed to upload image');
+      }
+
+      const data = await response.json();
+      
+      // Update the section with the server URL
       updateSection(sectionId, { 
-        imageData: `data:image/jpeg;base64,${compressed.content}`,
-        imageUrl: '' // Clear the URL if it was set
+        imageUrl: data.fullUrl,
+        imageData: '' // Clear base64 data if any
       });
 
-      const savedKB = (compressed.originalSize - compressed.compressedSize) / 1024;
-      console.log(`✓ Image uploaded for section ${sectionId}: ${formatFileSize(compressed.compressedSize)} (saved ${savedKB.toFixed(0)}KB)`);
+      console.log(`✓ Image uploaded for section ${sectionId}: ${data.url}`);
+      setMessage({ type: 'success', text: 'Image uploaded successfully!' });
     } catch (error) {
       console.error('Error uploading image:', error);
       setMessage({ type: 'error', text: 'Failed to upload image' });
@@ -745,7 +710,8 @@ export default function NotificationsPage() {
         bottomBannerSettings,
         signatureSize,
         signatureStyle,
-        attachments
+        attachments,
+        emailBackgroundColor
       };
 
       let response;
@@ -817,6 +783,10 @@ export default function NotificationsPage() {
       setSignatureStyle(draft.signatureStyle);
     }
     
+    if (draft.emailBackgroundColor) {
+      setEmailBackgroundColor(draft.emailBackgroundColor);
+    }
+    
     setAttachments(draft.attachments || []);
     
     setShowDrafts(false);
@@ -870,6 +840,7 @@ export default function NotificationsPage() {
     setBottomBannerText('Thank you!');
     setSignatureSize('medium');
     setSignatureStyle('white');
+    setEmailBackgroundColor('#f4f4f4');
     setAttachments([]);
     setMessage(null);
   };
@@ -1273,6 +1244,17 @@ export default function NotificationsPage() {
               <div className="space-y-3 border-t pt-3">
                 <h3 className="text-sm font-semibold text-gray-700">Banner Customization</h3>
                 
+                {/* Email Background Color */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Background Color</label>
+                  <input
+                    type="color"
+                    value={emailBackgroundColor}
+                    onChange={(e) => setEmailBackgroundColor(e.target.value)}
+                    className="w-full h-10 rounded-lg border border-gray-300 cursor-pointer"
+                  />
+                </div>
+                
                 {/* Use Gradient Toggle */}
                 <div className="flex items-center gap-2">
                   <input
@@ -1537,28 +1519,55 @@ export default function NotificationsPage() {
 
               {/* File Attachments */}
               <div className="space-y-3 border-t pt-3">
-                <h3 className="text-sm font-semibold text-gray-700">File Attachments</h3>
+                <h3 className="text-sm font-semibold text-gray-700">Google Drive Attachments</h3>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Attach Files
+                    Add Google Drive Link
                     <span className="ml-2 text-xs text-gray-500 font-normal">
-                      (Any file size/format. Files &gt;25MB automatically uploaded to Google Drive with download links in email.)
+                      (Paste Google Drive share link for files to attach)
                     </span>
                   </label>
-                  <input
-                    type="file"
-                    multiple
-                    onChange={handleFileChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      id="attachmentName"
+                      placeholder="File name (e.g., 'Project Report')"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    />
+                    <input
+                      type="url"
+                      id="attachmentUrl"
+                      placeholder="Google Drive link"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    />
+                    <button
+                      onClick={() => {
+                        const nameInput = document.getElementById('attachmentName') as HTMLInputElement;
+                        const urlInput = document.getElementById('attachmentUrl') as HTMLInputElement;
+                        if (nameInput.value.trim() && urlInput.value.trim()) {
+                          setAttachments([...attachments, { name: nameInput.value.trim(), url: urlInput.value.trim() }]);
+                          nameInput.value = '';
+                          urlInput.value = '';
+                        } else {
+                          setMessage({ type: 'error', text: 'Please enter both file name and Google Drive link' });
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+                    >
+                      Add
+                    </button>
+                  </div>
                   {attachments.length > 0 && (
                     <div className="mt-3 space-y-2">
                       <p className="text-xs text-gray-600">Attached files:</p>
                       {attachments.map((attachment, index) => (
                         <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg">
-                          <span className="text-sm text-gray-700 truncate">{attachment.filename}</span>
+                          <div className="flex-1 truncate">
+                            <span className="text-sm font-medium text-gray-700">{attachment.name}</span>
+                            <span className="text-xs text-gray-500 ml-2 truncate block">{attachment.url}</span>
+                          </div>
                           <button
-                            onClick={() => handleRemoveAttachment(index)}
+                            onClick={() => setAttachments(attachments.filter((_, i) => i !== index))}
                             className="text-red-600 hover:text-red-700 ml-2"
                           >
                             <TrashIcon className="w-4 h-4" />
@@ -1702,10 +1711,10 @@ export default function NotificationsPage() {
                             }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                           />
-                          {(section.imageData || section.imageUrl) && (
+                          {(section.imageUrl || section.imageData) && (
                             <div className="mt-2 flex items-center gap-2">
                               <img 
-                                src={section.imageData || section.imageUrl} 
+                                src={section.imageUrl || section.imageData} 
                                 alt="Preview" 
                                 className="h-16 w-auto rounded border"
                               />
@@ -1774,10 +1783,10 @@ export default function NotificationsPage() {
                             }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                           />
-                          {(section.imageData || section.imageUrl) && (
+                          {(section.imageUrl || section.imageData) && (
                             <div className="mt-2 flex items-center gap-2">
                               <img 
-                                src={section.imageData || section.imageUrl} 
+                                src={section.imageUrl || section.imageData} 
                                 alt="Preview" 
                                 className="h-16 w-auto rounded border"
                               />
