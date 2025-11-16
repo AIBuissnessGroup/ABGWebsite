@@ -70,6 +70,66 @@ export async function sendSlackNotification(message: SlackMessage, overrideWebho
   }
 }
 
+/**
+ * Send a direct message to a user via Slack
+ * Looks up user by email and sends blocks/text
+ */
+export async function sendSlackDM(userEmail: string, message: { text: string; blocks?: any[] }): Promise<boolean> {
+  const token = process.env.SLACK_BOT_TOKEN;
+  if (!token) {
+    console.warn('SLACK_BOT_TOKEN not configured; cannot send DM.');
+    return false;
+  }
+
+  try {
+    // Look up user by email
+    const userResponse = await fetch(`https://slack.com/api/users.lookupByEmail?email=${encodeURIComponent(userEmail)}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const userData = await userResponse.json();
+    if (!userData.ok || !userData.user) {
+      console.error('Failed to find Slack user by email:', userEmail);
+      return false;
+    }
+
+    const userId = userData.user.id;
+
+    // Open DM conversation
+    const channelId = await openDirectConversation(userId);
+    if (!channelId) {
+      return false;
+    }
+
+    // Send message
+    const response = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        channel: channelId,
+        text: message.text,
+        blocks: message.blocks,
+      }),
+    });
+
+    const data = await response.json();
+    if (!data.ok) {
+      console.error('Failed to send Slack DM:', data.error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error sending Slack DM:', error);
+    return false;
+  }
+}
+
 async function openDirectConversation(userId: string): Promise<string | null> {
   const token = process.env.SLACK_BOT_TOKEN;
   if (!token) {

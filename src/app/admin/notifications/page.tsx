@@ -358,6 +358,7 @@ export default function NotificationsPage() {
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
   const [scheduledEmails, setScheduledEmails] = useState<ScheduledEmail[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const [drafts, setDrafts] = useState<EmailDraft[]>([]);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -365,6 +366,10 @@ export default function NotificationsPage() {
   const [signatureSize, setSignatureSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [signatureStyle, setSignatureStyle] = useState<'white' | 'black'>('white');
   const [attachments, setAttachments] = useState<Array<{ name: string; url: string }>>([]);
+  const [selectedApprover, setSelectedApprover] = useState<string>('');
+  const [showApproverModal, setShowApproverModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'send' | 'schedule' | null>(null);
+  const [slackUsers, setSlackUsers] = useState<Array<{ email: string; name: string; slackId: string; isAdmin: boolean }>>([]);
   const previewRef = useRef<HTMLIFrameElement>(null);
 
   // Generate HTML from content sections
@@ -538,8 +543,22 @@ export default function NotificationsPage() {
   useEffect(() => {
     loadUsers();
     loadScheduledEmails();
+    loadPendingApprovals();
     loadDrafts();
+    loadSlackUsers();
   }, []);
+
+  const loadSlackUsers = async () => {
+    try {
+      const response = await fetch('/api/admin/notifications/slack-users');
+      if (response.ok) {
+        const data = await response.json();
+        setSlackUsers(data.users || []);
+      }
+    } catch (error) {
+      console.error('Failed to load Slack users:', error);
+    }
+  };
 
   // Auto-save draft when content changes
   useEffect(() => {
@@ -622,6 +641,18 @@ export default function NotificationsPage() {
       }
     } catch (error) {
       console.error('Failed to load scheduled emails:', error);
+    }
+  };
+
+  const loadPendingApprovals = async () => {
+    try {
+      const response = await fetch('/api/admin/notifications/pending-approvals');
+      if (response.ok) {
+        const data = await response.json();
+        setPendingApprovals(data.approvals || []);
+      }
+    } catch (error) {
+      console.error('Failed to load pending approvals:', error);
     }
   };
 
@@ -867,39 +898,79 @@ export default function NotificationsPage() {
       return;
     }
 
-    setSending(true);
-    setMessage(null);
+    // Open approver modal
+    setPendingAction('schedule');
+    setShowApproverModal(true);
+  };
+
+  const handleUpdateScheduledEmail = async (emailId: string, newDate: string, newTime: string) => {
+    const scheduledFor = new Date(`${newDate}T${newTime}`);
+    if (scheduledFor <= new Date()) {
+      setMessage({ type: 'error', text: 'Scheduled time must be in the future' });
+      return;
+    }
 
     try {
-      const response = await fetch('/api/admin/notifications/schedule', {
-        method: 'POST',
+      const response = await fetch('/api/admin/notifications/scheduled', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          recipients: allRecipients,
-          subject,
-          htmlContent,
-          scheduledFor: scheduledFor.toISOString(),
-          attachments
+          id: emailId,
+          scheduledFor: scheduledFor.toISOString()
         })
       });
 
       if (response.ok) {
-        setMessage({ type: 'success', text: 'Email scheduled successfully!' });
+        setMessage({ type: 'success', text: 'Schedule updated successfully!' });
         loadScheduledEmails();
-        setScheduleDate('');
-        setScheduleTime('');
       } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to schedule email');
+        throw new Error('Failed to update schedule');
       }
     } catch (error) {
-      console.error('Schedule error:', error);
-      setMessage({ 
-        type: 'error', 
-        text: error instanceof Error ? error.message : 'Failed to schedule email' 
+      console.error('Update schedule error:', error);
+      setMessage({ type: 'error', text: 'Failed to update schedule' });
+    }
+  };
+
+  const handleSendScheduledNow = async (emailId: string) => {
+    if (!confirm('Send this email immediately?')) return;
+
+    try {
+      const response = await fetch('/api/admin/notifications/scheduled/send-now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: emailId })
       });
-    } finally {
-      setSending(false);
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Email sent successfully!' });
+        loadScheduledEmails();
+      } else {
+        throw new Error('Failed to send email');
+      }
+    } catch (error) {
+      console.error('Send now error:', error);
+      setMessage({ type: 'error', text: 'Failed to send email' });
+    }
+  };
+
+  const handleDeleteScheduledEmail = async (emailId: string) => {
+    if (!confirm('Delete this scheduled email?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/notifications/scheduled?id=${emailId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Scheduled email deleted!' });
+        loadScheduledEmails();
+      } else {
+        throw new Error('Failed to delete scheduled email');
+      }
+    } catch (error) {
+      console.error('Delete schedule error:', error);
+      setMessage({ type: 'error', text: 'Failed to delete scheduled email' });
     }
   };
 
@@ -987,39 +1058,93 @@ export default function NotificationsPage() {
       return;
     }
 
+    // Open approver modal
+    setPendingAction('send');
+    setShowApproverModal(true);
+  };
+
+  const handleRequestApproval = async () => {
+    if (!selectedApprover) {
+      setMessage({ type: 'error', text: 'Please select an approver' });
+      return;
+    }
+
+    if (selectedApprover === session?.user?.email) {
+      setMessage({ type: 'error', text: 'You cannot approve your own notification' });
+      return;
+    }
+
     setSending(true);
     setMessage(null);
+    setShowApproverModal(false);
 
     try {
-      const response = await fetch('/api/admin/notifications/send', {
+      const allRecipients = [...selectedMcommunityGroups, ...selectedUsers];
+      
+      const response = await fetch('/api/admin/notifications/request-approval', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          approverEmail: selectedApprover,
+          requesterEmail: session?.user?.email,
+          requesterName: session?.user?.name,
           recipients: allRecipients,
           subject,
           htmlContent,
-          attachments
+          attachments,
+          actionType: pendingAction,
+          scheduleDate: pendingAction === 'schedule' ? scheduleDate : undefined,
+          scheduleTime: pendingAction === 'schedule' ? scheduleTime : undefined,
+          draftData: {
+            name: draftName,
+            subject,
+            emailTitle,
+            contentSections,
+            selectedUsers,
+            selectedMcommunityGroups,
+            bannerSettings: {
+              bannerColor,
+              bannerGradient,
+              bannerGradientEnd,
+              bannerGradientOpacity,
+              bannerBackgroundImage,
+              bannerShapes
+            },
+            bottomBannerSettings: {
+              bottomBannerEnabled,
+              bottomBannerColor,
+              bottomBannerGradient,
+              bottomBannerGradientEnd,
+              bottomBannerGradientOpacity,
+              bottomBannerBackgroundImage,
+              bottomBannerShapes,
+              bottomBannerText
+            },
+            signatureSize,
+            signatureStyle,
+            attachments,
+            emailBackgroundColor
+          }
         })
       });
 
       if (response.ok) {
-        const data = await response.json();
         setMessage({ 
           type: 'success', 
-          text: `Successfully sent ${data.sent} email(s)${data.failed > 0 ? `, ${data.failed} failed` : ''}` 
+          text: `Approval request sent to ${selectedApprover} via Slack` 
         });
-        setSelectedUsers([]);
-        setSelectedMcommunityGroups([]);
-        setContentSections([{ id: '1', type: 'text', content: 'Hello Team,' }]);
+        setSelectedApprover('');
+        setPendingAction(null);
+        loadPendingApprovals(); // Reload to show new pending approval
       } else {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to send emails');
+        throw new Error(error.error || 'Failed to request approval');
       }
     } catch (error) {
-      console.error('Send error:', error);
+      console.error('Approval request error:', error);
       setMessage({ 
         type: 'error', 
-        text: error instanceof Error ? error.message : 'Failed to send emails' 
+        text: error instanceof Error ? error.message : 'Failed to request approval' 
       });
     } finally {
       setSending(false);
@@ -2041,6 +2166,41 @@ export default function NotificationsPage() {
             </div>
           </div>
 
+          {/* Pending Approvals */}
+          <div className="bg-white rounded-lg shadow border border-gray-200">
+            <div className="p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">⏳ Pending Approvals</h2>
+            </div>
+            <div className="p-4">
+              <div className="space-y-4">
+                {pendingApprovals.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">No pending approvals</p>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {pendingApprovals.map(approval => (
+                      <div key={approval.id} className="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-900 truncate">{approval.subject}</div>
+                            <div className="text-xs text-gray-600 mt-1">
+                              👤 Waiting on: {approval.approverName || approval.approverEmail}
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              📧 {approval.recipients?.length || 0} recipient(s)
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              🎯 Action: {approval.actionType === 'send' ? 'Send immediately' : 'Schedule'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Scheduled Emails */}
           <div className="bg-white rounded-lg shadow border border-gray-200">
             <div className="p-4 border-b border-gray-200">
@@ -2051,22 +2211,56 @@ export default function NotificationsPage() {
                 {scheduledEmails.length === 0 ? (
                   <p className="text-sm text-gray-500 text-center py-4">No scheduled emails</p>
                 ) : (
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
                     {scheduledEmails.map(email => (
-                      <div key={email.id} className="border border-gray-200 rounded-lg p-3">
-                        <div className="text-sm font-medium text-gray-900 truncate">{email.subject}</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {new Date(email.scheduledFor).toLocaleString()}
+                      <div key={email.id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-900 truncate">{email.subject}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              📅 {new Date(email.scheduledFor).toLocaleString()}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              📧 {email.recipients.length} recipient(s)
+                            </div>
+                            <div className={`text-xs mt-1 font-medium ${
+                              email.status === 'pending' ? 'text-blue-600' : 
+                              email.status === 'sent' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {email.status.toUpperCase()}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {email.recipients.length} recipient(s)
-                        </div>
-                        <div className={`text-xs mt-1 font-medium ${
-                          email.status === 'pending' ? 'text-blue-600' : 
-                          email.status === 'sent' ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {email.status.toUpperCase()}
-                        </div>
+                        
+                        {email.status === 'pending' && (
+                          <div className="mt-3 flex gap-2 flex-wrap">
+                            <button
+                              onClick={() => {
+                                const scheduledDate = new Date(email.scheduledFor);
+                                const newDate = prompt('Enter new date (YYYY-MM-DD):', scheduledDate.toISOString().split('T')[0]);
+                                const newTime = prompt('Enter new time (HH:MM):', scheduledDate.toISOString().split('T')[1]?.substring(0, 5));
+                                if (newDate && newTime) {
+                                  handleUpdateScheduledEmail(email.id, newDate, newTime);
+                                }
+                              }}
+                              className="text-xs px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded"
+                            >
+                              ⏰ Change Time
+                            </button>
+                            <button
+                              onClick={() => handleSendScheduledNow(email.id)}
+                              className="text-xs px-3 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded"
+                            >
+                              🚀 Send Now
+                            </button>
+                            <button
+                              onClick={() => handleDeleteScheduledEmail(email.id)}
+                              className="text-xs px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded"
+                            >
+                              🗑️ Delete
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2075,6 +2269,125 @@ export default function NotificationsPage() {
             </div>
           </div>
         </div>
+
+        {/* Approver Selection Modal */}
+        {showApproverModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+              {/* Header */}
+              <div className="bg-gray-100 p-6 rounded-t-lg border-b">
+                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <span>✋</span> Request Approval
+                </h3>
+                <p className="text-gray-700 text-sm mt-2">
+                  Select someone to review this notification before it's {pendingAction === 'send' ? 'sent' : 'scheduled'}
+                </p>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">💡</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">How it works:</p>
+                      <p className="text-xs text-gray-700 mt-1">
+                        Your selected approver will receive a Slack message with an email preview and buttons to approve or deny your request.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-900 mb-3">Select Approver</label>
+                  <select
+                    value={selectedApprover}
+                    onChange={(e) => setSelectedApprover(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    style={{ backgroundColor: 'white', color: 'black' }}
+                  >
+                    <option value="" style={{ backgroundColor: 'white', color: 'black' }}>Choose an approver...</option>
+                    
+                    {/* Slack Admins Section */}
+                    {slackUsers.filter(u => u.isAdmin && u.email !== session?.user?.email).length > 0 && (
+                      <optgroup label="📢 Slack Admins (Recommended)" style={{ backgroundColor: 'white', color: 'black' }}>
+                        {slackUsers
+                          .filter(u => u.isAdmin && u.email !== session?.user?.email)
+                          .map(user => (
+                            <option key={user.email} value={user.email} style={{ backgroundColor: 'white', color: 'black' }}>
+                              👑 {user.name} ({user.email})
+                            </option>
+                          ))}
+                      </optgroup>
+                    )}
+                    
+                    {/* Website Admins Section */}
+                    <optgroup label="👥 Website Admins" style={{ backgroundColor: 'white', color: 'black' }}>
+                      {users
+                        .filter(u => u.email !== session?.user?.email && u.roles.some(r => ['admin', 'super-admin'].includes(r)))
+                        .map(user => {
+                          const slackUser = slackUsers.find(su => su.email === user.email);
+                          return (
+                            <option key={user.email} value={user.email} style={{ backgroundColor: 'white', color: 'black' }}>
+                              {slackUser ? '💬 ' : '📧 '}{user.name} ({user.email})
+                            </option>
+                          );
+                        })}
+                    </optgroup>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-2">
+                    💬 = Has Slack | 📧 = Email only | 👑 = Slack Admin
+                  </p>
+                </div>
+
+                {/* Action Summary */}
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-xs font-medium text-gray-600 mb-2">Summary:</p>
+                  <p className="text-sm text-gray-900">
+                    <span className="font-semibold">Action:</span> {pendingAction === 'send' ? '📤 Send immediately' : '📅 Schedule for later'}
+                  </p>
+                  <p className="text-sm text-gray-900">
+                    <span className="font-semibold">Subject:</span> {subject || '(No subject)'}
+                  </p>
+                  <p className="text-sm text-gray-900">
+                    <span className="font-semibold">Recipients:</span> {[...selectedMcommunityGroups, ...selectedUsers].length} recipient(s)
+                  </p>
+                </div>
+
+                {/* Buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleRequestApproval}
+                    disabled={!selectedApprover || sending}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-semibold transition-all disabled:cursor-not-allowed"
+                  >
+                    {sending ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="animate-spin">⏳</span> Requesting...
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        <span>✅</span> Request Approval
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowApproverModal(false);
+                      setSelectedApprover('');
+                      setPendingAction(null);
+                    }}
+                    disabled={sending}
+                    style={{ backgroundColor: 'white', color: 'black', borderColor: '#d1d5db' }}
+                    className="px-6 py-3 border-2 rounded-lg hover:bg-gray-50 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
