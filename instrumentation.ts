@@ -5,7 +5,7 @@ export async function register() {
     
     // Override the default IncomingMessage to handle larger bodies
     const originalEmit = http.IncomingMessage.prototype.emit;
-    http.IncomingMessage.prototype.emit = function(event, ...args) {
+    http.IncomingMessage.prototype.emit = function(event: any, ...args: any[]) {
       if (event === 'data' || event === 'end') {
         this.setMaxListeners(0);
       }
@@ -13,5 +13,9 @@ export async function register() {
     };
     
     console.log('✓ Instrumentation: Configured for large request bodies');
+    
+    // Start scheduled emails cron job
+    const { startScheduledEmailsCron } = await import('./src/lib/scheduled-emails-cron');
+    startScheduledEmailsCron();
   }
 }
