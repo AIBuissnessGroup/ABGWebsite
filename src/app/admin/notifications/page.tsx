@@ -2376,6 +2376,30 @@ export default function NotificationsPage() {
                         )}
                       </div>
                     </button>
+
+                    {/* Noah Feigenbaum */}
+                    <button
+                      onClick={() => setSelectedApprover('noahfeig@umich.edu')}
+                      className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                        selectedApprover === 'noahfeig@umich.edu'
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-blue-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-lg">
+                          NF
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-900">Noah Feigenbaum</div>
+                          <div className="text-xs text-gray-600">noahfeig@umich.edu</div>
+                          <div className="text-xs text-blue-600 mt-1">💬 Has Slack | 👑 Admin</div>
+                        </div>
+                        {selectedApprover === 'noahfeig@umich.edu' && (
+                          <div className="text-blue-500">✓</div>
+                        )}
+                      </div>
+                    </button>
                   </div>
                 </div>
 

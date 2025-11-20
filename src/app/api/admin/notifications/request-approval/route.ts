@@ -82,7 +82,34 @@ export async function POST(req: NextRequest) {
       .replace(/&nbsp;/g, ' ')
       .trim();
 
-    const previewText = textContent.length > 500 ? textContent.substring(0, 500) + '...' : textContent;
+    // Show full message (Slack has ~3000 char limit per block, so split if needed)
+    const maxLength = 2800;
+    const messageBlocks = [];
+    
+    if (textContent.length <= maxLength) {
+      messageBlocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*Email Preview:*\n\`\`\`\n${textContent}\n\`\`\``
+        }
+      });
+    } else {
+      // Split into multiple blocks if message is very long
+      const chunks = [];
+      for (let i = 0; i < textContent.length; i += maxLength) {
+        chunks.push(textContent.substring(i, i + maxLength));
+      }
+      chunks.forEach((chunk, index) => {
+        messageBlocks.push({
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: index === 0 ? `*Email Preview (Part ${index + 1}/${chunks.length}):*\n\`\`\`\n${chunk}\n\`\`\`` : `\`\`\`\n${chunk}\n\`\`\``
+          }
+        });
+      });
+    }
 
     // Send Slack message with interactive buttons
     const slackMessage = {
@@ -102,13 +129,7 @@ export async function POST(req: NextRequest) {
             text: `*From:* ${requesterName} (${requesterEmail})\n*Action:* ${actionType === 'send' ? 'Send immediately' : `Schedule for ${scheduleDate} ${scheduleTime}`}\n*Subject:* ${subject}\n*Recipients:* ${recipients.length} recipient(s)`
           }
         },
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `*Email Preview:*\n\`\`\`\n${previewText}\n\`\`\``
-          }
-        },
+        ...messageBlocks,
         {
           type: 'section',
           text: {
