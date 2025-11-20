@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { sendSlackDM } from '@/lib/slack';
+import { sendEmail } from '@/lib/email';
 import { MongoClient, ObjectId } from 'mongodb';
 
 const uri = process.env.MONGODB_URI!;
@@ -38,6 +39,13 @@ export async function POST(req: NextRequest) {
     // Get approver name from users collection
     const approverUser = await db.collection('users').findOne({ email: approverEmail });
     const approverName = approverUser?.name || approverEmail;
+    
+    // Get all emails for this approver (they might have multiple)
+    const approverEmails = approverUser?.emails || [approverEmail];
+    const approverSlackEmail = approverUser?.slackEmail || null;
+    
+    // Store all possible emails for matching later
+    const allApproverEmails = Array.from(new Set([approverEmail, ...approverEmails, approverSlackEmail].filter(Boolean)));
 
     // Generate unique approval ID
     const approvalId = `approval_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -46,6 +54,7 @@ export async function POST(req: NextRequest) {
     await db.collection('pendingApprovals').insertOne({
       approvalId,
       approverEmail,
+      approverEmails: allApproverEmails,
       approverName,
       requesterEmail,
       requesterName,
@@ -158,6 +167,8 @@ export async function PUT(req: NextRequest) {
   try {
     const { approvalId, action, approverEmail } = await req.json();
 
+    console.log(`Approval handler called: approvalId=${approvalId}, action=${action}, approverEmail=${approverEmail}`);
+
     // Connect to MongoDB
     const client = await MongoClient.connect(uri);
     const db = client.db('abg-website');
@@ -165,50 +176,84 @@ export async function PUT(req: NextRequest) {
     // Find the approval request
     const approval = await db.collection('pendingApprovals').findOne({ approvalId, status: 'pending' });
     
+    console.log('Found approval:', approval ? 'Yes' : 'No');
+    
     if (!approval) {
       await client.close();
+      console.error('Approval not found or already processed');
       return NextResponse.json({ error: 'Approval request not found or expired' }, { status: 404 });
     }
 
-    if (approval.approverEmail !== approverEmail) {
-      await client.close();
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    console.log(`Approval request for: ${approval.subject}`);
+    console.log(`Approver attempting action: ${approverEmail}`);
+
+    // Look up the user who's trying to approve
+    const clickerUser = await db.collection('users').findOne({ 
+      email: { $regex: new RegExp(`^${approverEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    });
+    
+    console.log('User found in database:', clickerUser ? 'Yes' : 'No');
+    if (clickerUser) {
+      console.log('User roles:', clickerUser.roles);
     }
+    
+    // Check if user is an admin
+    if (!clickerUser || !clickerUser.roles || 
+        (!clickerUser.roles.includes('admin') && !clickerUser.roles.includes('super-admin'))) {
+      await client.close();
+      console.error('User is not an admin');
+      return NextResponse.json({ 
+        error: 'Unauthorized - Only admins can approve notifications',
+        debug: {
+          email: approverEmail,
+          foundUser: !!clickerUser,
+          roles: clickerUser?.roles || []
+        }
+      }, { status: 403 });
+    }
+    
+    console.log('User authorized as admin');
 
     if (action === 'approve') {
       // Execute the approved action
       if (approval.actionType === 'send') {
         // Send email immediately
-        const sendResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/admin/notifications/send`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            recipients: approval.recipients,
+        try {
+          await sendEmail({
+            to: approval.requesterEmail,
+            bcc: approval.recipients,
             subject: approval.subject,
-            htmlContent: approval.htmlContent,
-            attachments: approval.attachments
-          })
-        });
-
-        if (!sendResponse.ok) {
+            html: approval.htmlContent,
+            replyTo: 'ABGcontact@umich.edu',
+            attachments: approval.attachments || []
+          });
+          console.log(`✅ Approved email sent to ${approval.recipients.length} recipients`);
+        } catch (error) {
+          console.error('Failed to send approved email:', error);
+          await client.close();
           throw new Error('Failed to send email');
         }
       } else if (approval.actionType === 'schedule') {
-        // Schedule email
+        // Schedule email directly in MongoDB
         const scheduledFor = new Date(`${approval.scheduleDate}T${approval.scheduleTime}`);
-        const scheduleResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/admin/notifications/schedule`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        
+        try {
+          const scheduledEmail = {
             recipients: approval.recipients,
             subject: approval.subject,
             htmlContent: approval.htmlContent,
-            scheduledFor: scheduledFor.toISOString(),
-            attachments: approval.attachments
-          })
-        });
+            scheduledFor: scheduledFor,
+            status: 'pending',
+            createdBy: approval.requesterEmail,
+            createdAt: new Date(),
+            attachments: approval.attachments || []
+          };
 
-        if (!scheduleResponse.ok) {
+          await db.collection('scheduledEmails').insertOne(scheduledEmail);
+          console.log(`✅ Email scheduled for ${scheduledFor.toISOString()}`);
+        } catch (error) {
+          console.error('Failed to schedule email:', error);
+          await client.close();
           throw new Error('Failed to schedule email');
         }
       }
@@ -228,12 +273,21 @@ export async function PUT(req: NextRequest) {
       });
 
     } else if (action === 'deny') {
-      // Save as draft
-      const draftResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/admin/notifications/drafts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(approval.draftData)
-      });
+      // Save as draft directly in MongoDB
+      try {
+        const draft = {
+          ...approval.draftData,
+          createdBy: approval.requesterEmail,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        await db.collection('emailDrafts').insertOne(draft);
+        console.log(`✅ Email saved as draft after denial`);
+      } catch (error) {
+        console.error('Failed to save draft:', error);
+        // Continue anyway - the main action is denial
+      }
 
       // Notify requester of denial
       await sendSlackDM(approval.requesterEmail, {

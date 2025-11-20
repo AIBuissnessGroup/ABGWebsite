@@ -974,6 +974,26 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleCancelApproval = async (approvalId: string) => {
+    if (!confirm('Cancel this approval request?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/notifications/pending-approvals?id=${approvalId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Approval request cancelled!' });
+        loadPendingApprovals();
+      } else {
+        throw new Error('Failed to cancel approval request');
+      }
+    } catch (error) {
+      console.error('Cancel approval error:', error);
+      setMessage({ type: 'error', text: 'Failed to cancel approval request' });
+    }
+  };
+
   const handleSelectAll = () => {
     if (selectedUsers.length === filteredUsers.length) {
       setSelectedUsers([]);
@@ -2183,15 +2203,23 @@ export default function NotificationsPage() {
                           <div className="flex-1">
                             <div className="text-sm font-medium text-gray-900 truncate">{approval.subject}</div>
                             <div className="text-xs text-gray-600 mt-1">
-                              👤 Waiting on: {approval.approverName || approval.approverEmail}
+                              Waiting on: {approval.approverName || approval.approverEmail}
                             </div>
                             <div className="text-xs text-gray-600">
                               📧 {approval.recipients?.length || 0} recipient(s)
                             </div>
                             <div className="text-xs text-gray-600">
-                              🎯 Action: {approval.actionType === 'send' ? 'Send immediately' : 'Schedule'}
+                              Action: {approval.actionType === 'send' ? 'Send immediately' : 'Schedule'}
                             </div>
                           </div>
+                        </div>
+                        <div className="mt-3">
+                          <button
+                            onClick={() => handleCancelApproval(approval.id)}
+                            className="text-xs px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded"
+                          >
+                            ❌ Cancel Request
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -2277,7 +2305,7 @@ export default function NotificationsPage() {
               {/* Header */}
               <div className="bg-gray-100 p-6 rounded-t-lg border-b">
                 <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <span>✋</span> Request Approval
+                  <span></span> Request Approval
                 </h3>
                 <p className="text-gray-700 text-sm mt-2">
                   Select someone to review this notification before it's {pendingAction === 'send' ? 'sent' : 'scheduled'}
@@ -2300,44 +2328,55 @@ export default function NotificationsPage() {
                 
                 <div className="mb-6">
                   <label className="block text-sm font-semibold text-gray-900 mb-3">Select Approver</label>
-                  <select
-                    value={selectedApprover}
-                    onChange={(e) => setSelectedApprover(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    style={{ backgroundColor: 'white', color: 'black' }}
-                  >
-                    <option value="" style={{ backgroundColor: 'white', color: 'black' }}>Choose an approver...</option>
-                    
-                    {/* Slack Admins Section */}
-                    {slackUsers.filter(u => u.isAdmin && u.email !== session?.user?.email).length > 0 && (
-                      <optgroup label="📢 Slack Admins (Recommended)" style={{ backgroundColor: 'white', color: 'black' }}>
-                        {slackUsers
-                          .filter(u => u.isAdmin && u.email !== session?.user?.email)
-                          .map(user => (
-                            <option key={user.email} value={user.email} style={{ backgroundColor: 'white', color: 'black' }}>
-                              👑 {user.name} ({user.email})
-                            </option>
-                          ))}
-                      </optgroup>
-                    )}
-                    
-                    {/* Website Admins Section */}
-                    <optgroup label="👥 Website Admins" style={{ backgroundColor: 'white', color: 'black' }}>
-                      {users
-                        .filter(u => u.email !== session?.user?.email && u.roles.some(r => ['admin', 'super-admin'].includes(r)))
-                        .map(user => {
-                          const slackUser = slackUsers.find(su => su.email === user.email);
-                          return (
-                            <option key={user.email} value={user.email} style={{ backgroundColor: 'white', color: 'black' }}>
-                              {slackUser ? '💬 ' : '📧 '}{user.name} ({user.email})
-                            </option>
-                          );
-                        })}
-                    </optgroup>
-                  </select>
-                  <p className="text-xs text-gray-500 mt-2">
-                    💬 = Has Slack | 📧 = Email only | 👑 = Slack Admin
-                  </p>
+                  <div className="space-y-3">
+                    {/* Anthony Walker */}
+                    <button
+                      onClick={() => setSelectedApprover('anthonydanielwalker05@gmail.com')}
+                      className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                        selectedApprover === 'anthonydanielwalker05@gmail.com'
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-blue-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-lg">
+                          AW
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-900">Anthony Walker</div>
+                          <div className="text-xs text-gray-600">anthonydanielwalker05@gmail.com</div>
+                          <div className="text-xs text-blue-600 mt-1">💬 Has Slack | 👑 Admin</div>
+                        </div>
+                        {selectedApprover === 'anthonydanielwalker05@gmail.com' && (
+                          <div className="text-blue-500">✓</div>
+                        )}
+                      </div>
+                    </button>
+
+                    {/* Evelyn Chao */}
+                    <button
+                      onClick={() => setSelectedApprover('evelync@umich.edu')}
+                      className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                        selectedApprover === 'evelync@umich.edu'
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-blue-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                          EC
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-900">Evelyn Chao</div>
+                          <div className="text-xs text-gray-600">evelync@umich.edu</div>
+                          <div className="text-xs text-blue-600 mt-1">💬 Has Slack | 👑 Admin</div>
+                        </div>
+                        {selectedApprover === 'evelync@umich.edu' && (
+                          <div className="text-blue-500">✓</div>
+                        )}
+                      </div>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Action Summary */}
