@@ -18,6 +18,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { USER_ROLES, getRoleDisplayName } from '@/lib/roles';
 import { useAdminApi, useAdminQuery } from '@/hooks/useAdminApi';
+import { withAdminPageProtection } from '@/components/admin/AdminPageProtection';
 import { AdminSection, AdminEmptyState, AdminLoadingState } from '@/components/admin/ui';
 
 // Waitlist interfaces
@@ -122,7 +123,7 @@ const convertUtcToEst = (utcDate: Date): Date => {
   return new Date(utcDate.getTime() - estOffset);
 };
 
-export default function EventsAdmin() {
+function EventsAdmin() {
   const { data: session, status } = useSession();
   const { get, post, del } = useAdminApi();
   const {
@@ -2846,4 +2847,6 @@ function AttendanceInfo({ eventId }: { eventId: string }) {
       )}
     </div>
   );
-} 
+}
+
+export default withAdminPageProtection(EventsAdmin, 'events');
