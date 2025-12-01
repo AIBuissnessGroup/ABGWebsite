@@ -1,0 +1,19 @@
+[Unit]
+Description=Gmail Token Monitor Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/abg-website
+ExecStart=/usr/bin/node /root/abg-website/scripts/gmail-token-monitor.js
+Restart=always
+RestartSec=10
+StandardOutput=append:/root/abg-website/logs/gmail-token-monitor.log
+StandardError=append:/root/abg-website/logs/gmail-token-monitor-error.log
+
+# Environment
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

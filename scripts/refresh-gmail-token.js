@@ -13,7 +13,7 @@ const open = require('open');
 
 const CLIENT_ID = process.env.GMAIL_CLIENT_ID || '1045234004522-ocemq7esg2135t0a6471jfnueqkia77v.apps.googleusercontent.com';
 const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || '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';
-const REDIRECT_URI = 'http://localhost:3000/oauth2callback';
+const REDIRECT_URI = 'http://localhost:3005/oauth2callback';
 
 const oauth2Client = new google.auth.OAuth2(
   CLIENT_ID,
@@ -23,6 +23,8 @@ const oauth2Client = new google.auth.OAuth2(
 
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://mail.google.com/',
   'https://www.googleapis.com/auth/drive.file'
 ];
 
@@ -34,7 +36,7 @@ console.log('Make sure you\'re logged into notificationsabg@gmail.com\n');
 const server = http.createServer(async (req, res) => {
   try {
     if (req.url.indexOf('/oauth2callback') > -1) {
-      const qs = new url.URL(req.url, 'http://localhost:3000').searchParams;
+      const qs = new url.URL(req.url, 'http://localhost:3005').searchParams;
       const code = qs.get('code');
       
       res.end('✅ Authorization successful! You can close this window and return to the terminal.');
@@ -63,7 +65,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(3000, async () => {
+server.listen(3005, async () => {
   const authorizeUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,

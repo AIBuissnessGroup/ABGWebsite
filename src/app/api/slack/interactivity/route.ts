@@ -75,20 +75,54 @@ export async function POST(req: NextRequest) {
       
       console.log(`Approver: ${approverEmail}, Action: ${actionType}, ApprovalId: ${approvalId}`);
       
-      // Return immediately to Slack (must respond within 3 seconds)
-      // Then process the approval asynchronously
-      const responseMessage = isApproval 
-        ? `⏳ Processing approval...`
-        : `⏳ Processing denial...`;
+      // Check if already processed (prevent duplicate clicks)
+      const client = await MongoClient.connect(uri);
+      const db = client.db('abg-website');
+      const existingApproval = await db.collection('pendingApprovals').findOne({ approvalId });
       
-      // Send immediate response
+      if (!existingApproval) {
+        await client.close();
+        return NextResponse.json({
+          replace_original: true,
+          text: '⚠️ Approval request not found.'
+        });
+      }
+      
+      if (existingApproval.status !== 'pending') {
+        await client.close();
+        const alreadyProcessedMessage = existingApproval.status === 'approved' 
+          ? '✅ This notification was already approved and sent.'
+          : '❌ This notification was already denied.';
+        
+        return NextResponse.json({
+          replace_original: true,
+          text: alreadyProcessedMessage
+        });
+      }
+      
+      await client.close();
+      
+      // Return immediate response with processing message
+      const responseMessage = isApproval 
+        ? `⏳ Processing approval... Please wait.`
+        : `⏳ Processing denial... Please wait.`;
+      
       const immediateResponse = NextResponse.json({
         replace_original: true,
-        text: responseMessage
+        text: responseMessage,
+        blocks: [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: responseMessage
+            }
+          }
+        ]
       });
       
       // Process approval asynchronously (don't await)
-      processApproval(approvalId, actionType, approverEmail, isApproval).catch(err => {
+      processApproval(approvalId, actionType, approverEmail, isApproval, payload.response_url).catch(err => {
         console.error('Error in async approval processing:', err);
       });
       
@@ -103,18 +137,28 @@ export async function POST(req: NextRequest) {
 }
 
 // Process approval asynchronously
-async function processApproval(approvalId: string, actionType: string, approverEmail: string, isApproval: boolean) {
+async function processApproval(approvalId: string, actionType: string, approverEmail: string, isApproval: boolean, responseUrl: string) {
   console.log(`🔄 processApproval called: ${approvalId}, ${actionType}, ${approverEmail}`);
   try {
     const client = await MongoClient.connect(uri);
     const db = client.db('abg-website');
 
-    // Find the approval request
+    // Find the approval request (double-check status)
     const approval = await db.collection('pendingApprovals').findOne({ approvalId, status: 'pending' });
     
     if (!approval) {
       await client.close();
       console.error('❌ Approval request not found or already processed');
+      
+      // Update the message to show it was already processed
+      await fetch(responseUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          replace_original: true,
+          text: '⚠️ This request was already processed.'
+        })
+      });
       return;
     }
 
@@ -202,14 +246,19 @@ async function processApproval(approvalId: string, actionType: string, approverE
       }
 
       // Notify requester of approval
+      const recipientCount = approval.recipients.length;
+      const sendingMessage = approval.actionType === 'send' 
+        ? `is being sent to ${recipientCount} recipient${recipientCount === 1 ? '' : 's'} now. Your email will be delivered shortly! 📧`
+        : `has been scheduled for ${approval.scheduleDate} ${approval.scheduleTime}`;
+      
       await sendSlackDM(approval.requesterEmail, {
-        text: `✅ Your notification "${approval.subject}" has been approved and ${approval.actionType === 'send' ? 'sent' : 'scheduled'}!`,
+        text: `✅ Your notification "${approval.subject}" has been approved by ${approverEmail}!`,
         blocks: [
           {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `✅ *Notification Approved*\n\nYour notification "${approval.subject}" has been approved by ${approverEmail} and ${approval.actionType === 'send' ? 'sent successfully' : `scheduled for ${approval.scheduleDate} ${approval.scheduleTime}`}!`
+              text: `✅ *Notification Approved!*\n\n*Subject:* ${approval.subject}\n*Approved by:* ${approverEmail}\n*Status:* Your email ${sendingMessage}`
             }
           }
         ]
@@ -248,14 +297,62 @@ async function processApproval(approvalId: string, actionType: string, approverE
       { 
         $set: { 
           status: actionType === 'approve' ? 'approved' : 'denied',
-          processedAt: new Date()
+          processedAt: new Date(),
+          processedBy: approverEmail
         } 
       }
     );
 
     await client.close();
     console.log('✅ Approval processing complete');
+    
+    // Update the Slack message with final confirmation (no buttons)
+    const finalMessage = actionType === 'approve'
+      ? `✅ *Approved and ${approval.actionType === 'send' ? 'Sent' : 'Scheduled'}*\n\nNotification "${approval.subject}" was approved by ${approverEmail} and ${approval.actionType === 'send' ? 'sent successfully' : `scheduled for ${approval.scheduleDate} ${approval.scheduleTime}`}.`
+      : `❌ *Denied*\n\nNotification "${approval.subject}" was denied by ${approverEmail}. The draft has been saved for editing.`;
+    
+    await fetch(responseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        replace_original: true,
+        text: finalMessage,
+        blocks: [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: finalMessage
+            }
+          },
+          {
+            type: 'context',
+            elements: [
+              {
+                type: 'mrkdwn',
+                text: `Processed at: <!date^${Math.floor(Date.now() / 1000)}^{date_short_pretty} at {time}|${new Date().toLocaleString()}>`
+              }
+            ]
+          }
+        ]
+      })
+    });
+    
   } catch (error) {
     console.error('Error in processApproval:', error);
+    
+    // Try to update message with error
+    try {
+      await fetch(responseUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          replace_original: true,
+          text: '❌ An error occurred while processing this request. Please contact an administrator.'
+        })
+      });
+    } catch (e) {
+      console.error('Failed to send error message to Slack:', e);
+    }
   }
 }

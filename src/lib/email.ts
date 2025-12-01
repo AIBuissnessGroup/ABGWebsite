@@ -38,6 +38,12 @@ async function getGmailClient() {
     const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
     oauth2Client.setCredentials({ refresh_token: refreshToken });
 
+    // Verify the token works by getting an access token
+    const { token } = await oauth2Client.getAccessToken();
+    if (!token) {
+      throw new Error('Failed to obtain access token');
+    }
+
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
     
     cachedGmailClient = gmail;
@@ -45,6 +51,14 @@ async function getGmailClient() {
     return gmail;
   } catch (error: any) {
     console.error('❌ Error creating Gmail API client:', error.message);
+    
+    // Clear cache on error so we retry next time
+    cachedGmailClient = null;
+    
+    if (error.message.includes('invalid_grant') || error.message.includes('Token has been expired or revoked')) {
+      console.error('⚠️  CRITICAL: Gmail refresh token is invalid. Run: node scripts/refresh-gmail-token.js');
+    }
+    
     return null;
   }
 }
@@ -67,6 +81,12 @@ async function getDriveClient() {
     const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
     oauth2Client.setCredentials({ refresh_token: refreshToken });
 
+    // Verify the token works
+    const { token } = await oauth2Client.getAccessToken();
+    if (!token) {
+      throw new Error('Failed to obtain access token');
+    }
+
     const drive = google.drive({ version: 'v3', auth: oauth2Client });
     
     cachedDriveClient = drive;
@@ -74,6 +94,10 @@ async function getDriveClient() {
     return drive;
   } catch (error: any) {
     console.error('❌ Error creating Google Drive API client:', error.message);
+    
+    // Clear cache on error
+    cachedDriveClient = null;
+    
     return null;
   }
 }
