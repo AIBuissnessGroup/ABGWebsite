@@ -1,10 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { translate } from '@vitalets/google-translate-api';
+
+
+async function translateToEnglish(text: string): Promise<string> {
+  try {
+    const result = await translate(text, { to: 'en' });
+    return result.text;
+  } catch (error) {
+    console.error('Translation error:', error);
+    return text; // Fallback to original if translation fails
+  }
+}
 
 export async function POST(req: NextRequest) {
+  
   try {
+    
     const { location, keywords, resultsPerPage = 20 } = await req.json();
+    const translatedKeywords = await translateToEnglish(keywords);
+    console.log(`Translated Keywords ${translatedKeywords}`)
 
-    if (!location || !keywords) {
+
+    if (!location || !translatedKeywords) {
       return NextResponse.json(
         { error: 'Location and keywords are required' },
         { status: 400 }
@@ -21,12 +38,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+
     // Build Adzuna API URL
     const params = new URLSearchParams({
       app_id: appId,
       app_key: apiKey,
       results_per_page: resultsPerPage.toString(),
-      what: keywords,
+      what: translatedKeywords,
       where: location,
     });
 
