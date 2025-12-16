@@ -26,7 +26,10 @@ export async function GET(
     return corsResponse(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
   }
   try {
-    const client = new MongoClient(process.env.DATABASE_URL!);
+    const client = new MongoClient(process.env.DATABASE_URL!, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 
@@ -107,7 +110,10 @@ export async function POST(
       return corsResponse(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
     }
 
-    const client = new MongoClient(process.env.DATABASE_URL!);
+    const client = new MongoClient(process.env.DATABASE_URL!, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 

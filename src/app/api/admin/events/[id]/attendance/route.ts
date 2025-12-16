@@ -8,7 +8,10 @@ const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://ab
 
 // Create a new client for each request to avoid connection issues
 function createMongoClient() {
-  return new MongoClient(uri);
+  return new MongoClient(uri, {
+    tls: true,
+    tlsCAFile: "/app/global-bundle.pem",
+  });
 }
 
 export async function GET(

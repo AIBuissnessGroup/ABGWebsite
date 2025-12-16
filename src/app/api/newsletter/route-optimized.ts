@@ -16,7 +16,9 @@ const mongoOptions = {
   socketTimeoutMS: 45000, // How long a socket stays open before timing out
   family: 4, // Use IPv4, skip trying IPv6
   retryWrites: true,
-  w: 'majority'
+  w: 'majority',
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
 };
 
 async function connectToDatabase(): Promise<MongoClient> {

@@ -3,7 +3,10 @@ import { getServerSession } from 'next-auth/next';
 import { MongoClient, ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 
-const client = new MongoClient(process.env.DATABASE_URL!);
+const client = new MongoClient(process.env.DATABASE_URL!, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
 
 // Helper function to handle BigInt serialization
 function safeJson(obj: any) {

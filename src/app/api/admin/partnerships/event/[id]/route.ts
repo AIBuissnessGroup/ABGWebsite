@@ -18,7 +18,10 @@ export async function GET(
     const { id } = await params;
     const eventId = id;
 
-    const client = new MongoClient(process.env.DATABASE_URL!);
+    const client = new MongoClient(process.env.DATABASE_URL!, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 

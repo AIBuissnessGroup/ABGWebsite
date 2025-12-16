@@ -6,7 +6,10 @@ import { isAdmin } from '@/lib/admin';
 const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
 
 export async function GET(request: NextRequest) {
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
   try {
     const session = await getServerSession();
     
@@ -138,7 +141,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
   try {
     const session = await getServerSession();
     

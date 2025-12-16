@@ -36,7 +36,10 @@ const defaultHeroContent: HeroContent = {
 };
 
 export async function getHeroContent(): Promise<HeroContent> {
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+    tls: true,
+    tlsCAFile: "/app/global-bundle.pem",
+  });
   try {
     await client.connect();
     const db = client.db();
@@ -63,7 +66,10 @@ export async function getHeroContent(): Promise<HeroContent> {
 }
 
 export async function upsertHeroContent(data: Partial<HeroContent>) {
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+    tls: true,
+    tlsCAFile: "/app/global-bundle.pem",
+  });
   try {
     await client.connect();
     const db = client.db();

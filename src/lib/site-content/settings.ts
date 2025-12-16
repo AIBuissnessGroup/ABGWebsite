@@ -14,7 +14,10 @@ export type SiteSetting = {
 };
 
 export async function getAllSiteSettings(): Promise<SiteSetting[]> {
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+    tls: true,
+    tlsCAFile: "/app/global-bundle.pem",
+  });
   try {
     await client.connect();
     const db = client.db();
@@ -25,7 +28,10 @@ export async function getAllSiteSettings(): Promise<SiteSetting[]> {
 }
 
 export async function upsertSiteSetting(key: string, value: string | number | boolean) {
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+    tls: true,
+    tlsCAFile: "/app/global-bundle.pem",
+  });
   try {
     await client.connect();
     const db = client.db();
