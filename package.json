@@ -7,8 +7,8 @@
     "dev:clean": "npm run clean && next dev",
     "clean": "rimraf .next",
     "clean:force": "rimraf .next",
-    "build": "npm run clean && next build",
-    "start": "node server.js",
+    "build": "next build",
+    "start": "next start",
     "start:default": "next start",
     "lint": "next lint"
   },
