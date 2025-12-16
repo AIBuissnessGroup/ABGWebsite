@@ -85,7 +85,7 @@ export async function GET(
           }
         }
       },
-      { $unset: 'partnershipCompanies' },
+      { $project: { partnershipCompanies: 0 } },
       { $sort: { eventDate: 1 } }
     ]).toArray();
 

@@ -119,7 +119,7 @@ async function getEvent(slug: string): Promise<Event | null> {
           }
         }
       },
-      { $unset: 'partnershipCompanies' }
+      { $project: { partnershipCompanies: 0 } }
     ];
     
     let events = await db.collection('Event').aggregate(pipeline).toArray();
@@ -238,7 +238,7 @@ async function getEvent(slug: string): Promise<Event | null> {
               }
             }
           },
-          { $unset: 'partnershipCompanies' }
+          { $project: { partnershipCompanies: 0 } }
         ]).toArray();
         
         event = eventWithPartnerships[0] || foundEvent;
@@ -336,7 +336,7 @@ async function getEvent(slug: string): Promise<Event | null> {
                 }
               }
             },
-            { $unset: 'partnershipCompanies' }
+            { $project: { partnershipCompanies: 0 } }
           ]).toArray();
           
           event = eventWithPartnerships[0] || bestMatch;

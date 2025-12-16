@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
           }
         }
       },
-      { $unset: 'partnershipCompanies' },
+      { $project: { partnershipCompanies: 0 } },
       { $sort: { featured: -1, eventDate: 1 } }
     ];
     
