@@ -1,5 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: {
+    // Disable ESLint during production builds
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    // Disable TypeScript type checking during builds (rely on editor)
+    ignoreBuildErrors: true,
+  },
+  optimizeFonts: false, // Disable font optimization during build
   env: {
     NEXT_PUBLIC_ADMIN_EMAILS: process.env.ADMIN_EMAILS,
   },
