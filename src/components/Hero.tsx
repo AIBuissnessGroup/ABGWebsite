@@ -48,8 +48,8 @@ export default function Hero() {
   useEffect(() => {
     const checkDeadline = () => {
       const deadline = new Date();
-      deadline.setFullYear(2025, 8, 11); // September 11, 2025
-      deadline.setHours(19, 40, 0, 0); // 7:40 PM EST
+      deadline.setFullYear(2026, 1, 16); // September 11, 2025
+      deadline.setHours(0, 0, 0, 0); // 7:40 PM EST
       
       const now = Date.now();
       const timeUntilDeadline = deadline.getTime() - now;
