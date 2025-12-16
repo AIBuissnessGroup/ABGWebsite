@@ -4,7 +4,10 @@ import { MongoClient } from 'mongodb';
 import { isAdmin } from '@/lib/admin';
 import * as XLSX from 'xlsx';
 
-const client = new MongoClient(process.env.DATABASE_URL!);
+const client = new MongoClient(process.env.DATABASE_URL!, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
 
 export async function GET(request: NextRequest) {
   try {

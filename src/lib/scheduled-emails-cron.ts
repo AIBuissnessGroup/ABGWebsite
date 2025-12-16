@@ -8,7 +8,10 @@ let isInitialized = false;
 
 async function getDb() {
   if (!client) {
-    client = new MongoClient(uri);
+    client = new MongoClient(uri, {
+      tls: true,
+      tlsCAFile: "/app/global-bundle.pem",
+    });
     await client.connect();
   }
   return client.db('abg-website');

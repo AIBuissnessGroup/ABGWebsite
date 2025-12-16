@@ -4,7 +4,10 @@ import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { MongoClient } from 'mongodb';
 
-const client = new MongoClient(process.env.DATABASE_URL!);
+const client = new MongoClient(process.env.DATABASE_URL!, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
 
 export async function POST(
   request: NextRequest,

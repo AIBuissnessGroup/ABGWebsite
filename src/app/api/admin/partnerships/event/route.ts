@@ -11,7 +11,10 @@ export async function POST(request: NextRequest) {
 
     const { eventId, partnerships } = await request.json();
 
-    const client = new MongoClient(process.env.DATABASE_URL!);
+    const client = new MongoClient(process.env.DATABASE_URL!, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 

@@ -20,7 +20,10 @@ interface EventPageProps {
 
 async function getEvent(slug: string): Promise<Event | null> {
   try {
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
     
@@ -365,7 +368,10 @@ async function getUserRegistration(eventId: string, email?: string): Promise<Eve
   if (!email) return null;
   
   try {
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
     

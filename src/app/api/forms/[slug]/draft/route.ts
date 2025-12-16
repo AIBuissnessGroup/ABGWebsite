@@ -13,7 +13,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
   try {
     const { slug } = await params;
     const session = await getServerSession(authOptions);
@@ -74,7 +77,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
   try {
     const { slug } = await params;
     const session = await getServerSession(authOptions);
@@ -140,7 +146,10 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
   try {
     const { slug } = await params;
     const session = await getServerSession(authOptions);

@@ -24,7 +24,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Attendance ID required' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 
@@ -146,7 +149,10 @@ export async function POST(
       return NextResponse.json({ error: 'Action and attendance ID required' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 

@@ -25,7 +25,10 @@ export type TeamMember = {
 };
 
 export async function getActiveTeamMembers(): Promise<TeamMember[]> {
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+    tls: true,
+    tlsCAFile: "/app/global-bundle.pem",
+  });
   try {
     await client.connect();
     const db = client.db();

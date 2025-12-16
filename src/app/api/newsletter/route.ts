@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MongoClient, ObjectId } from 'mongodb';
 
 const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri);
+const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
 
 // GET - Get all newsletter subscriptions (admin only)
 export async function GET(request: NextRequest) {

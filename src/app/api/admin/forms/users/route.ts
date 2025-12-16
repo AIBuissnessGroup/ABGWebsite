@@ -13,7 +13,10 @@ async function connectToDatabase() {
     return { client: cachedClient, db: cachedDb };
   }
 
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
   await client.connect();
   const db = client.db();
 

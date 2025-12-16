@@ -5,7 +5,10 @@ const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://ab
 
 export async function GET() {
   try {
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
     

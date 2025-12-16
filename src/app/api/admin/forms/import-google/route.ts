@@ -5,7 +5,10 @@ import { isAdmin } from '@/lib/admin';
 import { MongoClient } from 'mongodb';
 import { google } from 'googleapis';
 
-const client = new MongoClient(process.env.DATABASE_URL!);
+const client = new MongoClient(process.env.DATABASE_URL!, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
 
 /*
  * Google Forms API Integration
