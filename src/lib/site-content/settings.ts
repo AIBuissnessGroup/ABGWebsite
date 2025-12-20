@@ -1,8 +1,7 @@
 import { MongoClient } from 'mongodb';
+import { mongoUri, createMongoClient } from '../mongodb';
 
-const uri =
-  process.env.MONGODB_URI ||
-  'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+const uri = mongoUri;
 
 export type SiteSetting = {
   _id?: string;
@@ -14,10 +13,7 @@ export type SiteSetting = {
 };
 
 export async function getAllSiteSettings(): Promise<SiteSetting[]> {
-  const client = new MongoClient(uri, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
+  const client = createMongoClient();
   try {
     await client.connect();
     const db = client.db();
@@ -28,10 +24,7 @@ export async function getAllSiteSettings(): Promise<SiteSetting[]> {
 }
 
 export async function upsertSiteSetting(key: string, value: string | number | boolean) {
-  const client = new MongoClient(uri, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
+  const client = createMongoClient();
   try {
     await client.connect();
     const db = client.db();

@@ -1,17 +1,15 @@
 import cron from 'node-cron';
 import { MongoClient } from 'mongodb';
 import { sendEmail } from './email';
+import { mongoUri, createMongoClient } from './mongodb';
 
-const uri = process.env.MONGODB_URI!;
+const uri = mongoUri;
 let client: MongoClient;
 let isInitialized = false;
 
 async function getDb() {
   if (!client) {
-    client = new MongoClient(uri, {
-      tls: true,
-      tlsCAFile: "/app/global-bundle.pem",
-    });
+    client = createMongoClient();
     await client.connect();
   }
   return client.db('abg-website');

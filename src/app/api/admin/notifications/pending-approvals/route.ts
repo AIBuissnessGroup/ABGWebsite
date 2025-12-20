@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
 import { MongoClient } from 'mongodb';
+import { createMongoClient } from '@/lib/mongodb';
 
 const uri = process.env.MONGODB_URI!;
 

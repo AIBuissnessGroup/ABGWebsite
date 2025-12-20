@@ -1,7 +1,8 @@
 import { MongoClient, ObjectId } from 'mongodb';
 import type { UserRole } from '@/types/next-auth';
+import { mongoUri, createMongoClient } from './mongodb';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || '';
+const uri = mongoUri;
 
 export interface AuditLogEntry {
   _id?: string;
@@ -48,10 +49,7 @@ export async function logAuditEvent(
   }
 ): Promise<void> {
   try {
-    const client = new MongoClient(uri, {
-      tls: true,
-      tlsCAFile: "/app/global-bundle.pem",
-    });
+    const client = createMongoClient();
     await client.connect();
     
     const db = client.db();
@@ -107,10 +105,7 @@ export async function getAuditLogs(options?: {
   page: number;
   totalPages: number;
 }> {
-  const client = new MongoClient(uri, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
+  const client = createMongoClient();
   
   try {
     await client.connect();
@@ -193,10 +188,7 @@ export async function getAuditStats(): Promise<{
   topActions: Array<{ action: string; count: number }>;
   topUsers: Array<{ userEmail: string; count: number }>;
 }> {
-  const client = new MongoClient(uri, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
+  const client = createMongoClient();
   
   try {
     await client.connect();

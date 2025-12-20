@@ -3,8 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { MongoClient } from 'mongodb';
-
-const uri = process.env.MONGODB_URI as string;
+import { createMongoClient } from '@/lib/mongodb';
 
 export async function GET(
   request: NextRequest,
@@ -18,10 +17,7 @@ export async function GET(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+    const client = createMongoClient();
     await client.connect();
     const db = client.db();
 

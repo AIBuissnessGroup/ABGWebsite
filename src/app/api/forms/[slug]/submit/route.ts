@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient, ObjectId } from 'mongodb';
+import { createMongoClient } from '@/lib/mongodb';
 import { notifyFormSubmission } from '@/lib/slack';
 import { sendFormReceiptEmail } from '@/lib/email';
 
@@ -8,10 +9,7 @@ import { sendFormReceiptEmail } from '@/lib/email';
 export const maxDuration = 60; // seconds
 
 const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+const client = createMongoClient();
 
 const normalizeId = (value: any, fallback: string) => {
   if (typeof value === 'string' && value.trim()) return value;

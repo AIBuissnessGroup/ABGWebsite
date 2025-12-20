@@ -1,12 +1,9 @@
 import { MongoClient } from 'mongodb';
-
-const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+import { createMongoClient } from './mongodb';
 
 export async function getMaintenanceStatus() {
   try {
+    const client = await createMongoClient();
     await client.connect();
     const db = client.db();
     

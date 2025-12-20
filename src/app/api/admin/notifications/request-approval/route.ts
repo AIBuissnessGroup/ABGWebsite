@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { sendSlackDM } from '@/lib/slack';
 import { sendEmail } from '@/lib/email';
 import { MongoClient, ObjectId } from 'mongodb';
+import { createMongoClient } from '@/lib/mongodb';
 
 const uri = process.env.MONGODB_URI!;
 

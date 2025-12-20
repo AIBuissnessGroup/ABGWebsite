@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { MongoClient } from 'mongodb';
+import { createMongoClient } from '@/lib/mongodb';
 
 const uri = process.env.DATABASE_URL || process.env.MONGODB_URI!;
 
@@ -14,10 +15,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+    const client = createMongoClient();
     await client.connect();
     const db = client.db();
 

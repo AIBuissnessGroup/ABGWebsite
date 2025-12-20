@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient } from 'mongodb';
+import { createMongoClient } from '@/lib/mongodb';
 import { isAdmin } from '@/lib/admin';
 import * as XLSX from 'xlsx';
 
@@ -19,10 +20,7 @@ export async function POST(request: NextRequest) {
 
     const { category, status, reviewer, formId, exportType = 'summary' } = await request.json();
 
-    const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+    const client = createMongoClient();
     await client.connect();
     const db = client.db();
 

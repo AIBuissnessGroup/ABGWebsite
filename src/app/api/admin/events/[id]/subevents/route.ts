@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MongoClient } from 'mongodb';
+import { createMongoClient } from '@/lib/mongodb';
 import { requireAdminSession } from '@/lib/server-admin';
 
 // Helper function to handle CORS
@@ -26,10 +27,7 @@ export async function GET(
     return corsResponse(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
   }
   try {
-    const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+    const client = createMongoClient();
     await client.connect();
     const db = client.db();
 
@@ -110,10 +108,7 @@ export async function POST(
       return corsResponse(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
     }
 
-    const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+    const client = createMongoClient();
     await client.connect();
     const db = client.db();
 

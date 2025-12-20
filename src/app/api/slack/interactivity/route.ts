@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MongoClient } from 'mongodb';
+import { createMongoClient } from '@/lib/mongodb';
 import { sendEmail } from '@/lib/email';
 import { sendSlackDM } from '@/lib/slack';
 

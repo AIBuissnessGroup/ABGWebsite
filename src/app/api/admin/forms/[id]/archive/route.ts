@@ -3,11 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { MongoClient } from 'mongodb';
+import { createMongoClient } from '@/lib/mongodb';
 
-const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+const client = createMongoClient();
 
 export async function POST(
   request: NextRequest,

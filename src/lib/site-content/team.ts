@@ -1,8 +1,7 @@
 import { MongoClient } from 'mongodb';
+import { mongoUri, createMongoClient } from '../mongodb';
 
-const uri =
-  process.env.MONGODB_URI ||
-  'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+const uri = mongoUri;
 
 export type TeamMember = {
   _id: string;
@@ -25,10 +24,7 @@ export type TeamMember = {
 };
 
 export async function getActiveTeamMembers(): Promise<TeamMember[]> {
-  const client = new MongoClient(uri, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
+  const client = createMongoClient();
   try {
     await client.connect();
     const db = client.db();

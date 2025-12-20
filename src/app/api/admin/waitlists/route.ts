@@ -3,8 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { MongoClient } from 'mongodb';
-
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+import { createMongoClient } from '@/lib/mongodb';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,10 +13,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+    const client = createMongoClient();
     await client.connect();
     const db = client.db();
 
@@ -120,10 +116,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Event ID and attendance ID required' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+    const client = createMongoClient();
     await client.connect();
     const db = client.db();
 

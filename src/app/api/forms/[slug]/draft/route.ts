@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient } from 'mongodb';
+import { createMongoClient } from '@/lib/mongodb';
 import { authOptions } from '@/lib/auth';
 
 // Configure runtime for handling large requests
 export const maxDuration = 60; // seconds
-
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
 
 // GET - Load user's draft for this form
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const client = new MongoClient(uri, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
+  const client = createMongoClient();
   try {
     const { slug } = await params;
     const session = await getServerSession(authOptions);
@@ -77,10 +73,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const client = new MongoClient(uri, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
+  const client = createMongoClient();
   try {
     const { slug } = await params;
     const session = await getServerSession(authOptions);
@@ -146,10 +139,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const client = new MongoClient(uri, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
+  const client = createMongoClient();
   try {
     const { slug } = await params;
     const session = await getServerSession(authOptions);

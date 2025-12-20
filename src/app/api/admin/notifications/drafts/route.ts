@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
 import { MongoClient } from 'mongodb';
+import { createMongoClient } from '@/lib/mongodb';
 
 // Configure route to handle large payloads
 export const maxDuration = 60;
@@ -22,11 +23,7 @@ export async function OPTIONS(request: NextRequest) {
   });
 }
 
-const uri = process.env.MONGODB_URI || '';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+const client = createMongoClient();
 
 async function getDb() {
   await client.connect();

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { MongoClient } from 'mongodb';
+import { createMongoClient } from '@/lib/mongodb';
 
 const uri = process.env.DATABASE_URL || process.env.MONGODB_URI || '';
 
@@ -18,10 +19,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+    const client = createMongoClient();
     await client.connect();
     const db = client.db();
 
@@ -65,10 +63,7 @@ export async function PUT(request: NextRequest) {
 
     const { major, school, graduationYear, phone } = await request.json();
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+    const client = createMongoClient();
     await client.connect();
     const db = client.db();
 

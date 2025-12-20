@@ -6,13 +6,8 @@ import { isAdmin, validateRoles, wouldRemoveLastAdmin, USER_ROLES } from '@/lib/
 import { logAuditEvent, getRequestMetadata } from '@/lib/audit';
 import type { UserRole } from '@/types/next-auth';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || '';
-
 function createMongoClient() {
-  return new MongoClient(uri, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
+  return createMongoClient();
 }
 
 // Safely serialize MongoDB objects

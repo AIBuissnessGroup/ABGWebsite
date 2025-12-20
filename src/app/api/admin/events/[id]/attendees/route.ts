@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { MongoClient, ObjectId } from 'mongodb';
+import { createMongoClient } from '@/lib/mongodb';
 
 const uri = process.env.DATABASE_URL || process.env.MONGODB_URI!;
 
@@ -24,10 +25,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Attendance ID required' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+    const client = createMongoClient();
     await client.connect();
     const db = client.db();
 
@@ -149,10 +147,7 @@ export async function POST(
       return NextResponse.json({ error: 'Action and attendance ID required' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+    const client = createMongoClient();
     await client.connect();
     const db = client.db();
 
