@@ -3,8 +3,6 @@ import type { NextRequest } from 'next/server';
 import { MongoClient } from 'mongodb';
 import { createMongoClient } from '@/lib/mongodb';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://localhost:27017/abg-website';
-
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 

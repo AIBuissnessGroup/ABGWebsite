@@ -5,7 +5,6 @@ import { isAdmin } from '@/lib/admin';
 import { MongoClient } from 'mongodb';
 import { createMongoClient } from '@/lib/mongodb';
 
-const uri = process.env.DATABASE_URL || process.env.MONGODB_URI!;
 
 export async function GET(request: NextRequest) {
   try {

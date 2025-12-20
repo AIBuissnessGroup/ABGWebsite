@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MongoClient } from 'mongodb';
-import { createMongoClient } from '@/lib/mongodb';
+import { createMongoClient, mongoUri } from '@/lib/mongodb';
 import { sendEmail } from '@/lib/email';
 import { sendSlackDM } from '@/lib/slack';
 
-const uri = process.env.MONGODB_URI!;
+const uri = mongoUri;
 
 /**
  * Slack Interactivity Webhook Handler

@@ -1,40 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MongoClient, ObjectId } from 'mongodb';
-import { createMongoClient } from '@/lib/mongodb';
+import { getMongoClient } from '@/lib/mongodb';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-
-// Create a singleton connection pool
-let client: MongoClient | null = null;
-let clientPromise: Promise<MongoClient> | null = null;
-
-// Connection pool configuration
-const mongoOptions = {
-  maxPoolSize: 50, // Maximum number of connections in the pool
-  minPoolSize: 5,  // Minimum number of connections in the pool
-  maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
-  serverSelectionTimeoutMS: 5000, // How long to try to connect before timing out
-  socketTimeoutMS: 45000, // How long a socket stays open before timing out
-  family: 4, // Use IPv4, skip trying IPv6
-  retryWrites: true,
-  w: 'majority',
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-};
-
+// Use the centralized connection pooling from @/lib/mongodb
 async function connectToDatabase(): Promise<MongoClient> {
-  if (client && client.topology && client.topology.isConnected()) {
-    return client;
-  }
-
-  if (clientPromise) {
-    return clientPromise;
-  }
-
-  clientPromise = MongoClient.connect(uri, mongoOptions);
-  client = await clientPromise;
-  
-  return client;
+  return getMongoClient();
 }
 
 // Rate limiting map to prevent spam

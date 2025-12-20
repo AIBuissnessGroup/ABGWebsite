@@ -4,9 +4,9 @@ import { authOptions } from '@/lib/auth';
 import { sendSlackDM } from '@/lib/slack';
 import { sendEmail } from '@/lib/email';
 import { MongoClient, ObjectId } from 'mongodb';
-import { createMongoClient } from '@/lib/mongodb';
+import { createMongoClient, mongoUri } from '@/lib/mongodb';
 
-const uri = process.env.MONGODB_URI!;
+const uri = mongoUri;
 
 export async function POST(req: NextRequest) {
   try {
