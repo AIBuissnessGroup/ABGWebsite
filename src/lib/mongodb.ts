@@ -1,5 +1,28 @@
 import { MongoClient, Db } from 'mongodb';
 
+/**
+ * Centralized MongoDB/DocumentDB Client Module
+ * 
+ * This module provides a single source of configuration for MongoDB connections.
+ * 
+ * Environment Variables:
+ * - MONGODB_URI or DATABASE_URL: Connection string (required)
+ * - DB_TYPE: Database type - 'documentdb' or 'mongodb' (default: 'documentdb')
+ *   - 'documentdb': Uses TLS with CA file (/app/global-bundle.pem)
+ *   - 'mongodb': Standard MongoDB connection (for localhost development)
+ * - NODE_ENV: Controls connection pooling behavior
+ * 
+ * @example
+ * // For DocumentDB (production)
+ * DB_TYPE=documentdb
+ * MONGODB_URI=mongodb://...
+ * 
+ * @example
+ * // For local MongoDB (development)
+ * DB_TYPE=mongodb
+ * MONGODB_URI=mongodb://localhost:27017/abg-website
+ */
+
 // Get MongoDB URI from environment variables
 const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || '';
 
@@ -7,10 +30,17 @@ if (!uri) {
   throw new Error('Please define MONGODB_URI or DATABASE_URL environment variable');
 }
 
-// MongoDB connection options
-const options = {
+// Determine database type from environment variable
+// DB_TYPE can be 'documentdb' or 'mongodb' (default: 'documentdb')
+const dbType = (process.env.DB_TYPE || 'documentdb').toLowerCase();
+
+// MongoDB connection options - conditional TLS based on DB_TYPE
+const options: any = dbType === 'documentdb' ? {
   tls: true,
   tlsCAFile: "/app/global-bundle.pem",
+} : {
+  // Standard MongoDB connection (for localhost/development)
+  // No TLS CA file needed
 };
 
 let client: MongoClient;
