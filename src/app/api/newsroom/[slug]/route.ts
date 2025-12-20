@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MongoClient, ObjectId } from 'mongodb';
-
-function createMongoClient() {
-  return createMongoClient();
-}
+import { createMongoClient } from '@/lib/mongodb';
 
 // Safely serialize MongoDB objects
 function safeJson(obj: any) {

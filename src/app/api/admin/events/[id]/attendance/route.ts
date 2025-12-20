@@ -3,11 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { MongoClient } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-
-// Create a new client for each request to avoid connection issues
-function createMongoClient() {
-  return createMongoClient();
-}
+import { createMongoClient } from '@/lib/mongodb';
 
 export async function GET(
   request: NextRequest,

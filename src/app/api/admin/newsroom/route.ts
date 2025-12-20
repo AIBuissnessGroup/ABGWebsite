@@ -4,10 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { MongoClient, ObjectId } from 'mongodb';
 import { NewsroomPost } from '@/types/newsroom';
-
-function createMongoClient() {
-  return createMongoClient();
-}
+import { createMongoClient } from '@/lib/mongodb';
 
 // Generate slug from title
 function generateSlug(title: string): string {

@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MongoClient, ObjectId } from 'mongodb';
 import { requireAdminSession } from '@/lib/server-admin';
-
-// Create a new client for each request to avoid connection issues
-function createMongoClient() {
-  return createMongoClient();
-}
+import { createMongoClient } from '@/lib/mongodb';
 
 export async function POST(request: NextRequest) {
   const session = await requireAdminSession();

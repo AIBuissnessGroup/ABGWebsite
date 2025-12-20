@@ -5,10 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { isAdmin, validateRoles, wouldRemoveLastAdmin, USER_ROLES } from '@/lib/roles';
 import { logAuditEvent, getRequestMetadata } from '@/lib/audit';
 import type { UserRole } from '@/types/next-auth';
-
-function createMongoClient() {
-  return createMongoClient();
-}
+import { createMongoClient } from '@/lib/mongodb';
 
 // Safely serialize MongoDB objects
 function safeJson(obj: any) {

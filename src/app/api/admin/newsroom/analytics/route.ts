@@ -4,10 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { MongoClient } from 'mongodb';
 import { NewsroomStats } from '@/types/newsroom';
-
-function createMongoClient() {
-  return createMongoClient();
-}
+import { createMongoClient } from '@/lib/mongodb';
 
 // Safely serialize MongoDB objects
 function safeJson(obj: any) {

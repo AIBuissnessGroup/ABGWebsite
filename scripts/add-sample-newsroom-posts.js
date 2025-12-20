@@ -2,8 +2,14 @@ const { MongoClient } = require('mongodb');
 
 const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
 
+// MongoDB connection options
+const options = {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+};
+
 async function addSamplePosts() {
-  const client = createMongoClient();
+  const client = new MongoClient(uri, options);
   
   try {
     await client.connect();

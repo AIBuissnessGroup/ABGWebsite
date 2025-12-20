@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MongoClient, ObjectId } from 'mongodb';
 import { NewsroomPost, NewsroomFilter } from '@/types/newsroom';
-
-function createMongoClient() {
-  return createMongoClient();
-}
+import { createMongoClient } from '@/lib/mongodb';
 
 // Generate slug from title
 function generateSlug(title: string): string {

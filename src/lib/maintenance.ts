@@ -2,8 +2,8 @@ import { MongoClient } from 'mongodb';
 import { createMongoClient } from './mongodb';
 
 export async function getMaintenanceStatus() {
+  const client = createMongoClient();
   try {
-    const client = await createMongoClient();
     await client.connect();
     const db = client.db();
     

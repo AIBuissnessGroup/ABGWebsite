@@ -5,11 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { canRegisterForEvent } from '@/lib/roles';
 import { logAuditEvent, getRequestMetadata } from '@/lib/audit';
 import type { UserRole } from '@/types/next-auth';
-
-// Create a new client for each request to avoid connection issues
-function createMongoClient() {
-  return createMongoClient();
-}
+import { createMongoClient } from '@/lib/mongodb';
 
 export async function GET(
   request: NextRequest,
