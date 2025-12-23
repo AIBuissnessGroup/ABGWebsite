@@ -22,6 +22,7 @@ import CoffeeChatSpreadsheet from '@/components/admin/CoffeeChatSpreadsheet';
 import { useAdminApi, useAdminQuery } from '@/hooks/useAdminApi';
 import { AdminSection, AdminEmptyState, AdminLoadingState } from '@/components/admin/ui';
 import { easternInputToUtc, formatUtcDateInEastern, utcToEasternInput } from '@/lib/timezone';
+import { withAdminPageProtection } from '@/components/admin/AdminPageProtection';
 
 type Signup = {
   id: string;
@@ -88,7 +89,7 @@ const formatDateTime = (dateString?: string) =>
 const formatSignupDate = (dateString: string) =>
   formatUtcDateInEastern(dateString, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }, true);
 
-export default function AdminCoffeeChatsPage() {
+function AdminCoffeeChatsPage() {
   const { data: session, status } = useSession();
   const { post, put, del, request } = useAdminApi();
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -885,3 +886,5 @@ export default function AdminCoffeeChatsPage() {
     </div>
   );
 }
+
+export default withAdminPageProtection(AdminCoffeeChatsPage, 'coffee-chats');

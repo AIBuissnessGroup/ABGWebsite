@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { ClockIcon, MapPinIcon, UserIcon, EnvelopeIcon, ArrowTopRightOnSquareIcon, TrashIcon, DocumentTextIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { isAdmin } from '@/lib/admin';
+import { withAdminPageProtection } from '@/components/admin/AdminPageProtection';
 
 type InterviewSignup = {
   id: string;
@@ -51,7 +52,7 @@ type ApplicationData = {
   }>;
 };
 
-export default function AdminInterviewsPage() {
+function AdminInterviewsPage() {
   const { data: session, status } = useSession();
   const [slots, setSlots] = useState<InterviewSlot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -852,3 +853,5 @@ export default function AdminInterviewsPage() {
     </div>
   );
 }
+
+export default withAdminPageProtection(AdminInterviewsPage, 'interviews');
