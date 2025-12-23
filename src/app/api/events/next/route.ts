@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { MongoClient, ObjectId } from 'mongodb';
 
 const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri);
+const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
 
 // Safely serialize BigInt values
 function safeJson(obj: any) {
@@ -83,7 +86,7 @@ export async function GET() {
           as: 'subevents'
         }
       },
-      { $unset: 'partnershipCompanies' },
+      { $project: { partnershipCompanies: 0 } },
       { $sort: { featured: -1, eventDate: 1 } },
       { $limit: 1 }
     ]).toArray();

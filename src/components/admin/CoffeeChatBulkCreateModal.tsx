@@ -1,6 +1,18 @@
 'use client';
 import { useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useAdminApi } from '@/hooks/useAdminApi';
+
+interface BulkCreateResult {
+  created: number;
+  skipped: number;
+  totalRequested: number;
+  slots: Array<{
+    id: string;
+    title: string;
+    startTime: string;
+  }>;
+}
 
 interface BulkCreateModalProps {
   isOpen: boolean;
@@ -20,8 +32,9 @@ export default function CoffeeChatBulkCreateModal({ isOpen, onClose, onSuccess }
     capacity: 1,
   });
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<BulkCreateResult | null>(null);
   const [error, setError] = useState('');
+  const { post } = useAdminApi();
 
   if (!isOpen) return null;
 
@@ -32,20 +45,9 @@ export default function CoffeeChatBulkCreateModal({ isOpen, onClose, onSuccess }
     setResult(null);
 
     try {
-      const response = await fetch('/api/admin/coffee-chats/bulk-create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      const data = await post<BulkCreateResult>('/api/admin/coffee-chats/bulk-create', formData, {
+        skipErrorToast: true,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create slots');
-      }
-
       setResult(data);
       onSuccess();
     } catch (err) {

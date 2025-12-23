@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { 
@@ -15,7 +15,11 @@ import {
   XMarkIcon,
   QrCodeIcon
 } from '@heroicons/react/24/outline';
+import { toast } from 'react-hot-toast';
 import { USER_ROLES, getRoleDisplayName } from '@/lib/roles';
+import { useAdminApi, useAdminQuery } from '@/hooks/useAdminApi';
+import { withAdminPageProtection } from '@/components/admin/AdminPageProtection';
+import { AdminSection, AdminEmptyState, AdminLoadingState } from '@/components/admin/ui';
 
 // Waitlist interfaces
 interface WaitlistPerson {
@@ -63,7 +67,6 @@ interface WaitlistData {
 // Helper functions for Eastern Time (EST/EDT) timezone handling
 const formatDateForInput = (utcDate: Date): string => {
   // Convert UTC date to Eastern Time for display in datetime-local input
-  console.log('formatDateForInput input (UTC):', utcDate.toISOString());
   
   // Use the most direct approach: convert UTC to Eastern using built-in methods
   const easternTimeString = utcDate.toLocaleString('sv-SE', {
@@ -77,7 +80,6 @@ const formatDateForInput = (utcDate: Date): string => {
   
   // sv-SE format gives us "YYYY-MM-DD HH:mm" - just replace space with T
   const result = easternTimeString.replace(' ', 'T');
-  console.log('formatDateForInput output (Eastern):', result);
   
   return result;
 };
@@ -86,7 +88,6 @@ const parseDateFromInput = (dateString: string): Date => {
   // Parse datetime-local input as Eastern Time and convert to UTC
   if (!dateString) return new Date();
   
-  console.log('parseDateFromInput input (Eastern):', dateString);
   
   // Simple approach: create the date assuming it's in Eastern Time, then convert to UTC
   // We'll use the Date constructor but manually calculate the Eastern offset
@@ -112,21 +113,26 @@ const parseDateFromInput = (dateString: string): Date => {
   // Create the date in UTC by adding the offset
   const utcDate = new Date(Date.UTC(year, month - 1, day, hour + offsetHours, minute, 0, 0));
   
-  console.log('parseDateFromInput output (UTC):', utcDate.toISOString());
   
   return utcDate;
 };
 
-// Helper function to convert UTC dates to EST for display
-const convertUtcToEst = (utcDate: Date): Date => {
-  const estOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
-  return new Date(utcDate.getTime() - estOffset);
-};
+// Import timezone utility for consistent Eastern Time handling
+import { formatUtcDateInEastern } from '@/lib/timezone';
 
-export default function EventsAdmin() {
+function EventsAdmin() {
   const { data: session, status } = useSession();
-  const [loading, setLoading] = useState(true);
-  const [events, setEvents] = useState<any[]>([]);
+  const { get, post, del } = useAdminApi();
+  const {
+    data: eventsData,
+    loading: eventsLoading,
+    error: eventsError,
+    refetch: refetchEvents,
+  } = useAdminQuery<any[]>(status === 'authenticated' ? '/api/admin/events' : null, {
+    enabled: status === 'authenticated',
+    skipErrorToast: true,
+  });
+  const events = useMemo(() => eventsData ?? [], [eventsData]);
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [showSubeventForm, setShowSubeventForm] = useState<any>(null);
@@ -153,15 +159,12 @@ export default function EventsAdmin() {
       const savedFormState = localStorage.getItem('eventsAdmin_formState');
       if (savedFormState) {
         const { showForm: savedShowForm, showSubeventForm: savedShowSubeventForm, editingEventId, parentEventId } = JSON.parse(savedFormState);
-        console.log('🔄 Restoring events form state:', { savedShowForm, savedShowSubeventForm, editingEventId, parentEventId, eventsLoaded: events.length > 0 });
-        
         // Only restore if user explicitly had a form open, not just because they clicked somewhere
         if ((savedShowForm || savedShowSubeventForm) && events.length > 0) {
           if (savedShowSubeventForm && parentEventId) {
             const parentEvent = events.find(e => e.id === parentEventId);
             if (parentEvent) {
               setShowSubeventForm(parentEvent);
-              console.log('✓ Events subevent form restored for parent:', parentEvent.title);
             }
           } else if (savedShowForm) {
             setShowForm(true);
@@ -179,10 +182,8 @@ export default function EventsAdmin() {
               }
               if (eventToEdit) {
                 setEditingEvent(eventToEdit);
-                console.log('✓ Events editing event restored:', eventToEdit.title);
               }
             } else {
-              console.log('✓ Events new form restored');
             }
           }
         }
@@ -216,44 +217,18 @@ export default function EventsAdmin() {
     if (status === 'loading') return;
     if (!session) {
       redirect('/auth/signin');
-      return;
     }
-    // Let the API handle admin checking - just proceed if logged in
-    console.log('User session:', session.user);
   }, [session, status]);
-
-  // Load events
-  useEffect(() => {
-    if (session?.user) {
-      loadEvents();
-    }
-  }, [session]);
-
-  const loadEvents = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/admin/events');
-      const data = await res.json();
-      if (data && !data.error) {
-        setEvents(data);
-      }
-    } catch (error) {
-      console.error('Error loading events:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadAnalytics = async () => {
     setLoadingAnalytics(true);
     try {
-      const res = await fetch('/api/admin/analytics');
-      const data = await res.json();
-      if (data && !data.error) {
+      const data = await get('/api/admin/analytics', { skipErrorToast: true });
+      if (data) {
         setAnalyticsData(data);
       }
-    } catch (error) {
-      console.error('Error loading analytics:', error);
+    } catch {
+      toast.error('Failed to load analytics');
     } finally {
       setLoadingAnalytics(false);
     }
@@ -262,13 +237,12 @@ export default function EventsAdmin() {
   const loadWaitlistData = async () => {
     setLoadingWaitlist(true);
     try {
-      const res = await fetch('/api/admin/waitlists');
-      const data = await res.json();
-      if (data && !data.error) {
-        setWaitlistData(data);
+      const data = await get('/api/admin/waitlists', { skipErrorToast: true });
+      if (data) {
+        setWaitlistData(data as WaitlistData);
       }
-    } catch (error) {
-      console.error('Error loading waitlist data:', error);
+    } catch {
+      toast.error('Failed to load waitlist data');
     } finally {
       setLoadingWaitlist(false);
     }
@@ -277,13 +251,12 @@ export default function EventsAdmin() {
   const loadRegistrationsData = async () => {
     setLoadingRegistrations(true);
     try {
-      const res = await fetch('/api/admin/registrations');
-      const data = await res.json();
-      if (data && !data.error) {
+      const data = await get('/api/admin/registrations', { skipErrorToast: true });
+      if (data) {
         setRegistrationsData(data);
       }
-    } catch (error) {
-      console.error('Error loading registrations data:', error);
+    } catch {
+      toast.error('Failed to load registrations');
     } finally {
       setLoadingRegistrations(false);
     }
@@ -296,22 +269,10 @@ export default function EventsAdmin() {
 
     setPromoting(attendanceId);
     try {
-      const response = await fetch('/api/admin/waitlists', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId, attendanceId })
-      });
-
-      if (response.ok) {
-        alert('Person promoted successfully!');
-        loadWaitlistData(); // Refresh data
-      } else {
-        const error = await response.json();
-        alert(`Error: ${error.error}`);
-      }
-    } catch (error) {
-      console.error('Error promoting person:', error);
-      alert('Failed to promote person');
+      await post('/api/admin/waitlists', { eventId, attendanceId }, { successMessage: 'Person promoted successfully!' });
+      loadWaitlistData();
+    } catch {
+      toast.error('Failed to promote person');
     } finally {
       setPromoting(null);
     }
@@ -328,31 +289,25 @@ export default function EventsAdmin() {
   };
 
   const formatDate = (timestamp: string | number) => {
-    const utcDate = typeof timestamp === 'string' ? new Date(timestamp) : new Date(timestamp);
-    const estDate = convertUtcToEst(utcDate);
-    return estDate.toLocaleDateString('en-US', {
+    const utcDateStr = typeof timestamp === 'string' ? timestamp : new Date(timestamp).toISOString();
+    return formatUtcDateInEastern(utcDateStr, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
       hour: 'numeric',
-      minute: '2-digit',
-      timeZone: 'America/New_York'
-    });
+      minute: '2-digit'
+    }, false);
   };
 
   const loadEventAttendees = async (eventId: string) => {
     setLoadingAttendees(true);
     try {
-      const res = await fetch(`/api/admin/events/${eventId}/attendance`);
-      const data = await res.json();
-      console.log('🔍 Attendance API response:', data);
-      if (data && !data.error) {
+      const data = await get(`/api/admin/events/${eventId}/attendance`, { skipErrorToast: true });
+      if (data) {
         setAttendeesData(data);
-      } else {
-        console.error('❌ API returned error:', data.error);
       }
-    } catch (error) {
-      console.error('❌ Error loading attendees:', error);
+    } catch {
+      toast.error('Failed to load attendees');
     } finally {
       setLoadingAttendees(false);
     }
@@ -364,23 +319,17 @@ export default function EventsAdmin() {
     }
 
     try {
-      const response = await fetch(`/api/admin/events/${eventId}/attendees`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ attendanceId })
+      const result = await del<{ message?: string }>(`/api/admin/events/${eventId}/attendees`, {
+        body: JSON.stringify({ attendanceId }),
       });
-
-      if (response.ok) {
-        const result = await response.json();
-        alert(result.message);
-        loadEventAttendees(eventId); // Refresh attendees
+      if (result?.message) {
+        toast.success(result.message);
       } else {
-        const error = await response.json();
-        alert(`Error: ${error.error}`);
+        toast.success('Attendee removed');
       }
-    } catch (error) {
-      console.error('Error removing attendee:', error);
-      alert('Failed to remove attendee');
+      loadEventAttendees(eventId);
+    } catch {
+      toast.error('Failed to remove attendee');
     }
   };
 
@@ -390,23 +339,14 @@ export default function EventsAdmin() {
     }
 
     try {
-      const response = await fetch(`/api/admin/events/${eventId}/attendees`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'promote', attendanceId })
+      const result = await post<{ message?: string }>(`/api/admin/events/${eventId}/attendees`, {
+        action: 'promote',
+        attendanceId,
       });
-
-      if (response.ok) {
-        const result = await response.json();
-        alert(result.message);
-        loadEventAttendees(eventId); // Refresh attendees
-      } else {
-        const error = await response.json();
-        alert(`Error: ${error.error}`);
-      }
-    } catch (error) {
-      console.error('Error promoting attendee:', error);
-      alert('Failed to promote attendee');
+      toast.success(result?.message || 'Attendee promoted');
+      loadEventAttendees(eventId);
+    } catch {
+      toast.error('Failed to promote attendee');
     }
   };
 
@@ -424,15 +364,13 @@ export default function EventsAdmin() {
   }, [activeTab, session]);
 
   const deleteEvent = async (id: string) => {
-    if (confirm('Are you sure you want to delete this event?')) {
-      try {
-        const res = await fetch(`/api/admin/events?id=${id}`, { method: 'DELETE' });
-        if (res.ok) {
-          loadEvents();
-        }
-      } catch (error) {
-        console.error('Error deleting event:', error);
-      }
+    if (!confirm('Are you sure you want to delete this event?')) return;
+    try {
+      await del(`/api/admin/events?id=${id}`);
+      toast.success('Event deleted');
+      refetchEvents();
+    } catch {
+      toast.error('Failed to delete event');
     }
   };
 
@@ -448,46 +386,29 @@ export default function EventsAdmin() {
     }
   };
 
-  if (status === 'loading' || loading) {
+  if (status === 'loading' || eventsLoading) {
+    return <AdminLoadingState fullHeight message="Loading events..." />;
+  }
+
+  if (eventsError) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#00274c]"></div>
-      </div>
+      <AdminEmptyState
+        title="Unable to load events"
+        description={eventsError.message}
+        action={
+          <button
+            onClick={refetchEvents}
+            className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Try again
+          </button>
+        }
+      />
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Events</h1>
-          <p className="text-gray-600 mt-1">Manage events and workshops ({events.length} total)</p>
-        </div>
-        {!showForm && !showSubeventForm && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowImport((v) => !v)}
-              className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
-              title="Upload a CSV of events"
-            >
-              Bulk Upload CSV
-            </button>
-            <button
-              onClick={() => {
-                setEditingEvent(null);
-                setShowSubeventForm(null);
-                setShowForm(true);
-              }}
-              className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366] admin-white-text"
-            >
-              <PlusIcon className="w-4 h-4" />
-              Add Event
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* Tab Navigation */}
       {!showForm && !showSubeventForm && (
         <div className="border-b border-gray-200">
@@ -562,14 +483,18 @@ export default function EventsAdmin() {
                 try {
                   const form = new FormData();
                   form.append('file', importFile);
-                  const res = await fetch('/api/admin/events/import', { method: 'POST', body: form });
-                  const json = await res.json();
+                  const json = await post('/api/admin/events/import', form, {
+                    parseAs: 'json',
+                    skipErrorToast: true,
+                  });
                   setImportResult(json);
-                  if (res.ok && json.success) {
-                    await loadEvents();
+                  if (json?.success) {
+                    await refetchEvents();
+                    toast.success('Events imported');
                   }
-                } catch (err) {
+                } catch {
                   setImportResult({ error: 'Upload failed' });
+                  toast.error('Failed to import events');
                 } finally {
                   setImporting(false);
                 }
@@ -601,7 +526,7 @@ export default function EventsAdmin() {
               localStorage.removeItem('eventsAdmin_formState');
             }}
             onSave={() => {
-              loadEvents();
+              refetchEvents();
               setShowForm(false);
               setEditingEvent(null);
               setShowSubeventForm(null);
@@ -674,67 +599,6 @@ export default function EventsAdmin() {
                         <div className="text-sm text-blue-600">Total</div>
                       </div>
                     </div>
-
-                    {/* Phone Verification Section - Always Visible */}
-                    {(() => {
-                      const currentEvent = events.find(e => e.id === viewingAttendees);
-                      return currentEvent?.requirePhone ? (
-                        <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <div>
-                              <h3 className="text-lg font-semibold text-orange-800">📞 Phone Verification (Twilio Trial)</h3>
-                              <p className="text-sm text-orange-700">
-                                Trial accounts require phone verification before SMS can be sent.
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                console.log('🔍 Verify phones button clicked for event:', viewingAttendees);
-                                
-                                if (!confirm('This will initiate phone verification calls to all attendees with phone numbers. Continue?')) {
-                                  return;
-                                }
-                                
-                                try {
-                                  console.log('📞 Starting phone verification request...');
-                                  const response = await fetch('/api/admin/events/verify-phones', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ eventId: viewingAttendees })
-                                  });
-                                  
-                                  const result = await response.json();
-                                  console.log('📞 Verification response:', result);
-                                  
-                                  if (response.ok) {
-                                    alert(`Phone verification initiated!\n\nStats:\n- ${result.stats.verificationInitiated} calls initiated\n- ${result.stats.alreadyVerified} already verified\n- ${result.stats.failed} failed\n\nAttendees will receive verification calls shortly.`);
-                                  } else {
-                                    alert(`Verification failed: ${result.error}`);
-                                  }
-                                } catch (error) {
-                                  console.error('Verification error:', error);
-                                  alert('Failed to initiate phone verification');
-                                }
-                              }}
-                              className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2"
-                            >
-                              📱 Verify All Phone Numbers
-                            </button>
-                          </div>
-                          <p className="text-xs text-orange-600">
-                            <strong>How it works:</strong> Attendees will receive automated calls with verification codes. 
-                            Once verified, SMS messages can be sent successfully.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                          <p className="text-sm text-gray-600">
-                            📱 <strong>Phone verification not needed:</strong> This event does not collect phone numbers from attendees.
-                          </p>
-                        </div>
-                      );
-                    })()}
 
                     {/* Confirmed Attendees */}
                     {attendeesData.confirmed && attendeesData.confirmed.length > 0 && (
@@ -827,78 +691,29 @@ export default function EventsAdmin() {
                         const message = formData.get('message') as string;
                         const recipients = formData.get('recipients') as string;
                         const type = formData.get('type') as string;
-                        const sendSMS = formData.get('sendSMS') === 'on';
                         
                         if (!title || !message) {
-                          alert('Please fill in all fields');
+                          toast.error('Please fill in all fields');
                           return;
-                        }
-
-                        // Additional validation for SMS
-                        if (sendSMS) {
-                          const currentEvent = events.find(e => e.id === viewingAttendees);
-                          if (!currentEvent?.requirePhone) {
-                            alert('SMS can only be sent for events that require phone numbers. This event does not collect phone numbers.');
-                            return;
-                          }
-                          
-                          if (!message.trim()) {
-                            alert('Message is required when sending SMS');
-                            return;
-                          }
-                          
-                          const confirmed = confirm('You are about to send an SMS message. This will use SMS credits and send to all selected attendees with phone numbers. Continue?');
-                          if (!confirmed) {
-                            return;
-                          }
                         }
                         
                         try {
                           // Send web update
-                          const updateResponse = await fetch(`/api/events/${viewingAttendees}/updates`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ title, message, recipients, type })
-                          });
-                          
-                          let updateResult = null;
-                          if (updateResponse.ok) {
-                            updateResult = await updateResponse.json();
-                          }
-                          
-                          // Send SMS if requested
-                          let smsResult = null;
-                          if (sendSMS) {
-                            const smsResponse = await fetch('/api/admin/events/sms', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ 
-                                eventId: viewingAttendees, 
-                                message: message, 
-                                recipients: recipients 
-                              })
-                            });
-                            
-                            if (smsResponse.ok) {
-                              smsResult = await smsResponse.json();
-                            }
-                          }
-                          
-                          // Show results
-                          if (updateResult && smsResult) {
-                            alert(`Update sent to ${updateResult.recipientCount} attendees and SMS sent to ${smsResult.stats.sent} phone numbers!`);
-                          } else if (updateResult) {
-                            alert(`Update sent to ${updateResult.recipientCount} attendees!`);
-                          } else if (smsResult) {
-                            alert(`SMS sent to ${smsResult.stats.sent} attendees!`);
+                          const updateResult = await post<{ recipientCount: number }>(
+                            `/api/events/${viewingAttendees}/updates`,
+                            { title, message, recipients, type },
+                            { skipErrorToast: true }
+                          );
+
+                          if (updateResult) {
+                            toast.success(`Update sent to ${updateResult.recipientCount} attendees`);
                           } else {
-                            alert('Failed to send update');
+                            toast.error('Failed to send update');
                           }
-                          
+
                           (e.target as HTMLFormElement).reset();
-                        } catch (error) {
-                          console.error('Error sending update:', error);
-                          alert('Failed to send update');
+                        } catch {
+                          toast.error('Failed to send update');
                         }
                       }}>
                         <div>
@@ -948,80 +763,6 @@ export default function EventsAdmin() {
                           </select>
                         </div>
                         
-                        {/* Only show SMS option if current event requires phone numbers */}
-                        {(() => {
-                          const currentEvent = events.find(e => e.id === viewingAttendees);
-                          return currentEvent?.requirePhone ? (
-                            <div className="space-y-3">
-                              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                                <label className="flex items-center">
-                                  <input
-                                    type="checkbox"
-                                    name="sendSMS"
-                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
-                                  />
-                                  <span className="text-sm text-gray-800 font-medium">
-                                    📱 <strong>Also send as SMS</strong> (requires phone numbers)
-                                  </span>
-                                </label>
-                                <p className="text-xs mt-1 ml-6 font-normal" style={{ color: '#4B5563' }}>
-                                  <strong>Important:</strong> SMS will only be sent to attendees who provided phone numbers during registration. 
-                                  Message content above is required for SMS delivery.
-                                </p>
-                              </div>
-                              
-                              {/* Phone Verification for Trial Accounts */}
-                              <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <p className="text-sm text-orange-800 font-medium">📞 Twilio Trial Account</p>
-                                    <p className="text-xs text-orange-700 mt-1">
-                                      Trial accounts can only send SMS to verified phone numbers.
-                                    </p>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      if (!confirm('This will initiate phone verification calls to all attendees with phone numbers. Continue?')) {
-                                        return;
-                                      }
-                                      
-                                      try {
-                                        const response = await fetch('/api/admin/events/verify-phones', {
-                                          method: 'POST',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({ eventId: viewingAttendees })
-                                        });
-                                        
-                                        const result = await response.json();
-                                        
-                                        if (response.ok) {
-                                          alert(`Phone verification initiated!\n\nStats:\n- ${result.stats.verificationInitiated} calls initiated\n- ${result.stats.alreadyVerified} already verified\n- ${result.stats.failed} failed\n\nAttendees will receive verification calls shortly.`);
-                                        } else {
-                                          alert(`Verification failed: ${result.error}`);
-                                        }
-                                      } catch (error) {
-                                        alert('Failed to initiate phone verification');
-                                        console.error('Verification error:', error);
-                                      }
-                                    }}
-                                    className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-sm font-medium"
-                                  >
-                                    Verify All Phones
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                              <p className="text-sm text-yellow-800">
-                                📱 <strong>SMS not available:</strong> This event does not collect phone numbers from attendees.
-                                To enable SMS, edit the event and check "Require Phone Number" in event settings.
-                              </p>
-                            </div>
-                          );
-                        })()}
-                        
                         <button
                           type="submit"
                           className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium"
@@ -1044,7 +785,50 @@ export default function EventsAdmin() {
 
       {/* Events Grid */}
       {activeTab === 'events' && (
-        <div className="grid gap-6">
+        <AdminSection
+          title="Events"
+          description={`Manage events and workshops (${events.length} total)`}
+          actions={
+            !showForm &&
+            !showSubeventForm && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setShowImport((v) => !v)}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Bulk Upload CSV
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingEvent(null);
+                    setShowSubeventForm(null);
+                    setShowForm(true);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#00274c] px-4 py-2 text-sm font-medium text-white hover:bg-[#01305e]"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  Add Event
+                </button>
+              </div>
+            )
+          }
+        >
+          {events.length === 0 && !showForm && !showSubeventForm ? (
+            <AdminEmptyState
+              icon={<CalendarIcon className="w-12 h-12 text-gray-400" />}
+              title="No events yet"
+              description="Create your first event to get started."
+              action={
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="rounded-lg bg-[#00274c] px-4 py-2 text-sm font-medium text-white hover:bg-[#01305e]"
+                >
+                  Add Event
+                </button>
+              }
+            />
+          ) : (
+            <div className="grid gap-6">
         {events.map((event: any) => (
           <div key={event.id} className="bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-start mb-4">
@@ -1102,7 +886,6 @@ export default function EventsAdmin() {
                 {event.attendanceConfirmEnabled && (
                   <div className="space-y-3">
                     <AttendanceInfo eventId={event.id} />
-                    <EventStats eventId={event.id} />
                   </div>
                 )}
               </div>
@@ -1227,26 +1010,9 @@ export default function EventsAdmin() {
             )}
           </div>
         ))}
-        </div>
-      )} {/* End Events Tab - Grid */}
-
-      {/* No Events Message */}
-      {activeTab === 'events' && events.length === 0 && !showForm && !showSubeventForm && (
-        <div className="text-center py-12">
-          <CalendarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No events yet</h3>
-          <p className="text-gray-600 mb-4">Create your first event to get started.</p>
-          <button
-            onClick={() => {
-              setEditingEvent(null);
-              setShowSubeventForm(null);
-              setShowForm(true);
-            }}
-                              className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
-                >
-                  Add Event
-          </button>
-        </div>
+      </div>
+    )}
+        </AdminSection>
       )}
       {/* End Events Tab */}
 
@@ -1411,7 +1177,7 @@ export default function EventsAdmin() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-gray-500">
-                                    Registered {convertUtcToEst(new Date(person.registeredAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
+                                    Registered {formatUtcDateInEastern(person.registeredAt, { month: 'short', day: 'numeric', year: 'numeric', hour: undefined, minute: undefined }, false)}
                                   </span>
                                   {event.canPromote && person.waitlistPosition === 1 && (
                                     <button
@@ -1602,7 +1368,7 @@ export default function EventsAdmin() {
                           {registration.attendee.gradeLevel}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {convertUtcToEst(new Date(registration.registeredAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
+                          {formatUtcDateInEastern(registration.registeredAt, { month: 'short', day: 'numeric', year: 'numeric', hour: undefined, minute: undefined }, false)}
                         </td>
                       </tr>
                     ))}
@@ -1622,6 +1388,7 @@ export default function EventsAdmin() {
 }
 
 function EventForm({ event, onClose, onSave, parentEvent }: any) {
+  const { get, post, put } = useAdminApi();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -1685,7 +1452,6 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
           };
           
           localStorage.setItem(draftKey, JSON.stringify(draftData));
-          console.log('✓ Event form autosaved:', formData.title, event ? '(editing)' : '(new)');
         } catch (error) {
           console.error('Error autosaving event form:', error);
         }
@@ -1701,30 +1467,17 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
     const loadData = async () => {
       try {
         // Always load companies first
-        console.log('🔍 Loading companies from /api/admin/companies...');
-        const companiesRes = await fetch('/api/admin/companies');
-        console.log('📡 Companies response status:', companiesRes.status);
-        
-        if (companiesRes.ok) {
-          const companiesData = await companiesRes.json();
-          console.log('✅ Companies loaded successfully:', companiesData.length, 'companies');
-          console.log('📋 First company data structure:', companiesData[0]);
-          setCompanies(companiesData);
-        } else {
-          console.error('❌ Failed to load companies:', companiesRes.status);
-          const errorText = await companiesRes.text();
-          console.error('❌ Companies error response:', errorText);
+        const companiesData = await get('/api/admin/companies', { skipErrorToast: true });
+        if (companiesData) {
+          setCompanies(companiesData as Company[]);
         }
 
         if (event?.id) {
-          console.log('🔍 Loading partnerships for event:', event.id);
-          const partnershipsRes = await fetch(`/api/admin/partnerships/event/${event.id}`);
-          if (partnershipsRes.ok) {
-            const partnershipsData = await partnershipsRes.json();
-            console.log('✅ Partnerships loaded:', partnershipsData.length, 'partnerships');
+          const partnershipsData = await get(`/api/admin/partnerships/event/${event.id}`, {
+            skipErrorToast: true,
+          });
+          if (partnershipsData) {
             setPartnerships(partnershipsData);
-          } else {
-            console.error('Failed to load partnerships:', partnershipsRes.status);
           }
           
           // Check for editing draft
@@ -1736,7 +1489,6 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
               setFormData(parsedDraft.formData);
               setPartnerships(parsedDraft.partnerships || []);
               setSpeakers(parsedDraft.speakers || []);
-              console.log('✓ Event editing draft loaded:', parsedDraft.formData.title);
             } catch (error) {
               console.error('Error loading event editing draft:', error);
               localStorage.removeItem(editDraftKey);
@@ -1752,7 +1504,6 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
               setFormData(parsedDraft.formData);
               setPartnerships(parsedDraft.partnerships || []);
               setSpeakers(parsedDraft.speakers || []);
-              console.log('✓ Event form draft loaded:', parsedDraft.formData.title);
             } catch (error) {
               console.error('Error loading event form draft:', error);
               localStorage.removeItem(draftKey);
@@ -2008,45 +1759,31 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
         method = 'POST';
       }
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const eventData =
+        method === 'PUT'
+          ? await put(url, payload, { parseAs: 'json', skipErrorToast: true })
+          : await post(url, payload, { parseAs: 'json', skipErrorToast: true });
 
-      if (res.ok) {
-        const eventData = await res.json();
-        const eventId = eventData.id || event?.id;
+      const eventId = (eventData as { id?: string })?.id || event?.id;
 
-        // Save partnerships if any exist
-        if (partnerships.length > 0 && eventId) {
-          await fetch('/api/admin/partnerships/event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              eventId: eventId,
-              partnerships: partnerships.filter(p => p.companyId) 
-            })
-          });
-        }
-
-        // Clear the draft on successful save
-        let draftKey;
-        if (event) {
-          draftKey = `eventForm_draft_edit_${event.id}`;
-        } else {
-          draftKey = 'eventForm_draft_new';
-        }
-        localStorage.removeItem(draftKey);
-        console.log('✓ Event form saved successfully, draft cleared');
-        onSave();
-      } else {
-        const error = await res.json();
-        alert(error.message || 'Error saving event');
+      // Save partnerships if any exist
+      if (partnerships.length > 0 && eventId) {
+        await post(
+          '/api/admin/partnerships/event',
+          {
+            eventId,
+            partnerships: partnerships.filter((p) => p.companyId),
+          },
+          { skipErrorToast: true }
+        );
       }
+
+      const draftKey = event ? `eventForm_draft_edit_${event.id}` : 'eventForm_draft_new';
+      localStorage.removeItem(draftKey);
+      toast.success(`Event ${event ? 'updated' : 'created'}`);
+      onSave();
     } catch (error) {
-      console.error('Error saving event:', error);
-      alert('Error saving event');
+      toast.error('Error saving event');
     } finally {
       setSaving(false);
     }
@@ -2944,6 +2681,7 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
 
 // Attendance Info Component
 function AttendanceInfo({ eventId }: { eventId: string }) {
+  const { get, request } = useAdminApi();
   const [attendanceData, setAttendanceData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
@@ -2954,13 +2692,12 @@ function AttendanceInfo({ eventId }: { eventId: string }) {
 
   const loadAttendanceData = async () => {
     try {
-      const response = await fetch(`/api/admin/events/${eventId}/attendance`);
-      if (response.ok) {
-        const data = await response.json();
+      const data = await get(`/api/admin/events/${eventId}/attendance`, { skipErrorToast: true });
+      if (data) {
         setAttendanceData(data);
       }
     } catch (error) {
-      console.error('Error loading attendance data:', error);
+      toast.error('Failed to load attendance');
     } finally {
       setLoading(false);
     }
@@ -2968,22 +2705,21 @@ function AttendanceInfo({ eventId }: { eventId: string }) {
 
   const downloadCSV = async () => {
     try {
-      const response = await fetch(`/api/admin/events/${eventId}/attendance?format=csv`);
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `event-${eventId}-attendance.csv`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }
+      const response = await request<Response>(`/api/admin/events/${eventId}/attendance?format=csv`, {
+        parseAs: 'response',
+      });
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `event-${eventId}-attendance.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
-      console.error('Error downloading CSV:', error);
-      alert('Failed to download attendance list');
+      toast.error('Failed to download attendance list');
     }
   };
 
@@ -3056,8 +2792,7 @@ function AttendanceInfo({ eventId }: { eventId: string }) {
                       <span className="text-xs text-gray-500">{attendee.email}</span>
                     </div>
                     <span className="text-xs text-gray-500">
-                      {convertUtcToEst(new Date(attendee.confirmedAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })} at{' '}
-                      {convertUtcToEst(new Date(attendee.confirmedAt)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST
+                      {formatUtcDateInEastern(attendee.confirmedAt, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }, true)}
                     </span>
                   </div>
                   
@@ -3106,100 +2841,6 @@ function AttendanceInfo({ eventId }: { eventId: string }) {
       )}
     </div>
   );
-} 
-
-// Event Stats Component
-function EventStats({ eventId }: { eventId: string }) {
-  const [stats, setStats] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [showStats, setShowStats] = useState(false);
-
-  useEffect(() => {
-    loadStats();
-  }, [eventId]);
-
-  const loadStats = async () => {
-    try {
-      const response = await fetch(`/api/events/${eventId}/stats`);
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
-    } catch (error) {
-      console.error('Error loading event stats:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="p-3 bg-purple-50 rounded-lg">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm text-purple-700">Loading stats...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!stats) return null;
-
-  return (
-    <div className="p-3 bg-purple-50 rounded-lg">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-          <span className="text-sm font-medium text-purple-900">Event Statistics</span>
-        </div>
-        <button
-          onClick={() => setShowStats(!showStats)}
-          className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-        >
-          {showStats ? 'Hide' : 'Show'} Stats
-        </button>
-      </div>
-      
-      {showStats && (
-        <div className="mt-3 pt-3 border-t border-purple-200">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div className="text-center">
-              <div className="text-lg font-semibold text-purple-900">{stats.confirmedAttendees || 0}</div>
-              <div className="text-purple-600">Confirmed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg font-semibold text-purple-900">{stats.waitlistSize || 0}</div>
-              <div className="text-purple-600">Waitlisted</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg font-semibold text-purple-900">{stats.actualAttendance || 0}</div>
-              <div className="text-purple-600">Attended</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg font-semibold text-purple-900">
-                {stats.confirmedAttendees > 0 ? Math.round((stats.actualAttendance / stats.confirmedAttendees) * 100) : 0}%
-              </div>
-              <div className="text-purple-600">Show Rate</div>
-            </div>
-          </div>
-          
-          {stats.demographicBreakdown && (
-            <div className="mt-4 space-y-2">
-              <h5 className="text-sm font-medium text-purple-900">Demographics</h5>
-              <div className="text-xs space-y-1">
-                {Object.entries(stats.demographicBreakdown.byGrade || {}).map(([grade, count]: [string, any]) => (
-                  <div key={grade} className="flex justify-between">
-                    <span className="text-purple-700">{grade}:</span>
-                    <span className="text-purple-900 font-medium">{count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
+
+export default withAdminPageProtection(EventsAdmin, 'events');

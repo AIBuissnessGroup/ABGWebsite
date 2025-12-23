@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
 import { MongoClient } from 'mongodb';
+import { requireAdminSession } from '@/lib/server-admin';
+import { easternInputToUtc, formatUtcDateInEastern } from '@/lib/timezone';
 
 const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri);
+const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'SUPER_ADMIN')) {
+  const session = await requireAdminSession();
+  if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -29,32 +32,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Start date and end date are required' }, { status: 400 });
     }
 
-    // Parse dates and ensure we work in local timezone to avoid UTC issues
-    const startDateObj = new Date(startDate + 'T00:00:00');
-    const endDateObj = new Date(endDate + 'T23:59:59');
+    const rangeStart = new Date(easternInputToUtc(`${startDate}T00:00`));
+    const rangeEnd = new Date(easternInputToUtc(`${endDate}T23:59`));
 
     const slots = generateSlots({
-      startDate: startDateObj,
-      endDate: endDateObj,
+      startDate,
+      endDate,
       daysOfWeek,
       startTime,
       endTime,
       slotDuration,
       location,
       capacity,
-      execMemberId
+      execMemberId,
     });
 
     await client.connect();
     const db = client.db();
     
     // Check for existing slots to avoid duplicates
-    const existingSlots = await db.collection('CoffeeChat').find({
-      startTime: {
-        $gte: startDateObj,
-        $lte: endDateObj
-      }
-    }).toArray();
+    const existingSlots = await db
+      .collection('CoffeeChat')
+      .find({
+        startTime: {
+          $gte: rangeStart,
+          $lte: rangeEnd,
+        },
+      })
+      .toArray();
 
     const existingSlotMap = new Map(
       existingSlots.map(slot => [
@@ -74,8 +79,8 @@ export async function POST(request: NextRequest) {
         newSlots.push({
           ...slotData,
           id: `slot_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          title: `Coffee Chat - ${formatDateTime(slotData.startTime)}`,
-          hostName: '', // Will be set when exec is assigned
+          title: `Coffee Chat - ${formatUtcDateInEastern(slotData.startTime.toISOString())}`,
+          hostName: '',
           hostEmail: '',
           isOpen: true,
           signups: [],
@@ -121,73 +126,50 @@ function generateSlots({
   slotDuration,
   location,
   capacity,
-  execMemberId
-}: any) {
+  execMemberId,
+}: {
+  startDate: string;
+  endDate: string;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  slotDuration: number;
+  location: string;
+  capacity: number;
+  execMemberId?: string;
+}) {
   const slots = [];
-  
-  // Create date objects in local timezone to avoid UTC conversion issues
-  const currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-  const endDateLocal = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-  
-  while (currentDate <= endDateLocal) {
-    const dayOfWeek = currentDate.getDay();
-    
+  const startCursor = new Date(`${startDate}T00:00:00Z`);
+  const endCursor = new Date(`${endDate}T00:00:00Z`);
+
+  for (
+    let cursor = new Date(startCursor);
+    cursor.getTime() <= endCursor.getTime();
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  ) {
+    const dateStr = cursor.toISOString().slice(0, 10);
+    const dayOfWeek = new Date(`${dateStr}T00:00:00Z`).getUTCDay();
+
     if (daysOfWeek.includes(dayOfWeek)) {
-      const [startHour, startMinute] = startTime.split(':').map(Number);
-      const [endHour, endMinute] = endTime.split(':').map(Number);
-      
-      // Create datetime objects using local timezone constructor
-      const dayStart = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        currentDate.getDate(),
-        startHour,
-        startMinute,
-        0,
-        0
-      );
-      
-      const dayEnd = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        currentDate.getDate(),
-        endHour,
-        endMinute,
-        0,
-        0
-      );
-      
-      let cursor = new Date(dayStart);
-      
-      while (cursor < dayEnd) {
-        const slotEnd = new Date(cursor.getTime() + slotDuration * 60000);
-        
+      const dayStart = new Date(easternInputToUtc(`${dateStr}T${startTime}`));
+      const dayEnd = new Date(easternInputToUtc(`${dateStr}T${endTime}`));
+
+      let slotCursor = new Date(dayStart);
+      while (slotCursor < dayEnd) {
+        const slotEnd = new Date(slotCursor.getTime() + slotDuration * 60000);
         if (slotEnd <= dayEnd) {
           slots.push({
-            startTime: new Date(cursor),
+            startTime: new Date(slotCursor),
             endTime: new Date(slotEnd),
             location,
             capacity,
             execMemberId: execMemberId || null,
           });
         }
-        
-        cursor = new Date(slotEnd);
+        slotCursor = slotEnd;
       }
     }
-    
-    currentDate.setDate(currentDate.getDate() + 1);
   }
-  
-  return slots;
-}
 
-function formatDateTime(date: Date): string {
-  return date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  });
+  return slots;
 }

@@ -12,7 +12,10 @@ function generateSlug(title: string): string {
 
 export async function GET() {
   try {
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
     

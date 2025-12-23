@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: {
+    // Disable ESLint during production builds
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    // Disable TypeScript type checking during builds (rely on editor)
+    ignoreBuildErrors: true,
+  },
   env: {
     NEXT_PUBLIC_ADMIN_EMAILS: process.env.ADMIN_EMAILS,
   },
@@ -9,8 +17,13 @@ const nextConfig = {
       exclude: ['error'] // Keep console.error for debugging critical issues
     } : false,
   },
+  // Increase body size limit for API routes (for email drafts with attachments)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '100mb',
+    },
+  },
   images: {
-    domains: ['images.unsplash.com', 'img.icons8.com', 'msofficestore.us', 'i.ibb.co'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -49,9 +62,6 @@ const nextConfig = {
         ],
       },
     ]
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,

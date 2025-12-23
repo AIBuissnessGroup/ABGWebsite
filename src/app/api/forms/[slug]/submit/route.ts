@@ -1,12 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient, ObjectId } from 'mongodb';
+import { notifyFormSubmission } from '@/lib/slack';
+import { sendFormReceiptEmail } from '@/lib/email';
 
 // Configure runtime for handling large requests
 export const maxDuration = 60; // seconds
 
 const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri);
+const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
+
+const normalizeId = (value: any, fallback: string) => {
+  if (typeof value === 'string' && value.trim()) return value;
+  if (typeof value === 'number') return value.toString();
+  if (value instanceof ObjectId) return value.toString();
+  if (typeof value === 'object' && typeof value?.toString === 'function') {
+    const stringified = value.toString();
+    if (stringified && stringified !== '[object Object]') {
+      return stringified;
+    }
+  }
+  return fallback;
+};
+
+const sanitizeOptions = (options: any): string[] => {
+  if (!options) return [];
+
+  if (Array.isArray(options)) {
+    return Array.from(new Set(options.map(option => `${option}`.trim()).filter(Boolean)));
+  }
+
+  if (typeof options === 'string') {
+    return Array.from(new Set(options
+      .split('\n')
+      .map(option => option.trim())
+      .filter(Boolean)
+    ));
+  }
+
+  if (typeof options === 'object') {
+    return Array.from(new Set(
+      Object.values(options)
+        .map(option => `${option}`.trim())
+        .filter(Boolean)
+    ));
+  }
+
+  return [];
+};
+
+function flattenFormQuestions(form: any) {
+  if (Array.isArray(form?.sections) && form.sections.length > 0) {
+    return form.sections
+      .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
+      .flatMap((section: any, sectionIndex: number) =>
+        (Array.isArray(section?.questions) ? section.questions : [])
+          .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
+          .map((question: any, questionIndex: number) => ({
+            ...question,
+            id: normalizeId(question?.id || question?._id, `question-${section?.id}-${questionIndex}`),
+            options: sanitizeOptions(question?.options),
+            order: typeof question?.order === 'number' ? question.order : questionIndex,
+            sectionId: normalizeId(question?.sectionId || section?.id, `section-${section?.id}`),
+            sectionOrder: typeof section?.order === 'number' ? section.order : sectionIndex,
+            sectionTitle: section?.title
+          }))
+      );
+  }
+
+  return Array.isArray(form?.questions)
+    ? form.questions.map((question: any, questionIndex: number) => ({
+        ...question,
+        id: normalizeId(question?.id || question?._id, `question-${questionIndex}`),
+        options: sanitizeOptions(question?.options),
+        order: typeof question?.order === 'number' ? question.order : questionIndex
+      }))
+    : [];
+}
 
 export async function POST(
   request: NextRequest,
@@ -58,7 +131,7 @@ export async function POST(
     }
 
     // Get form questions (they're embedded in the form document)
-    const questions = form.questions || [];
+    const questions = flattenFormQuestions(form);
 
     // Check authentication requirement
     if (form.requireAuth) {
@@ -254,8 +327,82 @@ export async function POST(
 
     const result = await db.collection('Application').insertOne(applicationData);
     
-    return NextResponse.json({ 
-      success: true, 
+    // Send Slack notification (async, don't wait for it)
+    const shouldNotify =
+      form.notificationConfig?.email?.notifyOnSubmission ??
+      (typeof form.notifyOnSubmission === 'boolean' ? form.notifyOnSubmission : true);
+
+    if (shouldNotify) {
+      notifyFormSubmission({
+        formTitle: form.title || form.name || slug,
+        formSlug: slug,
+        applicantName: applicationData.applicantName,
+        applicantEmail: applicationData.applicantEmail,
+        applicantPhone: applicationData.applicantPhone,
+        applicationId: result.insertedId.toString(),
+        responses: responses
+          .filter((r: any) => r.value !== null && r.value !== undefined && r.value !== '')
+          .map((r: any) => {
+            const question = questions.find((q: any) => q.id === r.questionId);
+            return {
+              questionTitle: question?.title || question?.question || 'Unknown Question',
+              value: r.value,
+              questionId: r.questionId,
+            };
+          }),
+        submissionUrl: `${process.env.NEXTAUTH_URL || 'https://abgumich.org'}/admin/forms/${slug}`,
+        slackConfig: form.notificationConfig?.slack || null,
+      }).catch((error) => {
+        console.error('Failed to send Slack notification:', error);
+      });
+    }
+
+    console.log('📧 Checking email receipt settings...');
+    console.log('   sendReceiptToSubmitter:', form.notificationConfig?.email?.sendReceiptToSubmitter);
+    console.log('   applicantEmail:', applicationData.applicantEmail);
+    console.log('   Full notificationConfig:', JSON.stringify(form.notificationConfig, null, 2));
+
+    if (
+      form.notificationConfig?.email?.sendReceiptToSubmitter &&
+      applicationData.applicantEmail
+    ) {
+      console.log('✅ Conditions met - preparing to send email receipt');
+      const responseSummary = responses
+        .filter((r: any) => r.value !== null && r.value !== undefined && r.value !== '')
+        .slice(0, 10)
+        .map((r: any) => {
+          const question = questions.find((q: any) => q.id === r.questionId);
+          let value = r.value;
+
+          if (typeof value === 'object' && value?.fileName) {
+            value = `File uploaded: ${value.fileName}`;
+          } else if (Array.isArray(value)) {
+            value = value.join(', ');
+          }
+
+          return {
+            title: question?.title || question?.question || 'Untitled question',
+            value: String(value),
+          };
+        });
+
+      const summaryUrl = `${process.env.NEXTAUTH_URL || 'https://abgumich.org'}/forms/${slug}?submission=${result.insertedId.toString()}`;
+
+      sendFormReceiptEmail({
+        to: applicationData.applicantEmail,
+        formTitle: form.title || slug,
+        submissionId: result.insertedId.toString(),
+        submissionDate: new Date(),
+        applicantName: applicationData.applicantName,
+        summaryUrl,
+        responses: responseSummary,
+      }).catch((error) => {
+        console.error('Failed to send submission receipt email:', error);
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
       message: 'Application submitted successfully!',
       applicationId: result.insertedId.toString()
     });

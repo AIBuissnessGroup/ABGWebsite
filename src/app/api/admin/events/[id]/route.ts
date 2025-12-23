@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin';
 import { MongoClient } from 'mongodb';
 
 const uri = process.env.MONGODB_URI as string;
-
-function isAdminEmail(email: string): boolean {
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim());
-  return adminEmails.includes(email);
-}
 
 export async function GET(
   request: NextRequest,
@@ -18,11 +14,14 @@ export async function GET(
     const { id: eventId } = await params;
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email || !isAdminEmail(session.user.email)) {
+    if (!session || !isAdmin(session.user)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 

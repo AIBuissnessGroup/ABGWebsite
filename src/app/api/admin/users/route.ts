@@ -9,7 +9,10 @@ import type { UserRole } from '@/types/next-auth';
 const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || '';
 
 function createMongoClient() {
-  return new MongoClient(uri);
+  return new MongoClient(uri, {
+    tls: true,
+    tlsCAFile: "/app/global-bundle.pem",
+  });
 }
 
 // Safely serialize MongoDB objects

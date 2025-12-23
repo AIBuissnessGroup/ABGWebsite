@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin';
 import { MongoClient, ObjectId } from 'mongodb';
 
 const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-
-function isAdminEmail(email: string): boolean {
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim());
-  return adminEmails.includes(email);
-}
 
 // Check in an attendee (mark as attended)
 export async function POST(
@@ -19,7 +15,7 @@ export async function POST(
     const { id: eventId } = await params;
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email || !isAdminEmail(session.user.email)) {
+    if (!session || !isAdmin(session.user)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
@@ -29,7 +25,10 @@ export async function POST(
       return NextResponse.json({ error: 'Attendee ID required' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 
@@ -85,7 +84,7 @@ export async function DELETE(
     const { id: eventId } = await params;
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email || !isAdminEmail(session.user.email)) {
+    if (!session || !isAdmin(session.user)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
@@ -95,7 +94,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Attendee ID required' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 

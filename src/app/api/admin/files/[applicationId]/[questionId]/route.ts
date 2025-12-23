@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { MongoClient, ObjectId } from 'mongodb';
-import { isAdminEmail } from '@/lib/admin';
+import { isAdmin } from '@/lib/admin';
 
 const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri);
+const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
 
 export async function GET(
   request: NextRequest,
@@ -19,7 +22,7 @@ export async function GET(
     }
 
     // Check if user is admin
-    if (!isAdminEmail(session.user.email)) {
+    if (!isAdmin(session.user)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

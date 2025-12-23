@@ -1,0 +1,11 @@
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.production
+    volumes:
+      - ./global-bundle.pem:/app/global-bundle.pem:ro
+    restart: unless-stopped
+

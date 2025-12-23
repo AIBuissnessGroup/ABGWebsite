@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
+import { withAdminPageProtection } from '@/components/admin/AdminPageProtection';
 
 type Slot = {
   id: string;
@@ -15,7 +16,7 @@ type Slot = {
   isOpen: boolean;
 };
 
-export default function RecruitmentAdmin() {
+function RecruitmentAdmin() {
   const { data: session, status } = useSession();
   const [tab, setTab] = useState<'levels' | 'timeline' | 'coffee'>('levels');
   const [levels, setLevels] = useState<any>(null);
@@ -323,5 +324,7 @@ export default function RecruitmentAdmin() {
     </div>
   );
 }
+
+export default withAdminPageProtection(RecruitmentAdmin, 'recruitment');
 
 

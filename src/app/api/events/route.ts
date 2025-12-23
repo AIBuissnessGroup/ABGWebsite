@@ -17,7 +17,10 @@ export async function OPTIONS() {
 export async function GET(request: NextRequest) {
   try {
     const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 
@@ -124,7 +127,7 @@ export async function GET(request: NextRequest) {
           }
         }
       },
-      { $unset: 'partnershipCompanies' },
+      { $project: { partnershipCompanies: 0 } },
       { $sort: { featured: -1, eventDate: 1 } }
     ];
     

@@ -1,3330 +1,1836 @@
 'use client';
-import { useState, useEffect } from 'react';
+
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { 
-  PlusIcon, 
-  PencilIcon, 
-  TrashIcon, 
-  EyeIcon,
+import {
+  PlusIcon,
   DocumentTextIcon,
-  ClipboardDocumentListIcon,
-  UserGroupIcon,
-  BriefcaseIcon,
-  AcademicCapIcon,
-  ClipboardIcon,
-  CheckIcon,
+  ChatBubbleLeftRightIcon,
+  ArrowDownTrayIcon,
+  ArrowPathIcon,
+  Cog6ToothIcon,
+  CheckCircleIcon,
   XMarkIcon,
-  ClockIcon,
-  FunnelIcon,
-  LinkIcon
+  LinkIcon,
+  ArrowTopRightOnSquareIcon,
+  ArchiveBoxIcon,
+  ArchiveBoxXMarkIcon,
+  ClipboardDocumentIcon,
 } from '@heroicons/react/24/outline';
+import type { FormNotificationConfig, SlackTargetOption } from '@/types/forms';
 
-export default function FormsAdmin() {
-  const { data: session, status } = useSession();
-  const [loading, setLoading] = useState(true);
-  const [forms, setForms] = useState<any[]>([]);
-  const [applications, setApplications] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState('review'); // 'review', 'forms', 'create'
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [selectedReviewer, setSelectedReviewer] = useState('all');
+type QuestionType =
+  | 'TEXT'
+  | 'TEXTAREA'
+  | 'EMAIL'
+  | 'PHONE'
+  | 'NUMBER'
+  | 'DATE'
+  | 'SELECT'
+  | 'RADIO'
+  | 'CHECKBOX'
+  | 'FILE'
+  | 'BOOLEAN'
+  | 'MATRIX';
 
-  const [selectedForm, setSelectedForm] = useState<any>(null);
-  const [formResponses, setFormResponses] = useState<any[]>([]);
-  const [selectedFormStatus, setSelectedFormStatus] = useState('all');
-  const [selectedFormReviewer, setSelectedFormReviewer] = useState('all');
-  const [customStatuses, setCustomStatuses] = useState<any[]>([]);
-  const [showCreateStatus, setShowCreateStatus] = useState(false);
-  const [newStatusName, setNewStatusName] = useState('');
-  const [newStatusColor, setNewStatusColor] = useState('#6366F1');
-  
-  // File data loading state
-  const [fileDataCache, setFileDataCache] = useState<{ [key: string]: any }>({});
-  const [loadingFiles, setLoadingFiles] = useState<{ [key: string]: boolean }>({});
-  const [editingForm, setEditingForm] = useState<any>(null);
-  const [expandedApplications, setExpandedApplications] = useState(new Set());
-  const [selectedApplications, setSelectedApplications] = useState(new Set());
-  const [copySuccess, setCopySuccess] = useState('');
-  // Attendance config for forms
-  const [attendanceConfig, setAttendanceConfig] = useState({
-    isAttendanceForm: false,
-    attendanceLatitude: '',
-    attendanceLongitude: '',
-    attendanceRadiusMeters: ''
-  });
-  const [showImport, setShowImport] = useState(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<any>(null);
-  
-  // Google Forms import state
-  const [showGoogleImport, setShowGoogleImport] = useState(false);
-  const [googleFormUrl, setGoogleFormUrl] = useState('');
-  const [importingGoogle, setImportingGoogle] = useState(false);
-  const [googleImportResult, setGoogleImportResult] = useState<any>(null);
+type FormQuestion = {
+  id: string;
+  title: string;
+  description: string;
+  type: QuestionType;
+  required: boolean;
+  options: string[];
+  matrixRows?: string[];
+  matrixColumns?: string[];
+};
 
-  // Form filtering state
-  const [formSearchQuery, setFormSearchQuery] = useState('');
-  const [selectedFormCategory, setSelectedFormCategory] = useState('all');
-  const [formStatusFilter, setFormStatusFilter] = useState('all'); // all, active, inactive, archived
-  const [sortBy, setSortBy] = useState('newest'); // newest, oldest, name-asc, name-desc
+type FormSection = {
+  id: string;
+  title: string;
+  description: string;
+  questions: FormQuestion[];
+};
 
-  // Application filtering state
-  const [includeArchivedApplications, setIncludeArchivedApplications] = useState(false);
-  const [selectedApplicationForm, setSelectedApplicationForm] = useState('all');
+type FormRecord = {
+  id: string;
+  title: string;
+  description?: string;
+  category?: string;
+  isActive?: boolean;
+  allowMultiple?: boolean;
+  requireAuth?: boolean;
+  backgroundColor?: string;
+  textColor?: string;
+  sections?: FormSection[];
+  questions?: FormQuestion[];
+  notificationConfig?: FormNotificationConfig;
+  notificationEmail?: string;
+  notifyOnSubmission?: boolean;
+  sendReceiptToSubmitter?: boolean;
+  slug: string;
+};
 
-  // Check authentication
-  useEffect(() => {
-    if (status === 'loading') return;
-    if (!session) {
-      redirect('/auth/signin');
-      return;
-    }
-    console.log('User session:', session.user);
-  }, [session, status]);
+type FormDraft = {
+  id?: string;
+  title: string;
+  description: string;
+  category: string;
+  isActive: boolean;
+  allowMultiple: boolean;
+  requireAuth: boolean;
+  backgroundColor: string;
+  textColor: string;
+  notificationConfig: FormNotificationConfig;
+  sections: FormSection[];
+};
 
-
-
-  // Load custom statuses from localStorage
-  const loadCustomStatuses = () => {
-    try {
-      const saved = localStorage.getItem('admin_custom_statuses');
-      if (saved) {
-        setCustomStatuses(JSON.parse(saved));
-      }
-    } catch (error) {
-      console.error('Error loading custom statuses:', error);
-    }
-  };
-
-  // Load data
-  useEffect(() => {
-    if (session?.user) {
-      loadForms();
-      loadApplications(includeArchivedApplications, selectedApplicationForm);
-      loadCustomStatuses();
-    }
-  }, [session]);
-
-
-
-  // Load responses for a specific form
-  const loadFormResponses = async (formId: string, isArchived: boolean = false) => {
-    if (!formId) {
-      console.error('Form ID is required to load responses');
-      return;
-    }
-    
-    try {
-      // For archived forms, show a warning and require explicit confirmation
-      if (isArchived) {
-        const shouldLoad = confirm(
-          'This form is archived and may have many responses. Loading all responses might take some time. Do you want to continue?'
-        );
-        if (!shouldLoad) {
-          return;
-        }
-      }
-
-      const res = await fetch(`/api/admin/applications?formId=${formId}`);
-      const data = await res.json();
-      if (data && !data.error) {
-        setFormResponses(data);
-      }
-    } catch (error) {
-      console.error('Error loading form responses:', error);
-    }
-  };
-
-  // Filter form responses
-  const filteredFormResponses = formResponses.filter((response: any) => {
-    const statusMatch = selectedFormStatus === 'all' || response.status === selectedFormStatus;
-    const reviewerMatch = selectedFormReviewer === 'all' || response.reviewedBy === selectedFormReviewer;
-    return statusMatch && reviewerMatch;
-  });
-
-  // Export form responses
-  const exportFormResponses = async (exportType: 'summary' | 'detailed') => {
-    if (!selectedForm || !selectedForm.id) {
-      alert('No form selected or form ID is missing');
-      return;
-    }
-    
-    try {
-      const response = await fetch('/api/admin/applications/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          formId: selectedForm.id,
-          status: selectedFormStatus,
-          reviewer: selectedFormReviewer,
-          exportType
-        })
-      });
-      
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${selectedForm.title}-${exportType}-${new Date().toISOString().split('T')[0]}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert('Failed to export form responses');
-      }
-    } catch (error) {
-      console.error('Export error:', error);
-      alert('Failed to export form responses');
-    }
-  };
-
-
-
-  // Save custom statuses to localStorage
-  const saveCustomStatuses = (statuses: any[]) => {
-    try {
-      localStorage.setItem('admin_custom_statuses', JSON.stringify(statuses));
-      setCustomStatuses(statuses);
-    } catch (error) {
-      console.error('Error saving custom statuses:', error);
-    }
-  };
-
-  // Create new custom status
-  const createCustomStatus = () => {
-    if (!newStatusName.trim()) return;
-    
-    const newStatus = {
-      id: `question-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      name: newStatusName.toUpperCase().replace(/\s+/g, '_'),
-      label: newStatusName,
-      color: newStatusColor,
-      createdAt: new Date().toISOString()
+type ApplicationResponse = {
+  id: string;
+  applicantName: string;
+  applicantEmail: string;
+  submittedAt: string;
+  responses: Array<{
+    questionId: string;
+    question: { 
+      title?: string; 
+      type?: QuestionType;
+      matrixRows?: string[];
+      matrixColumns?: string[];
     };
-    
-    const updatedStatuses = [...customStatuses, newStatus];
-    saveCustomStatuses(updatedStatuses);
-    setNewStatusName('');
-    setNewStatusColor('#6366F1');
-    setShowCreateStatus(false);
-  };
+    textValue?: string;
+    numberValue?: number;
+    booleanValue?: boolean;
+    dateValue?: string;
+    selectedOptions?: string;
+    fileName?: string;
+  }>;
+};
 
-  // Delete custom status
-  const deleteCustomStatus = (statusId: string) => {
-    const updatedStatuses = customStatuses.filter(s => s.id !== statusId);
-    saveCustomStatuses(updatedStatuses);
-  };
+type SlackTargetState = {
+  channels: SlackTargetOption[];
+  users: SlackTargetOption[];
+  needsToken: boolean;
+  error?: string;
+};
 
-  // Get all available statuses (default + custom)
-  const getAllStatuses = () => {
-    const defaultStatuses = [
-      { name: 'PENDING', label: 'Pending', color: '#EAB308' },
-      { name: 'REVIEWING', label: 'Reviewing', color: '#3B82F6' },
-      { name: 'ACCEPTED', label: 'Accepted', color: '#10B981' },
-      { name: 'REJECTED', label: 'Rejected', color: '#EF4444' },
-      { name: 'WAITLISTED', label: 'Waitlisted', color: '#8B5CF6' },
-      { name: 'WITHDRAWN', label: 'Withdrawn', color: '#6B7280' }
-    ];
-    
-    return [...defaultStatuses, ...customStatuses];
-  };
+const QUESTION_TYPES: { label: string; value: QuestionType }[] = [
+  { label: 'Short answer', value: 'TEXT' },
+  { label: 'Paragraph', value: 'TEXTAREA' },
+  { label: 'Email', value: 'EMAIL' },
+  { label: 'Phone', value: 'PHONE' },
+  { label: 'Number', value: 'NUMBER' },
+  { label: 'Date', value: 'DATE' },
+  { label: 'Multiple choice', value: 'RADIO' },
+  { label: 'Checkboxes', value: 'CHECKBOX' },
+  { label: 'Dropdown', value: 'SELECT' },
+  { label: 'File upload', value: 'FILE' },
+  { label: 'Yes / No', value: 'BOOLEAN' },
+  { label: 'Matrix / Grid', value: 'MATRIX' },
+];
 
-  const loadForms = async () => {
-    try {
-      const res = await fetch('/api/admin/forms');
-      const data = await res.json();
-      if (data && !data.error) {
-        console.log('Forms loaded from API:', data);
-        data.forEach((form: any, index: number) => {
-          console.log(`Frontend Form ${index}: ${form.title}, Questions: ${form.questions ? form.questions.length : 'undefined'}`);
-        });
-        setForms(data);
-      }
-    } catch (error) {
-      console.error('Error loading forms:', error);
-    }
-  };
+const MULTIPLE_CHOICE: QuestionType[] = ['RADIO', 'CHECKBOX', 'SELECT'];
 
-  const loadApplications = async (includeArchived: boolean = false, formFilter: string = 'all') => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (includeArchived) {
-        params.append('includeArchived', 'true');
-      }
-      if (formFilter !== 'all') {
-        params.append('formId', formFilter);
-      }
-
-      const url = `/api/admin/applications${params.toString() ? '?' + params.toString() : ''}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data && !data.error) {
-        setApplications(data);
-      }
-    } catch (error) {
-      console.error('Error loading applications:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Load file data on demand for preview
-  const loadFileData = async (applicationId: string, questionId: string) => {
-    const cacheKey = `${applicationId}-${questionId}`;
-    
-    console.log('loadFileData called with:', { applicationId, questionId, cacheKey });
-    
-    // Return cached data if available
-    if (fileDataCache[cacheKey]) {
-      console.log('Returning cached data for:', cacheKey);
-      return fileDataCache[cacheKey];
-    }
-    
-    // Check if already loading
-    if (loadingFiles[cacheKey]) {
-      console.log('Already loading:', cacheKey);
-      return null;
-    }
-    
-    setLoadingFiles(prev => ({ ...prev, [cacheKey]: true }));
-    
-    try {
-      const url = `/api/admin/files/${applicationId}/${questionId}/data`;
-      console.log('Fetching from:', url);
-      const res = await fetch(url);
-      console.log('Fetch response:', res.status, res.statusText);
-      if (res.ok) {
-        const fileData = await res.json();
-        console.log('File data received:', fileData);
-        setFileDataCache(prev => ({ ...prev, [cacheKey]: fileData }));
-        return fileData;
-      } else {
-        console.error('Failed to fetch file data:', res.status, await res.text());
-      }
-    } catch (error) {
-      console.error('Error loading file data:', error);
-    } finally {
-      setLoadingFiles(prev => ({ ...prev, [cacheKey]: false }));
-    }
-    
-    return null;
-  };
-
-  const updateApplicationStatus = async (applicationId: string, newStatus: string, adminNotes: string = '') => {
-    try {
-      const res = await fetch('/api/admin/applications', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: applicationId,
-          status: newStatus,
-          adminNotes: adminNotes
-        })
-      });
-
-      if (res.ok) {
-        loadApplications(includeArchivedApplications, selectedApplicationForm); // Reload to get updated data
-      } else {
-        alert('Error updating application status');
-      }
-    } catch (error) {
-      console.error('Error updating application:', error);
-    }
-  };
-
-  const copyFormLink = async (slug: string) => {
-    const url = `${window.location.origin}/forms/${slug}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopySuccess(slug);
-      setTimeout(() => setCopySuccess(''), 2000);
-    } catch (err) {
-      console.error('Failed to copy link:', err);
-    }
-  };
-
-  // Import Google Form using OAuth
-  const importGoogleForm = async () => {
-    if (!googleFormUrl.trim()) {
-      alert('Please enter a Google Form URL');
-      return;
-    }
-
-    setImportingGoogle(true);
-    setGoogleImportResult(null);
-
-    try {
-      const res = await fetch('/api/admin/forms/import-google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formUrl: googleFormUrl.trim() })
-      });
-
-      const result = await res.json();
-      setGoogleImportResult(result);
-
-      if (res.ok && result.success) {
-        await loadForms();
-        setGoogleFormUrl('');
-        setTimeout(() => setShowGoogleImport(false), 3000);
-      }
-    } catch (error) {
-      console.error('Error importing Google Form:', error);
-      setGoogleImportResult({ error: 'Failed to import Google Form. Please try again.' });
-    } finally {
-      setImportingGoogle(false);
-    }
-  };
-
-
-
-  // Filter and sort forms
-  const filteredAndSortedForms = forms.filter((form) => {
-    // Search query filter
-    if (formSearchQuery.trim()) {
-      const query = formSearchQuery.toLowerCase();
-      const matchesTitle = form.title.toLowerCase().includes(query);
-      const matchesDescription = form.description?.toLowerCase()?.includes(query);
-      const matchesSlug = form.slug?.toLowerCase()?.includes(query);
-      if (!matchesTitle && !matchesDescription && !matchesSlug) {
-        return false;
-      }
-    }
-
-    // Category filter
-    if (selectedFormCategory !== 'all' && form.category !== selectedFormCategory) {
-      return false;
-    }
-
-    // Status filter
-    if (formStatusFilter === 'active' && !form.isActive) {
-      return false;
-    }
-    if (formStatusFilter === 'inactive' && form.isActive) {
-      return false;
-    }
-    if (formStatusFilter === 'archived' && !form.isArchived) {
-      return false;
-    }
-    if (formStatusFilter === 'all' && form.isArchived) {
-      // Don't show archived forms in "all" by default
-      return false;
-    }
-
-    return true;
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case 'oldest':
-        return (a.createdAt || 0) - (b.createdAt || 0);
-      case 'name-asc':
-        return a.title.localeCompare(b.title);
-      case 'name-desc':
-        return b.title.localeCompare(a.title);
-      case 'newest':
-      default:
-        return (b.createdAt || 0) - (a.createdAt || 0);
-    }
-  });
-
-  const toggleApplicationExpanded = (applicationId: string) => {
-    const newExpanded = new Set(expandedApplications);
-    if (newExpanded.has(applicationId)) {
-      newExpanded.delete(applicationId);
-    } else {
-      newExpanded.add(applicationId);
-    }
-    setExpandedApplications(newExpanded);
-  };
-
-  // Delete application
-  const deleteApplication = async (applicationId: string) => {
-    try {
-      const response = await fetch(`/api/admin/applications/${applicationId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        // Remove from the applications list
-        setApplications(prev => prev.filter((app: any) => app.id !== applicationId));
-        
-        // Also remove from form responses if it's there
-        setFormResponses(prev => prev.filter((app: any) => app.id !== applicationId));
-        
-        // Remove from expanded set if it was expanded
-        const newExpanded = new Set(expandedApplications);
-        newExpanded.delete(applicationId);
-        setExpandedApplications(newExpanded);
-        
-        // Remove from selected set if it was selected
-        const newSelected = new Set(selectedApplications);
-        newSelected.delete(applicationId);
-        setSelectedApplications(newSelected);
-        
-        console.log('Application deleted successfully');
-      } else {
-        const errorData = await response.json();
-        alert(`Failed to delete application: ${errorData.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Error deleting application:', error);
-      alert('Failed to delete application');
-    }
-  };
-
-  // Bulk delete applications
-  const bulkDeleteApplications = async () => {
-    if (selectedApplications.size === 0) {
-      alert('No applications selected');
-      return;
-    }
-
-    if (!confirm(`Are you sure you want to delete ${selectedApplications.size} selected application(s)? This action cannot be undone.`)) {
-      return;
-    }
-
-    const deletePromises = Array.from(selectedApplications).map(id => 
-      fetch(`/api/admin/applications/${id}`, { method: 'DELETE' })
-    );
-
-    try {
-      const results = await Promise.all(deletePromises);
-      const successful = results.filter(r => r.ok).length;
-      const failed = results.length - successful;
-
-      if (successful > 0) {
-        // Remove successful deletions from state
-        setApplications(prev => prev.filter((app: any) => !selectedApplications.has(app.id)));
-        setFormResponses(prev => prev.filter((app: any) => !selectedApplications.has(app.id)));
-        
-        // Clear selections
-        setSelectedApplications(new Set());
-        
-        alert(`Successfully deleted ${successful} application(s)${failed > 0 ? `, ${failed} failed` : ''}`);
-      } else {
-        alert('Failed to delete applications');
-      }
-    } catch (error) {
-      console.error('Error bulk deleting applications:', error);
-      alert('Failed to delete applications');
-    }
-  };
-
-  // Toggle application selection
-  const toggleApplicationSelection = (applicationId: string) => {
-    const newSelected = new Set(selectedApplications);
-    if (newSelected.has(applicationId)) {
-      newSelected.delete(applicationId);
-    } else {
-      newSelected.add(applicationId);
-    }
-    setSelectedApplications(newSelected);
-  };
-
-  // Select all applications
-  const selectAllApplications = () => {
-    const allIds = filteredApplications.map((app: any) => app.id);
-    setSelectedApplications(new Set(allIds));
-  };
-
-  // Clear all selections
-  const clearAllSelections = () => {
-    setSelectedApplications(new Set());
-  };
-
-  // Get reviewer colors
-  const getReviewerColor = (reviewerId: string) => {
-    const colors = [
-      'bg-blue-100 text-blue-800',
-      'bg-green-100 text-green-800', 
-      'bg-purple-100 text-purple-800',
-      'bg-orange-100 text-orange-800',
-      'bg-pink-100 text-pink-800',
-      'bg-indigo-100 text-indigo-800',
-      'bg-teal-100 text-teal-800',
-      'bg-red-100 text-red-800'
-    ];
-    const hash = reviewerId?.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0);
-      return a & a;
-    }, 0) || 0;
-    return colors[Math.abs(hash) % colors.length];
-  };
-
-  // Filter applications
-  const filteredApplications = applications.filter((app: any) => {
-    const categoryMatch = selectedCategory === 'all' || (app.form && app.form.category === selectedCategory);
-    const statusMatch = selectedStatus === 'all' || app.status === selectedStatus;
-    const reviewerMatch = selectedReviewer === 'all' || app.reviewedBy === selectedReviewer;
-    return categoryMatch && statusMatch && reviewerMatch;
-  });
-
-  // Get unique categories and reviewers
-  const categories = [...new Set(forms.filter((form: any) => form && form.category).map((form: any) => form.category))];
-  const uniqueReviewers = [...new Set(applications.filter((app: any) => app.reviewedBy).map((app: any) => ({
-    id: app.reviewedBy,
-    name: app.reviewer?.name,
-    email: app.reviewer?.email
-  })))];
-
-  // Excel export function
-  const exportToExcel = async () => {
-    try {
-      const response = await fetch('/api/admin/applications/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          category: selectedCategory,
-          status: selectedStatus,
-          reviewer: selectedReviewer,
-          exportType: 'summary'
-        })
-      });
-      
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `applications-summary-${new Date().toISOString().split('T')[0]}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert('Failed to export data');
-      }
-    } catch (error) {
-      console.error('Export error:', error);
-      alert('Failed to export data');
-    }
-  };
-
-  // Detailed responses export function
-  const exportDetailedResponses = async () => {
-    try {
-      const response = await fetch('/api/admin/applications/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          category: selectedCategory,
-          status: selectedStatus,
-          reviewer: selectedReviewer,
-          exportType: 'detailed'
-        })
-      });
-      
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `applications-detailed-responses-${new Date().toISOString().split('T')[0]}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert('Failed to export detailed responses');
-      }
-    } catch (error) {
-      console.error('Export error:', error);
-      alert('Failed to export detailed responses');
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    // Check if it's a custom status first
-    const customStatus = customStatuses.find(s => s.name === status);
-    if (customStatus) {
-      return `text-white font-semibold`;
-    }
-    
-    // Default status colors
-    switch (status) {
-      case 'PENDING': return 'bg-yellow-100 text-yellow-800';
-      case 'REVIEWING': return 'bg-blue-100 text-blue-800';
-      case 'ACCEPTED': return 'bg-green-100 text-green-800';
-      case 'REJECTED': return 'bg-red-100 text-red-800';
-      case 'WAITLISTED': return 'bg-purple-100 text-purple-800';
-      case 'WITHDRAWN': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusStyle = (status: string) => {
-    const customStatus = customStatuses.find(s => s.name === status);
-    if (customStatus) {
-      return {
-        backgroundColor: customStatus.color,
-        color: 'white'
-      };
-    }
-    return {};
-  };
-
-  const getCategoryIcon = (category: string) => {
-    if (!category) return <DocumentTextIcon className="w-5 h-5" />;
-    
-    switch (category.toLowerCase()) {
-      case 'internship': 
-      case 'internships': 
-        return <BriefcaseIcon className="w-5 h-5" />;
-      case 'membership': 
-        return <UserGroupIcon className="w-5 h-5" />;
-      case 'event': 
-      case 'events': 
-        return <AcademicCapIcon className="w-5 h-5" />;
-      default: 
-        return <DocumentTextIcon className="w-5 h-5" />;
-    }
-  };
-
-  const getCategoryStats = (category: string) => {
-    const categoryApps = applications.filter((app: any) => 
-      category === 'all' || (app.form && app.form.category === category)
-    );
-    
-    return {
-      total: categoryApps.length,
-      pending: categoryApps.filter((app: any) => app.status === 'PENDING').length,
-      reviewing: categoryApps.filter((app: any) => app.status === 'REVIEWING').length,
-      accepted: categoryApps.filter((app: any) => app.status === 'ACCEPTED').length,
-      rejected: categoryApps.filter((app: any) => app.status === 'REJECTED').length,
-    };
-  };
-
-  // Analytics data processing
-  const getAnalyticsData = () => {
-    // Question Analysis
-    const questionAnalysis = {
-      totalQuestions: 0,
-      questionTypes: {} as Record<string, number>,
-      averageQuestionsPerForm: 0,
-      responseRates: {} as Record<string, number>
-    };
-
-    forms.forEach((form: any) => {
-      if (form.questions) {
-        questionAnalysis.totalQuestions += form.questions.length;
-        form.questions.forEach((question: any) => {
-          const type = question.type || 'TEXT';
-          questionAnalysis.questionTypes[type] = (questionAnalysis.questionTypes[type] || 0) + 1;
-        });
-      }
-    });
-
-    if (forms.length > 0) {
-      questionAnalysis.averageQuestionsPerForm = Math.round(questionAnalysis.totalQuestions / forms.length * 10) / 10;
-    }
-
-    // Response Status Distribution
-    const statusDistribution = {} as Record<string, number>;
-    const allStatuses = getAllStatuses();
-    
-    // Initialize all statuses with 0
-    allStatuses.forEach(status => {
-      statusDistribution[status.name] = 0;
-    });
-
-    // Count actual statuses
-    applications.forEach((app: any) => {
-      const status = app.status || 'PENDING';
-      statusDistribution[status] = (statusDistribution[status] || 0) + 1;
-    });
-
-    return {
-      questionAnalysis,
-      statusDistribution,
-      totalApplications: applications.length,
-      totalForms: forms.length
-    };
-  };
-
-  if (status === 'loading' || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#00274c]"></div>
-      </div>
-    );
+function makeId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
   }
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Forms & Applications</h1>
-          <p className="text-gray-600 mt-1">Review applications and manage forms</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActiveTab('review')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-              activeTab === 'review' 
-                ? 'bg-[#00274c] text-white admin-white-text' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <ClipboardDocumentListIcon className="w-4 h-4" />
-            Review Applications
-          </button>
-          <button
-            onClick={() => setActiveTab('forms')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-              activeTab === 'forms' 
-                ? 'bg-[#00274c] text-white admin-white-text' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <DocumentTextIcon className="w-4 h-4" />
-            Manage Forms
-          </button>
-          <button
-            onClick={() => setActiveTab('statuses')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-              activeTab === 'statuses' 
-                ? 'bg-[#00274c] text-white admin-white-text' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-            </svg>
-            Custom Statuses
-          </button>
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-              activeTab === 'analytics' 
-                ? 'bg-[#00274c] text-white admin-white-text' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            Analytics
-          </button>
-          <button
-            onClick={() => setActiveTab('create')}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Create Form
-          </button>
-        </div>
-      </div>
-
-      {/* Applications Review Tab */}
-      {activeTab === 'review' && (
-        <div className="space-y-6">
-          {/* Category Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {['all', ...categories].map((category) => {
-              const stats = getCategoryStats(category);
-              const isSelected = selectedCategory === category;
-              
-              return (
-                <div
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                    isSelected 
-                      ? 'border-[#00274c] bg-blue-50' 
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    {category === 'all' ? (
-                      <ClipboardDocumentListIcon className="w-5 h-5 text-[#00274c]" />
-                    ) : (
-                      <div className="text-[#00274c]">
-                        {getCategoryIcon(category)}
-                      </div>
-                    )}
-                    <h3 className="font-semibold capitalize text-gray-900">
-                      {category === 'all' ? 'All Applications' : category}
-                    </h3>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Total</span>
-                      <span className="font-medium">{stats.total}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-yellow-600">Pending</span>
-                      <span className="font-medium">{stats.pending}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-green-600">Accepted</span>
-                      <span className="font-medium">{stats.accepted}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-red-600">Rejected</span>
-                      <span className="font-medium">{stats.rejected}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-
-
-          {/* Filters */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <FunnelIcon className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">Filters:</span>
-              </div>
-              
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#00274c]"
-              >
-                <option value="all">All Status</option>
-                {getAllStatuses().map((status) => (
-                  <option key={status.name} value={status.name}>
-                    {status.label}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedReviewer}
-                onChange={(e) => setSelectedReviewer(e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#00274c]"
-              >
-                <option value="all">All Reviewers</option>
-                {uniqueReviewers.map((reviewer: any) => (
-                  <option key={reviewer.id} value={reviewer.id}>
-                    {reviewer.email || reviewer.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedApplicationForm}
-                onChange={(e) => {
-                  setSelectedApplicationForm(e.target.value);
-                  loadApplications(includeArchivedApplications, e.target.value);
-                }}
-                className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#00274c]"
-              >
-                <option value="all">All Forms</option>
-                {forms.map((form: any) => (
-                  <option key={form.id} value={form.id}>
-                    {form.title} {form.isArchived ? '(Archived)' : ''}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                onClick={() => {
-                  const newValue = !includeArchivedApplications;
-                  setIncludeArchivedApplications(newValue);
-                  loadApplications(newValue, selectedApplicationForm);
-                }}
-                className={`px-3 py-1 border rounded text-sm font-medium transition-colors ${
-                  includeArchivedApplications
-                    ? 'bg-orange-100 border-orange-300 text-orange-800 hover:bg-orange-200'
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {includeArchivedApplications ? 'Hide Archived' : 'Load Archived'}
-              </button>
-
-
-
-              <div className="flex gap-1">
-                <button
-                  onClick={exportToExcel}
-                  className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 flex items-center gap-2"
-                  title="Export summary with basic info and response values"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Summary
-                </button>
-                <button
-                  onClick={exportDetailedResponses}
-                  className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 flex items-center gap-2"
-                  title="Export detailed responses with scoring section for each applicant"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Detailed + Scoring
-                </button>
-              </div>
-
-              {/* Bulk Actions */}
-              {selectedApplications.size > 0 && (
-                <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border">
-                  <span className="text-sm text-blue-700">
-                    {selectedApplications.size} selected
-                  </span>
-                  <button
-                    onClick={bulkDeleteApplications}
-                    className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 flex items-center gap-1"
-                  >
-                    <TrashIcon className="w-3 h-3" />
-                    Delete Selected
-                  </button>
-                  <button
-                    onClick={clearAllSelections}
-                    className="text-blue-600 hover:text-blue-800 text-sm"
-                  >
-                    Clear
-                  </button>
-                </div>
-              )}
-
-              {/* Selection Controls */}
-              <div className="flex items-center gap-2 text-sm">
-                <button
-                  onClick={selectAllApplications}
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  Select All ({filteredApplications.length})
-                </button>
-                <span className="text-gray-300">|</span>
-                <button
-                  onClick={clearAllSelections}
-                  className="text-gray-600 hover:text-gray-800"
-                >
-                  Clear All
-                </button>
-              </div>
-
-              <div className="text-sm text-gray-600">
-                Showing {filteredApplications.length} of {applications.length} applications
-              </div>
-            </div>
-          </div>
-
-
-
-          {/* Applications List */}
-          <div className="space-y-4">
-            {filteredApplications.map((app) => (
-              <div key={app.id} className="bg-white rounded-lg shadow-sm border">
-                {/* Application Header */}
-                <div className="p-4 border-b">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedApplications.has(app.id)}
-                        onChange={() => toggleApplicationSelection(app.id)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <div className="text-[#00274c]">
-                        {app.form ? getCategoryIcon(app.form.category) : <DocumentTextIcon className="w-5 h-5" />}
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900">{app.applicantName || app.applicantEmail}</h4>
-                        {app.applicantPhone && (
-                          <p className="text-sm text-gray-700">📞 {app.applicantPhone} | ✉️ {app.applicantEmail}</p>
-                        )}
-                        <p className="text-sm text-gray-600">{app.form ? app.form.title : 'Form not found'}</p>
-                        <p className="text-xs text-gray-500">
-                          Submitted {new Date(app.submittedAt).toLocaleDateString()} at {new Date(app.submittedAt).toLocaleTimeString()}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <span 
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(app.status)}`}
-                        style={getStatusStyle(app.status)}
-                      >
-                        {getAllStatuses().find(s => s.name === app.status)?.label || app.status}
-                      </span>
-                      
-                      {app.reviewedBy && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getReviewerColor(app.reviewedBy)}`}>
-                          👤 {app.reviewer?.email?.split('@')[0] || 'Reviewer'}
-                        </span>
-                      )}
-                      
-                      {/* Quick Action Buttons */}
-                      <div className="flex gap-1">
-                        {app.status === 'PENDING' && (
-                          <>
-                            <button
-                              onClick={() => updateApplicationStatus(app.id, 'REVIEWING')}
-                              className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                              title="Start Reviewing"
-                            >
-                              <ClockIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => updateApplicationStatus(app.id, 'ACCEPTED')}
-                              className="p-1 text-green-600 hover:bg-green-50 rounded"
-                              title="Accept"
-                            >
-                              <CheckIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => updateApplicationStatus(app.id, 'REJECTED')}
-                              className="p-1 text-red-600 hover:bg-red-50 rounded"
-                              title="Reject"
-                            >
-                              <XMarkIcon className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                        
-                        <button
-                          onClick={() => toggleApplicationExpanded(app.id)}
-                          className="p-1 text-gray-600 hover:bg-gray-50 rounded"
-                          title="View Details"
-                        >
-                          <EyeIcon className="w-4 h-4" />
-                        </button>
-                        
-                        <button
-                          onClick={() => {
-                            if (confirm(`Are you sure you want to delete this application from ${app.applicantName || app.applicantEmail}? This action cannot be undone.`)) {
-                              deleteApplication(app.id);
-                            }
-                          }}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded"
-                          title="Delete Application"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expanded Application Details */}
-                {expandedApplications.has(app.id) && (
-                  <div className="p-4 bg-gray-50">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Application Responses */}
-                      <div>
-                        <h5 className="font-medium text-gray-900 mb-3">Application Responses</h5>
-                        <div className="space-y-3">
-                          {(app.responses || [])
-                            .sort((a: any, b: any) => (a.question?.order || 0) - (b.question?.order || 0))
-                            .map((response: any) => {
-                            // Debug logging for file responses
-                            if (response.question?.type === 'FILE') {
-                              console.log('File response debug:', {
-                                questionTitle: response.question.title,
-                                questionType: response.question.type,
-                                fileName: response.fileName,
-                                fileSize: response.fileSize,
-                                fileType: response.fileType,
-                                hasFileData: !!response.fileData,
-                                fileUrl: response.fileUrl,
-                                textValue: response.textValue,
-                                booleanValue: response.booleanValue,
-                                allFields: Object.keys(response)
-                              });
-                            }
-                            
-                            return (
-                            <div key={response.id} className="text-sm">
-                              <span className="font-medium text-gray-900 block">{response.question.title}:</span>
-                              <span className="text-gray-700 mt-1 block pl-2 border-l-2 border-gray-200">
-                                {(() => {
-                                  // Debug all response types to see what we're working with
-                                  console.log('Response debug for', response.question.title, {
-                                    questionType: response.question.type,
-                                    fileName: response.fileName,
-                                    fileUrl: response.fileUrl,
-                                    textValue: response.textValue,
-                                    booleanValue: response.booleanValue,
-                                    booleanValueType: typeof response.booleanValue,
-                                    selectedOptions: response.selectedOptions,
-                                    hasFileData: response.hasFileData,
-                                    allKeys: Object.keys(response),
-                                    allValues: response
-                                  });
-                                  
-                                  // Handle file uploads first - check for file indicators
-                                  // Handle file uploads first - check for file indicators
-                                  if (response.fileName || response.fileUrl || response.question?.type === 'FILE') {
-                                    // If we have file data, display it
-                                    if (response.fileName) {
-                                      console.log('Rendering file preview for:', response.fileName, 'Type:', response.fileType);
-                                      return (
-                                        <div className="space-y-2">
-                                          <div className="flex items-center space-x-2">
-                                            <span className="font-medium">{response.fileName}</span>
-                                            <span className="text-xs text-gray-500">
-                                              ({Math.round(response.fileSize / 1024)}KB)
-                                            </span>
-                                          </div>
-                                          
-                                          <FilePreview 
-                                            applicationId={app.id}
-                                            questionId={response.questionId}
-                                            fileName={response.fileName}
-                                            fileType={response.fileType}
-                                            hasFileData={response.hasFileData}
-                                            loadFileData={loadFileData}
-                                          />
-                                        </div>
-                                      );
-                                    } else if (response.fileUrl) {
-                                      return (
-                                        <div className="space-y-2">
-                                          <a 
-                                            href={response.fileUrl} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:text-blue-800 underline"
-                                          >
-                                            View File
-                                          </a>
-                                        </div>
-                                      );
-                                    } else if (response.question?.type === 'FILE') {
-                                      // This is a file question but no file was uploaded
-                                      return <span className="text-gray-500 italic">No file uploaded</span>;
-                                    }
-                                  }
-                                  
-                                  // Handle matrix responses with ranking display
-                                  if (response.question?.type === 'MATRIX' && response.selectedOptions) {
-                                    try {
-                                      const selections = JSON.parse(response.selectedOptions);
-                                      if (Array.isArray(selections)) {
-                                        const matrixRows = response.question.matrixRows ? response.question.matrixRows.split('\n').filter((r: string) => r.trim()) : [];
-                                        return (
-                                          <div className="space-y-1">
-                                            {selections.map((selection: string, index: number) => (
-                                              <div key={index} className="flex justify-between text-sm">
-                                                <span className="font-medium">{matrixRows[index] || `Row ${index + 1}`}:</span>
-                                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
-                                                  {selection || 'Not ranked'}
-                                                </span>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        );
-                                      }
-                                    } catch (e) {
-                                      return response.selectedOptions;
-                                    }
-                                  }
-                                  
-                                  // Handle description type (no response needed)
-                                  if (response.question?.type === 'DESCRIPTION') {
-                                    return <span className="text-gray-500 italic">Description section (no response required)</span>;
-                                  }
-                                  
-                                  // Handle other response types - prioritize file URLs first
-                                  if (response.fileUrl) return response.fileUrl;
-                                  if (response.textValue) return response.textValue;
-                                  if (response.numberValue) return response.numberValue;
-                                  if (response.dateValue) return new Date(response.dateValue).toLocaleDateString();
-                                  // Handle checkbox, radio, and select options
-                                  if (response.selectedOptions) {
-                                    try {
-                                      const options = JSON.parse(response.selectedOptions);
-                                      return Array.isArray(options) ? options.join(', ') : options;
-                                    } catch (e) {
-                                      return response.selectedOptions;
-                                    }
-                                  }
-                                  // Only check boolean value for actual boolean questions
-                                  if (response.question?.type === 'BOOLEAN' && response.booleanValue !== null) {
-                                    return response.booleanValue ? 'Yes' : 'No';
-                                  }
-                                  
-                                  return 'No answer provided';
-                                })()}
-                              </span>
-                            </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Status Management */}
-                      <div>
-                        <h5 className="font-medium text-gray-900 mb-3">Application Management</h5>
-                        
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                            <select
-                              value={app.status}
-                              onChange={(e) => updateApplicationStatus(app.id, e.target.value, app.adminNotes)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-                            >
-                              {getAllStatuses().map((status) => (
-                                <option key={status.name} value={status.name}>
-                                  {status.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Admin Notes</label>
-                            <textarea
-                              defaultValue={app.adminNotes || ''}
-                              placeholder="Add notes about this application..."
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-                              rows={3}
-                              onBlur={(e) => {
-                                if (e.target.value !== (app.adminNotes || '')) {
-                                  updateApplicationStatus(app.id, app.status, e.target.value);
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {app.reviewedBy && (
-                            <div className="text-sm text-gray-600">
-                              <p>Reviewed by: {app.reviewer?.email || app.reviewer?.name}</p>
-                              <p>Review date: {new Date(app.reviewedAt).toLocaleDateString()}</p>
-                            </div>
-                          )}
-                          
-                          <div className="text-sm text-gray-500 mt-3 pt-3 border-t">
-                            <p><strong>IP Address:</strong> {app.ipAddress || 'Not recorded'}</p>
-                            {app.userAgent && (
-                              <p className="mt-1"><strong>User Agent:</strong> <span className="font-mono text-xs">{app.userAgent}</span></p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {filteredApplications.length === 0 && (
-              <div className="text-center py-12">
-                <ClipboardDocumentListIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No applications found</h3>
-                <p className="text-gray-600">
-                  {selectedCategory === 'all' && selectedStatus === 'all' 
-                    ? 'No applications have been submitted yet.'
-                    : 'Try adjusting your filters to see more applications.'
-                  }
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Forms Management Tab */}
-      {activeTab === 'forms' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Manage Forms</h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowGoogleImport(v => !v)}
-                className="px-4 py-2 rounded-lg border border-green-300 text-green-700 hover:bg-green-50 flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                </svg>
-                Import Google Form
-              </button>
-              <button
-                onClick={() => setShowImport(v => !v)}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
-              >
-                Bulk Upload CSV
-              </button>
-              <button
-                onClick={() => setActiveTab('create')}
-                className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
-              >
-                Create Form
-              </button>
-            </div>
-          </div>
-
-          {showGoogleImport && (
-            <div className="bg-white p-4 rounded-lg border border-green-200 bg-green-50">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium text-gray-900 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-green-600" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                  </svg>
-                  Import Google Form
-                </h4>
-                <button className="text-sm text-gray-500 hover:text-gray-700" onClick={() => setShowGoogleImport(false)}>Close</button>
-              </div>
-              <div className="text-sm text-gray-600 mb-3">
-                <p className="mb-2">Paste a Google Form link to automatically recreate it on your website.</p>
-                <div className="bg-green-50 border border-green-200 rounded p-2 text-xs">
-                  <p className="font-semibold text-green-800 mb-1">� OAuth Authentication Active:</p>
-                  <ul className="list-disc list-inside text-green-700 space-y-1">
-                    <li>Uses your Google account credentials</li>
-                    <li>Can access forms you have permission to view</li>
-                    <li>Supports both public and private forms</li>
-                    <li>More reliable and secure than API keys</li>
-                  </ul>
-                </div>
-                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
-                  <p className="font-semibold text-blue-800 mb-1">DOES NOT WORK YET!!!</p>
-                  <p className="text-blue-700">
-                    Your signed-in Google account is used to fetch form data via the Google Forms API. 
-                    You can import any form you have access to view.
-                  </p>
-                </div>
-                <details className="mt-2">
-                </details>
-              </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                <input 
-                  type="url"
-                  value={googleFormUrl}
-                  onChange={(e) => setGoogleFormUrl(e.target.value)}
-                  placeholder="https://docs.google.com/forms/d/..."
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                />
-                <button
-                  disabled={!googleFormUrl.trim() || importingGoogle}
-                  onClick={importGoogleForm}
-                  className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
-                  {importingGoogle ? (
-                    <>
-                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Importing...
-                    </>
-                  ) : (
-                    'Import Form'
-                  )}
-                </button>
-              </div>
-              {googleImportResult && (
-                <div className={`mt-3 p-3 rounded border text-sm ${
-                  googleImportResult.success 
-                    ? 'bg-green-100 border-green-300 text-green-800' 
-                    : 'bg-red-100 border-red-300 text-red-800'
-                }`}>
-                  {googleImportResult.success ? (
-                    <div>
-                      <p className="font-semibold">✅ Success!</p>
-                      <p>{googleImportResult.message}</p>
-                      <p className="mt-1">Questions: {googleImportResult.questions}, Sections: {googleImportResult.sections}</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="font-semibold">❌ Error</p>
-                      <p className="mb-2">{googleImportResult.error}</p>
-                      
-                      {googleImportResult.error?.includes('OAuth access token missing') && (
-                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                          <p className="font-semibold text-yellow-800 mb-2">🔄 Re-authentication Required</p>
-                          <p className="text-yellow-700 text-sm mb-3">
-                            You need to sign out and sign back in to get Google Forms API permissions.
-                          </p>
-                          <button
-                            onClick={() => {
-                              if (typeof window !== 'undefined') {
-                                import('next-auth/react').then(({ signOut }) => {
-                                  signOut({ callbackUrl: window.location.origin + '/auth/signin' });
-                                });
-                              }
-                            }}
-                            className="px-3 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm font-medium"
-                          >
-                            Sign Out & Re-authenticate
-                          </button>
-                        </div>
-                      )}
-                      
-                      <div className="mt-3">
-                        <p className="font-semibold mb-1">💡 Troubleshooting Tips:</p>
-                        <ul className="list-disc list-inside space-y-1 text-sm">
-                          <li>Ensure you have <strong>view access</strong> to the Google Form</li>
-                          <li>Check that the URL is complete and starts with https://docs.google.com/forms/</li>
-                          <li>Try signing out and back in to refresh your Google permissions</li>
-                          <li>Make sure the Google Forms API is enabled in your Google Cloud project</li>
-                        </ul>
-                      </div>
-                      
-                      {googleImportResult.suggestions && googleImportResult.suggestions.length > 0 && (
-                        <div className="mt-2">
-                          <p className="font-semibold mb-1">Additional suggestions:</p>
-                          <ul className="list-disc list-inside space-y-1">
-                            {googleImportResult.suggestions.map((suggestion: string, index: number) => (
-                              <li key={index}>{suggestion}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      
-                      {googleImportResult.helpText && (
-                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
-                          <p className="text-red-700">{googleImportResult.helpText}</p>
-                        </div>
-                      )}
-
-                      {googleImportResult.needsReauth && (
-                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                          <p className="text-yellow-800 font-semibold mb-2">🔄 Re-authentication Required</p>
-                          <p className="text-yellow-700 text-sm mb-3">
-                            To use Google Forms import, you need to sign out and sign back in to grant Google Forms API permissions.
-                          </p>
-                          <button
-                            onClick={() => {
-                              // Import signOut from next-auth/react at the top of the file
-                              if (typeof window !== 'undefined') {
-                                import('next-auth/react').then(({ signOut }) => {
-                                  signOut({ callbackUrl: window.location.href });
-                                });
-                              }
-                            }}
-                            className="bg-yellow-600 text-white px-4 py-2 rounded text-sm hover:bg-yellow-700 font-medium"
-                          >
-                            Sign Out & Re-authenticate
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {showImport && (
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium text-gray-900">Bulk Upload Forms (CSV)</h4>
-                <button className="text-sm text-gray-500 hover:text-gray-700" onClick={() => setShowImport(false)}>Close</button>
-              </div>
-              <p className="text-sm text-gray-600 mb-3">
-                Required: <code className="bg-gray-100 px-1 rounded">title</code>. Optional: description, category, isActive, isPublic, allowMultiple, requireAuth, deadline, maxSubmissions, notifyOnSubmission, notificationEmail, backgroundColor, textColor.
-              </p>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                <input type="file" accept=".csv" onChange={(e)=>setImportFile(e.target.files?.[0]||null)}
-                  className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-[#00274c] file:text-white hover:file:bg-[#003366]" />
-                <button
-                  disabled={!importFile || importing}
-                  onClick={async ()=>{
-                    if(!importFile) return; setImporting(true); setImportResult(null);
-                    try{
-                      const fd=new FormData(); fd.append('file', importFile);
-                      const res=await fetch('/api/admin/forms/import',{method:'POST', body:fd});
-                      const json=await res.json(); setImportResult(json);
-                      if(res.ok && json.success){ await loadForms(); }
-                    }catch(e){ setImportResult({error:'Upload failed'}); } finally{ setImporting(false); }
-                  }}
-                  className="px-4 py-2 rounded-md bg-[#00274c] text-white hover:bg-[#003366] disabled:opacity-50">
-                  {importing ? 'Uploading…' : 'Upload CSV'}
-                </button>
-              </div>
-              {importResult && <pre className="bg-gray-50 p-3 rounded border overflow-auto max-h-64 mt-3 text-sm">{JSON.stringify(importResult,null,2)}</pre>}
-            </div>
-          )}
-
-          {/* Form Filters */}
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-2 mb-3">
-              <FunnelIcon className="w-5 h-5 text-gray-500" />
-              <h4 className="font-medium text-gray-900">Filter Forms</h4>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Search Input */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-                <input
-                  type="text"
-                  value={formSearchQuery}
-                  onChange={(e) => setFormSearchQuery(e.target.value)}
-                  placeholder="Search forms..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              {/* Category Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select
-                  value={selectedFormCategory}
-                  onChange={(e) => setSelectedFormCategory(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">All Categories</option>
-                  <option value="general">General</option>
-                  <option value="application">Application</option>
-                  <option value="event">Event Registration</option>
-                  <option value="partnership">Partnership</option>
-                  <option value="internship">Internship</option>
-                  <option value="feedback">Feedback</option>
-                </select>
-              </div>
-
-              {/* Status Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select
-                  value={formStatusFilter}
-                  onChange={(e) => setFormStatusFilter(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">Active Forms</option>
-                  <option value="active">Active Only</option>
-                  <option value="inactive">Inactive Only</option>
-                  <option value="archived">Archived Only</option>
-                </select>
-              </div>
-
-              {/* Sort By */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="name-asc">Name A-Z</option>
-                  <option value="name-desc">Name Z-A</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Results Summary */}
-            <div className="mt-3 text-sm text-gray-500">
-              Showing {filteredAndSortedForms.length} of {forms.length} forms
-              {formSearchQuery && <span> matching "{formSearchQuery}"</span>}
-            </div>
-          </div>
-
-          <div className="grid gap-6">
-            {filteredAndSortedForms.map((form) => (
-              <div key={form.id} className={`bg-white rounded-lg shadow-md p-6 ${form.isArchived ? 'opacity-75 border-2 border-dashed border-orange-200' : ''}`}>
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      {getCategoryIcon(form.category)}
-                      <h3 className="text-lg font-semibold text-gray-900">{form.title}</h3>
-                    </div>
-                    <p className="text-gray-600 mb-3">{form.description || 'No description'}</p>
-                    
-                    <div className="flex items-center gap-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        form.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {form.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                      {form.isArchived && (
-                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                          Archived
-                        </span>
-                      )}
-                      <span className="text-sm text-gray-500">
-                        {form._count?.applications || 0} submissions
-                      </span>
-                      <span className="text-sm text-gray-500 font-mono">
-                        /{form.slug}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => copyFormLink(form.slug)}
-                      className={`p-2 rounded transition-colors ${
-                        copySuccess === form.slug 
-                          ? 'text-green-600 bg-green-50' 
-                          : 'text-blue-600 hover:text-blue-900 hover:bg-blue-50'
-                      }`}
-                      title="Copy Form Link"
-                    >
-                      {copySuccess === form.slug ? (
-                        <CheckIcon className="w-4 h-4" />
-                      ) : (
-                        <LinkIcon className="w-4 h-4" />
-                      )}
-                    </button>
-                    <a
-                      href={`/forms/${form.slug}`}
-                      target="_blank"
-                      className="text-purple-600 hover:text-purple-900 p-2 hover:bg-purple-50 rounded"
-                      title="Preview Form"
-                    >
-                      <EyeIcon className="w-4 h-4" />
-                    </a>
-                    <button
-                      onClick={() => {
-                        setSelectedForm(form);
-                        setActiveTab('responses');
-                        loadFormResponses(form.id, form.isArchived);
-                      }}
-                      className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded"
-                      title="View Responses"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => {
-                        console.log('Edit button clicked for form:', form);
-                        console.log('Form questions:', form.questions);
-                        setEditingForm(form);
-                        setActiveTab('edit');
-                      }}
-                      className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded"
-                      title="Edit Form"
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => toggleArchiveForm(form.id, form.isArchived)}
-                      className={`p-2 rounded ${
-                        form.isArchived 
-                          ? 'text-blue-600 hover:text-blue-900 hover:bg-blue-50' 
-                          : 'text-orange-600 hover:text-orange-900 hover:bg-orange-50'
-                      }`}
-                      title={form.isArchived ? 'Unarchive Form' : 'Archive Form'}
-                    >
-                      {form.isArchived ? (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8l6 6V9h5a2 2 0 012 2v1M1 1l22 22m0 0l-6-6M7 3a1 1 0 000 2v1a1 1 0 001 1h9a1 1 0 001-1V5a1 1 0 100-2H8a1 1 0 00-1 1z" />
-                        </svg>
-                      ) : (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8l6 6V9h5a2 2 0 012 2v1M1 1l22 22" />
-                        </svg>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => deleteForm(form.id)}
-                      className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded"
-                      title="Delete Form"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="border-t pt-4">
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-700">Category:</span>
-                      <p className="text-gray-900 capitalize">{form.category}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Questions:</span>
-                      <p className="text-gray-900">{form._count?.questions || 0}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Auth Required:</span>
-                      <div className="flex items-center gap-2">
-                        <p className="text-gray-900">{form.requireAuth ? 'Yes' : 'No'}</p>
-                        {form.requireAuth && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            UMich Only
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Deadline:</span>
-                      <p className="text-gray-900">
-                        {form.deadline ? new Date(form.deadline).toLocaleDateString() : 'None'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Applications:</span>
-                      <div className="flex gap-1 mt-1">
-                        {form.applications?.map((app: any, idx: number) => (
-                          <span key={idx} className={`w-2 h-2 rounded-full ${getStatusColor(app.status).replace('text-', 'bg-').split(' ')[0]}`}></span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {forms.length === 0 && (
-            <div className="text-center py-12">
-              <DocumentTextIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No forms yet</h3>
-              <p className="text-gray-600 mb-4">Create your first application form to get started.</p>
-              <button
-                onClick={() => setActiveTab('create')}
-                className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
-              >
-                Create Form
-              </button>
-            </div>
-          )}
-
-          {forms.length > 0 && filteredAndSortedForms.length === 0 && (
-            <div className="text-center py-12">
-              <FunnelIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No forms match your filters</h3>
-              <p className="text-gray-600 mb-4">Try adjusting your search query or filters to see more forms.</p>
-              <button
-                onClick={() => {
-                  setFormSearchQuery('');
-                  setSelectedFormCategory('all');
-                  setFormStatusFilter('all');
-                  setSortBy('newest');
-                }}
-                className="text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Clear All Filters
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Form Responses Tab */}
-      {activeTab === 'responses' && selectedForm && (
-        <div className="space-y-6">
-          {/* Header with Back Button */}
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => {
-                setActiveTab('forms');
-                setSelectedForm(null);
-                setFormResponses([]);
-              }}
-              className="text-gray-600 hover:text-gray-800 p-2 hover:bg-gray-100 rounded"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">Responses: {selectedForm.title}</h2>
-              <p className="text-gray-600">{formResponses.length} total submissions</p>
-            </div>
-          </div>
-
-
-
-          {/* Form Response Filters */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <FunnelIcon className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">Filters:</span>
-              </div>
-              
-                             <select
-                 value={selectedFormStatus}
-                 onChange={(e) => setSelectedFormStatus(e.target.value)}
-                 className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#00274c]"
-               >
-                 <option value="all">All Status</option>
-                 {getAllStatuses().map((status) => (
-                   <option key={status.name} value={status.name}>
-                     {status.label}
-                   </option>
-                 ))}
-               </select>
-
-              <select
-                value={selectedFormReviewer}
-                onChange={(e) => setSelectedFormReviewer(e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-[#00274c]"
-              >
-                <option value="all">All Reviewers</option>
-                {[...new Set(formResponses.filter((r: any) => r.reviewedBy).map((r: any) => ({
-                  id: r.reviewedBy,
-                  email: r.reviewer?.email
-                })))].map((reviewer: any) => (
-                  <option key={reviewer.id} value={reviewer.id}>
-                    {reviewer.email}
-                  </option>
-                ))}
-              </select>
-
-              <div className="flex gap-1">
-                <button
-                  onClick={() => exportFormResponses('summary')}
-                  className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 flex items-center gap-2"
-                  title="Export summary of responses"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Summary
-                </button>
-                <button
-                  onClick={() => exportFormResponses('detailed')}
-                  className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 flex items-center gap-2"
-                  title="Export detailed responses with full question/answer pairs"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Detailed
-                </button>
-              </div>
-
-              <div className="text-sm text-gray-600">
-                Showing {filteredFormResponses.length} of {formResponses.length} responses
-              </div>
-            </div>
-          </div>
-
-          {/* Form Responses List */}
-          <div className="space-y-4">
-            {filteredFormResponses.map((response) => (
-              <div key={response.id} className="bg-white rounded-lg shadow-sm border">
-                <div className="p-4 border-b">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="text-[#00274c]">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900">{response.applicantName || response.applicantEmail}</h4>
-                        {response.applicantPhone && (
-                          <p className="text-sm text-gray-700">📞 {response.applicantPhone} | ✉️ {response.applicantEmail}</p>
-                        )}
-                        <p className="text-xs text-gray-500">
-                          Submitted {new Date(response.submittedAt).toLocaleDateString()} at {new Date(response.submittedAt).toLocaleTimeString()}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(response.status)}`}>
-                        {response.status}
-                      </span>
-                      
-                      {response.reviewedBy && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getReviewerColor(response.reviewedBy)}`}>
-                          👤 {response.reviewer?.email?.split('@')[0] || 'Reviewer'}
-                        </span>
-                      )}
-                      
-                      <button
-                        onClick={() => toggleApplicationExpanded(response.id)}
-                        className="p-1 text-gray-600 hover:bg-gray-50 rounded"
-                        title="View Details"
-                      >
-                        <EyeIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expanded Response Details */}
-                {expandedApplications.has(response.id) && (
-                  <div className="p-4 bg-gray-50">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Response Answers */}
-                      <div>
-                        <h5 className="font-medium text-gray-900 mb-3">Response Details</h5>
-                        <div className="space-y-3">
-                          {response.responses
-                            .sort((a: any, b: any) => (a.question?.order || 0) - (b.question?.order || 0))
-                            .map((answer: any) => (
-                            <div key={answer.id} className="text-sm">
-                              <span className="font-medium text-gray-900 block">{answer.question.title}:</span>
-                              <span className="text-gray-700 mt-1 block pl-2 border-l-2 border-gray-200">
-                                {(() => {
-                                  // Handle file questions first
-                                  if (answer.fileName || answer.fileUrl || answer.question?.type === 'FILE') {
-                                    if (answer.fileName) {
-                                      return (
-                                        <div className="space-y-2">
-                                          <div className="flex items-center space-x-2">
-                                            <span className="font-medium">{answer.fileName}</span>
-                                            <span className="text-xs text-gray-500">
-                                              ({Math.round(answer.fileSize / 1024)}KB)
-                                            </span>
-                                          </div>
-                                          
-                                          <FilePreview 
-                                            applicationId={response.id}
-                                            questionId={answer.questionId}
-                                            fileName={answer.fileName}
-                                            fileType={answer.fileType}
-                                            hasFileData={answer.hasFileData || true}
-                                            loadFileData={loadFileData}
-                                          />
-                                        </div>
-                                      );
-                                    } else if (answer.fileUrl) {
-                                      return answer.fileUrl;
-                                    } else {
-                                      return 'No file uploaded';
-                                    }
-                                  }
-                                  
-                                  // Handle matrix responses with ranking display
-                                  if (answer.question?.type === 'MATRIX' && answer.selectedOptions) {
-                                    try {
-                                      const selections = JSON.parse(answer.selectedOptions);
-                                      if (Array.isArray(selections)) {
-                                        const matrixRows = answer.question.matrixRows ? answer.question.matrixRows.split('\n').filter((r: string) => r.trim()) : [];
-                                        return (
-                                          <div className="space-y-1">
-                                            {selections.map((selection: string, index: number) => (
-                                              <div key={index} className="flex justify-between text-sm">
-                                                <span className="font-medium">{matrixRows[index] || `Row ${index + 1}`}:</span>
-                                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
-                                                  {selection || 'Not ranked'}
-                                                </span>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        );
-                                      }
-                                    } catch (e) {
-                                      return answer.selectedOptions;
-                                    }
-                                  }
-                                  
-                                  // Handle description type (no response needed)
-                                  if (answer.question?.type === 'DESCRIPTION') {
-                                    return <span className="text-gray-500 italic">Description section (no response required)</span>;
-                                  }
-                                  
-                                  // Handle other response types
-                                  return answer.textValue || 
-                                         answer.numberValue || 
-                                         (answer.dateValue && new Date(answer.dateValue).toLocaleDateString()) ||
-                                         (answer.selectedOptions && (() => {
-                                           try {
-                                             const options = JSON.parse(answer.selectedOptions);
-                                             return Array.isArray(options) ? options.join(', ') : options;
-                                           } catch (e) {
-                                             return answer.selectedOptions;
-                                           }
-                                         })()) ||
-                                         (answer.question?.type === 'BOOLEAN' && answer.booleanValue !== null ? (answer.booleanValue ? 'Yes' : 'No') : '') ||
-                                         'No answer provided';
-                                })()}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Status Management */}
-                      <div>
-
-                          <div className="text-sm text-gray-500 mt-3 pt-3 border-t">
-                            <p><strong>IP Address:</strong> {response.ipAddress || 'Not recorded'}</p>
-                            {response.userAgent && (
-                              <p className="mt-1"><strong>User Agent:</strong> <span className="font-mono text-xs">{response.userAgent}</span></p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                )}
-              </div>
-            ))}
-
-            {filteredFormResponses.length === 0 && (
-              <div className="text-center py-12">
-                <ClipboardDocumentListIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No responses found</h3>
-                <p className="text-gray-600">
-                  {formResponses.length === 0 
-                    ? 'No responses have been submitted for this form yet.'
-                    : 'Try adjusting your filters to see more responses.'
-                  }
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Analytics Tab */}
-      {activeTab === 'analytics' && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">Forms Analytics</h2>
-              <p className="text-gray-600">Analyze form usage, question types, and response patterns</p>
-            </div>
-          </div>
-
-          {(() => {
-            const analyticsData = getAnalyticsData();
-            
-            return (
-              <div className="space-y-6">
-                {/* Overview Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-white rounded-lg shadow-sm border p-6">
-                    <div className="text-2xl font-bold text-blue-600">{analyticsData.totalForms}</div>
-                    <div className="text-sm text-gray-600">Total Forms</div>
-                  </div>
-                  <div className="bg-white rounded-lg shadow-sm border p-6">
-                    <div className="text-2xl font-bold text-green-600">{analyticsData.totalApplications}</div>
-                    <div className="text-sm text-gray-600">Total Applications</div>
-                  </div>
-                  <div className="bg-white rounded-lg shadow-sm border p-6">
-                    <div className="text-2xl font-bold text-purple-600">{analyticsData.questionAnalysis.totalQuestions}</div>
-                    <div className="text-sm text-gray-600">Total Questions</div>
-                  </div>
-                  <div className="bg-white rounded-lg shadow-sm border p-6">
-                    <div className="text-2xl font-bold text-orange-600">{analyticsData.questionAnalysis.averageQuestionsPerForm}</div>
-                    <div className="text-sm text-gray-600">Avg Questions/Form</div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Question Analysis */}
-                  <div className="bg-white rounded-lg shadow-sm border p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Question Analysis</h3>
-                    
-                    {Object.keys(analyticsData.questionAnalysis.questionTypes).length > 0 ? (
-                      <div className="space-y-4">
-                        <div className="text-sm text-gray-600 mb-3">
-                          Distribution of question types across all forms
-                        </div>
-                        
-                        {Object.entries(analyticsData.questionAnalysis.questionTypes)
-                          .sort(([,a], [,b]) => b - a)
-                          .map(([type, count]) => {
-                            const percentage = Math.round((count / analyticsData.questionAnalysis.totalQuestions) * 100);
-                            const typeLabels: Record<string, string> = {
-                              'TEXT': 'Text Input',
-                              'TEXTAREA': 'Long Text',
-                              'SELECT': 'Dropdown',
-                              'RADIO': 'Multiple Choice',
-                              'CHECKBOX': 'Checkboxes',
-                              'BOOLEAN': 'Yes/No',
-                              'NUMBER': 'Number',
-                              'EMAIL': 'Email',
-                              'PHONE': 'Phone',
-                              'DATE': 'Date',
-                              'FILE': 'File Upload',
-                              'DESCRIPTION': 'Description/Text Block',
-                              'MATRIX': 'Matrix/Grid'
-                            };
-                            
-                            return (
-                              <div key={type} className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between text-sm mb-1">
-                                    <span className="font-medium text-gray-900">
-                                      {typeLabels[type] || type}
-                                    </span>
-                                    <span className="text-gray-600">{count} ({percentage}%)</span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div 
-                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                                      style={{ width: `${percentage}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No question data available</h3>
-                        <p className="text-gray-600">Create forms with questions to see analysis here.</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Response Status Distribution */}
-                  <div className="bg-white rounded-lg shadow-sm border p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Response Status Distribution</h3>
-                    
-                    {analyticsData.totalApplications > 0 ? (
-                      <div className="space-y-4">
-                        <div className="text-sm text-gray-600 mb-3">
-                          Distribution of application statuses across all forms
-                        </div>
-                        
-                        {Object.entries(analyticsData.statusDistribution)
-                          .filter(([, count]) => count > 0)
-                          .sort(([,a], [,b]) => b - a)
-                          .map(([status, count]) => {
-                            const percentage = Math.round((count / analyticsData.totalApplications) * 100);
-                            const statusInfo = getAllStatuses().find(s => s.name === status);
-                            const statusLabel = statusInfo?.label || status;
-                            const statusColor = statusInfo?.color || '#6B7280';
-                            
-                            return (
-                              <div key={status} className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between text-sm mb-1">
-                                    <div className="flex items-center gap-2">
-                                      <div 
-                                        className="w-3 h-3 rounded-full" 
-                                        style={{ backgroundColor: statusColor }}
-                                      ></div>
-                                      <span className="font-medium text-gray-900">{statusLabel}</span>
-                                    </div>
-                                    <span className="text-gray-600">{count} ({percentage}%)</span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div 
-                                      className="h-2 rounded-full transition-all duration-300" 
-                                      style={{ 
-                                        width: `${percentage}%`,
-                                        backgroundColor: statusColor
-                                      }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No application data available</h3>
-                        <p className="text-gray-600">Applications need to be submitted to see status distribution.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Additional Analytics */}
-                <div className="bg-white rounded-lg shadow-sm border p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Form Performance</h3>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Form</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Questions</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applications</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {forms.map((form: any) => {
-                          const formApplications = applications.filter((app: any) => app.formId === form.id);
-                          return (
-                            <tr key={form.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-900">{form.title}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
-                                  {form.category || 'general'}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {form.questions?.length || 0}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {formApplications.length}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                  form.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {form.isActive ? 'Active' : 'Inactive'}
-                                </span>
-                                {form.isArchived && (
-                                  <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
-                                    Archived
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  
-                  {forms.length === 0 && (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">No forms available for analysis.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
-      {/* Custom Status Management Tab */}
-      {activeTab === 'statuses' && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">Custom Status Management</h2>
-              <p className="text-gray-600">Create and manage custom statuses for applications</p>
-            </div>
-            <button
-              onClick={() => setShowCreateStatus(true)}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-700"
-            >
-              <PlusIcon className="w-4 h-4" />
-              Create Status
-            </button>
-          </div>
-
-          {/* Current Custom Statuses */}
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Current Custom Statuses</h3>
-            
-            {customStatuses.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {customStatuses.map((status) => (
-                  <div key={status.id} className="border rounded-lg p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span 
-                        className="px-3 py-1 rounded-full text-xs font-medium text-white"
-                        style={{ backgroundColor: status.color }}
-                      >
-                        {status.label}
-                      </span>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{status.label}</p>
-                        <p className="text-xs text-gray-500">ID: {status.name}</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => deleteCustomStatus(status.id)}
-                      className="text-red-500 hover:text-red-700 p-1"
-                      title="Delete status"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No custom statuses yet</h3>
-                <p className="text-gray-600 mb-4">Create custom statuses to better organize your application workflow.</p>
-                <button
-                  onClick={() => setShowCreateStatus(true)}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
-                >
-                  Create Your First Status
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Default Statuses Reference */}
-          <div className="bg-gray-50 rounded-lg p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Default Statuses</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              {getAllStatuses().filter(s => !customStatuses.find(cs => cs.name === s.name)).map((status) => (
-                <div key={status.name} className="flex items-center gap-2">
-                  <span 
-                    className="px-2 py-1 rounded-full text-xs font-medium"
-                    style={{ backgroundColor: status.color + '20', color: status.color }}
-                  >
-                    {status.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Custom Status Modal */}
-      {showCreateStatus && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 max-w-full">
-            <h3 className="text-lg font-semibold mb-4">Create Custom Status</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status Name</label>
-                <input
-                  type="text"
-                  value={newStatusName}
-                  onChange={(e) => setNewStatusName(e.target.value)}
-                  placeholder="e.g., Under Committee Review, Needs Interview..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status Color</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={newStatusColor}
-                    onChange={(e) => setNewStatusColor(e.target.value)}
-                    className="w-12 h-8 border border-gray-300 rounded cursor-pointer"
-                  />
-                  <div 
-                    className="px-3 py-1 rounded-full text-xs font-medium text-white"
-                    style={{ backgroundColor: newStatusColor }}
-                  >
-                    {newStatusName || 'Preview'}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded">
-                <strong>Note:</strong> The status ID will be: <code className="bg-white px-1 rounded">{newStatusName.toUpperCase().replace(/\s+/g, '_')}</code>
-              </div>
-            </div>
-            
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                onClick={() => setShowCreateStatus(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={createCustomStatus}
-                disabled={!newStatusName.trim()}
-                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Create Status
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Form Editor */}
-      {(activeTab === 'create' || activeTab === 'edit') && (
-        <FormEditor
-          form={editingForm}
-          onClose={() => {
-            setActiveTab(editingForm ? 'forms' : 'review');
-            setEditingForm(null);
-          }}
-          onSave={() => {
-            loadForms();
-            setActiveTab('forms');
-            setEditingForm(null);
-          }}
-        />
-      )}
-    </div>
-  );
-
-  // Helper function to delete form
-  async function deleteForm(id: string) {
-    if (!id) {
-      alert('Form ID is missing');
-      return;
-    }
-    
-    if (confirm('Are you sure you want to delete this form? This will also delete all applications.')) {
-      try {
-        const res = await fetch(`/api/admin/forms?id=${id}`, { method: 'DELETE' });
-        if (res.ok) {
-          loadForms();
-          loadApplications(includeArchivedApplications, selectedApplicationForm);
-        } else {
-          const error = await res.json();
-          alert(`Failed to delete form: ${error.error || 'Unknown error'}`);
-        }
-      } catch (error) {
-        console.error('Error deleting form:', error);
-        alert('Failed to delete form');
-      }
-    }
-  }
-
-  // Helper function to archive/unarchive form
-  async function toggleArchiveForm(formId: string, isCurrentlyArchived: boolean) {
-    if (!formId) {
-      alert('Form ID is missing');
-      return;
-    }
-
-    const action = isCurrentlyArchived ? 'unarchive' : 'archive';
-    const confirmMessage = isCurrentlyArchived 
-      ? 'Are you sure you want to unarchive this form? It will become active again.'
-      : 'Are you sure you want to archive this form? It will be hidden from the main list and become inactive.';
-
-    if (confirm(confirmMessage)) {
-      try {
-        const res = await fetch(`/api/admin/forms/${formId}/archive`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action })
-        });
-
-        const result = await res.json();
-
-        if (res.ok && result.success) {
-          loadForms();
-          loadApplications(includeArchivedApplications, selectedApplicationForm);
-        } else {
-          alert(`Failed to ${action} form: ${result.error || 'Unknown error'}`);
-        }
-      } catch (error) {
-        console.error(`Error ${action}ing form:`, error);
-        alert(`Failed to ${action} form`);
-      }
-    }
-  }
+  return `id-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-// Simplified Form Editor Component
-function FormEditor({ form, onClose, onSave }: any) {
-  const [formData, setFormData] = useState<any>({
-    title: '',
+function normalizeQuestion(question: any, index: number): FormQuestion {
+  const rawOptions = question?.options;
+  const options = Array.isArray(rawOptions)
+    ? rawOptions
+    : typeof rawOptions === 'string'
+      ? rawOptions.split('\n').map((option: string) => option.trim()).filter(Boolean)
+      : [];
+
+  // Filter out empty strings and provide defaults if needed
+  let matrixRows = Array.isArray(question?.matrixRows)
+    ? question.matrixRows.filter((row: string) => row && row.trim())
+    : [];
+  
+  let matrixColumns = Array.isArray(question?.matrixColumns)
+    ? question.matrixColumns.filter((col: string) => col && col.trim())
+    : [];
+
+  // If matrix type but no valid rows/columns, provide defaults
+  if (question?.type === 'MATRIX') {
+    if (matrixRows.length === 0) {
+      matrixRows = ['Row 1', 'Row 2', 'Row 3'];
+    }
+    if (matrixColumns.length === 0) {
+      matrixColumns = ['Strongly Disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly Agree'];
+    }
+  }
+
+  const finalMatrixRows = question?.type === 'MATRIX' ? matrixRows : undefined;
+  const finalMatrixColumns = question?.type === 'MATRIX' ? matrixColumns : undefined;
+
+  return {
+    id: question?.id || makeId(),
+    title: question?.title || question?.question || `Question ${index + 1}`,
+    description: question?.description || '',
+    type: (question?.type || 'TEXT') as QuestionType,
+    required: Boolean(question?.required),
+    options,
+    matrixRows: finalMatrixRows,
+    matrixColumns: finalMatrixColumns,
+  };
+}
+
+function normalizeForm(form: FormRecord): FormDraft {
+  const sections = Array.isArray(form.sections) && form.sections.length
+    ? form.sections
+    : [
+        {
+          id: makeId(),
+          title: form.title || 'Untitled section',
+          description: form.description || '',
+          questions: form.questions || [],
+        },
+      ];
+
+  return {
+    id: form.id,
+    title: form.title || 'Untitled form',
+    description: form.description || '',
+    category: form.category || 'general',
+    isActive: Boolean(form.isActive ?? true),
+    allowMultiple: Boolean(form.allowMultiple),
+    requireAuth: Boolean(form.requireAuth),
+    backgroundColor: form.backgroundColor || '#00274c',
+    textColor: form.textColor || '#ffffff',
+    notificationConfig: {
+      slack: {
+        webhookUrl: form.notificationConfig?.slack?.webhookUrl ?? null,
+        targets: form.notificationConfig?.slack?.targets ?? [],
+      },
+      email: {
+        notificationEmails: form.notificationConfig?.email?.notificationEmails ?? 
+          (form.notificationConfig?.email?.notificationEmail ? [form.notificationConfig.email.notificationEmail] : 
+          (form.notificationEmail ? [form.notificationEmail] : [])),
+        notificationEmail: form.notificationConfig?.email?.notificationEmail ?? form.notificationEmail ?? '',
+        notifyOnSubmission: form.notificationConfig?.email?.notifyOnSubmission ?? form.notifyOnSubmission ?? true,
+        sendReceiptToSubmitter: (() => {
+          console.log('🔍 normalizeForm checking sendReceiptToSubmitter for form:', form.title);
+          console.log('🔍 Nested value:', form.notificationConfig?.email?.sendReceiptToSubmitter, 'Type:', typeof form.notificationConfig?.email?.sendReceiptToSubmitter);
+          console.log('🔍 Top-level value:', form.sendReceiptToSubmitter, 'Type:', typeof form.sendReceiptToSubmitter);
+          
+          const result = typeof form.notificationConfig?.email?.sendReceiptToSubmitter === 'boolean'
+            ? form.notificationConfig.email.sendReceiptToSubmitter
+            : typeof form.sendReceiptToSubmitter === 'boolean'
+              ? form.sendReceiptToSubmitter
+              : false;
+          
+          console.log('🔍 Final normalized value:', result);
+          return result;
+        })(),
+      },
+    },
+    sections: sections.map((section: any, index: number) => ({
+      id: section?.id || makeId(),
+      title: section?.title || `Section ${index + 1}`,
+      description: section?.description || '',
+      questions: Array.isArray(section?.questions)
+        ? section.questions.map((question: any, questionIndex: number) => normalizeQuestion(question, questionIndex))
+        : [],
+    })),
+  };
+}
+
+function createEmptyDraft(): FormDraft {
+  return {
+    title: 'Untitled form',
     description: '',
-    slug: '',
     category: 'general',
     isActive: true,
-    isPublic: true,
     allowMultiple: false,
-    deadline: '',
-    maxSubmissions: '',
-    notifyOnSubmission: true,
-    notificationEmail: '',
     requireAuth: false,
     backgroundColor: '#00274c',
     textColor: '#ffffff',
-    isAttendanceForm: false,
-    attendanceLatitude: '',
-    attendanceLongitude: '',
-    attendanceRadiusMeters: ''
-  });
-
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [saving, setSaving] = useState(false);
-
-  // Auto-save functionality
-  useEffect(() => {
-    const autoSaveData = () => {
-      if (formData.title.trim()) {
-        const draftKey = form ? `formEditor_draft_edit_${form.id}` : 'formEditor_draft_new';
-        localStorage.setItem(draftKey, JSON.stringify({
-          formData,
-          questions
-        }));
-        console.log('✓ Form editor autosaved:', formData.title, form ? '(editing)' : '(new)');
-      }
-    };
-
-    const timeoutId = setTimeout(autoSaveData, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [formData, questions, form]);
-
-  useEffect(() => {
-    console.log('FormEditor useEffect - form prop:', form);
-    if (form) {
-      setFormData({
-        title: form.title || '',
-        description: form.description || '',
-        slug: form.slug || '',
-        category: form.category || 'general',
-        isActive: form.isActive ?? true,
-        isPublic: form.isPublic ?? true,
-        allowMultiple: form.allowMultiple ?? false,
-        deadline: form.deadline ? new Date(form.deadline).toISOString().slice(0, 16) : '',
-        maxSubmissions: form.maxSubmissions?.toString() || '',
-        notifyOnSubmission: form.notifyOnSubmission ?? true,
-        notificationEmail: form.notificationEmail || '',
-        requireAuth: form.requireAuth ?? false,
-        backgroundColor: form.backgroundColor || '#00274c',
-        textColor: form.textColor || '#ffffff'
-      });
-
-      if (form.questions) {
-        console.log('Loading form questions:', form.questions);
-        const questionsWithIds = form.questions.map((q: any, index: number) => ({
-          ...q,
-          id: q.id || `question-${index}-${Date.now()}`, // Ensure each question has an ID
-          // Convert options array back to string for editing
-          options: Array.isArray(q.options) ? q.options.join('\n') : q.options,
-          // Ensure matrix fields are properly loaded
-          matrixRows: q.matrixRows || null,
-          matrixCols: q.matrixCols || null,
-          descriptionContent: q.descriptionContent || null
-        }));
-        setQuestions(questionsWithIds.sort((a: any, b: any) => a.order - b.order));
-        console.log('Questions set:', questionsWithIds);
-      } else {
-        console.log('No questions found in form:', form);
-      }
-    } else {
-      // Load draft for new forms
-      const draftKey = 'formEditor_draft_new';
-      const draft = localStorage.getItem(draftKey);
-      if (draft) {
-        try {
-          const parsedDraft = JSON.parse(draft);
-          if (parsedDraft.formData) {
-            setFormData(parsedDraft.formData);
-          }
-          if (parsedDraft.questions) {
-            const questionsWithIds = parsedDraft.questions.map((q: any, index: number) => ({
-              ...q,
-              id: q.id || `draft-question-${index}-${Date.now()}` // Ensure draft questions have IDs
-            }));
-            setQuestions(questionsWithIds);
-          }
-          console.log('✓ Form editor draft loaded:', parsedDraft.formData?.title);
-        } catch (error) {
-          console.error('Error loading form editor draft:', error);
-          localStorage.removeItem(draftKey);
-        }
-      }
-    }
-  }, [form]);
-
-  const addQuestion = () => {
-    const newQuestion = {
-      id: `question-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      title: '',
-      description: '',
-      type: 'TEXT',
-      required: false,
-      order: questions.length,
-      options: null,
-      minLength: null,
-      maxLength: null,
-      pattern: null,
-      matrixRows: null,
-      matrixCols: null,
-      descriptionContent: null
-    };
-    setQuestions([...questions, newQuestion]);
+    notificationConfig: {
+      slack: { webhookUrl: null, targets: [] },
+      email: { notificationEmails: [], notificationEmail: '', notifyOnSubmission: true, sendReceiptToSubmitter: false },
+    },
+    sections: [
+      {
+        id: makeId(),
+        title: 'Untitled section',
+        description: '',
+        questions: [
+          {
+            id: makeId(),
+            title: 'Untitled question',
+            description: '',
+            type: 'TEXT',
+            required: true,
+            options: [],
+          },
+        ],
+      },
+    ],
   };
+}
 
-  const updateQuestion = (index: number, field: string, value: any) => {
-    const updated = [...questions];
-    updated[index] = { ...updated[index], [field]: value };
-    setQuestions(updated);
-  };
-
-  const removeQuestion = (index: number) => {
-    const updated = questions.filter((_, i) => i !== index);
-    updated.forEach((q, i) => {
-      q.order = i;
-    });
-    setQuestions(updated);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-
+function extractResponseValue(answer: any, type: QuestionType) {
+  if (!answer) return null;
+  if (answer.textValue !== undefined && answer.textValue !== null) return answer.textValue;
+  if (answer.numberValue !== undefined && answer.numberValue !== null) return answer.numberValue;
+  if (answer.booleanValue !== undefined && answer.booleanValue !== null) return answer.booleanValue;
+  if (answer.dateValue) return new Date(answer.dateValue).toLocaleString();
+  if (answer.fileName) return `File: ${answer.fileName}`;
+  if (answer.selectedOptions) {
     try {
-      const payload = {
-        ...formData,
-        // attendance options
-        isAttendanceForm: Boolean((formData as any).isAttendanceForm),
-        attendanceLatitude: (formData as any).attendanceLatitude ? Number((formData as any).attendanceLatitude) : null,
-        attendanceLongitude: (formData as any).attendanceLongitude ? Number((formData as any).attendanceLongitude) : null,
-        attendanceRadiusMeters: (formData as any).attendanceRadiusMeters ? Number((formData as any).attendanceRadiusMeters) : null,
-        deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
-        maxSubmissions: formData.maxSubmissions ? parseInt(formData.maxSubmissions) : null,
-        questions: questions.map((q, index) => ({
-          id: q.id,
-          title: q.title,
-          description: q.description || '',
-          type: q.type,
-          required: q.required || false,
-          order: index,
-          options: (q.type === 'SELECT' || q.type === 'RADIO' || q.type === 'CHECKBOX') && q.options 
-            ? q.options.split('\n').filter((option: string) => option.trim()) 
-            : null,
-          minLength: q.minLength || null,
-          maxLength: q.maxLength || null,
-          pattern: q.pattern || null,
-          matrixRows: q.matrixRows || null,
-          matrixCols: q.matrixCols || null,
-          descriptionContent: q.descriptionContent || null
-        }))
+      const parsed = JSON.parse(answer.selectedOptions);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch (error) {
+      return answer.selectedOptions;
+    }
+  }
+  if (type === 'BOOLEAN' && answer.textValue) {
+    return answer.textValue === 'true';
+  }
+  return null;
+}
+
+function formatValue(value: any) {
+  if (value === null || value === undefined) return '—';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return String(value);
+}
+
+export default function FormsAdminPage() {
+  const { data: session, status } = useSession();
+  const [forms, setForms] = useState<FormRecord[]>([]);
+  const [formsError, setFormsError] = useState('');
+  const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<FormDraft | null>(null);
+  const [responses, setResponses] = useState<ApplicationResponse[]>([]);
+  const [responsesLoading, setResponsesLoading] = useState(false);
+  const [responsesError, setResponsesError] = useState('');
+  const [activeTab, setActiveTab] = useState<'questions' | 'responses' | 'settings'>('questions');
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [slackTargets, setSlackTargets] = useState<SlackTargetState>({ channels: [], users: [], needsToken: false });
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [showCopiedMessage, setShowCopiedMessage] = useState(false);
+  const isUpdatingRef = useRef(false);
+  const draftRef = useRef<FormDraft | null>(null);
+  const [availableUsers, setAvailableUsers] = useState<Array<{ email: string; name?: string }>>([]);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (!session?.user) {
+      redirect('/auth/signin');
+      return;
+    }
+    const roles = Array.isArray(session.user.roles) ? session.user.roles : [];
+    if (!roles.includes('ADMIN')) {
+      redirect('/');
+      return;
+    }
+    void loadForms();
+    void loadSlackTargets();
+    void loadUsers();
+  }, [session, status]);
+
+  useEffect(() => {
+    if (!forms.length) {
+      setDraft(null);
+      return;
+    }
+    if (!selectedFormId) {
+      setSelectedFormId(forms[0].id);
+      return;
+    }
+    if (selectedFormId === 'new') {
+      setDraft(createEmptyDraft());
+      return;
+    }
+    // Don't overwrite draft if we're currently saving/updating
+    if (isUpdatingRef.current) {
+      return;
+    }
+    const record = forms.find((form) => form.id === selectedFormId);
+    if (record) {
+      setDraft(normalizeForm(record));
+    }
+  }, [forms, selectedFormId]);
+
+  // Keep draftRef in sync with draft state
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  useEffect(() => {
+    if (activeTab === 'responses' && draft?.id) {
+      void loadResponses(draft.id);
+    }
+  }, [activeTab, draft?.id]);
+
+  const filteredForms = useMemo(() => {
+    if (!searchTerm.trim()) return forms;
+    const needle = searchTerm.toLowerCase();
+    return forms.filter((form) => {
+      const haystack = [form.title, form.category, form.slug].join(' ').toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [forms, searchTerm]);
+
+  const responsesSummary = useMemo(() => {
+    if (!draft || !responses.length) {
+      return {
+        total: responses.length,
+        last: null as string | null,
+        unique: 0,
+        questions: [] as Array<{ id: string; title: string; type: QuestionType; answers: number; distribution: { label: string; count: number }[]; samples: string[] }>,
       };
+    }
+    const last = responses
+      .map((entry) => entry.submittedAt)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null;
+    const unique = new Set(responses.map((entry) => entry.applicantEmail)).size;
 
-      const url = form && form.id
-        ? `/api/admin/forms?id=${form.id}` 
-        : '/api/admin/forms';
-      
-      const method = form && form.id ? 'PUT' : 'POST';
-
-      console.log('Saving form with payload:', payload);
-      console.log('Questions being sent:', payload.questions);
-      payload.questions.forEach((q: any, i: number) => {
-        console.log(`Question ${i}:`, {
-          title: q.title,
-          type: q.type,
-          matrixRows: q.matrixRows,
-          matrixCols: q.matrixCols,
-          descriptionContent: q.descriptionContent
+    const questions: Array<{ id: string; title: string; type: QuestionType; answers: number; distribution: { label: string; count: number }[]; samples: string[] }> = [];
+    draft.sections.forEach((section) => {
+      section.questions.forEach((question) => {
+        const counts = new Map<string, number>();
+        const samples: string[] = [];
+        responses.forEach((submission) => {
+          const answer = submission.responses.find((entry) => entry.questionId === question.id);
+          if (!answer) return;
+          const value = extractResponseValue(answer, question.type);
+          if (value === null || value === '') return;
+          if (Array.isArray(value)) {
+            value.forEach((item) => {
+              const key = String(item);
+              counts.set(key, (counts.get(key) || 0) + 1);
+              samples.push(key);
+            });
+          } else {
+            const key = formatValue(value);
+            counts.set(key, (counts.get(key) || 0) + 1);
+            samples.push(key);
+          }
+        });
+        const distribution = Array.from(counts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .map(([label, count]) => ({ label, count }));
+        questions.push({
+          id: question.id,
+          title: question.title,
+          type: question.type,
+          answers: samples.length,
+          distribution,
+          samples: samples.slice(0, 3),
         });
       });
+    });
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+    return { total: responses.length, last, unique, questions };
+  }, [responses, draft]);
 
-      if (res.ok) {
-        // Clear draft on successful save
-        const draftKey = form ? `formEditor_draft_edit_${form.id}` : 'formEditor_draft_new';
-        localStorage.removeItem(draftKey);
-        console.log('✓ Form saved successfully, draft cleared');
-        onSave();
-      } else {
-        const error = await res.json();
-        alert(error.message || 'Error saving form');
+  async function loadForms() {
+    try {
+      setFormsError('');
+      const res = await fetch('/api/admin/forms');
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Failed to load forms' }));
+        throw new Error(error.error || 'Failed to load forms');
+      }
+      const data = await res.json();
+      setForms(data);
+      if (!selectedFormId && data.length) {
+        setSelectedFormId(data[0].id);
       }
     } catch (error) {
+      console.error('Error loading forms:', error);
+      setFormsError('Unable to load forms.');
+    }
+  }
+
+  async function loadSlackTargets() {
+    try {
+      const res = await fetch('/api/admin/forms/slack-targets');
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Failed to load Slack data' }));
+        throw new Error(error.error || 'Failed to load Slack data');
+      }
+      const data = await res.json();
+      setSlackTargets(data);
+    } catch (error) {
+      console.error('Failed to fetch Slack targets:', error);
+      setSlackTargets({ channels: [], users: [], needsToken: false, error: 'Unable to load Slack options.' });
+    }
+  }
+
+  async function loadUsers() {
+    try {
+      console.log('Fetching users from /api/admin/forms/users...');
+      const res = await fetch('/api/admin/forms/users');
+      console.log('Users API response status:', res.status);
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Failed to load users' }));
+        console.error('Users API error:', error);
+        throw new Error(error.error || 'Failed to load users');
+      }
+      const data = await res.json();
+      console.log('Users loaded:', data.length, 'users');
+      setAvailableUsers(data);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      setAvailableUsers([]);
+    }
+  }
+
+  async function loadResponses(formId: string) {
+    try {
+      setResponsesLoading(true);
+      setResponsesError('');
+      const res = await fetch(`/api/admin/applications?formId=${formId}`);
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Failed to load responses' }));
+        throw new Error(error.error || 'Failed to load responses');
+      }
+      const data = await res.json();
+      setResponses(data);
+    } catch (error) {
+      console.error('Error loading responses:', error);
+      setResponsesError('Unable to load responses for this form.');
+    } finally {
+      setResponsesLoading(false);
+    }
+  }
+
+  function updateDraft(update: (current: FormDraft) => FormDraft) {
+    setDraft((current) => {
+      const updated = current ? update(current) : current;
+      if (updated && updated.id) {
+        triggerAutoSave();
+      }
+      return updated;
+    });
+  }
+
+  function updateSection(sectionId: string, updates: Partial<FormSection>) {
+    updateDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section) =>
+        section.id === sectionId ? { ...section, ...updates } : section
+      ),
+    }));
+  }
+
+  function moveSection(sectionId: string, direction: number) {
+    updateDraft((current) => {
+      const index = current.sections.findIndex((section) => section.id === sectionId);
+      const targetIndex = index + direction;
+      if (index < 0 || targetIndex < 0 || targetIndex >= current.sections.length) return current;
+      const next = [...current.sections];
+      const [item] = next.splice(index, 1);
+      next.splice(targetIndex, 0, item);
+      return { ...current, sections: next };
+    });
+  }
+
+  function removeSection(sectionId: string) {
+    updateDraft((current) => {
+      if (current.sections.length === 1) return current;
+      return {
+        ...current,
+        sections: current.sections.filter((section) => section.id !== sectionId),
+      };
+    });
+  }
+
+  function addSection() {
+    updateDraft((current) => ({
+      ...current,
+      sections: [
+        ...current.sections,
+        {
+          id: makeId(),
+          title: `Section ${current.sections.length + 1}`,
+          description: '',
+          questions: [
+            {
+              id: makeId(),
+              title: 'Untitled question',
+              description: '',
+              type: 'TEXT',
+              required: true,
+              options: [],
+            },
+          ],
+        },
+      ],
+    }));
+  }
+
+  function updateQuestion(sectionId: string, questionId: string, updates: Partial<FormQuestion>) {
+    updateDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section) => {
+        if (section.id !== sectionId) return section;
+        return {
+          ...section,
+          questions: section.questions.map((question) =>
+            question.id === questionId ? { ...question, ...updates } : question
+          ),
+        };
+      }),
+    }));
+  }
+
+  function moveQuestion(sectionId: string, questionId: string, direction: number) {
+    updateDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section) => {
+        if (section.id !== sectionId) return section;
+        const index = section.questions.findIndex((question) => question.id === questionId);
+        const targetIndex = index + direction;
+        if (index < 0 || targetIndex < 0 || targetIndex >= section.questions.length) return section;
+        const next = [...section.questions];
+        const [item] = next.splice(index, 1);
+        next.splice(targetIndex, 0, item);
+        return { ...section, questions: next };
+      }),
+    }));
+  }
+
+  function removeQuestion(sectionId: string, questionId: string) {
+    updateDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section) => {
+        if (section.id !== sectionId) return section;
+        if (section.questions.length === 1) return section;
+        return {
+          ...section,
+          questions: section.questions.filter((question) => question.id !== questionId),
+        };
+      }),
+    }));
+  }
+
+  function addQuestion(sectionId: string) {
+    updateDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section) => {
+        if (section.id !== sectionId) return section;
+        return {
+          ...section,
+          questions: [
+            ...section.questions,
+            {
+              id: makeId(),
+              title: 'Untitled question',
+              description: '',
+              type: 'TEXT',
+              required: true,
+              options: [],
+            },
+          ],
+        };
+      }),
+    }));
+  }
+
+  function toggleSlackTarget(target: SlackTargetOption) {
+    updateDraft((current) => {
+      const currentTargets = current.notificationConfig.slack?.targets || [];
+      const exists = currentTargets.some((entry) => entry.id === target.id && entry.type === target.type);
+      const nextTargets = exists
+        ? currentTargets.filter((entry) => !(entry.id === target.id && entry.type === target.type))
+        : [...currentTargets, target];
+      return {
+        ...current,
+        notificationConfig: {
+          ...current.notificationConfig,
+          slack: {
+            webhookUrl: current.notificationConfig.slack?.webhookUrl ?? null,
+            targets: nextTargets,
+          },
+        },
+      };
+    });
+  }
+
+  async function handleSave() {
+    if (!draft) return;
+    if (!draft.title.trim()) {
+      setSaveError('A form title is required.');
+      return;
+    }
+    
+    // Cancel any pending autosave since we're doing a manual save
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    
+    setSaving(true);
+    setSaveMessage(null);
+    setSaveError(null);
+    isUpdatingRef.current = true;
+
+    const payload = {
+      id: draft.id,
+      title: draft.title,
+      description: draft.description,
+      category: draft.category,
+      isActive: draft.isActive,
+      allowMultiple: draft.allowMultiple,
+      requireAuth: draft.requireAuth,
+      backgroundColor: draft.backgroundColor,
+      textColor: draft.textColor,
+      sections: draft.sections.map((section, sectionIndex) => ({
+        id: section.id,
+        title: section.title,
+        description: section.description,
+        order: sectionIndex,
+        questions: section.questions.map((question, questionIndex) => ({
+          id: question.id,
+          title: question.title,
+          description: question.description,
+          type: question.type,
+          required: question.required,
+          options: question.options,
+          matrixRows: question.matrixRows,
+          matrixColumns: question.matrixColumns,
+          order: questionIndex,
+        })),
+      })),
+      notificationConfig: draft.notificationConfig,
+      notifyOnSubmission: draft.notificationConfig.email?.notifyOnSubmission ?? true,
+      notificationEmail: draft.notificationConfig.email?.notificationEmail || '',
+      notificationEmails: draft.notificationConfig.email?.notificationEmails || [],
+      sendReceiptToSubmitter: draft.notificationConfig.email?.sendReceiptToSubmitter ?? false,
+    };
+
+    console.log('📧 Frontend sending sendReceiptToSubmitter:', payload.sendReceiptToSubmitter);
+    console.log('📧 Frontend draft value:', draft.notificationConfig.email?.sendReceiptToSubmitter);
+
+    try {
+      const isUpdate = Boolean(draft.id);
+      const res = await fetch(isUpdate ? `/api/admin/forms?id=${draft.id}` : '/api/admin/forms', {
+        method: isUpdate ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Failed to save form' }));
+        throw new Error(error.error || 'Failed to save form');
+      }
+      const saved = await res.json();
+      setSaveMessage(isUpdate ? 'Form updated.' : 'Form created.');
+      
+      // If creating a new form, update the draft with the saved ID and switch to it
+      if (!isUpdate) {
+        setDraft((current) => current ? { ...current, id: saved.id } : current);
+        setSelectedFormId(saved.id);
+        // Reload forms list in background to update sidebar (with small delay to avoid connection pool issues)
+        setTimeout(() => {
+          loadForms().catch(console.error);
+        }, 500);
+      }
+      
+      // Don't switch tabs after saving - stay on current tab
+    } catch (error) {
       console.error('Error saving form:', error);
-      alert('Error saving form');
+      setSaveError(error instanceof Error ? error.message : 'Failed to save form.');
     } finally {
       setSaving(false);
+      // Keep the flag set for a bit longer to prevent race conditions
+      setTimeout(() => {
+        isUpdatingRef.current = false;
+      }, 1000);
+      setTimeout(() => {
+        setSaveMessage(null);
+        setSaveError(null);
+      }, 4000);
     }
-  };
+  }
 
-  return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">
-          {form ? 'Edit Form' : 'Create New Form'}
-        </h2>
-        <div className="flex items-center gap-3">
-          <div className="text-xs text-gray-500 bg-green-50 px-2 py-1 rounded border border-green-200">
-            ✓ Auto-saving
-          </div>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 text-xl"
-        >
-          ✕
-        </button>
+  const triggerAutoSave = useCallback(() => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+    
+    autoSaveTimerRef.current = setTimeout(async () => {
+      const currentDraft = draftRef.current;
+      if (!currentDraft || !currentDraft.id) return; // Only autosave existing forms
+      
+      setAutoSaving(true);
+      isUpdatingRef.current = true;
+      try {
+        const payload = {
+          id: currentDraft.id,
+          title: currentDraft.title,
+          description: currentDraft.description,
+          category: currentDraft.category,
+          isActive: currentDraft.isActive,
+          allowMultiple: currentDraft.allowMultiple,
+          requireAuth: currentDraft.requireAuth,
+          backgroundColor: currentDraft.backgroundColor,
+          textColor: currentDraft.textColor,
+          sections: currentDraft.sections.map((section, sectionIndex) => ({
+            id: section.id,
+            title: section.title,
+            description: section.description,
+            order: sectionIndex,
+            questions: section.questions.map((question, questionIndex) => ({
+              id: question.id,
+              title: question.title,
+              description: question.description,
+              type: question.type,
+              required: question.required,
+              options: question.options,
+              matrixRows: question.matrixRows,
+              matrixColumns: question.matrixColumns,
+              order: questionIndex,
+            })),
+          })),
+          notificationConfig: currentDraft.notificationConfig,
+          notifyOnSubmission: currentDraft.notificationConfig.email?.notifyOnSubmission ?? true,
+          notificationEmail: currentDraft.notificationConfig.email?.notificationEmail || '',
+          notificationEmails: currentDraft.notificationConfig.email?.notificationEmails || [],
+          sendReceiptToSubmitter: currentDraft.notificationConfig.email?.sendReceiptToSubmitter ?? false,
+        };
+
+        const res = await fetch(`/api/admin/forms?id=${currentDraft.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        
+        if (res.ok) {
+          setLastSaved(new Date());
+        }
+      } catch (error) {
+        console.error('Autosave error:', error);
+      } finally {
+        setAutoSaving(false);
+        // Keep the flag set for a bit longer to prevent race conditions
+        setTimeout(() => {
+          isUpdatingRef.current = false;
+        }, 1000);
+      }
+    }, 2000); // Wait 2 seconds after last change
+  }, []); // Remove draft from dependencies
+
+  const copyFormLink = useCallback(() => {
+    if (!draft?.id) return;
+    const form = forms.find(f => f.id === draft.id);
+    if (!form?.slug) return;
+    
+    const link = `${window.location.origin}/forms/${form.slug}`;
+    navigator.clipboard.writeText(link);
+    setShowCopiedMessage(true);
+    setTimeout(() => setShowCopiedMessage(false), 2000);
+  }, [draft, forms]);
+
+  const openFormInNewTab = useCallback(() => {
+    if (!draft?.id) return;
+    const form = forms.find(f => f.id === draft.id);
+    if (!form?.slug) return;
+    
+    window.open(`/forms/${form.slug}`, '_blank');
+  }, [draft, forms]);
+
+  const toggleArchiveForm = useCallback(async () => {
+    if (!draft?.id) return;
+    
+    const form = forms.find(f => f.id === draft.id);
+    if (!form) return;
+    
+    const newActiveState = !form.isActive;
+    
+    try {
+      const res = await fetch(`/api/admin/forms?id=${draft.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...draft, isActive: newActiveState }),
+      });
+      
+      if (res.ok) {
+        setSaveMessage(newActiveState ? 'Form activated' : 'Form archived');
+        await loadForms();
+        setTimeout(() => setSaveMessage(null), 3000);
+      }
+    } catch (error) {
+      console.error('Error toggling archive:', error);
+      setSaveError('Failed to update form status');
+      setTimeout(() => setSaveError(null), 3000);
+    }
+  }, [draft, forms]);
+
+  async function exportResponses(type: 'summary' | 'detailed') {
+    if (!draft?.id) return;
+    try {
+      const res = await fetch('/api/admin/applications/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formId: draft.id, exportType: type }),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Failed to export responses' }));
+        throw new Error(error.error || 'Failed to export responses');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${draft.title.replace(/[^a-z0-9]+/gi, '-')}-${type}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export error:', error);
+      setResponsesError('Unable to export responses.');
+    }
+  }
+
+  if (status === 'loading' || !session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white text-gray-900">
+        <div className="flex flex-col items-center gap-2 text-gray-700">
+          <ArrowPathIcon className="h-8 w-8 animate-spin" />
+          <span>Loading admin forms…</span>
         </div>
       </div>
+    );
+  }
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  return (
+    <div className="min-h-screen bg-white text-gray-900">
+      <header className="border-b border-gray-200 bg-white">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6 md:flex-row md:items-center md:justify-between">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+            <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Form builder</h1>
+            <p className="text-sm text-gray-600">Sections, response insights, and notification controls.</p>
+            {lastSaved && !autoSaving && (
+              <p className="text-xs text-gray-500 mt-1">Last saved: {lastSaved.toLocaleTimeString()}</p>
+            )}
+            {autoSaving && (
+              <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                <ArrowPathIcon className="h-3 w-3 animate-spin" /> Auto-saving...
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {draft?.id && (
+              <>
+                <button
+                  onClick={copyFormLink}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 hover:shadow-md hover:scale-105 transition-all duration-200"
+                  title="Copy form link"
+                >
+                  {showCopiedMessage ? (
+                    <>
+                      <CheckCircleIcon className="h-4 w-4 text-green-600" /> Copied!
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardDocumentIcon className="h-4 w-4" /> Copy Link
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={openFormInNewTab}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 hover:shadow-md hover:scale-105 transition-all duration-200"
+                  title="Open form in new tab"
+                >
+                  <ArrowTopRightOnSquareIcon className="h-4 w-4" /> Open
+                </button>
+                <button
+                  onClick={toggleArchiveForm}
+                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium shadow-sm hover:shadow-md hover:scale-105 transition-all duration-200 ${
+                    draft.isActive
+                      ? 'border-orange-200 bg-white text-orange-700 hover:bg-orange-50'
+                      : 'border-green-200 bg-white text-green-700 hover:bg-green-50'
+                  }`}
+                  title={draft.isActive ? 'Archive form' : 'Activate form'}
+                >
+                  {draft.isActive ? (
+                    <>
+                      <ArchiveBoxIcon className="h-4 w-4" /> Archive
+                    </>
+                  ) : (
+                    <>
+                      <ArchiveBoxXMarkIcon className="h-4 w-4" /> Activate
+                    </>
+                  )}
+                </button>
+              </>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={!draft || saving}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-blue-600 hover:shadow-lg hover:scale-105 disabled:cursor-not-allowed disabled:bg-blue-500/50 disabled:hover:scale-100 transition-all duration-200"
+            >
+              {saving ? (
+                <>
+                  <ArrowPathIcon className="h-4 w-4 animate-spin" /> Saving…
+                </>
+              ) : (
+                <>
+                  <CheckCircleIcon className="h-4 w-4" /> Save changes
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => setSelectedFormId('new')}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 hover:shadow-md hover:scale-105 transition-all duration-200"
+            >
+              <PlusIcon className="h-4 w-4" /> New form
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl gap-6 px-6 py-8">
+        <div className="space-y-6">
+          {/* Forms Grid Section */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Forms</span>
+              <span className="text-xs text-gray-500">{forms.length}</span>
+            </div>
             <input
               type="text"
-              value={formData.title}
-              onChange={(e) => setFormData({...formData, title: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-              required
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search"
+              className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({...formData, category: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-              required
-            >
-              <option value="general">General</option>
-              <option value="membership">Membership</option>
-              <option value="internship">Internship</option>
-              <option value="event">Event</option>
-              <option value="project">Project</option>
-              <option value="partnership">Partnership</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({...formData, description: e.target.value})}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-            placeholder="Describe what this form is for..."
-          />
-        </div>
-
-        {/* Form Settings */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border-2 border-blue-200">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-2 bg-blue-600 rounded-lg">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.348 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.348a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.348 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.348a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+              {filteredForms.map((form) => (
+                <button
+                  key={form.id}
+                  onClick={() => setSelectedFormId(form.id)}
+                  className={`relative rounded-lg px-3 py-2 text-left text-xs transition-all duration-200 ${
+                    selectedFormId === form.id
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-md'
+                      : 'bg-white text-gray-700 hover:bg-gray-50 hover:shadow-md border border-gray-200'
+                  }`}
+                >
+                  <div className="font-medium truncate" title={form.title}>{form.title}</div>
+                  <div className="text-[10px] text-gray-500 truncate">{form.category || 'general'}</div>
+                  {!form.isActive && (
+                    <span className="absolute top-1 right-1 rounded bg-red-100 px-1.5 py-0.5 text-[8px] text-red-700">Archived</span>
+                  )}
+                </button>
+              ))}
+              <button
+                onClick={() => setSelectedFormId('new')}
+                className={`rounded-lg px-3 py-2 text-left text-xs transition-all duration-200 ${
+                  selectedFormId === 'new'
+                    ? 'bg-blue-500 text-white shadow-md'
+                    : 'bg-white text-gray-900 hover:bg-gray-50 hover:shadow-md border border-dashed border-gray-300'
+                }`}
+              >
+                <div className="font-medium">+ Create new</div>
+              </button>
             </div>
-            <h3 className="text-lg font-bold text-gray-900">⚙️ Form Configuration & Settings</h3>
+            {formsError && <p className="mt-4 text-xs text-red-300">{formsError}</p>}
           </div>
-          <p className="text-gray-700 mb-6 text-sm">Configure authentication, deadlines, notifications, and submission limits for your form.</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div className="bg-white p-4 rounded-lg border border-blue-200">
-                <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                  🔒 Access & Security Settings
-                </h4>
-                
-                <div className="space-y-4">
-                  <label className="flex items-start gap-3 p-3 border-2 border-green-200 bg-green-50 rounded-lg hover:bg-green-100 cursor-pointer transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={formData.requireAuth}
-                      onChange={(e) => setFormData({...formData, requireAuth: e.target.checked})}
-                      className="mt-1 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                    />
-                    <div>
-                      <span className="text-sm font-bold text-gray-900">🎓 Require UMich Authentication</span>
-                      <p className="text-xs text-gray-600 mt-1">
-                        ✅ Only users with @umich.edu emails can submit this form
-                      </p>
-                      <p className="text-xs text-blue-600 mt-1 font-medium">
-                        Recommended for official university forms and applications
-                      </p>
-                    </div>
-                  </label>
 
-                  {/* Attendance / Geo-Fence Settings */}
-                  <div className="mt-4 p-3 rounded-lg border-2 border-purple-200 bg-purple-50">
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.isAttendanceForm || false}
-                        onChange={(e)=> setFormData({ ...formData, isAttendanceForm: e.target.checked })}
-                        className="mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                      />
-                      <div>
-                        <span className="text-sm font-bold text-gray-900">📍 Attendance Form (Geo‑fenced)</span>
-                        <p className="text-xs text-gray-600 mt-1">Require users to be within a radius of a specified location when submitting.</p>
-                      </div>
-                    </label>
-
-                    {formData.isAttendanceForm && (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Latitude</label>
-                          <input type="number" step="any"
-                            value={(formData.attendanceLatitude as any) || ''}
-                            onChange={(e)=> setFormData({ ...formData, attendanceLatitude: parseFloat(e.target.value) })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded"
-                            placeholder="42.2780" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Longitude</label>
-                          <input type="number" step="any"
-                            value={(formData.attendanceLongitude as any) || ''}
-                            onChange={(e)=> setFormData({ ...formData, attendanceLongitude: parseFloat(e.target.value) })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded"
-                            placeholder="-83.7382" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Radius (meters)</label>
-                          <input type="number"
-                            value={(formData.attendanceRadiusMeters as any) || ''}
-                            onChange={(e)=> setFormData({ ...formData, attendanceRadiusMeters: parseInt(e.target.value) })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded"
-                            placeholder="100" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <label className="flex items-start gap-3 p-3 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.isPublic}
-                      onChange={(e) => setFormData({...formData, isPublic: e.target.checked})}
-                      className="mt-1 rounded border-gray-300 text-[#00274c] focus:ring-[#00274c]"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">📖 Public Form</span>
-                      <p className="text-xs text-gray-500 mt-1">Form is publicly accessible via direct link</p>
-                    </div>
-                  </label>
-
-                  <label className="flex items-start gap-3 p-3 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.isActive}
-                      onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                      className="mt-1 rounded border-gray-300 text-[#00274c] focus:ring-[#00274c]"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">✅ Active Form</span>
-                      <p className="text-xs text-gray-500 mt-1">Form is currently accepting submissions</p>
-                    </div>
-                  </label>
-
-                  <label className="flex items-start gap-3 p-3 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.allowMultiple}
-                      onChange={(e) => setFormData({...formData, allowMultiple: e.target.checked})}
-                      className="mt-1 rounded border-gray-300 text-[#00274c] focus:ring-[#00274c]"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">🔄 Allow Multiple Submissions</span>
-                      <p className="text-xs text-gray-500 mt-1">Users can submit this form multiple times</p>
-                    </div>
-                  </label>
-                </div>
-              </div>
+        <section className="space-y-6">
+          {saveMessage && (
+            <div className="flex items-center gap-2 rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-green-100">
+              <CheckCircleIcon className="h-4 w-4" /> {saveMessage}
             </div>
-
-            <div className="space-y-4">
-              <div className="bg-white p-4 rounded-lg border border-blue-200">
-                <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                  ⏰ Deadlines & Notifications
-                </h4>
-                
-                <div className="space-y-4">
-                  <div className="p-3 border-2 border-orange-200 bg-orange-50 rounded-lg">
-                    <label className="block text-sm font-bold text-gray-900 mb-2">
-                      📅 Submission Deadline
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={formData.deadline}
-                      onChange={(e) => setFormData({...formData, deadline: e.target.value})}
-                      className="w-full px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white"
-                    />
-                    <p className="text-xs text-gray-600 mt-2">
-                      ⚠️ Leave empty for no deadline. After deadline, form will be automatically closed.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">📊 Max Submissions</label>
-                    <input
-                      type="number"
-                      value={formData.maxSubmissions}
-                      onChange={(e) => setFormData({...formData, maxSubmissions: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c] bg-white"
-                      placeholder="Leave empty for unlimited"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Limit total number of submissions accepted</p>
-                  </div>
-
-                  <div className="p-3 border-2 border-blue-200 bg-blue-50 rounded-lg">
-                    <label className="block text-sm font-bold text-gray-900 mb-2">
-                      📧 Notification Email
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.notificationEmail}
-                      onChange={(e) => setFormData({...formData, notificationEmail: e.target.value})}
-                      className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
-                      placeholder="aibusinessgroup@umich.edu"
-                    />
-                    <p className="text-xs text-gray-600 mt-2">Email address to receive submission notifications</p>
-                  </div>
-
-                  <label className="flex items-start gap-3 p-3 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.notifyOnSubmission}
-                      onChange={(e) => setFormData({...formData, notifyOnSubmission: e.target.checked})}
-                      className="mt-1 rounded border-gray-300 text-[#00274c] focus:ring-[#00274c]"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">📬 Email Notifications</span>
-                      <p className="text-xs text-gray-500 mt-1">Send email alerts when forms are submitted</p>
-                    </div>
-                  </label>
-                </div>
-              </div>
+          )}
+          {saveError && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              <XMarkIcon className="h-4 w-4" /> {saveError}
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* Questions */}
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">Questions</h3>
+          <div className="flex flex-wrap items-center gap-3">
             <button
-              type="button"
-              onClick={addQuestion}
-              className="admin-save-btn bg-[#00274c] text-white px-3 py-2 rounded-lg text-sm hover:bg-[#003366] admin-white-text"
+              onClick={() => setActiveTab('questions')}
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                activeTab === 'questions' ? 'bg-blue-500 text-white shadow-md hover:bg-blue-600 hover:shadow-lg' : 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 hover:shadow-md'
+              }`}
             >
-              Add Question
+              <DocumentTextIcon className="h-4 w-4" /> Questions
+            </button>
+            <button
+              onClick={() => setActiveTab('responses')}
+              disabled={!draft?.id}
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                activeTab === 'responses' ? 'bg-blue-500 text-white shadow-md hover:bg-blue-600 hover:shadow-lg' : 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 hover:shadow-md'
+              } ${!draft?.id ? 'opacity-40' : ''}`}
+            >
+              <ChatBubbleLeftRightIcon className="h-4 w-4" /> Responses
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                activeTab === 'settings' ? 'bg-blue-500 text-white shadow-md hover:bg-blue-600 hover:shadow-lg' : 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 hover:shadow-md'
+              }`}
+            >
+              <Cog6ToothIcon className="h-4 w-4" /> Settings
             </button>
           </div>
 
-          <div className="space-y-4">
-            {questions.length === 0 && <p className="text-gray-500">No questions yet. Click "Add Question" to get started.</p>}
-            {questions.map((question, index) => (
-              <div 
-                key={question.id} 
-                className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-all duration-200 cursor-move"
-                draggable={true}
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('text/plain', index.toString());
-                  e.dataTransfer.effectAllowed = 'move';
-                  e.currentTarget.classList.add('opacity-50', 'scale-95');
-                }}
-                onDragEnd={(e) => {
-                  e.currentTarget.classList.remove('opacity-50', 'scale-95');
-                  // Remove any drag-over styling from all items
-                  document.querySelectorAll('.drag-over').forEach(el => {
-                    el.classList.remove('drag-over');
-                  });
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                }}
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  e.currentTarget.classList.add('drag-over');
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  // Only remove if we're actually leaving this element
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                    e.currentTarget.classList.remove('drag-over');
-                  }
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.currentTarget.classList.remove('drag-over');
-                  
-                  const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
-                  const dropIndex = index;
-                  
-                  if (dragIndex !== dropIndex && !isNaN(dragIndex)) {
-                    const newQuestions = [...questions];
-                    const draggedQuestion = newQuestions[dragIndex];
-                    newQuestions.splice(dragIndex, 1);
-                    newQuestions.splice(dropIndex, 0, draggedQuestion);
-                    setQuestions(newQuestions);
-                  }
-                }}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="cursor-move text-gray-400 hover:text-gray-600" title="Drag to reorder">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900">Question {index + 1}</h4>
-                      <p className="text-sm text-gray-500">Type: {question.type}</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeQuestion(index)}
-                    className="text-red-600 hover:text-red-800 text-sm"
-                  >
-                    Remove
-                  </button>
-                </div>
+          {!draft && (
+            <div className="rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 p-12 text-center text-sm text-gray-700">
+              Select a form to begin editing or create a new one.
+            </div>
+          )}
 
+          {draft && activeTab === 'questions' && (
+            <div className="space-y-6">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-6">
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Question Title *</label>
-                      <input
-                        type="text"
-                        value={question.title}
-                        onChange={(e) => updateQuestion(index, 'title', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
-                        placeholder="e.g., What is your academic year?"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                      <select
-                        value={question.type}
-                        onChange={(e) => updateQuestion(index, 'type', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
-                      >
-                        <option value="TEXT">Short Text</option>
-                        <option value="TEXTAREA">Long Text</option>
-                        <option value="EMAIL">Email</option>
-                        <option value="PHONE">Phone</option>
-                        <option value="NUMBER">Number</option>
-                        <option value="DATE">Date</option>
-                        <option value="SELECT">Dropdown</option>
-                        <option value="RADIO">Radio Buttons</option>
-                        <option value="CHECKBOX">Checkboxes</option>
-                        <option value="FILE">File Upload</option>
-                        <option value="URL">URL</option>
-                        <option value="BOOLEAN">Yes/No</option>
-                        <option value="DESCRIPTION">Description Section</option>
-                        <option value="MATRIX">Matrix/Grid (Ranking)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="p-3 border-2 border-green-200 bg-green-50 rounded-lg">
-                    <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                      💬 Question Description (Optional)
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">Clarification Feature</span>
-                    </label>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-900">Form title</label>
                     <input
                       type="text"
-                      value={question.description || ''}
-                      onChange={(e) => updateQuestion(index, 'description', e.target.value)}
-                      className="w-full px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 bg-white"
-                      placeholder="e.g., 'Please provide your current GPA on a 4.0 scale' or 'Include any relevant experience with Python, R, or SQL'"
+                      value={draft.title}
+                      onChange={(event) => updateDraft((current) => ({ ...current, title: event.target.value }))}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
                     />
-                    <p className="text-xs text-gray-700 mt-2 font-medium">
-                      ℹ️ This description will appear below the question title to provide additional context and clarification for users
-                    </p>
-                    <p className="text-xs text-blue-600 mt-1">
-                      💡 Use this to explain requirements, provide examples, or clarify what kind of answer you're looking for
-                    </p>
                   </div>
-                </div>
-
-                {(question.type === 'SELECT' || question.type === 'RADIO' || question.type === 'CHECKBOX') && (
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Options (one per line)</label>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-900">Description</label>
                     <textarea
-                      value={question.options || ''}
-                      onChange={(e) => updateQuestion(index, 'options', e.target.value)}
+                      value={draft.description}
+                      onChange={(event) => updateDraft((current) => ({ ...current, description: event.target.value }))}
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
-                      placeholder="Option 1&#10;Option 2&#10;Option 3"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
                     />
                   </div>
-                )}
-
-                {question.type === 'MATRIX' && (
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Matrix Rows (one per line)</label>
-                      <textarea
-                        value={question.matrixRows || ''}
-                        onChange={(e) => updateQuestion(index, 'matrixRows', e.target.value)}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
-                        placeholder="Row 1 (e.g., Quality)&#10;Row 2 (e.g., Price)&#10;Row 3 (e.g., Service)"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Matrix Columns (one per line)</label>
-                      <textarea
-                        value={question.matrixCols || ''}
-                        onChange={(e) => updateQuestion(index, 'matrixCols', e.target.value)}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
-                        placeholder="Excellent&#10;Good&#10;Fair&#10;Poor"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {question.type === 'DESCRIPTION' && (
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Description Content</label>
-                    <textarea
-                      value={question.descriptionContent || ''}
-                      onChange={(e) => updateQuestion(index, 'descriptionContent', e.target.value)}
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#00274c]"
-                      placeholder="Enter the text content to display. Line breaks will be preserved."
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      This content will be displayed as formatted text with line breaks preserved.
-                    </p>
-                  </div>
-                )}
-
-                <div className="mt-4 flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={question.required}
-                    onChange={(e) => updateQuestion(index, 'required', e.target.checked)}
-                    className="rounded border-gray-300 text-[#00274c] focus:ring-[#00274c]"
-                  />
-                  <label className="ml-2 text-sm text-gray-700">Required</label>
                 </div>
               </div>
-            ))}
 
-            {questions.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No questions yet. Click "Add Question" to get started.
-              </div>
-            )}
-          </div>
-        </div>
+              {draft.sections.map((section, sectionIndex) => (
+                <div key={section.id} className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-6">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="flex-1 space-y-2">
+                      <input
+                        type="text"
+                        value={section.title}
+                        onChange={(event) => updateSection(section.id, { title: event.target.value })}
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
+                        placeholder="Section title"
+                      />
+                      <textarea
+                        value={section.description}
+                        onChange={(event) => updateSection(section.id, { description: event.target.value })}
+                        rows={2}
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
+                        placeholder="Description (optional)"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <button
+                        onClick={() => moveSection(section.id, -1)}
+                        disabled={sectionIndex === 0}
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 hover:bg-gray-50 hover:shadow-md disabled:opacity-40 disabled:hover:shadow-none transition-all duration-200"
+                      >
+                        Move up
+                      </button>
+                      <button
+                        onClick={() => moveSection(section.id, 1)}
+                        disabled={sectionIndex === draft.sections.length - 1}
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 hover:bg-gray-50 hover:shadow-md disabled:opacity-40 disabled:hover:shadow-none transition-all duration-200"
+                      >
+                        Move down
+                      </button>
+                      <button
+                        onClick={() => removeSection(section.id)}
+                        disabled={draft.sections.length === 1}
+                        className="rounded-lg border border-red-200 bg-white px-3 py-2 text-red-700 hover:bg-red-50 hover:shadow-md disabled:opacity-40 disabled:hover:shadow-none transition-all duration-200"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
 
-        {/* Submit */}
-        <div className="flex justify-end gap-3 pt-6 border-t">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-4 py-2 bg-[#00274c] text-white hover:bg-[#003366] rounded-lg disabled:opacity-50 admin-white-text"
-          >
-            {saving ? 'Saving...' : (form ? 'Update Form' : 'Create Form')}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
+                  <div className="space-y-4">
+                    {section.questions.map((question, questionIndex) => (
+                      <div key={question.id} className="rounded-lg border border-gray-200 bg-white p-4">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                          <div className="flex-1 space-y-3">
+                            <input
+                              type="text"
+                              value={question.title}
+                              onChange={(event) => updateQuestion(section.id, question.id, { title: event.target.value })}
+                              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
+                              placeholder="Question"
+                            />
+                            <textarea
+                              value={question.description}
+                              onChange={(event) => updateQuestion(section.id, question.id, { description: event.target.value })}
+                              rows={2}
+                              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
+                              placeholder="Description (optional)"
+                            />
+                            <div className="grid gap-3 md:grid-cols-2">
+                              <div>
+                                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Type</label>
+                                <select
+                                  value={question.type}
+                                  onChange={(event) => {
+                                    const newType = event.target.value as QuestionType;
+                                    const updates: Partial<FormQuestion> = { type: newType };
+                                    
+                                    if (MULTIPLE_CHOICE.includes(newType)) {
+                                      updates.options = question.options.length ? question.options : [''];
+                                    } else {
+                                      updates.options = [];
+                                    }
+                                    
+                                    if (newType === 'MATRIX') {
+                                      updates.matrixRows = question.matrixRows?.length ? question.matrixRows : ['Row 1', 'Row 2', 'Row 3'];
+                                      updates.matrixColumns = question.matrixColumns?.length ? question.matrixColumns : ['Strongly Disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly Agree'];
+                                    } else {
+                                      updates.matrixRows = undefined;
+                                      updates.matrixColumns = undefined;
+                                    }
+                                    
+                                    updateQuestion(section.id, question.id, updates);
+                                  }}
+                                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+                                >
+                                  {QUESTION_TYPES.map((type) => (
+                                    <option key={type.value} value={type.value} className="text-slate-900">
+                                      {type.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <label className="mt-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-700">
+                                <input
+                                  type="checkbox"
+                                  checked={question.required}
+                                  onChange={(event) => updateQuestion(section.id, question.id, { required: event.target.checked })}
+                                  className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
+                                />
+                                Required
+                              </label>
+                            </div>
+                            {MULTIPLE_CHOICE.includes(question.type) && (
+                              <div>
+                                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-600">Options</label>
+                                <div className="space-y-2">
+                                  {question.options.map((option, optIndex) => (
+                                    <div key={optIndex} className="flex items-center gap-2">
+                                      <input
+                                        type="text"
+                                        value={option}
+                                        onChange={(event) => {
+                                          const newOptions = [...question.options];
+                                          newOptions[optIndex] = event.target.value;
+                                          updateQuestion(section.id, question.id, { options: newOptions });
+                                        }}
+                                        className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none shadow-sm"
+                                        placeholder={`Option ${optIndex + 1}`}
+                                      />
+                                      <button
+                                        onClick={() => {
+                                          const newOptions = question.options.filter((_, i) => i !== optIndex);
+                                          updateQuestion(section.id, question.id, { options: newOptions.length ? newOptions : [''] });
+                                        }}
+                                        className="rounded-lg border border-red-200 bg-white px-3 py-2 text-red-700 hover:bg-red-50 hover:shadow-md transition-all duration-200"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <button
+                                    onClick={() => {
+                                      const newOptions = [...question.options, ''];
+                                      updateQuestion(section.id, question.id, { options: newOptions });
+                                    }}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                                  >
+                                    <PlusIcon className="h-4 w-4" /> Add option
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            {question.type === 'MATRIX' && (
+                              <div className="space-y-4">
+                                <div>
+                                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-600">Rows (Questions)</label>
+                                  <div className="space-y-2">
+                                    {(question.matrixRows || ['']).map((row, rowIndex) => (
+                                      <div key={rowIndex} className="flex items-center gap-2">
+                                        <input
+                                          type="text"
+                                          value={row}
+                                          onChange={(event) => {
+                                            const newRows = [...(question.matrixRows || [''])];
+                                            newRows[rowIndex] = event.target.value;
+                                            updateQuestion(section.id, question.id, { matrixRows: newRows });
+                                          }}
+                                          className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none shadow-sm"
+                                          placeholder={`Row ${rowIndex + 1}`}
+                                        />
+                                        <button
+                                          onClick={() => {
+                                            const newRows = (question.matrixRows || ['']).filter((_, i) => i !== rowIndex);
+                                            updateQuestion(section.id, question.id, { matrixRows: newRows.length ? newRows : [''] });
+                                          }}
+                                          className="rounded-lg border border-red-200 bg-white px-3 py-2 text-red-700 hover:bg-red-50 hover:shadow-md transition-all duration-200"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <button
+                                      onClick={() => {
+                                        const newRows = [...(question.matrixRows || ['']), ''];
+                                        updateQuestion(section.id, question.id, { matrixRows: newRows });
+                                      }}
+                                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                                    >
+                                      <PlusIcon className="h-4 w-4" /> Add row
+                                    </button>
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-600">Columns (Rating Scale)</label>
+                                  <div className="space-y-2">
+                                    {(question.matrixColumns || ['']).map((col, colIndex) => (
+                                      <div key={colIndex} className="flex items-center gap-2">
+                                        <input
+                                          type="text"
+                                          value={col}
+                                          onChange={(event) => {
+                                            const newCols = [...(question.matrixColumns || [''])];
+                                            newCols[colIndex] = event.target.value;
+                                            updateQuestion(section.id, question.id, { matrixColumns: newCols });
+                                          }}
+                                          className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none shadow-sm"
+                                          placeholder={`Column ${colIndex + 1} (e.g., "Strongly Disagree")`}
+                                        />
+                                        <button
+                                          onClick={() => {
+                                            const newCols = (question.matrixColumns || ['']).filter((_, i) => i !== colIndex);
+                                            updateQuestion(section.id, question.id, { matrixColumns: newCols.length ? newCols : [''] });
+                                          }}
+                                          className="rounded-lg border border-red-200 bg-white px-3 py-2 text-red-700 hover:bg-red-50 hover:shadow-md transition-all duration-200"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <button
+                                      onClick={() => {
+                                        const newCols = [...(question.matrixColumns || ['']), ''];
+                                        updateQuestion(section.id, question.id, { matrixColumns: newCols });
+                                      }}
+                                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                                    >
+                                      <PlusIcon className="h-4 w-4" /> Add column
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-2 text-xs">
+                            <button
+                              onClick={() => moveQuestion(section.id, question.id, -1)}
+                              disabled={questionIndex === 0}
+                              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 hover:bg-gray-50 hover:shadow-md disabled:opacity-40 disabled:hover:shadow-none transition-all duration-200"
+                            >
+                              Move up
+                            </button>
+                            <button
+                              onClick={() => moveQuestion(section.id, question.id, 1)}
+                              disabled={questionIndex === section.questions.length - 1}
+                              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 hover:bg-gray-50 hover:shadow-md disabled:opacity-40 disabled:hover:shadow-none transition-all duration-200"
+                            >
+                              Move down
+                            </button>
+                            <button
+                              onClick={() => removeQuestion(section.id, question.id)}
+                              disabled={section.questions.length === 1}
+                              className="rounded-lg border border-red-200 bg-white px-3 py-2 text-red-700 hover:bg-red-50 hover:shadow-md disabled:opacity-40 disabled:hover:shadow-none transition-all duration-200"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => addQuestion(section.id)}
+                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                    >
+                      <PlusIcon className="h-4 w-4" /> Add question
+                    </button>
+                  </div>
+                </div>
+              ))}
 
-// File Preview Component with lazy loading
-function FilePreview({ 
-  applicationId, 
-  questionId, 
-  fileName, 
-  fileType, 
-  hasFileData,
-  loadFileData 
-}: { 
-  applicationId: string;
-  questionId: string;
-  fileName: string;
-  fileType: string;
-  hasFileData: boolean;
-  loadFileData: (appId: string, qId: string) => Promise<any>;
-}) {
-  const [fileData, setFileData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
-
-  // Debug logging
-  console.log('FilePreview props:', {
-    applicationId,
-    questionId,
-    fileName,
-    fileType,
-    hasFileData,
-    isImage: fileType?.startsWith('image/')
-  });
-
-  const loadFile = async () => {
-    if (loading || fileData) return;
-    
-    console.log('loadFile called for:', applicationId, questionId);
-    setLoading(true);
-    try {
-      const data = await loadFileData(applicationId, questionId);
-      console.log('loadFileData returned:', data);
-      if (data) {
-        setFileData(data);
-      }
-    } catch (error) {
-      console.error('Error loading file:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const downloadFile = () => {
-    const link = document.createElement('a');
-    link.href = `/api/admin/files/${applicationId}/${questionId}`;
-    link.download = fileName;
-    link.click();
-  };
-
-  return (
-    <div className="space-y-2 border border-blue-200 p-2 rounded bg-blue-50">
-      <div className="text-xs text-blue-600">FilePreview Component Loaded</div>
-      <div className="flex space-x-2">
-        <button
-          onClick={downloadFile}
-          className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
-        >
-          Download
-        </button>
-        
-        {/* Show preview button for images, or view button for other files */}
-        {(hasFileData || fileName) && (
-          <>
-            {(fileType?.startsWith('image/') || fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? (
               <button
-                onClick={() => {
-                  console.log('Preview button clicked, showPreview:', showPreview);
-                  if (!showPreview) {
-                    loadFile();
-                  }
-                  setShowPreview(!showPreview);
-                }}
-                className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors"
+                onClick={addSection}
+                className="inline-flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 hover:bg-blue-50 hover:border-blue-400 hover:shadow-md transition-all duration-200"
               >
-                {showPreview ? 'Hide Preview' : 'Show Preview'}
+                <PlusIcon className="h-4 w-4" /> Add section
               </button>
-            ) : (
-              <button
-                onClick={() => {
-                  console.log('View File button clicked');
-                  window.open(`/api/admin/files/${applicationId}/${questionId}`, '_blank');
-                }}
-                className="px-2 py-1 bg-purple-500 text-white text-xs rounded hover:bg-purple-600 transition-colors"
-              >
-                View File
-              </button>
-            )}
-          </>
-        )}
-      </div>
-      
-      {showPreview && (
-        <div className="mt-2">
-          {loading ? (
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-              <span>Loading preview...</span>
             </div>
-          ) : fileData ? (
-            <img 
-              src={fileData.fileData} 
-              alt={fileName}
-              className="max-w-xs max-h-48 rounded border"
-            />
-          ) : (
-            <span className="text-sm text-gray-500">Preview not available</span>
+          )}
+
+          {draft && activeTab === 'responses' && (
+            <div className="space-y-6">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-6">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-600">Total responses</p>
+                    <p className="mt-2 text-2xl font-semibold">{responsesSummary.total}</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-600">Unique emails</p>
+                    <p className="mt-2 text-2xl font-semibold">{responsesSummary.unique}</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-600">Last submission</p>
+                    <p className="mt-2 text-sm text-gray-900">
+                      {responsesSummary.last ? new Date(responsesSummary.last).toLocaleString() : '—'}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={() => exportResponses('summary')}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                  >
+                    <ArrowDownTrayIcon className="h-4 w-4" /> Export summary
+                  </button>
+                  <button
+                    onClick={() => exportResponses('detailed')}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                  >
+                    <ArrowDownTrayIcon className="h-4 w-4" /> Export detailed
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-6">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-700">Question insights</h3>
+                {responsesSummary.questions.length === 0 ? (
+                  <p className="text-sm text-gray-600">Responses will appear here once submissions arrive.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {responsesSummary.questions.map((question) => (
+                      <div key={question.id} className="rounded-lg border border-gray-200 bg-white p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium text-gray-900">{question.title}</p>
+                          <span className="text-xs text-gray-500">{question.answers} answers</span>
+                        </div>
+                        {question.distribution.length > 0 ? (
+                          <ul className="mt-3 space-y-1 text-sm text-gray-700">
+                            {question.distribution.slice(0, 4).map((entry) => (
+                              <li key={entry.label} className="flex justify-between">
+                                <span>{entry.label}</span>
+                                <span className="text-gray-500">{entry.count}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <ul className="mt-3 space-y-1 text-sm text-gray-700">
+                            {question.samples.map((sample, index) => (
+                              <li key={index} className="truncate text-gray-900">{sample || '—'}</li>
+                            ))}
+                            {question.samples.length === 0 && <li className="text-gray-500">No responses yet.</li>}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-6">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-700">Individual responses</h3>
+                {responsesLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <ArrowPathIcon className="h-4 w-4 animate-spin" /> Loading responses…
+                  </div>
+                ) : responsesError ? (
+                  <p className="text-sm text-red-300">{responsesError}</p>
+                ) : responses.length === 0 ? (
+                  <p className="text-sm text-gray-600">No submissions yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {responses.map((response) => (
+                      <div key={response.id} className="rounded-lg border border-gray-200 bg-white p-4">
+                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <p className="font-medium text-gray-900">{response.applicantName || 'Unnamed'}</p>
+                            <p className="text-xs text-gray-500">{response.applicantEmail}</p>
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            Submitted {new Date(response.submittedAt).toLocaleString()}
+                          </div>
+                        </div>
+                        <details className="mt-4 text-sm text-gray-900">
+                          <summary className="cursor-pointer text-gray-700">View answers</summary>
+                          <div className="mt-3 space-y-2 text-xs text-gray-700">
+                            {response.responses.map((answer) => {
+                              const questionType = (answer.question?.type || 'TEXT') as QuestionType;
+                              const value = extractResponseValue(answer, questionType);
+                              
+                              // Handle Matrix type specially
+                              if (questionType === 'MATRIX' && Array.isArray(value)) {
+                                // Get matrix rows from the question
+                                const matrixRows = answer.question?.matrixRows?.filter((row: string) => row && row.trim()) || [];
+                                
+                                return (
+                                  <div key={`${response.id}-${answer.questionId}`} className="rounded border border-gray-200 bg-white p-3">
+                                    <p className="font-medium text-gray-900 mb-2">{answer.question?.title || 'Question'}</p>
+                                    <div className="space-y-1">
+                                      {value.map((columnSelection: string, index: number) => (
+                                        <div key={index} className="flex items-start gap-2 py-1 px-2 bg-gray-50 rounded border-l-2 border-blue-500">
+                                          <span className="font-semibold text-gray-900">
+                                            {matrixRows[index] || `Row ${index + 1}`}:
+                                          </span>
+                                          <span className="text-gray-700">{columnSelection || '—'}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              
+                              // Regular question display
+                              return (
+                                <div key={`${response.id}-${answer.questionId}`} className="rounded border border-gray-200 bg-white hover:bg-gray-100 p-3">
+                                  <p className="font-medium text-gray-900">{answer.question?.title || 'Question'}</p>
+                                  <p className="mt-1 text-gray-600">
+                                    {formatValue(value)}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {draft && activeTab === 'settings' && (
+            <div className="space-y-6">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-6">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-700">Form settings</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="flex items-center gap-2 text-sm text-gray-900">
+                    <input
+                      type="checkbox"
+                      checked={draft.isActive}
+                      onChange={(event) => updateDraft((current) => ({ ...current, isActive: event.target.checked }))}
+                      className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
+                    />
+                    Form is active
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-900">
+                    <input
+                      type="checkbox"
+                      checked={draft.requireAuth}
+                      onChange={(event) => updateDraft((current) => ({ ...current, requireAuth: event.target.checked }))}
+                      className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
+                    />
+                    Require UMich login
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-900">
+                    <input
+                      type="checkbox"
+                      checked={draft.allowMultiple}
+                      onChange={(event) => updateDraft((current) => ({ ...current, allowMultiple: event.target.checked }))}
+                      className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
+                    />
+                    Allow multiple submissions
+                  </label>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Category</label>
+                    <input
+                      type="text"
+                      value={draft.category}
+                      onChange={(event) => updateDraft((current) => ({ ...current, category: event.target.value }))}
+                      className="w-full rounded-lg border border-gray-200 bg-white hover:bg-gray-100 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-6 space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700">Notifications</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">
+                      Notification emails
+                    </label>
+                    <p className="mb-2 text-xs text-gray-500">Select users to notify when form is submitted</p>
+                    
+                    {/* Search input */}
+                    <input
+                      type="text"
+                      placeholder="Search admins by name or email..."
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                      className="w-full mb-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+                    />
+                    
+                    <div className="max-h-48 overflow-y-auto space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+                      {availableUsers.length === 0 ? (
+                        <p className="text-xs text-gray-500">Loading admin users... If this persists, check console for errors.</p>
+                      ) : (
+                        availableUsers
+                          .filter((user) => {
+                            if (!userSearchTerm.trim()) return true;
+                            const search = userSearchTerm.toLowerCase();
+                            return (
+                              user.email.toLowerCase().includes(search) ||
+                              (user.name?.toLowerCase() || '').includes(search)
+                            );
+                          })
+                          .map((user) => {
+                            const isSelected = draft.notificationConfig.email?.notificationEmails?.includes(user.email) ?? false;
+                            return (
+                              <label
+                                key={user.email}
+                                className="flex items-center gap-2 rounded border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 text-sm text-gray-900 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    const emails = draft.notificationConfig.email?.notificationEmails || [];
+                                    const newEmails = e.target.checked
+                                      ? [...emails, user.email]
+                                      : emails.filter((email) => email !== user.email);
+                                    updateDraft((current) => ({
+                                      ...current,
+                                      notificationConfig: {
+                                        ...current.notificationConfig,
+                                        email: {
+                                          ...current.notificationConfig.email,
+                                          notificationEmails: newEmails,
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
+                                />
+                                <div className="flex-1">
+                                  <div className="font-medium">{user.name || 'Unnamed User'}</div>
+                                  <div className="text-xs text-gray-500">{user.email}</div>
+                                </div>
+                              </label>
+                            );
+                          })
+                      )}
+                    </div>
+                    {draft.notificationConfig.email?.notificationEmails && draft.notificationConfig.email.notificationEmails.length > 0 && (
+                      <p className="mt-2 text-xs text-gray-600">
+                        {draft.notificationConfig.email.notificationEmails.length} email(s) selected
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="flex items-center gap-2 text-sm text-gray-900">
+                      <input
+                        type="checkbox"
+                        checked={draft.notificationConfig.email?.notifyOnSubmission ?? true}
+                        onChange={(event) =>
+                          updateDraft((current) => ({
+                            ...current,
+                            notificationConfig: {
+                              ...current.notificationConfig,
+                              email: {
+                                ...current.notificationConfig.email,
+                                notifyOnSubmission: event.target.checked,
+                              },
+                            },
+                          }))
+                        }
+                        className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
+                      />
+                      Email on submission
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-900">
+                      <input
+                        type="checkbox"
+                        checked={draft.notificationConfig.email?.sendReceiptToSubmitter ?? false}
+                        onChange={(event) => {
+                          console.log('📧 Checkbox clicked! New value:', event.target.checked);
+                          updateDraft((current) => {
+                            const updated = {
+                              ...current,
+                              notificationConfig: {
+                                ...current.notificationConfig,
+                                email: {
+                                  ...current.notificationConfig.email,
+                                  sendReceiptToSubmitter: event.target.checked,
+                                },
+                              },
+                            };
+                            console.log('📧 Updated draft sendReceiptToSubmitter:', updated.notificationConfig.email?.sendReceiptToSubmitter);
+                            return updated;
+                          });
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
+                      />
+                      Send receipt to submitter
+                    </label>
+                  </div>
+                  
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Override Slack webhook (optional)</label>
+                    <input
+                      type="url"
+                      value={draft.notificationConfig.slack?.webhookUrl || ''}
+                      onChange={(event) =>
+                        updateDraft((current) => ({
+                          ...current,
+                          notificationConfig: {
+                            ...current.notificationConfig,
+                            slack: {
+                              webhookUrl: event.target.value || null,
+                              targets: current.notificationConfig.slack?.targets || [],
+                            },
+                          },
+                        }))
+                      }
+                      className="w-full rounded-lg border border-gray-200 bg-white hover:bg-gray-100 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">Leave blank to use the global webhook.</p>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600">Slack recipients</h4>
+                  {slackTargets.error ? (
+                    <p className="text-xs text-red-600">{slackTargets.error}</p>
+                  ) : slackTargets.needsToken ? (
+                    <p className="text-xs text-gray-600">Set SLACK_BOT_TOKEN to list Slack channels and users.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600">Channels</p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          {slackTargets.channels.map((channel) => {
+                            const selected = draft.notificationConfig.slack?.targets?.some((target) => target.id === channel.id);
+                            return (
+                              <label key={channel.id} className="flex items-center gap-2 rounded border border-gray-200 bg-white hover:bg-gray-100 px-3 py-2 text-xs text-gray-900">
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => toggleSlackTarget(channel)}
+                                  className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
+                                />
+                                #{channel.name || channel.id}
+                              </label>
+                            );
+                          })}
+                          {!slackTargets.channels.length && (
+                            <p className="text-xs text-gray-500">No channels returned.</p>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600">Users</p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          {slackTargets.users.map((user) => {
+                            const selected = draft.notificationConfig.slack?.targets?.some((target) => target.id === user.id);
+                            return (
+                              <label key={user.id} className="flex items-center gap-2 rounded border border-gray-200 bg-white hover:bg-gray-100 px-3 py-2 text-xs text-gray-900">
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => toggleSlackTarget(user)}
+                                  className="h-4 w-4 rounded border-gray-300 bg-white hover:bg-gray-100 text-blue-500 focus:ring-0"
+                                />
+                                {user.name || user.id}
+                              </label>
+                            );
+                          })}
+                          {!slackTargets.users.length && (
+                            <p className="text-xs text-gray-500">No users returned.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+        </div>
+      </main>
+
+      {/* Floating Action Buttons */}
+      {draft && (
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+          {/* Save Button */}
+          <button
+            onClick={handleSave}
+            disabled={!draft || saving}
+            className="inline-flex items-center gap-2 rounded-full bg-blue-500 px-6 py-3 text-sm font-medium text-white shadow-2xl hover:bg-blue-600 hover:shadow-3xl hover:scale-110 disabled:cursor-not-allowed disabled:bg-blue-500/50 disabled:hover:scale-100 transition-all duration-200"
+          >
+            {saving ? (
+              <>
+                <ArrowPathIcon className="h-5 w-5 animate-spin" /> Saving…
+              </>
+            ) : autoSaving ? (
+              <>
+                <ArrowPathIcon className="h-5 w-5 animate-spin" /> Auto-saving…
+              </>
+            ) : (
+              <>
+                <CheckCircleIcon className="h-5 w-5" /> Save
+              </>
+            )}
+          </button>
+          
+          {/* Copy Link & Open Buttons (only for existing forms) */}
+          {draft.id && (
+            <div className="flex gap-2">
+              <button
+                onClick={copyFormLink}
+                className="inline-flex items-center justify-center rounded-full bg-gray-700 p-3 text-white shadow-xl hover:bg-gray-600 hover:shadow-2xl hover:scale-110 transition-all duration-200"
+                title="Copy form link"
+              >
+                {showCopiedMessage ? (
+                  <CheckCircleIcon className="h-5 w-5 text-green-400" />
+                ) : (
+                  <ClipboardDocumentIcon className="h-5 w-5" />
+                )}
+              </button>
+              <button
+                onClick={openFormInNewTab}
+                className="inline-flex items-center justify-center rounded-full bg-gray-700 p-3 text-white shadow-xl hover:bg-gray-600 hover:shadow-2xl hover:scale-110 transition-all duration-200"
+                title="Open form in new tab"
+              >
+                <ArrowTopRightOnSquareIcon className="h-5 w-5" />
+              </button>
+            </div>
           )}
         </div>
       )}
     </div>
   );
-} 
+}

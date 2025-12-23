@@ -48,7 +48,10 @@ export async function logAuditEvent(
   }
 ): Promise<void> {
   try {
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+      tls: true,
+      tlsCAFile: "/app/global-bundle.pem",
+    });
     await client.connect();
     
     const db = client.db();
@@ -104,7 +107,10 @@ export async function getAuditLogs(options?: {
   page: number;
   totalPages: number;
 }> {
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+    tls: true,
+    tlsCAFile: "/app/global-bundle.pem",
+  });
   
   try {
     await client.connect();
@@ -187,7 +193,10 @@ export async function getAuditStats(): Promise<{
   topActions: Array<{ action: string; count: number }>;
   topUsers: Array<{ userEmail: string; count: number }>;
 }> {
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+    tls: true,
+    tlsCAFile: "/app/global-bundle.pem",
+  });
   
   try {
     await client.connect();

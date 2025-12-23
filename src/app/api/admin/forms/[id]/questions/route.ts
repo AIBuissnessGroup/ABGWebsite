@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
 import { MongoClient } from 'mongodb';
 import crypto from 'crypto';
+import { requireAdminSession } from '@/lib/server-admin';
 
 const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri);
+const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
 
 export async function GET(
   request: NextRequest,
@@ -12,16 +15,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const session = await getServerSession();
-    
-    if (!session?.user?.email) {
+    const session = await requireAdminSession();
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     await client.connect();
@@ -45,16 +41,9 @@ export async function POST(
 ) {
   try {
     const { id: formId } = await params;
-    const session = await getServerSession();
-    
-    if (!session?.user?.email) {
+    const session = await requireAdminSession();
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const data = await request.json();
@@ -108,16 +97,9 @@ export async function PUT(
 ) {
   try {
     const { id: formId } = await params;
-    const session = await getServerSession();
-    
-    if (!session?.user?.email) {
+    const session = await requireAdminSession();
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const data = await request.json();
@@ -167,16 +149,9 @@ export async function DELETE(
 ) {
   try {
     const { id: formId } = await params;
-    const session = await getServerSession();
-    
-    if (!session?.user?.email) {
+    const session = await requireAdminSession();
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);

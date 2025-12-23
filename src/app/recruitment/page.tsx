@@ -4,11 +4,8 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Helper function to convert UTC dates to EST for display
-const convertUtcToEst = (utcDate: Date): Date => {
-  const estOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
-  return new Date(utcDate.getTime() - estOffset);
-};
+// Import timezone utility for consistent Eastern Time handling
+import { formatUtcDateInEastern } from '@/lib/timezone';
 
 interface MemberLevels {
   heroTitle: string;
@@ -2008,13 +2005,13 @@ export default function RecruitmentPage() {
                                     <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z" />
                                     </svg>
-                                    <span className="font-medium">{convertUtcToEst(new Date(event.eventDate)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</span>
+                                    <span className="font-medium">{formatUtcDateInEastern(event.eventDate, { weekday: undefined, month: 'short', day: 'numeric', year: 'numeric', hour: undefined, minute: undefined }, false)}</span>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    <span className="font-medium">{convertUtcToEst(new Date(event.eventDate)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST</span>
+                                    <span className="font-medium">{formatUtcDateInEastern(event.eventDate, { weekday: undefined, month: undefined, day: undefined, hour: '2-digit', minute: '2-digit' }, true)}</span>
                                   </div>
                                   {event.location && (
                                     <div className="flex items-center gap-2">

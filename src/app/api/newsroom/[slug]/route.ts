@@ -4,7 +4,10 @@ import { MongoClient, ObjectId } from 'mongodb';
 const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
 
 function createMongoClient() {
-  return new MongoClient(uri);
+  return new MongoClient(uri, {
+    tls: true,
+    tlsCAFile: "/app/global-bundle.pem",
+  });
 }
 
 // Safely serialize MongoDB objects

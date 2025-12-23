@@ -126,7 +126,7 @@ export default function EventCountdown({
         // Load event and settings in parallel
         const [eventRes, settingsRes] = await Promise.all([
           fetch('/api/events/next'),
-          fetch('/api/admin/settings')
+          fetch('/api/public/settings?key=event_attendance_text')
         ]);
         
         if (eventRes.ok) {
@@ -136,10 +136,12 @@ export default function EventCountdown({
 
         if (settingsRes.ok) {
           const settings = await settingsRes.json();
-          const attendanceTextSetting = settings.find((s: any) => s.key === 'event_attendance_text');
-          if (attendanceTextSetting) {
+          const attendanceTextSetting = Array.isArray(settings) ? settings.find((s: any) => s.key === 'event_attendance_text') : null;
+          if (attendanceTextSetting?.value) {
             setEventAttendanceText(attendanceTextSetting.value);
           }
+        } else {
+          console.warn('Failed to load public settings:', await settingsRes.text());
         }
       } catch (error) {
         console.error('Failed to load data:', error);

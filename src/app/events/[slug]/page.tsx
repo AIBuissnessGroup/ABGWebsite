@@ -20,7 +20,10 @@ interface EventPageProps {
 
 async function getEvent(slug: string): Promise<Event | null> {
   try {
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
     
@@ -116,7 +119,7 @@ async function getEvent(slug: string): Promise<Event | null> {
           }
         }
       },
-      { $unset: 'partnershipCompanies' }
+      { $project: { partnershipCompanies: 0 } }
     ];
     
     let events = await db.collection('Event').aggregate(pipeline).toArray();
@@ -235,7 +238,7 @@ async function getEvent(slug: string): Promise<Event | null> {
               }
             }
           },
-          { $unset: 'partnershipCompanies' }
+          { $project: { partnershipCompanies: 0 } }
         ]).toArray();
         
         event = eventWithPartnerships[0] || foundEvent;
@@ -333,7 +336,7 @@ async function getEvent(slug: string): Promise<Event | null> {
                 }
               }
             },
-            { $unset: 'partnershipCompanies' }
+            { $project: { partnershipCompanies: 0 } }
           ]).toArray();
           
           event = eventWithPartnerships[0] || bestMatch;
@@ -361,36 +364,14 @@ async function getEvent(slug: string): Promise<Event | null> {
   }
 }
 
-async function getEventStats(eventId: string) {
-  try {
-    const client = new MongoClient(uri);
-    await client.connect();
-    const db = client.db();
-    
-    const confirmedCount = await db.collection('EventAttendance').countDocuments({
-      eventId: eventId,
-      status: 'confirmed'
-    });
-    
-    const waitlistCount = await db.collection('EventAttendance').countDocuments({
-      eventId: eventId,
-      status: 'waitlisted'
-    });
-    
-    await client.close();
-    
-    return { confirmedCount, waitlistCount };
-  } catch (error) {
-    console.error('Error fetching event stats:', error);
-    return { confirmedCount: 0, waitlistCount: 0 };
-  }
-}
-
 async function getUserRegistration(eventId: string, email?: string): Promise<EventAttendance | null> {
   if (!email) return null;
   
   try {
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
     
@@ -498,7 +479,6 @@ export default async function EventPage({ params, searchParams }: EventPageProps
   const dbEvent = rawEvent as any;
   
   // Get event statistics for waitlist info
-  const eventStats = await getEventStats(dbEvent.id);
 
   // Serialize the event data for client components
   const serializedEvent: Event = {
@@ -585,7 +565,7 @@ export default async function EventPage({ params, searchParams }: EventPageProps
       enabled: Boolean(dbEvent.waitlistEnabled),
       maxSize: dbEvent.waitlistMaxSize,
       autoPromote: Boolean(dbEvent.waitlistAutoPromote),
-      currentSize: eventStats.waitlistCount
+      currentSize: 0,
     },
     // Transform partnerships to partners format expected by EventDetailPage
     partners: dbEvent.partnerships ? dbEvent.partnerships.map((partnership: any) => ({
@@ -627,7 +607,6 @@ export default async function EventPage({ params, searchParams }: EventPageProps
         userRegistration={userRegistration}
         userEmail={userEmail}
         userRoles={userRoles}
-        eventStats={eventStats}
         searchParams={resolvedSearchParams}
       />
     </main>

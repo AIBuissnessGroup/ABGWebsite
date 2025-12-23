@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
 import { MongoClient } from 'mongodb';
-import { authOptions } from '@/lib/auth';
+import { requireAdminSession } from '@/lib/server-admin';
 
 // Helper function to handle CORS
 function corsResponse(response: NextResponse) {
@@ -22,8 +21,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const session = await requireAdminSession();
+  if (!session) {
+    return corsResponse(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
+  }
   try {
-    const client = new MongoClient(process.env.DATABASE_URL!);
+    const client = new MongoClient(process.env.DATABASE_URL!, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 
@@ -79,7 +85,7 @@ export async function GET(
           }
         }
       },
-      { $unset: 'partnershipCompanies' },
+      { $project: { partnershipCompanies: 0 } },
       { $sort: { eventDate: 1 } }
     ]).toArray();
 
@@ -98,19 +104,16 @@ export async function POST(
 ) {
   try {
     const { id } = await params; // Await params before accessing properties
-    const session = await getServerSession(authOptions);
+    const session = await requireAdminSession();
     
-    if (!session?.user?.email) {
+    if (!session) {
       return corsResponse(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
     }
 
-    // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return corsResponse(NextResponse.json({ error: 'Forbidden' }, { status: 403 }));
-    }
-
-    const client = new MongoClient(process.env.DATABASE_URL!);
+    const client = new MongoClient(process.env.DATABASE_URL!, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 
@@ -122,7 +125,7 @@ export async function POST(
         id: `user-${Date.now()}`,
         email: session.user.email,
         name: session.user.name || '',
-        role: adminEmails.includes(session.user.email) ? 'ADMIN' : 'USER',
+        role: 'ADMIN',
         createdAt: new Date(),
         updatedAt: new Date()
       };

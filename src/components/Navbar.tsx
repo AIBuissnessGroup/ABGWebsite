@@ -25,6 +25,7 @@ export default function Navbar() {
     { href: "/recruitment", label: "Recruitment" },
     { href: "/internships", label: "Internships" },
     { href: "/team", label: "Team" },
+  //{ href: "/fluently", label: "Fluently" },
     { 
       href: "https://www.instagram.com/umichaibusiness/", 
       label: "Instagram", 

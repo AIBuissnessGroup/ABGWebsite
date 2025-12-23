@@ -20,7 +20,10 @@ export async function POST(
 
     const { checkInCode, attendeeId, photo } = await request.json();
 
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 
@@ -266,7 +269,10 @@ export async function GET(
     const checkInCode = searchParams.get('checkInCode');
     const attendeeId = searchParams.get('attendeeId');
 
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
     await client.connect();
     const db = client.db();
 

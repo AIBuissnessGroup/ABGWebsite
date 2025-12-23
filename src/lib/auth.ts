@@ -3,7 +3,10 @@ import GoogleProvider from 'next-auth/providers/google';
 import { MongoClient } from 'mongodb';
 import { isAdminEmail } from './admin';
 
-const client = new MongoClient(process.env.DATABASE_URL!);
+const client = new MongoClient(process.env.DATABASE_URL!, {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+});
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -40,7 +43,10 @@ export const authOptions: NextAuthOptions = {
             timestamp: new Date().toISOString()
           });
 
-          mongoClient = new MongoClient(process.env.DATABASE_URL!);
+          mongoClient = new MongoClient(process.env.DATABASE_URL!, {
+            tls: true,
+            tlsCAFile: "/app/global-bundle.pem",
+          });
           await mongoClient.connect();
           const db = mongoClient.db();
           const usersCollection = db.collection('users');
@@ -192,7 +198,10 @@ export const authOptions: NextAuthOptions = {
       if (token.email) {
         let mongoClient;
         try {
-          mongoClient = new MongoClient(process.env.DATABASE_URL!);
+          mongoClient = new MongoClient(process.env.DATABASE_URL!, {
+            tls: true,
+            tlsCAFile: "/app/global-bundle.pem",
+          });
           await mongoClient.connect();
           const db = mongoClient.db();
           const usersCollection = db.collection('users');

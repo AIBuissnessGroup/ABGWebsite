@@ -1,282 +1,367 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { 
-  PlusIcon, 
-  PencilIcon, 
-  TrashIcon, 
-  EyeIcon,
-  BuildingOfficeIcon
+import {
+  PlusIcon,
+  BuildingOfficeIcon,
+  PencilIcon,
+  TrashIcon,
+  GlobeAltIcon,
 } from '@heroicons/react/24/outline';
+import Image from 'next/image';
+import { useAdminApi, useAdminQuery } from '@/hooks/useAdminApi';
+import {
+  AdminSection,
+  AdminStatCard,
+  AdminEmptyState,
+  AdminLoadingState,
+} from '@/components/admin/ui';
+
+interface Company {
+  id: string;
+  name: string;
+  description?: string;
+  logoUrl?: string;
+  website?: string;
+  industry?: string;
+  size?: string;
+  location?: string;
+  contactEmail?: string;
+  active?: boolean;
+  createdAt?: number;
+}
 
 export default function CompaniesAdmin() {
-  const { data: session, status } = useSession();
-  const [loading, setLoading] = useState(true);
-  const [companies, setCompanies] = useState<any[]>([]);
+  const { status } = useSession();
   const [showForm, setShowForm] = useState(false);
-  const [editingCompany, setEditingCompany] = useState<any>(null);
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const { del } = useAdminApi();
 
-  // Restore form state on mount
+  const {
+    data: companiesData,
+    loading,
+    error,
+    refetch,
+  } = useAdminQuery<Company[]>(
+    status === 'authenticated' ? '/api/admin/companies' : null,
+    {
+      enabled: status === 'authenticated',
+      skipErrorToast: true,
+    }
+  );
+
+  const companies = useMemo(() => companiesData ?? [], [companiesData]);
+
   useEffect(() => {
+    if (status === 'unauthenticated') {
+      redirect('/auth/signin');
+    }
+  }, [status]);
+
+  useEffect(() => {
+    if (!companies.length) return;
+    const savedState = localStorage.getItem('companiesAdmin_formState');
+    if (!savedState) return;
+
     try {
-      const savedFormState = localStorage.getItem('companiesAdmin_formState');
-      if (savedFormState) {
-        const { showForm: savedShowForm, editingCompanyId } = JSON.parse(savedFormState);
-        console.log('🔄 Restoring companies form state:', { savedShowForm, editingCompanyId, companiesLoaded: companies.length > 0 });
-        if (savedShowForm) {
-          setShowForm(true);
-          if (editingCompanyId) {
-            // We'll set the editing company after companies are loaded
-            const checkForCompany = () => {
-              if (companies.length > 0) {
-                const company = companies.find(c => c.id === editingCompanyId);
-                if (company) {
-                  setEditingCompany(company);
-                  console.log('✓ Companies editing company restored:', company.name);
-                }
-              }
-            };
-            // Check immediately and also set up a timeout
-            checkForCompany();
-            setTimeout(checkForCompany, 100);
-          } else {
-            console.log('✓ Companies new form restored');
-          }
+      const { showForm: savedShowForm, editingCompanyId } = JSON.parse(savedState);
+      if (savedShowForm) {
+        setShowForm(true);
+        if (editingCompanyId) {
+          const match = companies.find((company) => company.id === editingCompanyId);
+          if (match) setEditingCompany(match);
         }
       }
-    } catch (error) {
-      console.error('Error restoring form state:', error);
+    } catch (err) {
+      console.error('Failed to restore company form state', err);
+      localStorage.removeItem('companiesAdmin_formState');
     }
   }, [companies]);
 
-  // Save form state whenever it changes
   useEffect(() => {
-    try {
-      const formState = {
-        showForm,
-        editingCompanyId: editingCompany?.id || null
-      };
-      if (showForm || editingCompany) {
-        localStorage.setItem('companiesAdmin_formState', JSON.stringify(formState));
-      } else {
-        localStorage.removeItem('companiesAdmin_formState');
-      }
-    } catch (error) {
-      console.error('Error saving form state:', error);
+    const state = JSON.stringify({
+      showForm,
+      editingCompanyId: editingCompany?.id ?? null,
+    });
+
+    if (showForm || editingCompany) {
+      localStorage.setItem('companiesAdmin_formState', state);
+    } else {
+      localStorage.removeItem('companiesAdmin_formState');
     }
   }, [showForm, editingCompany]);
 
-  useEffect(() => {
-    if (status === 'loading') return;
-    if (!session) {
-      redirect('/auth/signin');
-      return;
-    }
-    // Let the API handle admin checking - just proceed if logged in
-    console.log('User session:', session.user);
-  }, [session, status]);
+  const stats = useMemo(
+    () => [
+      {
+        label: 'Total Companies',
+        value: companies.length,
+        icon: <BuildingOfficeIcon className="w-5 h-5" />,
+        accent: 'primary' as const,
+      },
+      {
+        label: 'Active Partnerships',
+        value: companies.filter((c) => c.active ?? true).length,
+        icon: <GlobeAltIcon className="w-5 h-5" />,
+        accent: 'success' as const,
+      },
+      {
+        label: 'New This Week',
+        value: companies.filter(
+          (c) => c.createdAt && Date.now() - c.createdAt < 7 * 24 * 60 * 60 * 1000,
+        ).length,
+        icon: <PlusIcon className="w-5 h-5" />,
+        accent: 'warning' as const,
+      },
+    ],
+    [companies],
+  );
 
-  useEffect(() => {
-    if (session?.user) loadCompanies();
-  }, [session]);
+  if (status === 'loading') {
+    return <AdminLoadingState fullHeight message="Checking permissions..." />;
+  }
 
-  const loadCompanies = async () => {
-    setLoading(true);
+  if (status === 'unauthenticated') {
+    return null;
+  }
+
+  const handleDelete = async (company: Company, force = false) => {
+    const confirmMessage = force
+      ? `Force delete "${company.name}"? This removes all linked partnerships.`
+      : `Delete "${company.name}"? This action cannot be undone.`;
+
+    if (!confirm(confirmMessage)) return;
+
     try {
-      const res = await fetch('/api/admin/companies');
-      const data = await res.json();
-      if (data && !data.error) setCompanies(data);
-    } catch (error) {
-      console.error('Error loading companies:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteCompany = async (id: string, force = false) => {
-    const confirmMsg = force 
-      ? 'Are you sure you want to FORCE DELETE this company? This will also remove all partnerships and cannot be undone.'
-      : 'Are you sure you want to delete this company? This action cannot be undone.';
-      
-    if (confirm(confirmMsg)) {
-      try {
-        const url = force 
-          ? `/api/admin/companies?id=${id}&force=true`
-          : `/api/admin/companies?id=${id}`;
-          
-        const res = await fetch(url, { method: 'DELETE' });
-        
-        if (res.ok) {
-          loadCompanies(); // Reload the companies list
-        } else {
-          const error = await res.json();
-          if (!force && error.error && error.error.includes('partnerships')) {
-            if (confirm('This company has active partnerships. Do you want to force delete it and remove all partnerships?')) {
-              deleteCompany(id, true); // Retry with force
-            }
-          } else {
-            alert(error.error || 'Error deleting company');
-          }
+      const url = force
+        ? `/api/admin/companies?id=${company.id}&force=true`
+        : `/api/admin/companies?id=${company.id}`;
+      await del(url, { successMessage: 'Company removed' });
+      await refetch();
+    } catch (err) {
+      if (!force && err instanceof Error && err.message.includes('partnerships')) {
+        const agree = confirm(
+          'This company has active partnerships. Force delete and remove all partnerships?',
+        );
+        if (agree) {
+          handleDelete(company, true);
         }
-      } catch (error) {
-        console.error('Error deleting company:', error);
-        alert('Error deleting company');
       }
     }
   };
 
-  if (status === 'loading' || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#00274c]"></div>
-      </div>
-    );
-  }
+  const openForm = (company?: Company) => {
+    setEditingCompany(company ?? null);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setEditingCompany(null);
+    setShowForm(false);
+    localStorage.removeItem('companiesAdmin_formState');
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Companies</h1>
-          <p className="text-gray-600 mt-1">Manage partner companies ({companies.length} total)</p>
-        </div>
-        {!showForm && (
-          <button
-            onClick={() => {
-              setEditingCompany(null);
-              setShowForm(true);
-            }}
-            className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366] admin-white-text"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Add Company
-          </button>
-        )}
-      </div>
-
-      {/* Inline Form */}
-      {showForm && (
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 mb-6">
-          <CompanyForm
-            company={editingCompany}
-            onClose={() => {
-              setShowForm(false);
-              setEditingCompany(null);
-              // Clear form state from localStorage
-              localStorage.removeItem('companiesAdmin_formState');
-            }}
-            onSave={() => {
-              loadCompanies();
-              setShowForm(false);
-              setEditingCompany(null);
-              // Clear form state from localStorage
-              localStorage.removeItem('companiesAdmin_formState');
-            }}
-          />
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {companies.map((company: any) => (
-          <div key={company.id} className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                {company.logoUrl && (
-                  <img 
-                    src={company.logoUrl} 
-                    alt={`${company.name} logo`}
-                    className="w-12 h-12 object-contain rounded"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                    }}
-                  />
-                )}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{company.name}</h3>
-                  <p className="text-sm text-gray-500">{company.industry}</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setEditingCompany(company);
-                    setShowForm(true);
-                  }}
-                  className="text-green-600 hover:text-green-900 p-2"
-                  title="Edit Company"
-                  disabled={showForm}
-                >
-                  <PencilIcon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => deleteCompany(company.id)}
-                  className="text-red-600 hover:text-red-900 p-2"
-                  title="Delete Company"
-                  disabled={showForm}
-                >
-                  <TrashIcon className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2 text-sm">
-              {company.description && (
-                <p className="text-gray-600 line-clamp-2">{company.description}</p>
-              )}
-              {company.size && (
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-500">Size:</span>
-                  <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium">{company.size}</span>
-                </div>
-              )}
-              {company.location && (
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-500">Location:</span>
-                  <span className="font-medium">{company.location}</span>
-                </div>
-              )}
-            </div>
-
-            {company.website && (
-              <div className="mt-4">
-                <a
-                  href={company.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#00274c] hover:text-[#003366] text-sm font-medium"
-                >
-                  Visit Website →
-                </a>
-              </div>
-            )}
-          </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        {stats.map((stat) => (
+          <AdminStatCard key={stat.label} {...stat} />
         ))}
       </div>
 
-      {companies.length === 0 && !showForm && (
-        <div className="text-center py-12">
-          <BuildingOfficeIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No companies yet</h3>
-          <p className="text-gray-600 mb-4">Add your first partner company to get started.</p>
-          <button
-            onClick={() => {
-              setEditingCompany(null);
-              setShowForm(true);
+      <AdminSection
+        title="Companies"
+        description="Manage every partner relationship in one place."
+        actions={
+          !showForm && (
+            <button
+              onClick={() => openForm()}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#00274c] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#01305e]"
+            >
+              <PlusIcon className="w-4 h-4" />
+              Add Company
+            </button>
+          )
+        }
+      >
+        {loading && <AdminLoadingState fullHeight message="Loading companies..." />}
+
+        {!loading && error && (
+          <AdminEmptyState
+            title="We couldn't load companies"
+            description={error.message}
+            action={
+              <button
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                onClick={refetch}
+              >
+                Try again
+              </button>
+            }
+          />
+        )}
+
+        {!loading && !error && companies.length === 0 && (
+          <AdminEmptyState
+            icon={<BuildingOfficeIcon className="w-12 h-12" />}
+            title="No companies yet"
+            description="Add your first partner company to get started."
+            action={
+              <button
+                onClick={() => openForm()}
+                className="rounded-lg bg-[#00274c] px-4 py-2 text-sm font-medium text-white hover:bg-[#01305e]"
+              >
+                Add Company
+              </button>
+            }
+          />
+        )}
+
+        {!loading && !error && companies.length > 0 && (
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {companies.map((company) => (
+              <CompanyCard
+                key={company.id}
+                company={company}
+                onEdit={() => openForm(company)}
+                onDelete={() => handleDelete(company)}
+              />
+            ))}
+          </div>
+        )}
+      </AdminSection>
+
+      {showForm && (
+        <AdminSection
+          title={editingCompany ? 'Edit Company' : 'Add Company'}
+          description="Keep partner details accurate so the team always has the latest info."
+          actions={
+            <button
+              onClick={closeForm}
+              className="rounded-lg border border-gray-200 px-3 py-1 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            >
+              Close
+            </button>
+          }
+        >
+          <CompanyForm
+            company={editingCompany}
+            onClose={closeForm}
+            onSaved={async () => {
+              await refetch();
+              closeForm();
             }}
-                              className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
-                >
-                  Add Company
+          />
+        </AdminSection>
+      )}
+    </div>
+  );
+}
+
+function CompanyCard({
+  company,
+  onEdit,
+  onDelete,
+}: {
+  company: Company;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col rounded-2xl border border-gray-200 p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          {company.logoUrl ? (
+            <Image
+              src={company.logoUrl}
+              alt={`${company.name} logo`}
+              width={48}
+              height={48}
+              className="h-12 w-12 rounded-lg border border-gray-100 object-contain"
+              unoptimized
+            />
+          ) : (
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-50 text-gray-400">
+              <BuildingOfficeIcon className="h-6 w-6" />
+            </div>
+          )}
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">{company.name}</h3>
+            <p className="text-sm text-gray-500">{company.industry || 'Industry TBD'}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onEdit}
+            className="rounded-lg border border-gray-200 p-2 text-gray-600 hover:bg-gray-50"
+            aria-label={`Edit ${company.name}`}
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onDelete}
+            className="rounded-lg border border-red-100 p-2 text-red-600 hover:bg-red-50"
+            aria-label={`Delete ${company.name}`}
+          >
+            <TrashIcon className="h-4 w-4" />
           </button>
         </div>
+      </div>
+      {company.description && (
+        <p className="mt-4 flex-1 text-sm text-gray-600 line-clamp-3">{company.description}</p>
       )}
-     </div>
-   );
- }
+      <dl className="mt-4 grid grid-cols-2 gap-3 text-sm text-gray-500">
+        <div>
+          <dt className="text-xs uppercase tracking-wide text-gray-400">Size</dt>
+          <dd className="font-medium text-gray-900">{company.size || 'Unknown'}</dd>
+        </div>
+        <div>
+          <dt className="text-xs uppercase tracking-wide text-gray-400">Location</dt>
+          <dd className="font-medium text-gray-900">{company.location || 'TBD'}</dd>
+        </div>
+      </dl>
+      <div className="mt-4 flex flex-wrap gap-2 text-sm">
+        {company.website && (
+          <a
+            href={company.website}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-gray-600 hover:bg-gray-50"
+          >
+            <GlobeAltIcon className="h-4 w-4" />
+            Website
+          </a>
+        )}
+        {company.contactEmail && (
+          <a
+            href={`mailto:${company.contactEmail}`}
+            className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-gray-600 hover:bg-gray-50"
+          >
+            Contact
+          </a>
+        )}
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
+            company.active ?? true ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
+          }`}
+        >
+          {company.active ?? true ? 'Active' : 'Inactive'}
+        </span>
+      </div>
+    </div>
+  );
+}
 
-function CompanyForm({ company, onClose, onSave }: any) {
+interface CompanyFormProps {
+  company: Company | null;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function CompanyForm({ company, onClose, onSaved }: CompanyFormProps) {
+  const { post, put } = useAdminApi();
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -286,32 +371,13 @@ function CompanyForm({ company, onClose, onSave }: any) {
     size: '',
     location: '',
     contactEmail: '',
-    active: true
+    active: true,
   });
-  const [saving, setSaving] = useState(false);
 
-  // Autosave functionality - works for both new and editing
   useEffect(() => {
-    const autoSaveData = () => {
-      if (formData.name.trim()) {
-        try {
-          const draftKey = company ? `companyForm_draft_edit_${company.id}` : 'companyForm_draft_new';
-          localStorage.setItem(draftKey, JSON.stringify(formData));
-          console.log('✓ Company form autosaved:', formData.name, company ? '(editing)' : '(new)');
-        } catch (error) {
-          console.error('Error autosaving company form:', error);
-        }
-      }
-    };
+    const draftKey = company ? `companyForm_draft_edit_${company.id}` : 'companyForm_draft_new';
 
-    const timeoutId = setTimeout(autoSaveData, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [formData, company]);
-
-  // Load draft on mount or set company data - works for both new and editing
-  useEffect(() => {
     if (company) {
-      // For editing, first set the company data, then check for editing draft
       setFormData({
         name: company.name || '',
         description: company.description || '',
@@ -321,213 +387,174 @@ function CompanyForm({ company, onClose, onSave }: any) {
         size: company.size || '',
         location: company.location || '',
         contactEmail: company.contactEmail || '',
-        active: company.active ?? true
+        active: company.active ?? true,
       });
-      
-      // Check for editing draft (modifications to existing company)
-      const editDraftKey = `companyForm_draft_edit_${company.id}`;
-      const editDraft = localStorage.getItem(editDraftKey);
-      if (editDraft) {
-        try {
-          const parsedDraft = JSON.parse(editDraft);
-          setFormData(parsedDraft);
-          console.log('✓ Company editing draft loaded:', parsedDraft.name);
-        } catch (error) {
-          console.error('Error loading company editing draft:', error);
-          localStorage.removeItem(editDraftKey);
-        }
-      }
     } else {
-      // Load draft for new companies
-      const draftKey = 'companyForm_draft_new';
       const draft = localStorage.getItem(draftKey);
       if (draft) {
         try {
-          const parsedDraft = JSON.parse(draft);
-          setFormData(parsedDraft);
-          console.log('✓ Company form draft loaded:', parsedDraft.name);
-        } catch (error) {
-          console.error('Error loading company form draft:', error);
+          setFormData(JSON.parse(draft));
+        } catch {
           localStorage.removeItem(draftKey);
         }
       }
     }
+
+    return () => {
+      localStorage.removeItem('companyForm_draft_new');
+    };
   }, [company]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    const draftKey = company ? `companyForm_draft_edit_${company.id}` : 'companyForm_draft_new';
+    const timeout = setTimeout(() => {
+      if (formData.name.trim()) {
+        localStorage.setItem(draftKey, JSON.stringify(formData));
+      }
+    }, 800);
+
+    return () => clearTimeout(timeout);
+  }, [company, formData]);
+
+  const handleChange = (field: keyof typeof formData, value: string | boolean) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setSaving(true);
 
     try {
-      const url = company 
-        ? `/api/admin/companies?id=${company.id}` 
-        : '/api/admin/companies';
-      
-      const method = company ? 'PUT' : 'POST';
-      const data = company ? { ...formData, id: company.id } : formData;
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-
-      if (res.ok) {
-        // Clear the draft on successful save
-        const draftKey = company ? `companyForm_draft_edit_${company.id}` : 'companyForm_draft_new';
-        localStorage.removeItem(draftKey);
-        console.log('✓ Company form saved successfully, draft cleared');
-        onSave();
+      if (company) {
+        await put(`/api/admin/companies?id=${company.id}`, { ...formData }, { successMessage: 'Company updated' });
+        localStorage.removeItem(`companyForm_draft_edit_${company.id}`);
       } else {
-        const error = await res.json();
-        alert(error.message || 'Error saving company');
+        await post('/api/admin/companies', formData, { successMessage: 'Company created' });
+        localStorage.removeItem('companyForm_draft_new');
       }
-    } catch (error) {
-      console.error('Error saving company:', error);
-      alert('Error saving company');
+
+      onSaved();
+    } catch (err) {
+      console.error('Failed to save company', err);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">
-          {company ? 'Edit Company' : 'Add Company'}
-        </h3>
-        <div className="flex items-center gap-2">
-          <div className="text-xs text-gray-500 bg-green-50 px-2 py-1 rounded">
-            ✓ Auto-saving
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-sm"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-          
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Company Name *</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Industry</label>
-            <input
-              type="text"
-              value={formData.industry}
-              onChange={(e) => setFormData({...formData, industry: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-              placeholder="e.g., Technology"
-            />
-          </div>
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({...formData, description: e.target.value})}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-            placeholder="Brief description of the company"
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="grid gap-5 md:grid-cols-2">
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Company Name</label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => handleChange('name', e.target.value)}
+            required
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-[#00274c] focus:outline-none focus:ring-2 focus:ring-[#00274c]/20"
+            placeholder="Partner Inc."
           />
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Website</label>
-            <input
-              type="url"
-              value={formData.website}
-              onChange={(e) => setFormData({...formData, website: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-              placeholder="https://company.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Logo URL</label>
-            <input
-              type="url"
-              value={formData.logoUrl}
-              onChange={(e) => setFormData({...formData, logoUrl: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-              placeholder="https://company.com/logo.png"
-            />
-          </div>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Industry</label>
+          <input
+            type="text"
+            value={formData.industry}
+            onChange={(e) => handleChange('industry', e.target.value)}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-[#00274c] focus:outline-none focus:ring-2 focus:ring-[#00274c]/20"
+            placeholder="Technology"
+          />
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Company Size</label>
-            <select
-              value={formData.size}
-              onChange={(e) => setFormData({...formData, size: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-            >
-              <option value="">Select Size</option>
-              <option value="Startup">Startup (1-10)</option>
-              <option value="Small">Small (11-50)</option>
-              <option value="Medium">Medium (51-200)</option>
-              <option value="Large">Large (201-1000)</option>
-              <option value="Enterprise">Enterprise (1000+)</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-            <input
-              type="text"
-              value={formData.location}
-              onChange={(e) => setFormData({...formData, location: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-              placeholder="e.g., San Francisco, CA"
-            />
-          </div>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Website</label>
+          <input
+            type="url"
+            value={formData.website}
+            onChange={(e) => handleChange('website', e.target.value)}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-[#00274c] focus:outline-none focus:ring-2 focus:ring-[#00274c]/20"
+            placeholder="https://company.com"
+          />
         </div>
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Contact Email</label>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Logo URL</label>
+          <input
+            type="url"
+            value={formData.logoUrl}
+            onChange={(e) => handleChange('logoUrl', e.target.value)}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-[#00274c] focus:outline-none focus:ring-2 focus:ring-[#00274c]/20"
+            placeholder="https://company.com/logo.png"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Size</label>
+          <input
+            type="text"
+            value={formData.size}
+            onChange={(e) => handleChange('size', e.target.value)}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-[#00274c] focus:outline-none focus:ring-2 focus:ring-[#00274c]/20"
+            placeholder="50-100 employees"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Location</label>
+          <input
+            type="text"
+            value={formData.location}
+            onChange={(e) => handleChange('location', e.target.value)}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-[#00274c] focus:outline-none focus:ring-2 focus:ring-[#00274c]/20"
+            placeholder="Ann Arbor, MI"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Contact Email</label>
           <input
             type="email"
             value={formData.contactEmail}
-            onChange={(e) => setFormData({...formData, contactEmail: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
-            placeholder="contact@company.com"
+            onChange={(e) => handleChange('contactEmail', e.target.value)}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-[#00274c] focus:outline-none focus:ring-2 focus:ring-[#00274c]/20"
+            placeholder="hello@company.com"
           />
         </div>
-
-        <div className="flex items-center gap-2 mb-6">
-          <input
-            type="checkbox"
-            checked={formData.active}
-            onChange={(e) => setFormData({...formData, active: e.target.checked})}
-            className="rounded border-gray-300 text-[#00274c] focus:ring-[#00274c]"
-          />
-          <span className="text-sm text-gray-700">Active Partner</span>
-        </div>
-
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <button
-            type="submit"
-            disabled={saving}
-            className="admin-save-btn px-4 py-2 bg-[#00274c] text-white hover:bg-[#003366] hover:text-white rounded-lg disabled:opacity-50 disabled:text-white font-medium admin-white-text"
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Status</label>
+          <select
+            value={formData.active ? 'active' : 'inactive'}
+            onChange={(e) => handleChange('active', e.target.value === 'active')}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-[#00274c] focus:outline-none focus:ring-2 focus:ring-[#00274c]/20"
           >
-            {saving ? 'Saving...' : 'Save'}
-          </button>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
         </div>
-      </form>
-    </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Description</label>
+        <textarea
+          value={formData.description}
+          onChange={(e) => handleChange('description', e.target.value)}
+          rows={4}
+          className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-[#00274c] focus:outline-none focus:ring-2 focus:ring-[#00274c]/20"
+          placeholder="What kind of work will the partnership focus on?"
+        />
+      </div>
+
+      <div className="flex justify-end gap-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="inline-flex items-center rounded-lg bg-[#00274c] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#01305e] disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {saving ? 'Saving…' : company ? 'Save Changes' : 'Create Company'}
+        </button>
+      </div>
+    </form>
   );
-} 
+}

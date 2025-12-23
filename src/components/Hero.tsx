@@ -34,7 +34,7 @@ export default function Hero() {
   const [showSystemWarning, setShowSystemWarning] = useState(false);
 
   useEffect(() => {
-    fetch('/api/admin/hero')
+    fetch('/api/public/hero')
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
@@ -48,8 +48,8 @@ export default function Hero() {
   useEffect(() => {
     const checkDeadline = () => {
       const deadline = new Date();
-      deadline.setFullYear(2025, 8, 11); // September 11, 2025
-      deadline.setHours(19, 40, 0, 0); // 7:40 PM EST
+      deadline.setFullYear(2026, 1, 16); // September 11, 2025
+      deadline.setHours(0, 0, 0, 0); // 7:40 PM EST
       
       const now = Date.now();
       const timeUntilDeadline = deadline.getTime() - now;
@@ -72,7 +72,7 @@ export default function Hero() {
   return (
     <section 
       id="hero" 
-      className="min-h-screen flex flex-col justify-center relative overflow-hidden px-4 sm:px-6 md:px-8"
+      className="min-h-screen flex flex-col justify-center relative overflow-hidden px-4 sm:px-6 md:px-8 pt-16"
       style={{
         background: `linear-gradient(135deg, #00274c 0%, #1a2c45 50%, #2d3e5a 100%)`,
       }}
