@@ -140,7 +140,7 @@ export default function AdminInterviewsPage() {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-      timeZone: 'America/Detroit'
+      timeZone: 'America/New_York' // Use America/New_York for consistency
     });
   };
 

@@ -117,11 +117,8 @@ const parseDateFromInput = (dateString: string): Date => {
   return utcDate;
 };
 
-// Helper function to convert UTC dates to EST for display
-const convertUtcToEst = (utcDate: Date): Date => {
-  const estOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
-  return new Date(utcDate.getTime() - estOffset);
-};
+// Import timezone utility for consistent Eastern Time handling
+import { formatUtcDateInEastern } from '@/lib/timezone';
 
 function EventsAdmin() {
   const { data: session, status } = useSession();
@@ -292,16 +289,14 @@ function EventsAdmin() {
   };
 
   const formatDate = (timestamp: string | number) => {
-    const utcDate = typeof timestamp === 'string' ? new Date(timestamp) : new Date(timestamp);
-    const estDate = convertUtcToEst(utcDate);
-    return estDate.toLocaleDateString('en-US', {
+    const utcDateStr = typeof timestamp === 'string' ? timestamp : new Date(timestamp).toISOString();
+    return formatUtcDateInEastern(utcDateStr, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
       hour: 'numeric',
-      minute: '2-digit',
-      timeZone: 'America/New_York'
-    });
+      minute: '2-digit'
+    }, false);
   };
 
   const loadEventAttendees = async (eventId: string) => {
@@ -1182,7 +1177,7 @@ function EventsAdmin() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-gray-500">
-                                    Registered {convertUtcToEst(new Date(person.registeredAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
+                                    Registered {formatUtcDateInEastern(person.registeredAt, { month: 'short', day: 'numeric', year: 'numeric', hour: undefined, minute: undefined }, false)}
                                   </span>
                                   {event.canPromote && person.waitlistPosition === 1 && (
                                     <button
@@ -1373,7 +1368,7 @@ function EventsAdmin() {
                           {registration.attendee.gradeLevel}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {convertUtcToEst(new Date(registration.registeredAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
+                          {formatUtcDateInEastern(registration.registeredAt, { month: 'short', day: 'numeric', year: 'numeric', hour: undefined, minute: undefined }, false)}
                         </td>
                       </tr>
                     ))}
@@ -2797,8 +2792,7 @@ function AttendanceInfo({ eventId }: { eventId: string }) {
                       <span className="text-xs text-gray-500">{attendee.email}</span>
                     </div>
                     <span className="text-xs text-gray-500">
-                      {convertUtcToEst(new Date(attendee.confirmedAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })} at{' '}
-                      {convertUtcToEst(new Date(attendee.confirmedAt)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} EST
+                      {formatUtcDateInEastern(attendee.confirmedAt, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }, true)}
                     </span>
                   </div>
                   

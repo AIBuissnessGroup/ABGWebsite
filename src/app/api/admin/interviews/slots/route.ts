@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { date, timezone = 'America/Detroit', rooms, times } = body;
+    const { date, timezone = 'America/New_York', rooms, times } = body;
 
     if (!date || !rooms || !times) {
       return NextResponse.json({ error: 'Missing required fields: date, rooms, times' }, { status: 400 });
