@@ -9,7 +9,17 @@
 const { google } = require('googleapis');
 const http = require('http');
 const url = require('url');
-const open = require('open');
+
+// Dynamic import for ESM-only 'open' package
+async function openBrowser(url) {
+  try {
+    const open = (await import('open')).default;
+    await open(url);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
 
 const CLIENT_ID = process.env.GMAIL_CLIENT_ID || '1045234004522-ocemq7esg2135t0a6471jfnueqkia77v.apps.googleusercontent.com';
 const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || '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';
@@ -25,7 +35,8 @@ const SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://mail.google.com/',
-  'https://www.googleapis.com/auth/drive.file'
+  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/calendar'  // For creating calendar invites
 ];
 
 console.log('\n📧 Gmail API Token Refresh\n');
@@ -76,9 +87,8 @@ server.listen(3005, async () => {
   console.log('If the browser doesn\'t open, visit this URL:\n');
   console.log(authorizeUrl + '\n');
   
-  try {
-    await open(authorizeUrl);
-  } catch (err) {
+  const opened = await openBrowser(authorizeUrl);
+  if (!opened) {
     console.log('Could not open browser automatically. Please open the URL above manually.\n');
   }
 });

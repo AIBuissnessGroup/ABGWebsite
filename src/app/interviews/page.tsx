@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { ClockIcon, MapPinIcon, CheckIcon, CalendarDaysIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { TRACK_OPTIONS, getTrackShortLabel } from '@/lib/tracks';
 
 type InterviewSignup = {
   id: string;
@@ -390,8 +391,9 @@ export default function InterviewsPage() {
                 className="w-full bg-[#00274c] border border-white/20 rounded-lg px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
               >
                 <option value="all">All Types</option>
-                <option value="business">Business Based Interview</option>
-                <option value="engineering">Engineering Based Interview</option>
+                {TRACK_OPTIONS.map(t => (
+                  <option key={t.value} value={t.value}>{t.label} Interview</option>
+                ))}
               </select>
             </div>
             
@@ -420,7 +422,7 @@ export default function InterviewsPage() {
           <div className="mt-4 text-sm text-gray-300">
             Showing {filteredSlots.length} of {slots.length} slots
             {roomFilter !== 'all' && ` in Room ${roomFilter}`}
-            {typeFilter !== 'all' && ` for ${typeFilter === 'business' ? 'Business' : 'Engineering'} interviews`}
+            {typeFilter !== 'all' && ` for ${getTrackShortLabel(typeFilter as any)} interviews`}
             {timeFilter !== 'all' && ` at ${
               timeFilter.includes('am') 
                 ? timeFilter.replace('am', ':00 AM') 

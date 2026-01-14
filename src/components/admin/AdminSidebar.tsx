@@ -17,7 +17,8 @@ import {
   RocketLaunchIcon,
   BuildingOfficeIcon,
   EnvelopeIcon,
-  BellIcon
+  BellIcon,
+  AcademicCapIcon
 } from '@heroicons/react/24/outline';
 
 const navigation = [
@@ -29,6 +30,9 @@ const navigation = [
   { name: 'Form Analytics', href: '/admin/analytics/forms', icon: ChartBarIcon },
   { name: 'Projects', href: '/admin/projects', icon: RocketLaunchIcon },
   { name: 'Notifications', href: '/admin/notifications', icon: BellIcon },
+
+  // 🎯 Recruitment Portal
+  { name: 'Recruitment Portal', href: '/admin/recruitment-portal', icon: AcademicCapIcon },
 
   // 📰 Content & People
   { name: 'Newsroom', href: '/admin/newsroom', icon: SparklesIcon },

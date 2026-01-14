@@ -7,6 +7,12 @@ import { MongoClient, ObjectId } from 'mongodb';
 
 const uri = process.env.MONGODB_URI!;
 
+// MongoDB connection options for AWS DocumentDB
+const mongoOptions = {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+};
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -32,8 +38,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid approver selection' }, { status: 400 });
     }
 
-    // Connect to MongoDB
-    const client = await MongoClient.connect(uri);
+    // Connect to MongoDB with TLS for DocumentDB
+    const client = await MongoClient.connect(uri, mongoOptions);
     const db = client.db('abg-website');
 
     // Get approver name from users collection
@@ -190,8 +196,8 @@ export async function PUT(req: NextRequest) {
 
     console.log(`Approval handler called: approvalId=${approvalId}, action=${action}, approverEmail=${approverEmail}`);
 
-    // Connect to MongoDB
-    const client = await MongoClient.connect(uri);
+    // Connect to MongoDB with TLS for DocumentDB
+    const client = await MongoClient.connect(uri, mongoOptions);
     const db = client.db('abg-website');
 
     // Find the approval request

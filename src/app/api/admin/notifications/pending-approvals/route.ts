@@ -6,6 +6,12 @@ import { MongoClient } from 'mongodb';
 
 const uri = process.env.MONGODB_URI!;
 
+// MongoDB connection options for AWS DocumentDB
+const mongoOptions = {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+};
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -18,7 +24,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
-    const client = await MongoClient.connect(uri);
+    const client = await MongoClient.connect(uri, mongoOptions);
     const db = client.db('abg-website');
     
     // Fetch pending approvals for this user
@@ -78,7 +84,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Approval ID required' }, { status: 400 });
     }
 
-    const client = await MongoClient.connect(uri);
+    const client = await MongoClient.connect(uri, mongoOptions);
     const db = client.db('abg-website');
     
     // Delete the pending approval

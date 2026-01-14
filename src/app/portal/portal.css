@@ -1,0 +1,851 @@
+/* 
+ * Portal Page Styles
+ * 
+ * This CSS file provides dedicated styling for the applicant portal pages.
+ * It ensures proper text contrast (no white-on-white) and maintains a clean,
+ * professional look separate from the main site's dark theme.
+ *
+ * IMPORTANT: Uses high-specificity selectors to override global dark theme styles
+ */
+
+/* ================================
+   CSS CUSTOM PROPERTIES
+   ================================ */
+
+:root {
+  --portal-text-primary: #111827;
+  --portal-text-secondary: #4b5563;
+  --portal-text-muted: #6b7280;
+  --portal-text-light: #9ca3af;
+  --portal-bg-primary: #ffffff;
+  --portal-bg-secondary: #f9fafb;
+  --portal-bg-tertiary: #f3f4f6;
+  --portal-border: #e5e7eb;
+  --portal-border-dark: #d1d5db;
+  --portal-accent: #2563eb;
+  --portal-accent-hover: #1d4ed8;
+  --portal-success: #16a34a;
+  --portal-warning: #d97706;
+  --portal-error: #dc2626;
+}
+
+/* ================================
+   BASE STYLES FOR PORTAL
+   ================================ */
+
+/* Portal base container - applied by layout */
+.portal-container {
+  color: var(--portal-text-primary) !important;
+  background-color: var(--portal-bg-secondary) !important;
+  min-height: 100vh;
+}
+
+/* Force dark text on ALL elements within portal */
+.portal-container *:not(.portal-welcome-banner):not(.portal-welcome-banner *):not(.portal-btn-primary):not(.portal-nav-item.active) {
+  color: inherit;
+}
+
+/* ================================
+   TEXT COLORS - HIGH SPECIFICITY
+   ================================ */
+
+/* Primary headings and important text */
+.portal-container h1:not(.portal-welcome-banner h1),
+.portal-container h2:not(.portal-welcome-banner h2),
+.portal-container h3,
+.portal-container h4,
+.portal-container h5,
+.portal-container h6 {
+  color: var(--portal-text-primary) !important;
+}
+
+/* Body text - explicit selectors */
+.portal-container p:not(.portal-welcome-banner p),
+.portal-container span:not(.portal-welcome-banner span),
+.portal-container div:not(.portal-welcome-banner):not(.portal-welcome-banner div),
+.portal-container label,
+.portal-container li,
+.portal-container td,
+.portal-container th {
+  color: var(--portal-text-primary);
+}
+
+/* Specific text utility classes for portal - highest specificity */
+.portal-container .portal-text-primary,
+.portal-text-primary {
+  color: var(--portal-text-primary) !important;
+}
+
+.portal-container .portal-text-secondary,
+.portal-text-secondary {
+  color: var(--portal-text-secondary) !important;
+}
+
+.portal-container .portal-text-muted,
+.portal-text-muted {
+  color: var(--portal-text-muted) !important;
+}
+
+.portal-container .portal-text-light,
+.portal-text-light {
+  color: var(--portal-text-light) !important;
+}
+
+/* ================================
+   FORM ELEMENTS - FIXED TEXT COLORS
+   ================================ */
+
+/* Input fields */
+.portal-container input[type="text"],
+.portal-container input[type="email"],
+.portal-container input[type="tel"],
+.portal-container input[type="number"],
+.portal-container input[type="password"],
+.portal-container input[type="url"],
+.portal-container textarea,
+.portal-container select {
+  color: var(--portal-text-primary) !important;
+  background-color: var(--portal-bg-primary) !important;
+  border: 1px solid var(--portal-border-dark);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.875rem;
+}
+
+.portal-container input::placeholder,
+.portal-container textarea::placeholder {
+  color: var(--portal-text-light) !important;
+}
+
+.portal-container input:focus,
+.portal-container textarea:focus,
+.portal-container select:focus {
+  outline: none;
+  border-color: var(--portal-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Labels with proper dark text */
+.portal-container label {
+  color: var(--portal-text-secondary) !important;
+  font-weight: 500;
+}
+
+/* Checkbox and radio styling */
+.portal-container input[type="checkbox"],
+.portal-container input[type="radio"] {
+  accent-color: var(--portal-accent);
+}
+
+/* ================================
+   CARDS & CONTAINERS - DARK TEXT
+   ================================ */
+
+/* White cards with proper styling */
+.portal-card {
+  background-color: var(--portal-bg-primary) !important;
+  border: 1px solid var(--portal-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  color: var(--portal-text-primary) !important;
+}
+
+.portal-card h2,
+.portal-card h3,
+.portal-card h4 {
+  color: var(--portal-text-primary) !important;
+}
+
+.portal-card p {
+  color: var(--portal-text-secondary) !important;
+}
+
+.portal-card .font-medium,
+.portal-card .font-semibold {
+  color: var(--portal-text-primary) !important;
+}
+
+.portal-card .text-sm {
+  color: var(--portal-text-secondary) !important;
+}
+
+.portal-card .text-xs {
+  color: var(--portal-text-muted) !important;
+}
+
+/* ================================
+   HEADER & NAVIGATION - DARK TEXT
+   ================================ */
+
+/* Portal header */
+.portal-header {
+  background-color: var(--portal-bg-primary) !important;
+  border-bottom: 1px solid var(--portal-border);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  color: var(--portal-text-primary) !important;
+}
+
+.portal-header .portal-brand {
+  color: var(--portal-text-primary) !important;
+  font-weight: 700;
+}
+
+.portal-header .portal-brand-subtitle {
+  color: var(--portal-text-muted) !important;
+}
+
+.portal-header p,
+.portal-header span {
+  color: var(--portal-text-primary) !important;
+}
+
+.portal-header .text-xs,
+.portal-header .portal-text-muted {
+  color: var(--portal-text-muted) !important;
+}
+
+/* Navigation tabs */
+.portal-nav {
+  background-color: var(--portal-bg-primary);
+  border: 1px solid var(--portal-border);
+  border-radius: 0.5rem;
+  padding: 0.25rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.portal-nav-item {
+  color: var(--portal-text-secondary) !important;
+  padding: 0.625rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 150ms ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.portal-nav-item:hover {
+  background-color: var(--portal-bg-tertiary);
+  color: var(--portal-text-primary) !important;
+}
+
+.portal-nav-item.active {
+  background-color: var(--portal-accent) !important;
+  color: #ffffff !important;
+}
+
+.portal-nav-item.active svg {
+  color: #ffffff !important;
+}
+
+/* ================================
+   BUTTONS - PROPER CONTRAST
+   ================================ */
+
+/* Primary button - white text on blue */
+.portal-btn-primary {
+  background-color: var(--portal-accent) !important;
+  color: #ffffff !important;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: background-color 150ms ease;
+  border: none;
+  cursor: pointer;
+}
+
+.portal-btn-primary:hover {
+  background-color: var(--portal-accent-hover) !important;
+}
+
+.portal-btn-primary:disabled {
+  background-color: #93c5fd !important;
+  cursor: not-allowed;
+}
+
+/* Secondary button - dark text on light gray */
+.portal-btn-secondary {
+  background-color: var(--portal-bg-tertiary) !important;
+  color: var(--portal-text-secondary) !important;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: background-color 150ms ease;
+  border: 1px solid var(--portal-border);
+  cursor: pointer;
+}
+
+.portal-btn-secondary:hover {
+  background-color: var(--portal-border) !important;
+  color: var(--portal-text-primary) !important;
+}
+
+/* Ghost button */
+.portal-btn-ghost {
+  background-color: transparent !important;
+  color: var(--portal-text-muted) !important;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  transition: all 150ms ease;
+  border: none;
+  cursor: pointer;
+}
+
+.portal-btn-ghost:hover {
+  background-color: var(--portal-bg-tertiary) !important;
+  color: var(--portal-text-primary) !important;
+}
+
+/* Danger button */
+.portal-btn-danger {
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: background-color 150ms ease;
+  border: none;
+  cursor: pointer;
+}
+
+.portal-btn-danger:hover {
+  background-color: #b91c1c !important;
+}
+
+/* ================================
+   STATUS BADGES - EXPLICIT COLORS
+   ================================ */
+
+.portal-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.portal-badge-gray {
+  background-color: #f3f4f6 !important;
+  color: #4b5563 !important;
+}
+
+.portal-badge-blue {
+  background-color: #dbeafe !important;
+  color: #1d4ed8 !important;
+}
+
+.portal-badge-green {
+  background-color: #dcfce7 !important;
+  color: #166534 !important;
+}
+
+.portal-badge-yellow {
+  background-color: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+.portal-badge-red {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+}
+
+.portal-badge-purple {
+  background-color: #f3e8ff !important;
+  color: #7c3aed !important;
+}
+
+.portal-badge-amber {
+  background-color: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+.portal-badge-indigo {
+  background-color: #e0e7ff !important;
+  color: #4338ca !important;
+}
+
+.portal-badge-pink {
+  background-color: #fce7f3 !important;
+  color: #be185d !important;
+}
+
+.portal-badge-cyan {
+  background-color: #cffafe !important;
+  color: #0e7490 !important;
+}
+
+.portal-badge-orange {
+  background-color: #ffedd5 !important;
+  color: #c2410c !important;
+}
+
+/* ================================
+   TABLES & LISTS - DARK TEXT
+   ================================ */
+
+.portal-container table {
+  color: var(--portal-text-primary) !important;
+  background-color: var(--portal-bg-primary);
+}
+
+.portal-container th {
+  color: var(--portal-text-secondary) !important;
+  font-weight: 600;
+  background-color: var(--portal-bg-secondary);
+}
+
+.portal-container td {
+  color: var(--portal-text-primary) !important;
+}
+
+.portal-container tr {
+  border-color: var(--portal-border);
+}
+
+.portal-container tbody tr:hover {
+  background-color: var(--portal-bg-secondary);
+}
+
+/* List items */
+.portal-container ul,
+.portal-container ol {
+  color: var(--portal-text-primary) !important;
+}
+
+.portal-container .divide-y > div {
+  border-color: var(--portal-border);
+}
+
+/* ================================
+   ALERTS & MESSAGES - EXPLICIT CONTRAST
+   ================================ */
+
+.portal-alert {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border-width: 1px;
+}
+
+.portal-alert-info {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1e40af !important;
+}
+
+.portal-alert-success {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+  color: #166534 !important;
+}
+
+.portal-alert-warning {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #92400e !important;
+}
+
+.portal-alert-error {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #991b1b !important;
+}
+
+/* Alert icons */
+.portal-alert-info svg {
+  color: #3b82f6 !important;
+}
+
+.portal-alert-success svg {
+  color: #16a34a !important;
+}
+
+.portal-alert-warning svg {
+  color: #d97706 !important;
+}
+
+.portal-alert-error svg {
+  color: #dc2626 !important;
+}
+
+/* ================================
+   LOADING STATES
+   ================================ */
+
+.portal-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid var(--portal-border);
+  border-top-color: var(--portal-accent);
+  border-radius: 50%;
+  animation: portal-spin 0.75s linear infinite;
+}
+
+@keyframes portal-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.portal-loading-text {
+  color: var(--portal-text-muted) !important;
+  font-size: 0.875rem;
+}
+
+/* ================================
+   ICONS - EXPLICIT COLORS
+   ================================ */
+
+.portal-container svg {
+  color: inherit;
+}
+
+.portal-icon {
+  color: var(--portal-text-muted) !important;
+}
+
+.portal-icon-primary {
+  color: var(--portal-accent) !important;
+}
+
+.portal-icon-success {
+  color: var(--portal-success) !important;
+}
+
+.portal-icon-warning {
+  color: var(--portal-warning) !important;
+}
+
+.portal-icon-error {
+  color: var(--portal-error) !important;
+}
+
+/* ================================
+   EMPTY STATES - PROPER TEXT
+   ================================ */
+
+.portal-empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background-color: var(--portal-bg-primary);
+}
+
+.portal-empty-state-icon {
+  width: 3rem;
+  height: 3rem;
+  color: var(--portal-text-light) !important;
+  margin: 0 auto 0.75rem;
+}
+
+.portal-empty-state-title {
+  color: var(--portal-text-primary) !important;
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.portal-empty-state-description {
+  color: var(--portal-text-muted) !important;
+  font-size: 0.875rem;
+}
+
+/* ================================
+   LOGIN PAGE SPECIFIC
+   ================================ */
+
+.portal-login {
+  background: linear-gradient(135deg, #eff6ff 0%, #e0e7ff 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.portal-login-card {
+  background-color: var(--portal-bg-primary) !important;
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  padding: 2rem;
+  max-width: 28rem;
+  width: 100%;
+  margin: 1rem;
+  text-align: center;
+}
+
+.portal-login-card h1 {
+  color: var(--portal-text-primary) !important;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.portal-login-card p {
+  color: var(--portal-text-muted) !important;
+  font-size: 0.875rem;
+}
+
+/* ================================
+   PROGRESS BAR
+   ================================ */
+
+.portal-progress {
+  height: 0.5rem;
+  background-color: #e5e7eb;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.portal-progress-bar {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 300ms ease;
+}
+
+.portal-progress-bar-blue {
+  background-color: #2563eb;
+}
+
+.portal-progress-bar-green {
+  background-color: #16a34a;
+}
+
+/* ================================
+   MODAL / DIALOG
+   ================================ */
+
+.portal-modal-overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.portal-modal {
+  background-color: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  max-width: 32rem;
+  width: 100%;
+  margin: 1rem;
+}
+
+.portal-modal-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.portal-modal-header h2 {
+  color: #111827;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.portal-modal-body {
+  padding: 1.5rem;
+  color: #4b5563;
+}
+
+.portal-modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+/* ================================
+   WELCOME HEADER (gradient banner)
+   ================================ */
+
+.portal-welcome-banner {
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  color: #ffffff;
+}
+
+.portal-welcome-banner h1 {
+  color: #ffffff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.portal-welcome-banner p {
+  color: rgba(219, 234, 254, 1);
+}
+
+/* ================================
+   SPECIFIC OVERRIDES TO PREVENT WHITE-ON-WHITE
+   All selectors scoped to .portal-container only
+   ================================ */
+
+/* Force all Tailwind text-gray classes to work properly in portal */
+.portal-container .text-gray-900 {
+  color: #111827 !important;
+}
+
+.portal-container .text-gray-800 {
+  color: #1f2937 !important;
+}
+
+.portal-container .text-gray-700 {
+  color: #374151 !important;
+}
+
+.portal-container .text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.portal-container .text-gray-500 {
+  color: #6b7280 !important;
+}
+
+.portal-container .text-gray-400 {
+  color: #9ca3af !important;
+}
+
+/* Override any inherited white text from body */
+.portal-container .text-white:not(.portal-welcome-banner .text-white):not(.portal-btn-primary):not(.portal-nav-item.active) {
+  color: var(--portal-text-primary) !important;
+}
+
+/* Ensure links are visible and blue */
+.portal-container a:not(.portal-btn-primary):not(.portal-btn-secondary):not(.portal-nav-item):not(.portal-card) {
+  color: var(--portal-accent) !important;
+}
+
+.portal-container a:not(.portal-btn-primary):not(.portal-btn-secondary):not(.portal-nav-item):not(.portal-card):hover {
+  color: var(--portal-accent-hover) !important;
+}
+
+/* Ensure white background cards have dark text */
+.portal-container .bg-white {
+  color: var(--portal-text-primary) !important;
+  background-color: var(--portal-bg-primary) !important;
+}
+
+.portal-container .bg-white h1,
+.portal-container .bg-white h2,
+.portal-container .bg-white h3,
+.portal-container .bg-white h4 {
+  color: var(--portal-text-primary) !important;
+}
+
+.portal-container .bg-white p {
+  color: var(--portal-text-secondary) !important;
+}
+
+/* Gray backgrounds */
+.portal-container .bg-gray-50 {
+  background-color: #f9fafb !important;
+  color: var(--portal-text-primary) !important;
+}
+
+.portal-container .bg-gray-100 {
+  background-color: #f3f4f6 !important;
+  color: var(--portal-text-primary) !important;
+}
+
+/* Border colors */
+.portal-container .border-gray-200 {
+  border-color: #e5e7eb !important;
+}
+
+.portal-container .border-t,
+.portal-container .border-b,
+.portal-container .divide-y > * {
+  border-color: var(--portal-border) !important;
+}
+
+/* Text color utilities from Tailwind - override inherited white */
+.portal-container .text-sm,
+.portal-container .text-xs {
+  color: inherit;
+}
+
+/* Icon containers with colored backgrounds */
+.portal-container .bg-purple-100,
+.portal-container .bg-amber-100,
+.portal-container .bg-blue-100,
+.portal-container .bg-green-100,
+.portal-container .bg-red-100,
+.portal-container .bg-yellow-100,
+.portal-container .bg-indigo-100,
+.portal-container .bg-pink-100 {
+  color: inherit;
+}
+
+/* Text colors for colored elements */
+.portal-container .text-purple-600 { color: #9333ea !important; }
+.portal-container .text-amber-600 { color: #d97706 !important; }
+.portal-container .text-blue-600 { color: #2563eb !important; }
+.portal-container .text-green-600 { color: #16a34a !important; }
+.portal-container .text-green-500 { color: #22c55e !important; }
+.portal-container .text-red-600 { color: #dc2626 !important; }
+.portal-container .text-red-700 { color: #b91c1c !important; }
+.portal-container .text-yellow-600 { color: #ca8a04 !important; }
+.portal-container .text-indigo-600 { color: #4f46e5 !important; }
+.portal-container .text-pink-600 { color: #db2777 !important; }
+
+/* Font weight classes - preserve color inheritance */
+.portal-container .font-medium,
+.portal-container .font-semibold,
+.portal-container .font-bold {
+  color: inherit;
+}
+
+/* ================================
+   RESPONSIVE ADJUSTMENTS
+   ================================ */
+
+@media (max-width: 640px) {
+  .portal-welcome-banner {
+    padding: 1rem;
+  }
+  
+  .portal-welcome-banner h1 {
+    font-size: 1.25rem;
+  }
+  
+  .portal-modal {
+    margin: 0.5rem;
+    max-height: calc(100vh - 1rem);
+    overflow-y: auto;
+  }
+  
+  .portal-nav {
+    flex-wrap: wrap;
+  }
+  
+  .portal-nav-item {
+    flex: 1;
+    justify-content: center;
+    min-width: fit-content;
+  }
+}
+
+/* ================================
+   FINAL CATCH-ALL OVERRIDES
+   Ensures no white-on-white anywhere within portal
+   ================================ */
+
+/* Force the portal container and all descendants to have dark text by default */
+.portal-container,
+.portal-container *:not(.portal-welcome-banner):not(.portal-welcome-banner *):not(.portal-btn-primary):not(.portal-nav-item.active):not([class*="text-"]):not([class*="bg-"]) {
+  color: var(--portal-text-primary);
+}
+
+/* Ensure SVG icons in cards and containers are visible */
+.portal-container svg:not(.portal-welcome-banner svg):not(.portal-btn-primary svg):not(.portal-nav-item.active svg) {
+  color: currentColor;
+}
+
+/* Specific fix for hero icons in containers */
+.portal-container [class*="Icon"],
+.portal-card [class*="Icon"] {
+  color: inherit;
+}

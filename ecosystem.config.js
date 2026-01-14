@@ -38,6 +38,26 @@ module.exports = {
       restart_delay: 60000,
       max_restarts: 10,
       min_uptime: '10s'
+    },
+    {
+      name: 'gmail-token-refresh',
+      script: './scripts/gmail-token-refresh-worker.js',
+      instances: 1,
+      exec_mode: 'fork',
+      watch: false,
+      cwd: '/root/abg-website',
+      env: {
+        NODE_ENV: 'production'
+      },
+      error_file: './logs/gmail-token-refresh-error.log',
+      out_file: './logs/gmail-token-refresh.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      merge_logs: true,
+      restart_delay: 60000,
+      max_restarts: 10,
+      min_uptime: '30s',
+      // Cron pattern: run at minute 0 of every hour (backup in case setInterval fails)
+      cron_restart: '0 * * * *'
     }
   ]
 }; 

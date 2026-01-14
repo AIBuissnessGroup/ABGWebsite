@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAppsOpenCountdown } from '@/hooks/useAppsOpenCountdown';
+import RecruitmentCountdown from '@/components/RecruitmentCountdown';
 
 // Helper function to convert UTC dates to EST for display
 const convertUtcToEst = (utcDate: Date): Date => {
@@ -124,6 +126,19 @@ const getThemeColors = (theme: string) => {
 };
 
 export default function RecruitmentPage() {
+  // Check if apps are open yet using the shared hook
+  const appsOpenCountdown = useAppsOpenCountdown();
+  
+  // If apps are not open, show the countdown page
+  if (!appsOpenCountdown.isOpen) {
+    return <RecruitmentCountdown />;
+  }
+  
+  // Otherwise show the full recruitment page
+  return <RecruitmentPageContent />;
+}
+
+function RecruitmentPageContent() {
   const { data: session, status } = useSession();
   const [memberLevels, setMemberLevels] = useState<MemberLevels | null>(null);
   const [timeline, setTimeline] = useState<Timeline | null>(null);

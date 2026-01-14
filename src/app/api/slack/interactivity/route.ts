@@ -5,6 +5,12 @@ import { sendSlackDM } from '@/lib/slack';
 
 const uri = process.env.MONGODB_URI!;
 
+// MongoDB connection options for AWS DocumentDB
+const mongoOptions = {
+  tls: true,
+  tlsCAFile: "/app/global-bundle.pem",
+};
+
 /**
  * Slack Interactivity Webhook Handler
  * Handles button clicks and other interactive elements from Slack messages
@@ -76,7 +82,7 @@ export async function POST(req: NextRequest) {
       console.log(`Approver: ${approverEmail}, Action: ${actionType}, ApprovalId: ${approvalId}`);
       
       // Check if already processed (prevent duplicate clicks)
-      const client = await MongoClient.connect(uri);
+      const client = await MongoClient.connect(uri, mongoOptions);
       const db = client.db('abg-website');
       const existingApproval = await db.collection('pendingApprovals').findOne({ approvalId });
       
@@ -140,7 +146,7 @@ export async function POST(req: NextRequest) {
 async function processApproval(approvalId: string, actionType: string, approverEmail: string, isApproval: boolean, responseUrl: string) {
   console.log(`🔄 processApproval called: ${approvalId}, ${actionType}, ${approverEmail}`);
   try {
-    const client = await MongoClient.connect(uri);
+    const client = await MongoClient.connect(uri, mongoOptions);
     const db = client.db('abg-website');
 
     // Find the approval request (double-check status)

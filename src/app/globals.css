@@ -15,11 +15,6 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Ensure main site pages (non-admin) maintain proper text colors */
-body:not(.admin-page) {
-  color: white;
-}
-
 /* Hide scrollbar for horizontal timeline */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* Internet Explorer 10+ */
@@ -96,6 +91,18 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   line-height: 1.6;
+}
+
+/* Override for portal pages - must be after body rule with high specificity */
+body.portal-page {
+  color: #111827 !important;
+  background: #f9fafb !important;
+}
+
+/* Override for admin pages */
+body.admin-page {
+  color: #111827 !important;
+  background: #f9fafb !important;
 }
 
 /* Global utility classes extracted from components */

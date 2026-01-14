@@ -14,6 +14,7 @@ export type AdminPage =
   | 'analytics'
   | 'events'
   | 'recruitment'
+  | 'recruitment-portal'
   | 'recruitment-timeline'
   | 'coffee-chats'
   | 'interviews'
@@ -50,6 +51,7 @@ export const PAGE_PERMISSIONS: Record<AdminPage, UserRole[]> = {
   
   // Recruitment - VP Recruitment, VP Operations
   'recruitment': ['ADMIN', 'PRESIDENT', 'VP_RECRUITMENT', 'VP_OPERATIONS'],
+  'recruitment-portal': ['ADMIN', 'PRESIDENT', 'VP_RECRUITMENT', 'VP_OPERATIONS'],
   'recruitment-timeline': ['ADMIN', 'PRESIDENT', 'VP_RECRUITMENT', 'VP_OPERATIONS'],
   'coffee-chats': ['ADMIN', 'PRESIDENT', 'VP_RECRUITMENT', 'VP_OPERATIONS'],
   'interviews': ['ADMIN', 'PRESIDENT', 'VP_RECRUITMENT', 'VP_OPERATIONS'],

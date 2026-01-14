@@ -1,12 +1,28 @@
 import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import { MongoClient } from 'mongodb';
+import { MongoClient, MongoClientOptions } from 'mongodb';
 import { isAdminEmail } from './admin';
 
-const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Check if connection string already has TLS/SSL settings
+const connectionString = process.env.DATABASE_URL || '';
+const hasTlsInConnectionString = /[?&](tls|ssl)=/.test(connectionString);
+
+// MongoDB connection options
+// - In production: use the CA certificate file for proper TLS verification
+// - In development with SSL in connection string: allow self-signed certs to avoid cert issues
+// - Otherwise: only enable TLS in production
+const mongoOptions: MongoClientOptions = hasTlsInConnectionString
+  ? (isProduction 
+      ? { tlsCAFile: '/app/global-bundle.pem' }
+      : { tlsAllowInvalidCertificates: true })
+  : {
+      tls: isProduction,
+      tlsCAFile: isProduction ? '/app/global-bundle.pem' : undefined,
+    };
+
+const client = new MongoClient(process.env.DATABASE_URL!, mongoOptions);
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -43,10 +59,7 @@ export const authOptions: NextAuthOptions = {
             timestamp: new Date().toISOString()
           });
 
-          mongoClient = new MongoClient(process.env.DATABASE_URL!, {
-            tls: true,
-            tlsCAFile: "/app/global-bundle.pem",
-          });
+          mongoClient = new MongoClient(process.env.DATABASE_URL!, mongoOptions);
           await mongoClient.connect();
           const db = mongoClient.db();
           const usersCollection = db.collection('users');
@@ -198,10 +211,7 @@ export const authOptions: NextAuthOptions = {
       if (token.email) {
         let mongoClient;
         try {
-          mongoClient = new MongoClient(process.env.DATABASE_URL!, {
-            tls: true,
-            tlsCAFile: "/app/global-bundle.pem",
-          });
+          mongoClient = new MongoClient(process.env.DATABASE_URL!, mongoOptions);
           await mongoClient.connect();
           const db = mongoClient.db();
           const usersCollection = db.collection('users');
