@@ -463,6 +463,45 @@ export default function ApplicationPage() {
     );
   }
 
+  // Handle track selection - creates application via POST
+  const handleTrackSelect = async (selectedTrack: ApplicationTrack) => {
+    if (!dashboard?.activeCycle) return;
+    
+    try {
+      setLoading(true);
+      
+      // Create the application via POST
+      const res = await fetch('/api/portal/application', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cycleId: dashboard.activeCycle._id,
+          track: selectedTrack,
+          answers: {},
+        }),
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        // If application already exists, that's fine - just set the track
+        if (error.error !== 'Application already exists') {
+          throw new Error(error.error || 'Failed to create application');
+        }
+      }
+      
+      // Set track to render the form
+      setTrack(selectedTrack);
+      
+      // Reload dashboard to get the fresh application
+      await loadData();
+    } catch (error) {
+      console.error('Error creating application:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to start application');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Track selection
   if (!track) {
     return (
@@ -472,7 +511,7 @@ export default function ApplicationPage() {
           {TRACKS.map((t) => (
             <button
               key={t.value}
-              onClick={() => setTrack(t.value)}
+              onClick={() => handleTrackSelect(t.value)}
               className={`bg-white rounded-xl border border-gray-200 shadow-md p-6 text-left ${t.accentColor} hover:shadow-lg transition-all`}
             >
               <div className={`w-12 h-12 ${t.color} rounded-lg flex items-center justify-center mb-4`}>
@@ -690,11 +729,9 @@ export default function ApplicationPage() {
                       <p className="text-sm text-gray-500">
                         Click to upload {field.fileKind || 'file'}
                       </p>
-                      {field.accept && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          Accepted: {field.accept}
-                        </p>
-                      )}
+                      <p className="text-xs text-gray-400 mt-1">
+                        {field.accept ? `Suggested: ${field.accept}` : 'All file types accepted'} (Max 25MB)
+                      </p>
                     </label>
                   )}
                 </div>

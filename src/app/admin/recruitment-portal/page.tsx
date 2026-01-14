@@ -112,12 +112,35 @@ function RecruitmentPortalAdmin() {
     if (!confirm(`Are you sure you want to delete "${cycle.name}"?`)) return;
     
     try {
-      await del(`/api/admin/recruitment/cycles/${cycle._id}`, {
-        successMessage: 'Cycle deleted successfully',
+      // First attempt without cascade
+      const response = await fetch(`/api/admin/recruitment/cycles/${cycle._id}`, {
+        method: 'DELETE',
       });
-      loadCycles();
+      
+      const data = await response.json();
+      
+      if (response.status === 409 && data.requiresConfirmation) {
+        // Cycle has data - ask for cascade confirmation
+        const cascadeConfirm = confirm(
+          `${data.message}\n\nClick OK to delete everything, or Cancel to abort.`
+        );
+        
+        if (cascadeConfirm) {
+          // Retry with cascade confirmation
+          await del(`/api/admin/recruitment/cycles/${cycle._id}?confirm=cascade`, {
+            successMessage: `Cycle "${cycle.name}" and all related data deleted successfully`,
+          });
+          loadCycles();
+        }
+      } else if (response.ok) {
+        toast.success('Cycle deleted successfully');
+        loadCycles();
+      } else {
+        throw new Error(data.error || 'Failed to delete cycle');
+      }
     } catch (error) {
       console.error('Error deleting cycle:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete cycle');
     }
   };
 

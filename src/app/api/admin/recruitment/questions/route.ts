@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate track
-    const validTracks: ApplicationTrack[] = ['business', 'engineering', 'both'];
+    const validTracks: ApplicationTrack[] = ['business', 'engineering', 'ai_investment_fund', 'ai_energy_efficiency', 'both'];
     if (!validTracks.includes(data.track)) {
       return corsResponse(
         NextResponse.json({ error: 'Invalid track' }, { status: 400 })

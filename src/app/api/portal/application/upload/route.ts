@@ -10,15 +10,22 @@ import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 
-// Allowed file types for applications
-const ALLOWED_TYPES: Record<string, string[]> = {
-  resume: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-  transcript: ['application/pdf'],
-  portfolio: ['application/pdf', 'application/zip', 'application/x-zip-compressed'],
-  other: ['application/pdf', 'image/jpeg', 'image/png', 'image/gif'],
+// Common file types for display purposes only (no validation)
+const COMMON_FILE_EXTENSIONS: Record<string, string[]> = {
+  resume: ['.pdf', '.doc', '.docx'],
+  transcript: ['.pdf'],
+  portfolio: ['.pdf', '.zip', '.pptx', '.png', '.jpg'],
+  headshot: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
+  other: ['All file types accepted'],
 };
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+
+// Helper to get suggested extensions for UI display
+export function getSuggestedExtensions(fileType: string): string {
+  const extensions = COMMON_FILE_EXTENSIONS[fileType] || COMMON_FILE_EXTENSIONS.other;
+  return extensions.join(', ');
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,13 +55,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check file type
-    const allowedMimeTypes = ALLOWED_TYPES[fileType] || ALLOWED_TYPES.other;
-    if (!allowedMimeTypes.includes(file.type)) {
-      return NextResponse.json({ 
-        error: `Invalid file type. Allowed types: ${allowedMimeTypes.join(', ')}` 
-      }, { status: 400 });
-    }
+    // No file type validation - accept all file types
 
     // Create a safe filename
     const userId = session.user.id || session.user.email.replace(/[^a-zA-Z0-9]/g, '_');
@@ -76,8 +77,9 @@ export async function POST(request: NextRequest) {
     
     await writeFile(filepath, buffer);
 
-    // Return the URL
+    // Return the URL along with suggested extensions for UI
     const url = `/applicationUploads/${filename}`;
+    const suggestedExtensions = getSuggestedExtensions(fileType);
     
     console.log(`✅ Portal file uploaded: ${filename} (${(buffer.length / 1024).toFixed(2)} KB) for user ${session.user.email}`);
 
@@ -86,6 +88,7 @@ export async function POST(request: NextRequest) {
       url,
       filename: file.name,
       key,
+      suggestedExtensions,
     });
 
   } catch (error: any) {

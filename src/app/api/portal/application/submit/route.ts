@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     // Validate word limits
     const overLimitFields: string[] = [];
-    for (const field of questionsData) {
+    for (const field of allFields) {
       if (field.wordLimit) {
         const answer = application.answers?.[field.key] || '';
         const wordCount = answer.trim().split(/\s+/).filter(Boolean).length;

@@ -6,6 +6,28 @@ const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://lo
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const host = request.headers.get('host') || '';
+
+  // Handle portal subdomain (portal.abgumich.org) - rewrite to /portal paths
+  // This makes portal.abgumich.org/ serve the portal directly (not redirect)
+  if (host.startsWith('portal.')) {
+    // Skip if already on a /portal path, static assets, API, or auth
+    if (
+      pathname.startsWith('/portal') ||
+      pathname.startsWith('/_next/') ||
+      pathname.startsWith('/api/') ||
+      pathname.startsWith('/auth') ||
+      pathname.includes('.')
+    ) {
+      return NextResponse.next();
+    }
+
+    // Rewrite (not redirect) root and other paths to /portal
+    // This keeps the URL as portal.abgumich.org/ but serves /portal content
+    const url = request.nextUrl.clone();
+    url.pathname = pathname === '/' ? '/portal' : `/portal${pathname}`;
+    return NextResponse.rewrite(url);
+  }
 
   // Skip maintenance check for static assets, admin routes, auth, and maintenance page itself
   if (

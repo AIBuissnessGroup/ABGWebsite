@@ -222,7 +222,7 @@ export default function PortalDashboardPage() {
                 <div>
                   <h3 className="font-semibold text-gray-800">Share Your Achievement!</h3>
                   <p className="text-gray-600 text-sm">
-                    Screenshot the card above and share it on LinkedIn! Tag us <span className="font-medium text-[#0077b5]">@AI Business Group</span>
+                    Screenshot the card above and share it on LinkedIn! Tag us!
                   </p>
                 </div>
               </div>

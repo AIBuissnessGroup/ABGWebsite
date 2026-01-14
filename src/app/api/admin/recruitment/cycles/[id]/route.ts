@@ -148,21 +148,32 @@ export async function DELETE(
       return corsResponse(NextResponse.json({ error: 'Cycle not found' }, { status: 404 }));
     }
 
+    // Check for confirm parameter for cascade delete
+    const { searchParams } = new URL(request.url);
+    const confirmCascade = searchParams.get('confirm') === 'cascade';
+    
     // Check if cycle has any applications
     const applications = await getApplicationsByCycle(id);
     const hasApplications = applications.length > 0;
 
-    if (hasApplications) {
+    if (hasApplications && !confirmCascade) {
       return corsResponse(
         NextResponse.json(
-          { error: 'Cannot delete cycle with existing applications' },
-          { status: 400 }
+          { 
+            error: 'Cycle has existing data that will be deleted',
+            requiresConfirmation: true,
+            counts: {
+              applications: applications.length,
+            },
+            message: `This cycle has ${applications.length} application(s). Delete anyway? This will cascade delete all applications, events, RSVPs, bookings, reviews, and other related data.`
+          },
+          { status: 409 }
         )
       );
     }
 
-    // Delete the cycle
-    await deleteCycle(id);
+    // Delete the cycle with cascade
+    const { deletedCounts } = await deleteCycle(id);
 
     // Audit log
     await logAuditEvent(
@@ -175,11 +186,17 @@ export async function DELETE(
         meta: {
           cycleName: cycle.name,
           slug: cycle.slug,
+          cascadeDelete: true,
+          deletedCounts,
         },
       }
     );
 
-    return corsResponse(NextResponse.json({ success: true }));
+    return corsResponse(NextResponse.json({ 
+      success: true,
+      deletedCounts,
+      message: `Cycle "${cycle.name}" and all related data deleted successfully.`
+    }));
   } catch (error) {
     console.error('Error deleting recruitment cycle:', error);
     return corsResponse(

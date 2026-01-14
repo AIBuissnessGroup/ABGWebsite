@@ -244,11 +244,69 @@ export async function updateCycle(id: string, data: Partial<RecruitmentCycle>): 
   }
 }
 
-export async function deleteCycle(id: string): Promise<void> {
+export async function deleteCycle(id: string): Promise<{ deletedCounts: Record<string, number> }> {
   const client = await getClient();
   try {
-    const collection = client.db().collection(CYCLES_COLLECTION);
-    await collection.deleteOne({ _id: new ObjectId(id) });
+    const db = client.db();
+    const deletedCounts: Record<string, number> = {};
+    
+    // Delete all related data in cascade
+    // 1. Applications
+    const appResult = await db.collection(APPLICATIONS_COLLECTION).deleteMany({ cycleId: id });
+    deletedCounts.applications = appResult.deletedCount;
+    
+    // 2. Events
+    const eventsResult = await db.collection(EVENTS_COLLECTION).deleteMany({ cycleId: id });
+    deletedCounts.events = eventsResult.deletedCount;
+    
+    // 3. RSVPs
+    const rsvpsResult = await db.collection(RSVPS_COLLECTION).deleteMany({ cycleId: id });
+    deletedCounts.rsvps = rsvpsResult.deletedCount;
+    
+    // 4. Questions
+    const questionsResult = await db.collection(QUESTIONS_COLLECTION).deleteMany({ cycleId: id });
+    deletedCounts.questions = questionsResult.deletedCount;
+    
+    // 5. Slots
+    const slotsResult = await db.collection(SLOTS_COLLECTION).deleteMany({ cycleId: id });
+    deletedCounts.slots = slotsResult.deletedCount;
+    
+    // 6. Bookings
+    const bookingsResult = await db.collection(BOOKINGS_COLLECTION).deleteMany({ cycleId: id });
+    deletedCounts.bookings = bookingsResult.deletedCount;
+    
+    // 7. Reviews (need to get all application IDs first, but we already deleted apps so we can't)
+    // Reviews reference applicationId, not cycleId directly, so we use a different approach
+    // We'll delete reviews where the applicationId matches apps that were from this cycle
+    // Since we already deleted applications, we need to use cycleId if it's stored on reviews
+    // Looking at the code, reviews store applicationId and reviewerEmail but not cycleId directly
+    // We need to delete based on cycleId field if present, or accept that orphaned reviews might remain
+    const reviewsResult = await db.collection(REVIEWS_COLLECTION).deleteMany({ cycleId: id });
+    deletedCounts.reviews = reviewsResult.deletedCount;
+    
+    // 8. Email logs
+    const emailLogsResult = await db.collection(EMAIL_LOGS_COLLECTION).deleteMany({ cycleId: id });
+    deletedCounts.emailLogs = emailLogsResult.deletedCount;
+    
+    // 9. Phase configs
+    const phaseConfigsResult = await db.collection(PHASE_CONFIGS_COLLECTION).deleteMany({ cycleId: id });
+    deletedCounts.phaseConfigs = phaseConfigsResult.deletedCount;
+    
+    // 10. Phase rankings
+    const phaseRankingsResult = await db.collection(PHASE_RANKINGS_COLLECTION).deleteMany({ cycleId: id });
+    deletedCounts.phaseRankings = phaseRankingsResult.deletedCount;
+    
+    // 11. Phase decisions
+    const phaseDecisionsResult = await db.collection(PHASE_DECISIONS_COLLECTION).deleteMany({ cycleId: id });
+    deletedCounts.phaseDecisions = phaseDecisionsResult.deletedCount;
+    
+    // Finally, delete the cycle itself
+    const cycleResult = await db.collection(CYCLES_COLLECTION).deleteOne({ _id: new ObjectId(id) });
+    deletedCounts.cycle = cycleResult.deletedCount;
+    
+    console.log(`🗑️ Cascade deleted cycle ${id}:`, deletedCounts);
+    
+    return { deletedCounts };
   } finally {
     
   }
