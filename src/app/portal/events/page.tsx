@@ -295,8 +295,8 @@ export default function PortalEventsPage() {
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-md p-8 text-center">
         <CalendarDaysIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">No Active Recruitment</h2>
-        <p className="text-gray-600">Events will appear when recruitment is open.</p>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">No Current Recruitment Cycles</h2>
+        <p className="text-gray-600">There are no current cycles to apply to. Events will appear when recruitment opens.</p>
       </div>
     );
   }

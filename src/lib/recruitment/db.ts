@@ -188,6 +188,25 @@ export async function getActiveCycle(): Promise<RecruitmentCycle | null> {
   }
 }
 
+export async function getUpcomingCycle(): Promise<RecruitmentCycle | null> {
+  const client = await getClient();
+  try {
+    const collection = client.db().collection(CYCLES_COLLECTION);
+    const now = new Date();
+    // Find cycles where portalOpenAt is in the future, sorted by earliest first
+    const cycle = await collection.findOne(
+      { 
+        isActive: false,
+        portalOpenAt: { $gt: now.toISOString() }
+      },
+      { sort: { portalOpenAt: 1 } }
+    );
+    return serializeDoc<RecruitmentCycle>(cycle);
+  } finally {
+    
+  }
+}
+
 export async function setActiveCycle(id: string): Promise<void> {
   const client = await getClient();
   try {

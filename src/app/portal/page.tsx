@@ -12,12 +12,13 @@ import {
   ArrowRightIcon,
   UserGroupIcon,
   ShareIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 import { FaLinkedin } from 'react-icons/fa';
 import { useSession } from 'next-auth/react';
 import RoundTracker from '@/components/portal/RoundTracker';
 import { getTrackLabel } from '@/lib/tracks';
-import type { PortalDashboard, ApplicationStage } from '@/types/recruitment';
+import type { PortalDashboard, ApplicationStage, RecruitmentCycle } from '@/types/recruitment';
 
 const STAGE_INFO: Record<ApplicationStage, { label: string; description: string; color: string }> = {
   not_started: { label: 'Not Started', description: 'Begin your application', color: 'bg-gray-100 text-gray-700' },
@@ -37,20 +38,63 @@ const STAGE_INFO: Record<ApplicationStage, { label: string; description: string;
 export default function PortalDashboardPage() {
   const { data: session } = useSession();
   const [dashboard, setDashboard] = useState<PortalDashboard | null>(null);
+  const [upcomingCycle, setUpcomingCycle] = useState<RecruitmentCycle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
     loadDashboard();
   }, []);
 
+  // Countdown timer for upcoming cycle
+  useEffect(() => {
+    if (!upcomingCycle?.portalOpenAt) return;
+    
+    const calculateCountdown = () => {
+      const now = new Date().getTime();
+      const targetDate = new Date(upcomingCycle.portalOpenAt).getTime();
+      const difference = targetDate - now;
+      
+      if (difference <= 0) {
+        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        // Reload to check if cycle is now active
+        loadDashboard();
+        return;
+      }
+      
+      setCountdown({
+        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((difference % (1000 * 60)) / 1000),
+      });
+    };
+    
+    calculateCountdown();
+    const timer = setInterval(calculateCountdown, 1000);
+    return () => clearInterval(timer);
+  }, [upcomingCycle?.portalOpenAt]);
+
   const loadDashboard = async () => {
     try {
       setLoading(true);
       const res = await fetch('/api/portal/dashboard');
-      if (!res.ok) throw new Error('Failed to load dashboard');
       const data = await res.json();
-      setDashboard(data);
+      
+      if (!res.ok) {
+        // Check if we have an upcoming cycle
+        if (data.upcomingCycle) {
+          setUpcomingCycle(data.upcomingCycle);
+          setDashboard(null);
+        } else {
+          setDashboard(null);
+          setUpcomingCycle(null);
+        }
+      } else {
+        setDashboard(data);
+        setUpcomingCycle(null);
+      }
     } catch (err) {
       console.error('Error loading dashboard:', err);
       setError('Failed to load dashboard');
@@ -67,11 +111,11 @@ export default function PortalDashboardPage() {
     );
   }
 
-  if (error || !dashboard) {
+  if (error) {
     return (
       <div className="portal-alert portal-alert-error rounded-xl p-6 text-center">
         <ExclamationCircleIcon className="w-12 h-12 portal-icon-error mx-auto mb-3" />
-        <p className="text-red-700">{error || 'Something went wrong'}</p>
+        <p className="text-red-700">{error}</p>
         <button
           onClick={loadDashboard}
           className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
@@ -82,13 +126,74 @@ export default function PortalDashboardPage() {
     );
   }
 
+  // Show upcoming cycle countdown if available
+  if (!dashboard && upcomingCycle) {
+    return (
+      <div className="portal-card portal-empty-state">
+        <div className="relative">
+          {/* Decorative sparkles */}
+          <SparklesIcon className="w-16 h-16 mx-auto text-[#00274C] mb-4" />
+        </div>
+        <h2 className="portal-empty-state-title text-[#00274C]">{upcomingCycle.name}</h2>
+        <p className="portal-empty-state-description max-w-md mx-auto mb-8">
+          Applications are opening soon! Get ready to apply.
+        </p>
+        
+        {/* Countdown Timer */}
+        <div className="flex justify-center gap-3 sm:gap-4 mb-6">
+          <div className="bg-gradient-to-br from-[#00274C] to-[#1e3a5f] rounded-xl p-3 sm:p-4 min-w-[70px] sm:min-w-[85px] shadow-lg">
+            <div className="text-2xl sm:text-4xl font-bold text-white tabular-nums">{countdown.days}</div>
+            <div className="text-[10px] sm:text-xs uppercase tracking-wider text-blue-200/80 font-medium">Days</div>
+          </div>
+          <div className="bg-gradient-to-br from-[#00274C] to-[#1e3a5f] rounded-xl p-3 sm:p-4 min-w-[70px] sm:min-w-[85px] shadow-lg">
+            <div className="text-2xl sm:text-4xl font-bold text-white tabular-nums">{countdown.hours}</div>
+            <div className="text-[10px] sm:text-xs uppercase tracking-wider text-blue-200/80 font-medium">Hours</div>
+          </div>
+          <div className="bg-gradient-to-br from-[#00274C] to-[#1e3a5f] rounded-xl p-3 sm:p-4 min-w-[70px] sm:min-w-[85px] shadow-lg">
+            <div className="text-2xl sm:text-4xl font-bold text-white tabular-nums">{countdown.minutes}</div>
+            <div className="text-[10px] sm:text-xs uppercase tracking-wider text-blue-200/80 font-medium">Mins</div>
+          </div>
+          <div className="bg-gradient-to-br from-[#00274C] to-[#1e3a5f] rounded-xl p-3 sm:p-4 min-w-[70px] sm:min-w-[85px] shadow-lg">
+            <div className="text-2xl sm:text-4xl font-bold text-white tabular-nums">{countdown.seconds}</div>
+            <div className="text-[10px] sm:text-xs uppercase tracking-wider text-blue-200/80 font-medium">Secs</div>
+          </div>
+        </div>
+        
+        <p className="text-sm text-gray-500">
+          Portal opens on {new Date(upcomingCycle.portalOpenAt).toLocaleDateString('en-US', { 
+            weekday: 'long',
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZoneName: 'short'
+          })}
+        </p>
+      </div>
+    );
+  }
+
+  // No active cycle and no upcoming cycle
+  if (!dashboard) {
+    return (
+      <div className="portal-card portal-empty-state">
+        <CalendarDaysIcon className="portal-empty-state-icon" />
+        <h2 className="portal-empty-state-title">No Current Recruitment Cycles</h2>
+        <p className="portal-empty-state-description max-w-md mx-auto">
+          There are no current cycles to apply to. Check back later or follow us on social media for updates on upcoming recruitment!
+        </p>
+      </div>
+    );
+  }
+
   if (!dashboard.activeCycle) {
     return (
       <div className="portal-card portal-empty-state">
         <CalendarDaysIcon className="portal-empty-state-icon" />
-        <h2 className="portal-empty-state-title">No Active Recruitment</h2>
+        <h2 className="portal-empty-state-title">No Current Recruitment Cycles</h2>
         <p className="portal-empty-state-description max-w-md mx-auto">
-          There is no active recruitment cycle at the moment. Check back later or follow us on social media for updates!
+          There are no current cycles to apply to. Check back later or follow us on social media for updates on upcoming recruitment!
         </p>
       </div>
     );

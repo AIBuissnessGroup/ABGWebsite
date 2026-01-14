@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { 
   getActiveCycle,
+  getUpcomingCycle,
   getApplicationByUser,
   getEventsByCycle,
   getRsvpsByUser,
@@ -51,8 +52,13 @@ export async function GET(request: NextRequest) {
     const cycle = await getActiveCycle();
     
     if (!cycle) {
+      // Check for upcoming cycle to show countdown
+      const upcomingCycle = await getUpcomingCycle();
       return corsResponse(
-        NextResponse.json({ error: 'No active recruitment cycle' }, { status: 404 })
+        NextResponse.json({ 
+          error: 'No active recruitment cycle',
+          upcomingCycle: upcomingCycle || null,
+        }, { status: 404 })
       );
     }
 
