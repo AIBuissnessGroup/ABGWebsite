@@ -115,69 +115,36 @@ export async function GET(
       }));
     });
 
-    // Get user info - try multiple strategies
+    // Get user info from application answers (name and email are mandatory fields)
     let userName = 'Unknown';
     let userEmail = 'unknown@umich.edu';
     
-    // Strategy 1: Check bookings for this application (they store applicantEmail)
-    const bookingWithEmail = bookings.find(b => b.applicantEmail);
-    if (bookingWithEmail?.applicantEmail) {
-      userEmail = bookingWithEmail.applicantEmail;
-      userName = bookingWithEmail.applicantName || userEmail.split('@')[0];
-    }
-    
-    // Strategy 2: If no booking email, check RSVPs
-    if (userEmail === 'unknown@umich.edu') {
-      const rsvpWithEmail = rsvps.find((r: any) => r.applicantEmail);
-      if (rsvpWithEmail) {
-        userEmail = (rsvpWithEmail as any).applicantEmail;
-        userName = (rsvpWithEmail as any).applicantName || userEmail.split('@')[0];
+    // Primary: Get name and email from application answers
+    if (application.answers) {
+      // Look for email in answers
+      const emailKey = Object.keys(application.answers).find(k => 
+        k === 'email' || k === 'applicant_email' || k.toLowerCase() === 'email'
+      );
+      if (emailKey && application.answers[emailKey]) {
+        userEmail = application.answers[emailKey] as string;
       }
-    }
-    
-    // Strategy 3: Look up user in users collection by the Google sub ID
-    if (userEmail === 'unknown@umich.edu') {
-      const userDoc = await withConnection(async (db) => {
-        // The userId is a Google sub ID, but we need to find the user
-        // Check if there's a session or account collection that maps sub to email
-        // Or check the users collection for any document referencing this ID
-        
-        // First try: check if userId looks like an email
-        if (application.userId?.includes('@')) {
-          return db.collection('users').findOne({ email: application.userId });
-        }
-        
-        // Second try: search through NextAuth accounts collection
-        const account = await db.collection('accounts').findOne({ providerAccountId: application.userId });
-        if (account?.userId) {
-          // NextAuth stores MongoDB ObjectId in accounts.userId
-          try {
-            return db.collection('users').findOne({ _id: new ObjectId(account.userId) });
-          } catch {
-            return db.collection('users').findOne({ _id: account.userId });
-          }
-        }
-        
-        return null;
-      });
       
-      if (userDoc) {
-        userName = userDoc.name || userDoc.email?.split('@')[0] || 'Unknown';
-        userEmail = userDoc.email || 'unknown@umich.edu';
+      // Look for name in answers
+      const nameKey = Object.keys(application.answers).find(k => 
+        k === 'name' || k === 'full_name' || k === 'fullName' || 
+        k === 'applicant_name' || k.toLowerCase() === 'name'
+      );
+      if (nameKey && application.answers[nameKey]) {
+        userName = application.answers[nameKey] as string;
       }
     }
     
-    // Strategy 4: Fallback to answers - check common field names
-    if (userEmail === 'unknown@umich.edu') {
-      userName = (application.answers?.name as string) || 
-                 (application.answers?.fullName as string) ||
-                 (application.answers?.full_name as string) ||
-                 (application.answers?.applicant_name as string) ||
-                 (application.answers?.first_name as string) ||
-                 'Unknown';
-      userEmail = (application.answers?.email as string) || 
-                  (application.answers?.applicant_email as string) ||
-                  'unknown@umich.edu';
+    // Fallback: Check for userEmail/userName stored on application
+    if (userEmail === 'unknown@umich.edu' && application.userEmail) {
+      userEmail = application.userEmail;
+    }
+    if (userName === 'Unknown' && application.userName) {
+      userName = application.userName;
     }
 
     const detail: ApplicantDetail = {

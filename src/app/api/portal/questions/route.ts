@@ -21,11 +21,22 @@ export async function GET(request: NextRequest) {
 
     const allQuestions = await getQuestionsByCycle(cycleId);
     
-    // Get questions for this track or "both"
-    const trackQuestions = allQuestions.find(q => q.track === track || q.track === 'both');
+    // Get questions for this specific track
+    const specificTrackQuestions = allQuestions.find(q => q.track === track);
+    // Get questions marked for "both" tracks (shared questions)
+    const bothTrackQuestions = allQuestions.find(q => q.track === 'both');
+    
+    // Combine fields from both, with "both" questions first, then track-specific
+    const combinedFields = [
+      ...(bothTrackQuestions?.fields || []),
+      ...(specificTrackQuestions?.fields || []),
+    ];
+    
+    // Sort by order field
+    combinedFields.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     
     return NextResponse.json({
-      fields: trackQuestions?.fields || [],
+      fields: combinedFields,
     });
   } catch (error) {
     console.error('Error fetching questions:', error);

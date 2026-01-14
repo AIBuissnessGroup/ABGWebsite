@@ -91,56 +91,36 @@ export async function GET(request: NextRequest) {
           b.status !== 'cancelled'
         );
 
-        // Get user info - try multiple strategies
+        // Get user info from application answers (name and email are mandatory fields)
         let userName = 'Unknown';
         let userEmail = 'unknown@umich.edu';
         
-        // Strategy 1: Check bookings for this application (they store applicantEmail)
-        const bookingWithEmail = bookings.find(b => b.applicantEmail);
-        if (bookingWithEmail?.applicantEmail) {
-          userEmail = bookingWithEmail.applicantEmail;
-          userName = bookingWithEmail.applicantName || userEmail.split('@')[0];
-        }
-        
-        // Strategy 2: Look up user in users collection by the Google sub ID
-        if (userEmail === 'unknown@umich.edu') {
-          const userDoc = await withConnection(async (db) => {
-            // First try: check if userId looks like an email
-            if (app.userId?.includes('@')) {
-              return db.collection('users').findOne({ email: app.userId });
-            }
-            
-            // Second try: search through NextAuth accounts collection
-            const account = await db.collection('accounts').findOne({ providerAccountId: app.userId });
-            if (account?.userId) {
-              const { ObjectId } = await import('mongodb');
-              try {
-                return db.collection('users').findOne({ _id: new ObjectId(account.userId) });
-              } catch {
-                return db.collection('users').findOne({ _id: account.userId });
-              }
-            }
-            
-            return null;
-          });
+        // Primary: Get name and email from application answers
+        if (app.answers) {
+          // Look for email in answers
+          const emailKey = Object.keys(app.answers).find(k => 
+            k === 'email' || k === 'applicant_email' || k.toLowerCase() === 'email'
+          );
+          if (emailKey && app.answers[emailKey]) {
+            userEmail = app.answers[emailKey] as string;
+          }
           
-          if (userDoc) {
-            userName = userDoc.name || userDoc.email?.split('@')[0] || 'Unknown';
-            userEmail = userDoc.email || 'unknown@umich.edu';
+          // Look for name in answers
+          const nameKey = Object.keys(app.answers).find(k => 
+            k === 'name' || k === 'full_name' || k === 'fullName' || 
+            k === 'applicant_name' || k.toLowerCase() === 'name'
+          );
+          if (nameKey && app.answers[nameKey]) {
+            userName = app.answers[nameKey] as string;
           }
         }
         
-        // Strategy 3: Fallback to answers - check common field names
-        if (userEmail === 'unknown@umich.edu') {
-          userName = (app.answers?.name as string) || 
-                     (app.answers?.fullName as string) ||
-                     (app.answers?.full_name as string) ||
-                     (app.answers?.applicant_name as string) ||
-                     (app.answers?.first_name as string) ||
-                     'Unknown';
-          userEmail = (app.answers?.email as string) || 
-                      (app.answers?.applicant_email as string) ||
-                      'unknown@umich.edu';
+        // Fallback: Check for userEmail/userName stored on application
+        if (userEmail === 'unknown@umich.edu' && app.userEmail) {
+          userEmail = app.userEmail;
+        }
+        if (userName === 'Unknown' && app.userName) {
+          userName = app.userName;
         }
 
         // Get headshot from files

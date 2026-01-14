@@ -154,7 +154,9 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    return corsResponse(NextResponse.json(updatedQuestions));
+    // Ensure the response is JSON serializable (handles any remaining ObjectIds or Date objects)
+    const serializedQuestions = JSON.parse(JSON.stringify(updatedQuestions ?? null));
+    return corsResponse(NextResponse.json(serializedQuestions));
   } catch (error) {
     console.error('Error saving questions:', error);
     return corsResponse(

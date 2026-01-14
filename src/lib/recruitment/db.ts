@@ -607,6 +607,8 @@ export async function getApplicationByUser(cycleId: string, userId: string): Pro
 export async function saveApplicationDraft(data: {
   cycleId: string;
   userId: string;
+  userEmail?: string;
+  userName?: string;
   track: string;
   answers: Record<string, any>;
   files?: Record<string, string>;
@@ -624,6 +626,14 @@ export async function saveApplicationDraft(data: {
       updatedAt: new Date().toISOString(),
     };
     
+    // Store user email/name if provided (for easier lookup later)
+    if (data.userEmail) {
+      updateFields.userEmail = data.userEmail;
+    }
+    if (data.userName) {
+      updateFields.userName = data.userName;
+    }
+    
     // Only update files if explicitly provided (not undefined)
     if (data.files !== undefined) {
       updateFields.files = data.files;
@@ -632,6 +642,7 @@ export async function saveApplicationDraft(data: {
     console.log('💾 Saving application draft:', {
       cycleId: data.cycleId,
       userId: data.userId,
+      userEmail: data.userEmail,
       hasFiles: data.files !== undefined,
       fileKeys: data.files ? Object.keys(data.files) : [],
     });
@@ -1528,60 +1539,38 @@ export async function generatePhaseRanking(
     const config = await phaseConfigCollection.findOne(configFilter) 
       || await phaseConfigCollection.findOne({ cycleId, phase }); // Fallback to non-track-specific
     
-    // Helper function to get user info (same logic as applications API)
+    // Helper function to get user info from application answers
     const getUserInfo = async (app: any): Promise<{ name: string; email: string; headshot?: string }> => {
       let userName = 'Unknown';
       let userEmail = 'unknown@umich.edu';
       let userHeadshot: string | undefined;
       
-      // Strategy 1: Check bookings for this application
-      const booking = await bookingsCollection.findOne({ 
-        applicationId: app._id.toString(),
-        applicantEmail: { $exists: true }
-      });
-      if (booking?.applicantEmail) {
-        userEmail = booking.applicantEmail;
-        userName = booking.applicantName || userEmail.split('@')[0];
-      }
-      
-      // Strategy 2: Look up user by Google sub ID
-      if (userEmail === 'unknown@umich.edu') {
-        let userDoc = null;
-        
-        // First try: check if userId looks like an email
-        if (app.userId?.includes('@')) {
-          userDoc = await usersCollection.findOne({ email: app.userId });
+      // Primary: Get name and email from application answers
+      if (app.answers) {
+        // Look for email in answers
+        const emailKey = Object.keys(app.answers).find((k: string) => 
+          k === 'email' || k === 'applicant_email' || k.toLowerCase() === 'email'
+        );
+        if (emailKey && app.answers[emailKey]) {
+          userEmail = app.answers[emailKey] as string;
         }
         
-        // Second try: search through accounts collection
-        if (!userDoc) {
-          const account = await accountsCollection.findOne({ providerAccountId: app.userId });
-          if (account?.userId) {
-            try {
-              userDoc = await usersCollection.findOne({ _id: new ObjectId(account.userId) });
-            } catch {
-              userDoc = await usersCollection.findOne({ _id: account.userId });
-            }
-          }
-        }
-        
-        if (userDoc) {
-          userName = userDoc.name || userDoc.email?.split('@')[0] || 'Unknown';
-          userEmail = userDoc.email || 'unknown@umich.edu';
+        // Look for name in answers
+        const nameKey = Object.keys(app.answers).find((k: string) => 
+          k === 'name' || k === 'full_name' || k === 'fullName' || 
+          k === 'applicant_name' || k.toLowerCase() === 'name'
+        );
+        if (nameKey && app.answers[nameKey]) {
+          userName = app.answers[nameKey] as string;
         }
       }
       
-      // Strategy 3: Fallback to answers
-      if (userEmail === 'unknown@umich.edu') {
-        userName = (app.answers?.name as string) || 
-                   (app.answers?.fullName as string) ||
-                   (app.answers?.full_name as string) ||
-                   (app.answers?.applicant_name as string) ||
-                   (app.answers?.first_name as string) ||
-                   'Unknown';
-        userEmail = (app.answers?.email as string) || 
-                    (app.answers?.applicant_email as string) ||
-                    'unknown@umich.edu';
+      // Fallback: Check for userEmail/userName stored on application
+      if (userEmail === 'unknown@umich.edu' && app.userEmail) {
+        userEmail = app.userEmail;
+      }
+      if (userName === 'Unknown' && app.userName) {
+        userName = app.userName;
       }
       
       // Get headshot from files - try multiple strategies

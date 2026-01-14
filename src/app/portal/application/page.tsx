@@ -11,6 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 import { TRACKS, getTrackLabel } from '@/lib/tracks';
+import { compressImage, formatFileSize } from '@/lib/client-compression';
 import type { 
   Application, 
   ApplicationQuestions, 
@@ -91,27 +92,30 @@ export default function ApplicationPage() {
     }
   };
 
-  const loadQuestions = async (selectedTrack: ApplicationTrack) => {
-    if (!dashboard?.activeCycle) return;
+  const loadQuestions = useCallback((selectedTrack: ApplicationTrack) => {
+    if (!dashboard?.questions) return;
     
-    try {
-      // For now we'll use a simpler approach - questions will be loaded per track
-      // This would typically come from the API
-      const res = await fetch(`/api/portal/questions?cycleId=${dashboard.activeCycle._id}&track=${selectedTrack}`);
-      if (res.ok) {
-        const data = await res.json();
-        setQuestions(data.fields || []);
-      }
-    } catch (error) {
-      console.error('Error loading questions:', error);
-    }
-  };
+    // Get questions from dashboard (already loaded with dashboard data)
+    // Combine questions for specific track and "both" track
+    const specificTrackQuestions = dashboard.questions.find(q => q.track === selectedTrack);
+    const bothTrackQuestions = dashboard.questions.find(q => q.track === 'both');
+    
+    const combinedFields = [
+      ...(bothTrackQuestions?.fields || []),
+      ...(specificTrackQuestions?.fields || []),
+    ];
+    
+    // Sort by order field
+    combinedFields.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    
+    setQuestions(combinedFields);
+  }, [dashboard?.questions]);
 
   useEffect(() => {
-    if (track) {
+    if (track && dashboard?.questions) {
       loadQuestions(track);
     }
-  }, [track, dashboard]);
+  }, [track, dashboard?.questions, loadQuestions]);
 
   // Keep refs in sync with state for autosave
   useEffect(() => {
@@ -281,15 +285,39 @@ export default function ApplicationPage() {
   };
 
   const handleFileUpload = async (key: string, file: File, fileType: string = 'other') => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('key', key);
-    formData.append('fileType', fileType);
-    
     // Set uploading state for this field
     setUploadingFiles(prev => ({ ...prev, [key]: true }));
     
     try {
+      let processedFile = file;
+      const originalSize = file.size;
+      
+      // Compress images client-side before uploading (for headshots and image uploads)
+      if (file.type.startsWith('image/') && (fileType === 'headshot' || file.size > 2 * 1024 * 1024)) {
+        toast.loading('Compressing image...', { id: `compress-${key}` });
+        try {
+          processedFile = await compressImage(file, {
+            maxSizeMB: 2,
+            maxWidthOrHeight: 1920,
+            quality: 0.85,
+          });
+          toast.dismiss(`compress-${key}`);
+          
+          if (processedFile.size < originalSize) {
+            console.log(`Compressed ${file.name}: ${formatFileSize(originalSize)} → ${formatFileSize(processedFile.size)}`);
+          }
+        } catch (compressError) {
+          toast.dismiss(`compress-${key}`);
+          console.warn('Image compression failed, uploading original:', compressError);
+          processedFile = file;
+        }
+      }
+      
+      const formData = new FormData();
+      formData.append('file', processedFile);
+      formData.append('key', key);
+      formData.append('fileType', fileType);
+      
       const res = await fetch('/api/portal/application/upload', {
         method: 'POST',
         body: formData,
@@ -483,8 +511,24 @@ export default function ApplicationPage() {
       
       if (!res.ok) {
         const error = await res.json();
-        // If application already exists, that's fine - just set the track
-        if (error.error !== 'Application already exists') {
+        // If application already exists, update track via PUT
+        if (error.error === 'Application already exists') {
+          // Update the existing application's track
+          const updateRes = await fetch('/api/portal/application', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              track: selectedTrack,
+              answers: error.application?.answers || {},
+              files: error.application?.files || {},
+            }),
+          });
+          
+          if (!updateRes.ok) {
+            const updateError = await updateRes.json();
+            throw new Error(updateError.error || 'Failed to update track');
+          }
+        } else {
           throw new Error(error.error || 'Failed to create application');
         }
       }
@@ -692,9 +736,12 @@ export default function ApplicationPage() {
               {field.type === 'file' && (
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
                   {uploadingFiles[field.key] ? (
-                    <div className="flex items-center justify-center gap-3 py-2">
-                      <div className="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                      <span className="text-sm text-gray-600">Uploading...</span>
+                    <div className="flex flex-col items-center justify-center gap-2 py-3">
+                      <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                      <span className="text-sm text-gray-600">Uploading file...</span>
+                      <div className="w-32 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-600 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                      </div>
                     </div>
                   ) : files[field.key] ? (
                     <div className="flex items-center justify-between">

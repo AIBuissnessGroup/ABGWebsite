@@ -35,16 +35,68 @@ const FILE_KINDS = [
   { value: 'other', label: 'Other' },
 ];
 
+// Common file type presets
+const FILE_TYPE_PRESETS = {
+  documents: [
+    { ext: '.pdf', label: 'PDF' },
+    { ext: '.doc', label: 'DOC' },
+    { ext: '.docx', label: 'DOCX' },
+    { ext: '.txt', label: 'TXT' },
+  ],
+  images: [
+    { ext: '.jpg', label: 'JPG' },
+    { ext: '.jpeg', label: 'JPEG' },
+    { ext: '.png', label: 'PNG' },
+    { ext: '.gif', label: 'GIF' },
+    { ext: '.webp', label: 'WebP' },
+    { ext: '.heic', label: 'HEIC' },
+  ],
+  spreadsheets: [
+    { ext: '.xlsx', label: 'XLSX' },
+    { ext: '.xls', label: 'XLS' },
+    { ext: '.csv', label: 'CSV' },
+  ],
+};
+
+// Helper to parse accept string into array
+function parseAcceptTypes(accept: string): string[] {
+  return accept.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+}
+
+// Helper to toggle a file type in the accept string
+function toggleFileType(currentAccept: string, ext: string): string {
+  const types = parseAcceptTypes(currentAccept);
+  const index = types.indexOf(ext.toLowerCase());
+  if (index >= 0) {
+    types.splice(index, 1);
+  } else {
+    types.push(ext.toLowerCase());
+  }
+  return types.join(',');
+}
+
 import { TRACK_QUESTION_OPTIONS } from '@/lib/tracks';
 
 const TRACKS = TRACK_QUESTION_OPTIONS;
 
-function generateKey(label: string): string {
-  return label
+function generateKey(label: string, existingKeys: string[] = []): string {
+  const baseKey = label
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_|_$/g, '')
-    .substring(0, 32);
+    .substring(0, 32) || 'field';
+  
+  // If key doesn't exist, use it
+  if (!existingKeys.includes(baseKey)) {
+    return baseKey;
+  }
+  
+  // Otherwise, add a numeric suffix
+  let counter = 2;
+  while (existingKeys.includes(`${baseKey}_${counter}`)) {
+    counter++;
+  }
+  return `${baseKey}_${counter}`;
 }
 
 export default function CycleQuestionsPage() {
@@ -111,11 +163,10 @@ export default function CycleQuestionsPage() {
     const updated = [...questions];
     updated[index] = { ...updated[index], ...updates };
     
-    // Auto-generate key from label if label changes
-    if (updates.label && !updated[index].key.startsWith('field_')) {
-      // Don't auto-update if key was manually set
-    } else if (updates.label) {
-      updated[index].key = generateKey(updates.label);
+    // Auto-generate key from label if label changes and key was auto-generated
+    if (updates.label && updated[index].key.startsWith('field_')) {
+      const otherKeys = updated.filter((_, i) => i !== index).map(f => f.key);
+      updated[index].key = generateKey(updates.label, otherKeys);
     }
     
     setQuestions(updated);
@@ -179,7 +230,7 @@ export default function CycleQuestionsPage() {
       <div className="space-y-3">
         {questions.map((field, index) => (
           <div
-            key={field.key}
+            key={`question-${index}`}
             className="bg-white rounded-xl border overflow-hidden"
           >
             {/* Header */}
@@ -195,6 +246,9 @@ export default function CycleQuestionsPage() {
                 <p className="text-sm text-gray-500">
                   {FIELD_TYPES.find(t => t.value === field.type)?.label}
                   {field.required && ' • Required'}
+                  {field.type === 'file' && field.accept && (
+                    <span className="text-gray-400"> • Accepts: {field.accept}</span>
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -314,28 +368,116 @@ export default function CycleQuestionsPage() {
                 )}
 
                 {field.type === 'file' && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">File Kind</label>
-                      <select
-                        value={field.fileKind || 'other'}
-                        onChange={(e) => updateField(index, { fileKind: e.target.value as any })}
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                      >
-                        {FILE_KINDS.map((kind) => (
-                          <option key={kind.value} value={kind.value}>{kind.label}</option>
-                        ))}
-                      </select>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">File Kind</label>
+                        <select
+                          value={field.fileKind || 'other'}
+                          onChange={(e) => updateField(index, { fileKind: e.target.value as any })}
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        >
+                          {FILE_KINDS.map((kind) => (
+                            <option key={kind.value} value={kind.value}>{kind.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Max File Size (MB)</label>
+                        <input
+                          type="number"
+                          value={field.maxFileSizeMB || ''}
+                          onChange={(e) => updateField(index, { maxFileSizeMB: e.target.value ? parseInt(e.target.value) : undefined })}
+                          placeholder="10"
+                          min="1"
+                          max="50"
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
                     </div>
+                    
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Accepted Files</label>
-                      <input
-                        type="text"
-                        value={field.accept || ''}
-                        onChange={(e) => updateField(index, { accept: e.target.value })}
-                        placeholder=".pdf,.doc,.docx"
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Accepted File Types</label>
+                      
+                      {/* Documents */}
+                      <div className="mb-3">
+                        <p className="text-xs text-gray-500 mb-1.5">Documents</p>
+                        <div className="flex flex-wrap gap-2">
+                          {FILE_TYPE_PRESETS.documents.map((type) => {
+                            const isSelected = parseAcceptTypes(field.accept || '').includes(type.ext.toLowerCase());
+                            return (
+                              <button
+                                key={type.ext}
+                                type="button"
+                                onClick={() => updateField(index, { accept: toggleFileType(field.accept || '', type.ext) })}
+                                className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                                  isSelected
+                                    ? 'bg-blue-100 border-blue-500 text-blue-700'
+                                    : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                                }`}
+                              >
+                                {type.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      
+                      {/* Images */}
+                      <div className="mb-3">
+                        <p className="text-xs text-gray-500 mb-1.5">Images</p>
+                        <div className="flex flex-wrap gap-2">
+                          {FILE_TYPE_PRESETS.images.map((type) => {
+                            const isSelected = parseAcceptTypes(field.accept || '').includes(type.ext.toLowerCase());
+                            return (
+                              <button
+                                key={type.ext}
+                                type="button"
+                                onClick={() => updateField(index, { accept: toggleFileType(field.accept || '', type.ext) })}
+                                className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                                  isSelected
+                                    ? 'bg-green-100 border-green-500 text-green-700'
+                                    : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                                }`}
+                              >
+                                {type.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      
+                      {/* Spreadsheets */}
+                      <div className="mb-3">
+                        <p className="text-xs text-gray-500 mb-1.5">Spreadsheets</p>
+                        <div className="flex flex-wrap gap-2">
+                          {FILE_TYPE_PRESETS.spreadsheets.map((type) => {
+                            const isSelected = parseAcceptTypes(field.accept || '').includes(type.ext.toLowerCase());
+                            return (
+                              <button
+                                key={type.ext}
+                                type="button"
+                                onClick={() => updateField(index, { accept: toggleFileType(field.accept || '', type.ext) })}
+                                className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                                  isSelected
+                                    ? 'bg-purple-100 border-purple-500 text-purple-700'
+                                    : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                                }`}
+                              >
+                                {type.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      
+                      {/* Selected types display */}
+                      {field.accept && (
+                        <div className="mt-2 p-2 bg-gray-100 rounded-lg">
+                          <p className="text-xs text-gray-500 mb-1">Currently accepting:</p>
+                          <p className="text-sm font-mono text-gray-700">{field.accept}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

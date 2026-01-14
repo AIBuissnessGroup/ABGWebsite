@@ -263,8 +263,18 @@ export default function PortalDashboardPage() {
                 You Have Been Invited to Interview Round 1
               </h2>
               <p className="text-indigo-700 mb-3">
-                Congratulations! Your application has been selected for the first round of interviews. 
-                Please check your email for scheduling details and instructions.
+                Congratulations! Your application has been selected for the first round of interviews.
+              </p>
+              <p className="text-indigo-700 mb-2 font-semibold">
+                Next Steps:
+              </p>
+              <ol className="list-decimal list-inside text-indigo-700 space-y-1 mb-3">
+                <li>Go to the <span className="font-semibold">Schedule</span> tab above</li>
+                <li>Select a time slot for your Round 1 interview</li>
+                <li>Add the interview to your Google Calendar</li>
+              </ol>
+              <p className="text-indigo-600 text-sm">
+                Make sure to select a time that works for you as soon as possible!
               </p>
             </div>
           </div>
@@ -283,9 +293,22 @@ export default function PortalDashboardPage() {
                 You Have Advanced to Interview Round 2
               </h2>
               <p className="text-pink-700 mb-3">
-                Great job! You have made it to the final round of interviews. 
-                Please check your email for scheduling details and any additional preparation materials.
+                Great job! You have made it to the final round of interviews.
               </p>
+              <div className="bg-pink-100 border border-pink-300 rounded-lg p-3 mb-3">
+                <p className="text-pink-800 font-semibold mb-1">⚠️ Important:</p>
+                <p className="text-pink-700">
+                  Your calendar must be clear on <span className="font-bold">January 30th afternoon</span> if you wish to interview.
+                </p>
+              </div>
+              <p className="text-pink-700 mb-2 font-semibold">
+                Next Steps:
+              </p>
+              <ol className="list-decimal list-inside text-pink-700 space-y-1 mb-3">
+                <li>Go to the <span className="font-semibold">Schedule</span> tab above</li>
+                <li>Select your Round 2 interview time slot</li>
+                <li>Add the interview to your Google Calendar</li>
+              </ol>
               <p className="text-pink-600 text-sm">
                 This is the final step before decisions are made. Good luck!
               </p>
@@ -308,6 +331,9 @@ export default function PortalDashboardPage() {
               <p className="text-red-700 mb-3">
                 After careful consideration, we regret to inform you that we are unable to move forward with your application at this time. 
                 We received many strong applications this cycle and the decision was very difficult.
+              </p>
+              <p className="text-red-600 text-sm mb-2">
+                Please note that due to the high volume of applications, we are unable to provide individual feedback.
               </p>
               <p className="text-red-600 text-sm">
                 We encourage you to apply again in future recruitment cycles. Thank you for your interest in ABG!
@@ -337,10 +363,10 @@ export default function PortalDashboardPage() {
                   href="https://www.venmo.com/u/ABG-UM" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors font-medium !text-white"
                 >
-                  Pay Dues & Join
-                  <ArrowRightIcon className="w-4 h-4" />
+                  <span style={{ color: '#ffffff' }}>Pay Dues & Join</span>
+                  <ArrowRightIcon className="w-4 h-4" style={{ color: '#ffffff' }} />
                 </a>
                 <span className="text-blue-600 text-sm">via Venmo</span>
               </div>

@@ -370,6 +370,7 @@ function getEmailTemplates(phase: ReviewPhase): {
             <h2 style="color: #00274c;">Thank You for Applying, {{name}}</h2>
             <p>Thank you for your interest in the AI Business Group and for taking the time to apply.</p>
             <p>After careful review, we regret to inform you that we are unable to move forward with your application at this time. This decision was difficult given the high caliber of applicants we received.</p>
+            <p style="color: #666; font-style: italic;">Please note that due to the high volume of applications, we are unable to provide individual feedback.</p>
             <p>We encourage you to:</p>
             <ul>
               <li>Attend our open events throughout the semester</li>
@@ -406,6 +407,7 @@ function getEmailTemplates(phase: ReviewPhase): {
             <h2 style="color: #00274c;">Thank You, {{name}}</h2>
             <p>Thank you for participating in the Round 1 interview with the AI Business Group.</p>
             <p>After careful consideration, we have decided not to move forward with your application at this time. This was a difficult decision given the strong pool of candidates.</p>
+            <p style="color: #666; font-style: italic;">Please note that due to the high volume of applicants, we are unable to provide individual feedback.</p>
             <p>We appreciate the time you invested in the interview process and encourage you to:</p>
             <ul>
               <li>Attend our open events and workshops</li>
@@ -442,6 +444,7 @@ function getEmailTemplates(phase: ReviewPhase): {
             <h2 style="color: #00274c;">Thank You, {{name}}</h2>
             <p>Thank you for your dedication throughout the ABG recruitment process. We appreciate the time and effort you put into each stage.</p>
             <p>After careful deliberation, we have decided not to extend a membership offer at this time. This was an incredibly difficult decision given the strength of your application and interviews.</p>
+            <p style="color: #666; font-style: italic;">Please note that due to the volume of applicants, we are unable to provide individual feedback.</p>
             <p>We strongly encourage you to:</p>
             <ul>
               <li>Join as a general member to stay connected</li>

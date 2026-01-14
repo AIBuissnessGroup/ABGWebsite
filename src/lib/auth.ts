@@ -75,6 +75,7 @@ export const authOptions: NextAuthOptions = {
               email: user.email,
               name: user.name || '',
               image: user.image || null,
+              googleId: account?.providerAccountId, // Store Google sub ID for lookup
               roles: isAdminEmail(user.email) ? ['ADMIN'] : ['USER'],
               profile: {
                 major: null,
@@ -132,6 +133,16 @@ export const authOptions: NextAuthOptions = {
             if (user.image && user.image !== dbUser.image) {
               updates.image = user.image;
               hasUpdates = true;
+            }
+            
+            // Store Google sub ID if not already stored
+            if (account?.providerAccountId && !dbUser.googleId) {
+              updates.googleId = account.providerAccountId;
+              hasUpdates = true;
+              console.log('ADDING GOOGLE ID TO USER:', {
+                email: user.email,
+                googleId: account.providerAccountId
+              });
             }
 
             // Migrate existing users from role to roles array

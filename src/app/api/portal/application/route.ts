@@ -117,9 +117,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Use saveApplicationDraft to create a new draft application
+    // Store user's email and name from session for easier lookup later
     const applicationId = await saveApplicationDraft({
       cycleId,
       userId,
+      userEmail: session.user.email,
+      userName: session.user.name || undefined,
       track: data.track,
       answers: data.answers || {},
     });
@@ -176,6 +179,10 @@ export async function PUT(request: NextRequest) {
 
     const data = await request.json();
     
+    // Validate track if provided
+    const validTracks: ApplicationTrack[] = ['business', 'engineering', 'ai_investment_fund', 'ai_energy_efficiency'];
+    const newTrack = data.track && validTracks.includes(data.track) ? data.track : application.track;
+    
     console.log('📝 Application PUT - received data:', {
       userId,
       hasAnswers: !!data.answers,
@@ -183,15 +190,19 @@ export async function PUT(request: NextRequest) {
       hasFiles: !!data.files,
       fileKeys: data.files ? Object.keys(data.files) : [],
       files: data.files,
+      trackChange: data.track !== application.track ? `${application.track} -> ${data.track}` : 'no change',
     });
 
     // This is the autosave endpoint - saves both answers and files
+    // Track can be changed if provided in request
     await saveApplicationDraft({
       cycleId,
       userId,
-      track: application.track,
+      track: newTrack,
       answers: data.answers || {},
       files: data.files || {},
+      userEmail: session.user.email || undefined,
+      userName: session.user.name || undefined,
     });
 
     const updatedApplication = await getApplicationByUser(cycleId, userId);
