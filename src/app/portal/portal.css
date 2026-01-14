@@ -835,12 +835,12 @@
 
 /* Force the portal container and all descendants to have dark text by default */
 .portal-container,
-.portal-container *:not(.portal-welcome-banner):not(.portal-welcome-banner *):not(.portal-btn-primary):not(.portal-nav-item.active):not([class*="text-"]):not([class*="bg-"]) {
+.portal-container *:not(.portal-welcome-banner):not(.portal-welcome-banner *):not(.portal-btn-primary):not(.portal-nav-item.active):not([class*="text-"]):not([class*="bg-"]):not(#linkedin-share-card):not(#linkedin-share-card *) {
   color: var(--portal-text-primary);
 }
 
 /* Ensure SVG icons in cards and containers are visible */
-.portal-container svg:not(.portal-welcome-banner svg):not(.portal-btn-primary svg):not(.portal-nav-item.active svg) {
+.portal-container svg:not(.portal-welcome-banner svg):not(.portal-btn-primary svg):not(.portal-nav-item.active svg):not(#linkedin-share-card svg) {
   color: currentColor;
 }
 
@@ -848,4 +848,124 @@
 .portal-container [class*="Icon"],
 .portal-card [class*="Icon"] {
   color: inherit;
+}
+
+/* ================================
+   LINKEDIN SHAREABLE CARD STYLES
+   ================================ */
+
+/* Force white text on LinkedIn share card - override portal dark text */
+#linkedin-share-card {
+  color: #ffffff !important;
+}
+
+#linkedin-share-card * {
+  color: #ffffff !important;
+}
+
+#linkedin-share-card h1 {
+  color: #ffffff !important;
+}
+
+#linkedin-share-card p,
+#linkedin-share-card span {
+  color: #ffffff !important;
+}
+
+#linkedin-share-card .linkedin-text-muted {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+#linkedin-share-card .linkedin-text-subtle {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+#linkedin-share-card .snowflake {
+  color: #ffffff !important;
+}
+
+#linkedin-share-card .linkedin-star-gold {
+  color: rgba(250, 204, 21, 0.6) !important;
+}
+
+#linkedin-share-card .linkedin-star-blue {
+  color: rgba(147, 197, 253, 0.3) !important;
+}
+
+/* Animation delay utilities */
+#linkedin-share-card .delay-300 {
+  animation-delay: 300ms;
+}
+
+#linkedin-share-card .delay-500 {
+  animation-delay: 500ms;
+}
+
+#linkedin-share-card .delay-700 {
+  animation-delay: 700ms;
+}
+
+/* Shimmer animation for the card */
+@keyframes linkedin-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+#linkedin-share-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: linkedin-shimmer 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Snowflake falling animation */
+@keyframes snowfall {
+  0% {
+    top: -10%;
+    opacity: 0;
+    transform: translateX(0) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+    transform: translateX(20px) rotate(360deg);
+  }
+}
+
+.snowflake {
+  animation: snowfall 8s linear infinite;
+}
+
+/* Stagger the snowflakes with different speeds */
+.snowflake:nth-child(odd) {
+  animation-duration: 10s;
+}
+
+.snowflake:nth-child(even) {
+  animation-duration: 7s;
+}
+
+.snowflake:nth-child(3n) {
+  animation-duration: 12s;
 }

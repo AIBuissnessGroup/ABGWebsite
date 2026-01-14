@@ -39,23 +39,62 @@ const connectionString = process.env.DATABASE_URL || '';
 const hasTlsInConnectionString = /[?&](tls|ssl)=/.test(connectionString);
 const isProduction = process.env.NODE_ENV === 'production';
 
-// MongoDB connection options
+// MongoDB connection options with connection pooling
 // - In production: use the CA certificate file for proper TLS verification
 // - In development with SSL in connection string: allow self-signed certs to avoid cert issues
 // - Otherwise: only enable TLS in production
-const mongoOptions: MongoClientOptions = hasTlsInConnectionString
-  ? (isProduction 
-      ? { tlsCAFile: '/app/global-bundle.pem' }
-      : { tlsAllowInvalidCertificates: true })
-  : {
-      tls: isProduction,
-      tlsCAFile: isProduction ? '/app/global-bundle.pem' : undefined,
-    };
+const mongoOptions: MongoClientOptions = {
+  ...(hasTlsInConnectionString
+    ? (isProduction 
+        ? { tlsCAFile: '/app/global-bundle.pem' }
+        : { tlsAllowInvalidCertificates: true })
+    : {
+        tls: isProduction,
+        tlsCAFile: isProduction ? '/app/global-bundle.pem' : undefined,
+      }),
+  // Connection pooling settings for better performance
+  maxPoolSize: 10,
+  minPoolSize: 2,
+  maxIdleTimeMS: 60000,
+  connectTimeoutMS: 10000,
+  serverSelectionTimeoutMS: 10000,
+};
+
+// ============================================================================
+// Connection Pooling (singleton pattern for serverless/Next.js)
+// ============================================================================
+
+// Global cached connection for connection reuse across requests
+let cachedClient: MongoClient | null = null;
+let cachedClientPromise: Promise<MongoClient> | null = null;
 
 async function getClient(): Promise<MongoClient> {
-  const client = new MongoClient(process.env.DATABASE_URL!, mongoOptions);
-  await client.connect();
-  return client;
+  // Return existing connection if available
+  if (cachedClient) {
+    return cachedClient;
+  }
+
+  // If connection is being established, wait for it
+  if (cachedClientPromise) {
+    return cachedClientPromise;
+  }
+
+  // Create new connection with pooling
+  cachedClientPromise = (async () => {
+    const client = new MongoClient(process.env.DATABASE_URL!, mongoOptions);
+    await client.connect();
+    cachedClient = client;
+    
+    // Handle connection errors by resetting cache
+    client.on('error', () => {
+      cachedClient = null;
+      cachedClientPromise = null;
+    });
+    
+    return client;
+  })();
+
+  return cachedClientPromise;
 }
 
 // Exported collection names for direct access
@@ -79,14 +118,10 @@ export function toObjectId(id: string): ObjectId {
   return new ObjectId(id);
 }
 
-// Helper to run operations with a DB connection
+// Helper to run operations with a DB connection (uses pooled connection - no close needed)
 export async function withConnection<T>(fn: (db: ReturnType<MongoClient['db']>) => Promise<T>): Promise<T> {
   const client = await getClient();
-  try {
-    return await fn(client.db());
-  } finally {
-    await client.close();
-  }
+  return fn(client.db());
 }
 
 export async function getCollection<T extends Document>(name: string) {
@@ -127,7 +162,7 @@ export async function getCycles(): Promise<RecruitmentCycle[]> {
     const cycles = await collection.find({}).sort({ createdAt: -1 }).toArray();
     return serializeDocs<RecruitmentCycle>(cycles);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -138,7 +173,7 @@ export async function getCycleById(id: string): Promise<RecruitmentCycle | null>
     const cycle = await collection.findOne({ _id: new ObjectId(id) });
     return serializeDoc<RecruitmentCycle>(cycle);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -149,7 +184,7 @@ export async function getActiveCycle(): Promise<RecruitmentCycle | null> {
     const cycle = await collection.findOne({ isActive: true });
     return serializeDoc<RecruitmentCycle>(cycle);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -168,7 +203,7 @@ export async function setActiveCycle(id: string): Promise<void> {
       { $set: { isActive: true, updatedAt: new Date().toISOString() } }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -183,7 +218,7 @@ export async function createCycle(data: Omit<RecruitmentCycle, '_id'>): Promise<
     });
     return result.insertedId.toString();
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -205,7 +240,7 @@ export async function updateCycle(id: string, data: Partial<RecruitmentCycle>): 
       { $set: { ...data, updatedAt: new Date().toISOString() } }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -215,7 +250,7 @@ export async function deleteCycle(id: string): Promise<void> {
     const collection = client.db().collection(CYCLES_COLLECTION);
     await collection.deleteOne({ _id: new ObjectId(id) });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -232,7 +267,7 @@ export async function getEventsByCycle(cycleId: string): Promise<RecruitmentEven
     const events = await collection.find({ cycleId }).sort({ date: 1 }).toArray();
     return serializeDocs<RecruitmentEvent>(events);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -243,7 +278,7 @@ export async function getEventById(id: string): Promise<RecruitmentEvent | null>
     const event = await collection.findOne({ _id: new ObjectId(id) });
     return serializeDoc<RecruitmentEvent>(event);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -259,7 +294,7 @@ export async function createEvent(data: Omit<RecruitmentEvent, '_id'>): Promise<
     });
     return result.insertedId.toString();
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -272,7 +307,7 @@ export async function updateEvent(id: string, data: Partial<RecruitmentEvent>): 
       { $set: { ...data, updatedAt: new Date().toISOString() } }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -282,7 +317,7 @@ export async function deleteEvent(id: string): Promise<void> {
     const collection = client.db().collection(EVENTS_COLLECTION);
     await collection.deleteOne({ _id: new ObjectId(id) });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -299,7 +334,7 @@ export async function getRsvpsByEvent(eventId: string): Promise<EventRsvp[]> {
     const rsvps = await collection.find({ eventId }).toArray();
     return serializeDocs<EventRsvp>(rsvps);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -310,7 +345,7 @@ export async function getRsvpsByUser(cycleId: string, userId: string): Promise<E
     const rsvps = await collection.find({ cycleId, userId }).toArray();
     return serializeDocs<EventRsvp>(rsvps);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -332,7 +367,7 @@ export async function createRsvp(data: Omit<EventRsvp, '_id'>): Promise<string> 
     
     return result.insertedId.toString();
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -351,7 +386,7 @@ export async function deleteRsvp(cycleId: string, eventId: string, userId: strin
       );
     }
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -364,7 +399,7 @@ export async function markAttendance(rsvpId: string): Promise<void> {
       { $set: { attendedAt: new Date().toISOString() } }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -406,7 +441,7 @@ export async function checkInToEvent(
     
     return { success: true };
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -417,7 +452,7 @@ export async function getRsvpByUserAndEvent(eventId: string, userId: string): Pr
     const rsvp = await collection.findOne({ eventId, userId });
     return serializeDoc<EventRsvp>(rsvp);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -434,7 +469,7 @@ export async function getQuestionsByCycle(cycleId: string): Promise<ApplicationQ
     const questions = await collection.find({ cycleId }).toArray();
     return serializeDocs<ApplicationQuestions>(questions);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -453,7 +488,7 @@ export async function upsertQuestions(data: Omit<ApplicationQuestions, '_id'>): 
       { upsert: true }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -485,7 +520,7 @@ export async function getApplicationsByCycle(
     const applications = await collection.find(query).sort({ createdAt: -1 }).toArray();
     return serializeDocs<Application>(applications);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -496,7 +531,7 @@ export async function getApplicationById(id: string): Promise<Application | null
     const application = await collection.findOne({ _id: new ObjectId(id) });
     return serializeDoc<Application>(application);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -507,7 +542,7 @@ export async function getApplicationByUser(cycleId: string, userId: string): Pro
     const application = await collection.findOne({ cycleId, userId });
     return serializeDoc<Application>(application);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -561,7 +596,7 @@ export async function saveApplicationDraft(data: {
       return result.insertedId.toString();
     }
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -580,7 +615,7 @@ export async function submitApplication(cycleId: string, userId: string): Promis
       }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -593,7 +628,7 @@ export async function updateApplicationStage(id: string, stage: ApplicationStage
       { $set: { stage, updatedAt: new Date().toISOString() } }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -603,7 +638,7 @@ export async function deleteApplication(id: string): Promise<void> {
     const collection = client.db().collection(APPLICATIONS_COLLECTION);
     await collection.deleteOne({ _id: new ObjectId(id) });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -616,7 +651,7 @@ export async function updateApplicationNotes(id: string, notes: string): Promise
       { $set: { adminNotes: notes, updatedAt: new Date().toISOString() } }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -629,7 +664,7 @@ export async function updateApplicationFiles(id: string, files: Record<string, s
       { $set: { files, updatedAt: new Date().toISOString() } }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -652,7 +687,7 @@ export async function getSlotsByCycle(
     const slots = await collection.find(query).sort({ startTime: 1 }).toArray();
     return serializeDocs<RecruitmentSlot>(slots);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -663,7 +698,7 @@ export async function getSlotById(id: string): Promise<RecruitmentSlot | null> {
     const slot = await collection.findOne({ _id: new ObjectId(id) });
     return serializeDoc<RecruitmentSlot>(slot);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -693,7 +728,7 @@ export async function getAvailableSlots(cycleId: string, kind: SlotKind, track?:
     const slots = await collection.find(query).sort({ startTime: 1 }).toArray();
     return serializeDocs<RecruitmentSlot>(slots);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -709,7 +744,7 @@ export async function createSlot(data: Omit<RecruitmentSlot, '_id'>): Promise<st
     });
     return result.insertedId.toString();
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -722,7 +757,7 @@ export async function updateSlot(id: string, data: Partial<RecruitmentSlot>): Pr
       { $set: { ...data, updatedAt: new Date().toISOString() } }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -732,7 +767,7 @@ export async function deleteSlot(id: string): Promise<void> {
     const collection = client.db().collection(SLOTS_COLLECTION);
     await collection.deleteOne({ _id: new ObjectId(id) });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -749,7 +784,7 @@ export async function getBookingsBySlot(slotId: string): Promise<SlotBooking[]> 
     const bookings = await collection.find({ slotId }).toArray();
     return serializeDocs<SlotBooking>(bookings);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -768,7 +803,7 @@ export async function getBookingsByUser(cycleId: string, userId: string): Promis
     }).toArray();
     return serializeDocs<SlotBooking>(bookings);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -791,7 +826,7 @@ export async function createBooking(data: Omit<SlotBooking, '_id'>): Promise<str
     
     return result.insertedId.toString();
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -815,7 +850,7 @@ export async function cancelBooking(bookingId: string): Promise<void> {
       );
     }
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -826,7 +861,7 @@ export async function getBookingsByApplication(applicationId: string): Promise<S
     const bookings = await collection.find({ applicationId }).toArray();
     return serializeDocs<SlotBooking>(bookings);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -837,7 +872,7 @@ export async function getBookingById(bookingId: string): Promise<SlotBooking | n
     const booking = await collection.findOne({ _id: new ObjectId(bookingId) });
     return booking ? serializeDoc<SlotBooking>(booking) : null;
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -855,7 +890,7 @@ export async function updateBooking(bookingId: string, updates: Partial<SlotBook
       }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -872,7 +907,7 @@ export async function getReviewsByApplication(applicationId: string): Promise<Ap
     const reviews = await collection.find({ applicationId }).toArray();
     return serializeDocs<ApplicationReview>(reviews);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -894,7 +929,7 @@ export async function upsertReview(data: Omit<ApplicationReview, '_id'>): Promis
       { upsert: true }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -936,7 +971,7 @@ export async function getReviewSummary(applicationId: string): Promise<{
       scores,
     };
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -956,7 +991,7 @@ export async function logEmailSent(data: Omit<EmailLog, '_id'>): Promise<string>
     });
     return result.insertedId.toString();
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -967,7 +1002,7 @@ export async function getEmailLogsByCycle(cycleId: string): Promise<EmailLog[]> 
     const logs = await collection.find({ cycleId }).sort({ createdAt: -1 }).toArray();
     return serializeDocs<EmailLog>(logs);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -978,7 +1013,7 @@ export async function getEmailLogsByApplication(applicationId: string): Promise<
     const logs = await collection.find({ applicationId }).sort({ createdAt: -1 }).toArray();
     return serializeDocs<EmailLog>(logs);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1001,7 +1036,7 @@ export async function getPhaseConfig(
     const config = await collection.findOne(query);
     return serializeDoc<PhaseConfig>(config);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1017,7 +1052,7 @@ export async function getPhaseConfigsByCycle(
     const configs = await collection.find(query).toArray();
     return serializeDocs<PhaseConfig>(configs);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1042,7 +1077,7 @@ export async function upsertPhaseConfig(data: Omit<PhaseConfig, '_id'>): Promise
       { upsert: true }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1069,7 +1104,7 @@ export async function finalizePhase(
       }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1102,7 +1137,7 @@ export async function unlockPhase(
       }
     );
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1159,7 +1194,7 @@ export async function revertPhase(
     
     return { reverted: revertedCount };
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1205,18 +1240,20 @@ export async function initializePhaseConfigs(cycleId: string): Promise<void> {
     for (const phase of phases) {
       const existing = await collection.findOne({ cycleId, phase });
       if (!existing) {
+        const config = defaultConfigs[phase];
         await collection.insertOne({
           cycleId,
           phase,
           status: 'not_started' as PhaseStatus,
-          ...defaultConfigs[phase],
+          scoringCategories: config.scoringCategories,
+          minReviewersRequired: config.minReviewersRequired,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
       }
     }
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1234,7 +1271,7 @@ export async function getReviewsByPhase(
     const reviews = await collection.find({ applicationId, phase }).toArray();
     return serializeDocs<ApplicationReview>(reviews);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1248,7 +1285,7 @@ export async function getReviewsByPhaseAndCycle(
     const reviews = await collection.find({ cycleId, phase }).toArray();
     return serializeDocs<ApplicationReview>(reviews);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1287,7 +1324,7 @@ export async function upsertPhaseReview(data: Omit<ApplicationReview, '_id'>): P
     
     return result.upsertedId?.toString() || '';
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1374,7 +1411,7 @@ export async function getPhaseReviewSummary(
       reviewers,
     };
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1709,7 +1746,7 @@ export async function generatePhaseRanking(
     
     return phaseRanking;
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1717,13 +1754,15 @@ export async function savePhaseRanking(ranking: PhaseRanking): Promise<string> {
   const client = await getClient();
   try {
     const collection = client.db().collection(PHASE_RANKINGS_COLLECTION);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _id, ...rankingWithoutId } = ranking;
     const result = await collection.insertOne({
-      ...ranking,
+      ...rankingWithoutId,
       createdAt: new Date().toISOString(),
     });
     return result.insertedId.toString();
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1740,7 +1779,7 @@ export async function getLatestPhaseRanking(
     );
     return serializeDoc<PhaseRanking>(ranking);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1757,7 +1796,7 @@ export async function getFinalizedPhaseRanking(
     );
     return serializeDoc<PhaseRanking>(ranking);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1900,7 +1939,7 @@ export async function applyCutoff(
     
     return { advanced, rejected };
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -1914,7 +1953,7 @@ export async function getPhaseDecisions(
     const decisions = await collection.find({ cycleId, phase }).toArray();
     return serializeDocs<PhaseDecisionAction>(decisions);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -2017,7 +2056,7 @@ export async function getPhaseCompleteness(
       reviewerCompletion,
     };
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -2038,6 +2077,6 @@ export async function bulkUpdateApplicationStages(
     );
     return result.modifiedCount;
   } finally {
-    await client.close();
+    
   }
 }

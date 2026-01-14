@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { 
   DocumentTextIcon,
   CalendarDaysIcon,
@@ -10,7 +11,10 @@ import {
   ExclamationCircleIcon,
   ArrowRightIcon,
   UserGroupIcon,
+  ShareIcon,
 } from '@heroicons/react/24/outline';
+import { FaLinkedin } from 'react-icons/fa';
+import { useSession } from 'next-auth/react';
 import RoundTracker from '@/components/portal/RoundTracker';
 import { getTrackLabel } from '@/lib/tracks';
 import type { PortalDashboard, ApplicationStage } from '@/types/recruitment';
@@ -31,6 +35,7 @@ const STAGE_INFO: Record<ApplicationStage, { label: string; description: string;
 };
 
 export default function PortalDashboardPage() {
+  const { data: session } = useSession();
   const [dashboard, setDashboard] = useState<PortalDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,22 +100,151 @@ export default function PortalDashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Accepted Banner - Show prominently for accepted applicants */}
+      {/* LinkedIn-Shareable Welcome Card - Show for accepted applicants */}
       {application?.stage === 'accepted' && (
-        <div className="bg-green-50 border-2 border-green-300 rounded-xl p-6">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 bg-green-200 rounded-full flex items-center justify-center flex-shrink-0">
-              <CheckCircleIcon className="w-8 h-8 text-green-700" />
+        <div className="relative overflow-hidden">
+          {/* Main Shareable Card */}
+          <div 
+            id="linkedin-share-card"
+            className="relative rounded-2xl p-8 overflow-hidden"
+          >
+            {/* Background Image Layer */}
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: 'url(/IMG_0819.jpeg)', filter: 'blur(1px)' }}
+            ></div>
+            
+            {/* Gradient Overlay on top of image */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#00274c]/80 via-[#1e3a5f]/70 to-[#00274c]/80"></div>
+            
+            {/* Decorative Elements - Brighter */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-yellow-400/40 to-transparent rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-blue-400/40 to-transparent rounded-full blur-3xl"></div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-yellow-400/15 to-blue-400/15 rounded-full blur-3xl"></div>
+            
+            {/* Falling Snowflakes */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div className="snowflake absolute text-xs" style={{ left: '5%', animationDelay: '0s' }}>❄</div>
+              <div className="snowflake absolute text-sm" style={{ left: '15%', animationDelay: '1s' }}>❄</div>
+              <div className="snowflake absolute text-xs" style={{ left: '25%', animationDelay: '2s' }}>❄</div>
+              <div className="snowflake absolute text-base" style={{ left: '35%', animationDelay: '0.5s' }}>❄</div>
+              <div className="snowflake absolute text-xs" style={{ left: '45%', animationDelay: '1.5s' }}>❄</div>
+              <div className="snowflake absolute text-sm" style={{ left: '55%', animationDelay: '2.5s' }}>❄</div>
+              <div className="snowflake absolute text-xs" style={{ left: '65%', animationDelay: '0.8s' }}>❄</div>
+              <div className="snowflake absolute text-base" style={{ left: '75%', animationDelay: '1.8s' }}>❄</div>
+              <div className="snowflake absolute text-sm" style={{ left: '85%', animationDelay: '2.2s' }}>❄</div>
+              <div className="snowflake absolute text-xs" style={{ left: '95%', animationDelay: '0.3s' }}>❄</div>
+              <div className="snowflake absolute text-xs" style={{ left: '10%', animationDelay: '3s' }}>❄</div>
+              <div className="snowflake absolute text-sm" style={{ left: '30%', animationDelay: '3.5s' }}>❄</div>
+              <div className="snowflake absolute text-xs" style={{ left: '50%', animationDelay: '4s' }}>❄</div>
+              <div className="snowflake absolute text-base" style={{ left: '70%', animationDelay: '4.5s' }}>❄</div>
+              <div className="snowflake absolute text-sm" style={{ left: '90%', animationDelay: '5s' }}>❄</div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-green-800 mb-2">
-                Congratulations! You Have Been Accepted
-              </h2>
-              <p className="text-green-700 mb-3">
-                We are thrilled to welcome you to the AI Business Group! Your application stood out among many impressive candidates.
+            
+            {/* Animated Stars/Sparkles */}
+            <div className="linkedin-star-gold absolute top-8 right-12 text-2xl animate-pulse">✦</div>
+            <div className="linkedin-star-gold absolute top-20 right-28 text-lg animate-pulse delay-300">✦</div>
+            <div className="linkedin-star-gold absolute bottom-12 right-20 text-xl animate-pulse delay-500">✦</div>
+            <div className="linkedin-star-blue absolute top-16 left-16 text-lg animate-pulse delay-700">✧</div>
+            
+            {/* Content */}
+            <div className="relative z-10">
+              {/* Header with Logo */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-2">
+                    <Image 
+                      src="/logo.png" 
+                      alt="ABG Logo" 
+                      width={48} 
+                      height={48} 
+                      className="w-12 h-12 object-contain"
+                    />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm tracking-wider uppercase">AI Business Group</p>
+                    <p className="linkedin-text-muted text-xs">University of Michigan</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="linkedin-text-muted text-xs">{cycle.name?.split(' ')[0] || 'Winter'} {new Date().getFullYear()}</p>
+                </div>
+              </div>
+
+              {/* Main Message */}
+              <div className="text-center py-6">
+                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-white/20 to-white/30 backdrop-blur-sm rounded-full px-4 py-1.5 mb-4">
+                  <CheckCircleIcon className="w-5 h-5" />
+                  <span className="font-semibold text-sm">Official Member</span>
+                </div>
+                
+                <h1 className="text-4xl md:text-5xl font-bold mb-3">
+                  Welcome to ABG!
+                </h1>
+                
+                <p className="text-xl font-medium mb-2">
+                  {session?.user?.name || 'New Member'}
+                </p>
+                
+                <p className="linkedin-text-muted max-w-md mx-auto text-sm">
+                  Thrilled to join the AI Business Group at the University of Michigan as a new member!
+                </p>
+              </div>
+
+              {/* Track Badge */}
+              {application?.track && (
+                <div className="flex justify-center mb-6">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl px-6 py-3 border border-white/10">
+                    <p className="font-semibold">{getTrackLabel(application.track)}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="flex items-center justify-between pt-4 border-t border-white/20">
+                <p className="linkedin-text-subtle text-xs">abgumich.org</p>
+                <div className="linkedin-text-subtle flex items-center gap-3 text-xs">
+                  <span>#ABGMember</span>
+                  <span>#UMich</span>
+                  <span>#AIBusinessGroup</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* LinkedIn Share Prompt - Below the card */}
+          <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100">
+            <div className="flex items-start md:items-center gap-4 flex-col md:flex-row">
+              <div className="flex items-center gap-3 flex-1">
+                <div className="w-12 h-12 bg-[#0077b5] rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <FaLinkedin className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Share Your Achievement!</h3>
+                  <p className="text-gray-600 text-sm">
+                    Screenshot the card above and share it on LinkedIn! Tag us <span className="font-medium text-[#0077b5]">@AI Business Group</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 p-3 bg-white/70 rounded-lg border border-blue-100">
+              <p className="text-gray-600 text-xs">
+                <span className="font-medium text-gray-700">Suggested caption:</span> &quot;Excited to announce that I&apos;ve been accepted into the AI Business Group at the University of Michigan! Looking forward to working on impactful AI projects with this incredible team. 🎉 #ABG #UMich #AIBusinessGroup&quot;
               </p>
-              <p className="text-green-600 text-sm">
-                Please check your email for next steps and onboarding information. We look forward to working with you!
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Original Accepted Info (less prominent, for details) */}
+      {application?.stage === 'accepted' && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-5">
+          <div className="flex items-start gap-3">
+            <CheckCircleIcon className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-green-800 mb-1">Next Steps</h3>
+              <p className="text-green-700 text-sm">
+                Please check your email for onboarding information and next steps. We&apos;re excited to have you on the team!
               </p>
             </div>
           </div>
@@ -131,9 +265,6 @@ export default function PortalDashboardPage() {
               <p className="text-indigo-700 mb-3">
                 Congratulations! Your application has been selected for the first round of interviews. 
                 Please check your email for scheduling details and instructions.
-              </p>
-              <p className="text-indigo-600 text-sm">
-                Make sure to prepare by researching ABG and thinking about what you can bring to the team. We look forward to meeting you!
               </p>
             </div>
           </div>
@@ -156,7 +287,7 @@ export default function PortalDashboardPage() {
                 Please check your email for scheduling details and any additional preparation materials.
               </p>
               <p className="text-pink-600 text-sm">
-                This is the final step before decisions are made. Be ready to discuss your experience and goals in more depth. Good luck!
+                This is the final step before decisions are made. Good luck!
               </p>
             </div>
           </div>
@@ -195,15 +326,15 @@ export default function PortalDashboardPage() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-blue-800 mb-2">
-                Join ABG as a General Member
+                We encourage you to join ABG as a General Member
               </h2>
               <p className="text-blue-700 mb-3">
-                You can still be part of the ABG community! General members have access to our events, workshops, 
-                and networking opportunities. All you have to do is pay the membership dues.
+                You can still be part of the ABG community! General members have access to our events 
+                and networking opportunities.
               </p>
               <div className="flex items-center gap-4">
                 <a 
-                  href="https://campusgroups.umich.edu/UABG/club_signup" 
+                  href="https://www.venmo.com/u/ABG-UM" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
@@ -211,7 +342,7 @@ export default function PortalDashboardPage() {
                   Pay Dues & Join
                   <ArrowRightIcon className="w-4 h-4" />
                 </a>
-                <span className="text-blue-600 text-sm">via Campus Groups</span>
+                <span className="text-blue-600 text-sm">via Venmo</span>
               </div>
             </div>
           </div>
