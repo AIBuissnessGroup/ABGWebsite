@@ -19,7 +19,13 @@ interface PortalLayoutProps {
   children: ReactNode;
 }
 
-const NAV_ITEMS = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const NAV_ITEMS: NavItem[] = [
   { href: '/portal', label: 'Dashboard', icon: HomeIcon },
   { href: '/portal/application', label: 'Application', icon: DocumentTextIcon },
   { href: '/portal/events', label: 'Events', icon: CalendarDaysIcon },
