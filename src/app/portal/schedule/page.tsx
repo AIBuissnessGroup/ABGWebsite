@@ -302,13 +302,13 @@ export default function PortalSchedulePage() {
                   {booking.status === 'confirmed' && !isPast && (
                     <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
                       <a
-                        href={booking.calendarEventLink || generateGCalLink(booking)}
+                        href={generateGCalLink(booking)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
                       >
                         <CalendarDaysIcon className="w-3.5 h-3.5" />
-                        Calendar
+                        Add to Calendar
                       </a>
                       <button
                         onClick={() => handleCancelBooking(booking._id!)}

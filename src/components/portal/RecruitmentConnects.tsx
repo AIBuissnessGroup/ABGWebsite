@@ -121,6 +121,28 @@ export default function RecruitmentConnects({ connects }: RecruitmentConnectsPro
               ))}
             </div>
 
+            {/* Tech Support */}
+            <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-gray-600 to-gray-800 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm flex-shrink-0">
+                  🛠️
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-medium text-gray-900 text-sm">Tech Support</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Website issues or technical problems
+                  </p>
+                  <a
+                    href="mailto:abgtech@umich.edu?subject=ABG Portal - Tech Support"
+                    className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    <EnvelopeIcon className="w-3.5 h-3.5" />
+                    abgtech@umich.edu
+                  </a>
+                </div>
+              </div>
+            </div>
+
             {/* Footer */}
             <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
               <p className="text-xs text-gray-500 text-center">
