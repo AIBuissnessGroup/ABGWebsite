@@ -89,7 +89,17 @@ export async function PUT(
     if (data.portalOpenAt !== undefined) updateData.portalOpenAt = new Date(data.portalOpenAt);
     if (data.portalCloseAt !== undefined) updateData.portalCloseAt = new Date(data.portalCloseAt);
     if (data.applicationDueAt !== undefined) updateData.applicationDueAt = new Date(data.applicationDueAt);
-    if (data.settings !== undefined) updateData.settings = data.settings;
+    // Merge settings instead of replacing to preserve fields like recruitmentConnects
+    // Filter out undefined values from incoming settings to avoid overwriting existing values
+    if (data.settings !== undefined) {
+      const incomingSettings = Object.fromEntries(
+        Object.entries(data.settings).filter(([_, v]) => v !== undefined)
+      );
+      updateData.settings = {
+        ...(existingCycle.settings || {}),
+        ...incomingSettings,
+      };
+    }
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
 
     await updateCycle(id, updateData);

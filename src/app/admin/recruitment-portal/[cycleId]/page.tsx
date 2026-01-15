@@ -42,6 +42,7 @@ export default function CycleSettingsPage() {
         applicationDueAt: formatDateForInput(new Date(cycle.applicationDueAt)),
         isActive: cycle.isActive,
         settings: {
+          ...cycle.settings, // Preserve existing settings like recruitmentConnects, tracks, etc.
           requireResume: cycle.settings?.requireResume ?? true,
           requireHeadshot: cycle.settings?.requireHeadshot ?? true,
           allowTrackChange: cycle.settings?.allowTrackChange ?? false,
