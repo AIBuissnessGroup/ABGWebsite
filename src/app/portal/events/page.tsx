@@ -87,13 +87,8 @@ export default function PortalEventsPage() {
     
     try {
       setRsvpLoading(eventId);
-      const res = await fetch('/api/portal/rsvp', {
+      const res = await fetch(`/api/portal/rsvp?eventId=${encodeURIComponent(eventId)}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cycleId: dashboard.activeCycle._id,
-          eventId,
-        }),
       });
       
       if (!res.ok) {

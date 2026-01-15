@@ -362,7 +362,7 @@ export default function CycleSlotsPage() {
                                           </a>
                                         ) : (
                                           <a
-                                            href={generateGCalLink(slot, booking.applicantName, booking.applicantEmail)}
+                                            href={generateGCalLink(slot, booking.applicantName || '', booking.applicantEmail || '')}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded hover:bg-green-200 transition-colors"
