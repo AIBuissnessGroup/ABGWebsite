@@ -509,7 +509,7 @@ export default function PortalSchedulePage() {
                                 <button
                                   onClick={() => handleBook(slot._id!)}
                                   disabled={isLoading}
-                                  className="w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                                  className="w-full py-2 bg-blue-600 !text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                                 >
                                   {isLoading ? 'Booking...' : 'Book Coffee Chat'}
                                 </button>
