@@ -133,11 +133,11 @@ export default function RecruitmentConnects({ connects }: RecruitmentConnectsPro
                     Website issues or technical problems
                   </p>
                   <a
-                    href="mailto:abgtech@umich.edu?subject=ABG Portal - Tech Support"
+                    href="mailto:ABGWebSupport@umich.edu?subject=ABG Portal - Tech Support"
                     className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
                     <EnvelopeIcon className="w-3.5 h-3.5" />
-                    abgtech@umich.edu
+                    ABGWebSupport@umich.edu
                   </a>
                 </div>
               </div>
