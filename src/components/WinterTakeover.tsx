@@ -1186,7 +1186,6 @@ export default function WinterTakeover() {
               className="w-full h-full object-contain"
               onEnded={handleVideoEnd}
               playsInline
-              muted
               autoPlay
             />
             {/* Skip button */}

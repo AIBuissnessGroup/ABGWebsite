@@ -264,6 +264,14 @@ export default function PortalEventsPage() {
     return new Date(event.startAt) <= now && new Date(event.endAt) > now;
   };
 
+  // Check if check-in should be available: event has started but not ended
+  const canCheckIn = (event: RecruitmentEvent): boolean => {
+    const now = new Date();
+    const hasStarted = new Date(event.startAt) <= now;
+    const hasNotEnded = new Date(event.endAt) > now;
+    return event.checkInEnabled === true && hasStarted && hasNotEnded;
+  };
+
   // Generate Google Calendar link for an event
   const getGoogleCalendarLink = (event: RecruitmentEvent): string => {
     const startDate = new Date(event.startAt);
@@ -382,7 +390,7 @@ export default function PortalEventsPage() {
                             <CheckCircleIcon className="w-5 h-5" />
                             Checked In ✓
                           </span>
-                        ) : event.checkInEnabled ? (
+                        ) : canCheckIn(event) ? (
                           <div className="flex flex-col items-end gap-2">
                             <button
                               onClick={() => setCheckInEvent(event)}
@@ -392,8 +400,19 @@ export default function PortalEventsPage() {
                               Check In Now
                             </button>
                           </div>
+                        ) : hasRsvp ? (
+                          <span className="flex items-center gap-1 text-green-600 font-medium">
+                            <CheckCircleIcon className="w-5 h-5" />
+                            RSVP'd
+                          </span>
                         ) : (
-                          <span className="text-gray-500 text-sm">Check-in not available</span>
+                          <button
+                            onClick={() => handleRsvp(event._id!)}
+                            disabled={isLoading}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {isLoading ? 'RSVPing...' : 'RSVP'}
+                          </button>
                         )}
                       </div>
                     </div>
@@ -476,7 +495,7 @@ export default function PortalEventsPage() {
                             <CheckCircleIcon className="w-5 h-5" />
                             Checked In ✓
                           </span>
-                        ) : event.checkInEnabled ? (
+                        ) : canCheckIn(event) ? (
                           <div className="flex flex-col items-end gap-2">
                             {hasRsvp && (
                               <span className="flex items-center gap-1 text-green-600 font-medium text-sm">
