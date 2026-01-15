@@ -497,9 +497,9 @@ export default function PortalSchedulePage() {
                               </div>
 
                               {alreadyBookedKind ? (
-                                <div className="flex items-center gap-1 text-sm text-green-600">
+                                <div className="flex items-center gap-1 text-sm text-amber-600">
                                   <CheckCircleIcon className="w-4 h-4" />
-                                  Already booked
+                                  You already have a coffee chat booked
                                 </div>
                               ) : isPast ? (
                                 <div className="text-sm text-gray-400">Past</div>
