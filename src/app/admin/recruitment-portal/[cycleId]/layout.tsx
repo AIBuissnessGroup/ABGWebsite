@@ -13,6 +13,7 @@ import {
   ArrowLeftIcon,
   StarIcon,
   ChartBarIcon,
+  UsersIcon,
 } from '@heroicons/react/24/outline';
 import { useAdminApi } from '@/hooks/useAdminApi';
 import type { RecruitmentCycle } from '@/types/recruitment';
@@ -37,6 +38,7 @@ const navItems = [
   { name: 'Events', href: '/events', icon: CalendarIcon },
   { name: 'Questions', href: '/questions', icon: ClipboardDocumentListIcon },
   { name: 'Slots', href: '/slots', icon: ChatBubbleLeftRightIcon },
+  { name: 'Connects', href: '/connects', icon: UsersIcon },
   { name: 'Applicants', href: '/applicants', icon: UserGroupIcon },
   { name: 'Reviews', href: '/reviews', icon: StarIcon },
   { name: 'Rankings', href: '/rankings', icon: ChartBarIcon },

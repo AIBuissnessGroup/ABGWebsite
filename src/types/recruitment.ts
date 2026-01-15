@@ -19,6 +19,15 @@ export interface RecruitmentCycle {
   updatedAt?: string;
 }
 
+// Recruitment Connect - confidential contacts for applicant questions
+export interface RecruitmentConnect {
+  name: string;                    // Full name
+  email: string;                   // @umich.edu email
+  photo?: string;                  // Photo URL/path
+  major: string;                   // Major (e.g., "Economics", "Information")
+  roleLastSemester?: string;       // What they did last semester (e.g., "Consulting Analyst")
+}
+
 export interface CycleSettings {
   requireResume: boolean;
   requireHeadshot: boolean;
@@ -27,6 +36,7 @@ export interface CycleSettings {
   emailFromName?: string;          // Name for outgoing emails
   emailReplyTo?: string;           // Reply-to address
   tracks?: ApplicationTrack[];     // Available tracks for this cycle
+  recruitmentConnects?: RecruitmentConnect[]; // Confidential contacts for applicant questions
 }
 
 // ============================================================================

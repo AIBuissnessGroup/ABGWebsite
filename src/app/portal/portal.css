@@ -780,6 +780,7 @@
 }
 
 /* Text colors for colored elements */
+.portal-container .text-white { color: #ffffff !important; }
 .portal-container .text-purple-600 { color: #9333ea !important; }
 .portal-container .text-amber-600 { color: #d97706 !important; }
 .portal-container .text-blue-600 { color: #2563eb !important; }

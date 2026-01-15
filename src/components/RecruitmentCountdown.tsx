@@ -104,7 +104,7 @@ export default function RecruitmentCountdown() {
               <div className="flex flex-col items-center">
                 <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-4 min-w-[100px]">
                   <span className="text-4xl sm:text-5xl md:text-6xl font-bold text-yellow-400">
-                    {countdown.days}
+                    {countdown.isHydrated ? countdown.days : '--'}
                   </span>
                 </div>
                 <span className="text-sm text-gray-400 mt-2 uppercase tracking-wider">Days</span>
@@ -114,7 +114,7 @@ export default function RecruitmentCountdown() {
               <div className="flex flex-col items-center">
                 <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-4 min-w-[100px]">
                   <span className="text-4xl sm:text-5xl md:text-6xl font-bold text-yellow-400">
-                    {countdown.hours.toString().padStart(2, '0')}
+                    {countdown.isHydrated ? countdown.hours.toString().padStart(2, '0') : '--'}
                   </span>
                 </div>
                 <span className="text-sm text-gray-400 mt-2 uppercase tracking-wider">Hours</span>
@@ -124,7 +124,7 @@ export default function RecruitmentCountdown() {
               <div className="flex flex-col items-center">
                 <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-4 min-w-[100px]">
                   <span className="text-4xl sm:text-5xl md:text-6xl font-bold text-yellow-400">
-                    {countdown.minutes.toString().padStart(2, '0')}
+                    {countdown.isHydrated ? countdown.minutes.toString().padStart(2, '0') : '--'}
                   </span>
                 </div>
                 <span className="text-sm text-gray-400 mt-2 uppercase tracking-wider">Minutes</span>
@@ -133,14 +133,20 @@ export default function RecruitmentCountdown() {
               {/* Seconds */}
               <div className="flex flex-col items-center">
                 <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-4 min-w-[100px]">
-                  <motion.span
-                    key={countdown.seconds}
-                    initial={{ opacity: 0.5, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="text-4xl sm:text-5xl md:text-6xl font-bold text-yellow-400"
-                  >
-                    {countdown.seconds.toString().padStart(2, '0')}
-                  </motion.span>
+                  {countdown.isHydrated ? (
+                    <motion.span
+                      key={countdown.seconds}
+                      initial={{ opacity: 0.5, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="text-4xl sm:text-5xl md:text-6xl font-bold text-yellow-400"
+                    >
+                      {countdown.seconds.toString().padStart(2, '0')}
+                    </motion.span>
+                  ) : (
+                    <span className="text-4xl sm:text-5xl md:text-6xl font-bold text-yellow-400">
+                      --
+                    </span>
+                  )}
                 </div>
                 <span className="text-sm text-gray-400 mt-2 uppercase tracking-wider">Seconds</span>
               </div>

@@ -17,6 +17,7 @@ import {
 import { FaLinkedin } from 'react-icons/fa';
 import { useSession } from 'next-auth/react';
 import RoundTracker from '@/components/portal/RoundTracker';
+import RecruitmentConnects from '@/components/portal/RecruitmentConnects';
 import { getTrackLabel } from '@/lib/tracks';
 import type { PortalDashboard, ApplicationStage, RecruitmentCycle } from '@/types/recruitment';
 
@@ -203,8 +204,13 @@ export default function PortalDashboardPage() {
   const application = dashboard.application;
   const stageInfo = application ? STAGE_INFO[application.stage] : STAGE_INFO.not_started;
 
+  // Get recruitment connects from cycle settings
+  const recruitmentConnects = cycle.settings?.recruitmentConnects || [];
+
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col lg:flex-row gap-6">
+      {/* Main Content */}
+      <div className="flex-1 space-y-6 min-w-0">
       {/* LinkedIn-Shareable Welcome Card - Show for accepted applicants */}
       {application?.stage === 'accepted' && (
         <div className="relative overflow-hidden">
@@ -480,11 +486,6 @@ export default function PortalDashboardPage() {
         </div>
       )}
 
-      {/* Round Tracker - Show progress through recruitment rounds */}
-      {dashboard.roundTracker && application && !['not_started', 'withdrawn'].includes(application.stage) && (
-        <RoundTracker tracker={dashboard.roundTracker} />
-      )}
-
       {/* Welcome Header */}
       <div className="portal-welcome-banner">
         <h1>Welcome to {cycle.name}</h1>
@@ -500,6 +501,11 @@ export default function PortalDashboardPage() {
             : 'Application period open'}
         </p>
       </div>
+
+      {/* Round Tracker - Show progress through recruitment rounds */}
+      {dashboard.roundTracker && application && !['not_started', 'withdrawn'].includes(application.stage) && (
+        <RoundTracker tracker={dashboard.roundTracker} />
+      )}
 
       {/* Application Status */}
       <div className="portal-card overflow-hidden">
@@ -537,36 +543,6 @@ export default function PortalDashboardPage() {
             </p>
           )}
         </div>
-
-        {/* Progress Bar */}
-        {application && !['rejected', 'withdrawn'].includes(application.stage) && (
-          <div className="border-t px-6 py-4 bg-gray-50">
-            <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-              <span>Progress</span>
-            </div>
-            <div className="flex gap-1">
-              {['submitted', 'under_review', 'interview_round1', 'interview_round2', 'accepted'].map((stage, idx) => {
-                const stages = ['submitted', 'under_review', 'interview_round1', 'interview_round2', 'accepted'];
-                const currentIdx = stages.indexOf(application.stage);
-                const isComplete = idx <= currentIdx;
-                const isCurrent = stage === application.stage;
-                
-                return (
-                  <div
-                    key={stage}
-                    className={`flex-1 h-2 rounded ${
-                      isComplete 
-                        ? isCurrent 
-                          ? 'bg-blue-600' 
-                          : 'bg-green-500'
-                        : 'bg-gray-200'
-                    }`}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Quick Actions */}
@@ -665,6 +641,16 @@ export default function PortalDashboardPage() {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+      </div>
+
+      {/* Sidebar - Recruitment Connects */}
+      {recruitmentConnects.length > 0 && (
+        <div className="lg:w-80 flex-shrink-0">
+          <div className="lg:sticky lg:top-24">
+            <RecruitmentConnects connects={recruitmentConnects} />
           </div>
         </div>
       )}

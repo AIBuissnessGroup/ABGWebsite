@@ -6,11 +6,15 @@ import { useSession } from "next-auth/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { InstagramIcon, XIcon, LinkedInIcon } from "./SocialIcons";
 import { isAdmin } from "@/lib/roles";
+import { useAppsOpenCountdown } from "@/hooks/useAppsOpenCountdown";
 
 export default function Navbar() {
   const { data: session } = useSession();
   const userIsAdmin = isAdmin(session?.user?.roles || []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Check if applications are open to switch nav item
+  const { isOpen: appsAreOpen } = useAppsOpenCountdown();
 
   const navigationItems: Array<{
     href: string;
@@ -21,7 +25,10 @@ export default function Navbar() {
     { href: "/", label: "Home" },
     { href: "/projects", label: "Projects" },
     { href: "/events", label: "Events" },
-    { href: "/recruitment", label: "Recruitment" },
+    // Dynamically switch between Recruitment (countdown) and Portal (when apps open)
+    appsAreOpen 
+      ? { href: "/portal", label: "Portal" }
+      : { href: "/recruitment", label: "Recruitment" },
     { href: "/internships", label: "Internships" },
     { href: "/team", label: "Team" },
   //{ href: "/fluently", label: "Fluently" },

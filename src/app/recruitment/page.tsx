@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppsOpenCountdown } from '@/hooks/useAppsOpenCountdown';
 import RecruitmentCountdown from '@/components/RecruitmentCountdown';
+import WinterTakeover from '@/components/WinterTakeover';
 
 // Helper function to convert UTC dates to EST for display
 const convertUtcToEst = (utcDate: Date): Date => {
@@ -126,16 +127,10 @@ const getThemeColors = (theme: string) => {
 };
 
 export default function RecruitmentPage() {
-  // Check if apps are open yet using the shared hook
-  const appsOpenCountdown = useAppsOpenCountdown();
-  
-  // If apps are not open, show the countdown page
-  if (!appsOpenCountdown.isOpen) {
-    return <RecruitmentCountdown />;
-  }
-  
-  // Otherwise show the full recruitment page
-  return <RecruitmentPageContent />;
+  // Always show WinterTakeover - it handles both:
+  // 1. Pre-launch countdown with snow buildup effect
+  // 2. The full takeover sequence when apps open
+  return <WinterTakeover />;
 }
 
 function RecruitmentPageContent() {

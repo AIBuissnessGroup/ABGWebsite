@@ -10,6 +10,14 @@
   --brand-blue-hover: #134a7a;
   }
 
+/* Hide navbar during winter takeover animation */
+body.hide-navbar nav {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(-100%) !important;
+  transition: opacity 0.3s ease, transform 0.3s ease !important;
+}
+
 /* Smooth Scrolling */
 html {
   scroll-behavior: smooth;

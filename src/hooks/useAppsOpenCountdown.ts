@@ -9,36 +9,97 @@ export interface AppsOpenCountdownData {
   isOpen: boolean;
   formattedString: string;
   openDate: Date;
+  isHydrated: boolean; // Track if we've hydrated on client
 }
 
-// Thursday January 16, 2026 at 7:40 PM EST
-const APPS_OPEN_DATE = new Date('2026-01-16T19:40:00-05:00');
+// Default fallback date if API fails
+const DEFAULT_COUNTDOWN_DATE = new Date('2026-01-20T19:00:00-05:00');
+
+// Cache the fetched date
+let cachedCountdownDate: Date | null = null;
+let lastFetchTime = 0;
+const CACHE_DURATION = 30000; // Refetch every 30 seconds
+
+async function fetchCountdownDate(): Promise<Date> {
+  const now = Date.now();
+  
+  // Return cached date if still valid
+  if (cachedCountdownDate && (now - lastFetchTime) < CACHE_DURATION) {
+    return cachedCountdownDate;
+  }
+  
+  try {
+    const res = await fetch('/api/admin/winter-takeover');
+    const data = await res.json();
+    
+    if (data.countdownDate) {
+      cachedCountdownDate = new Date(data.countdownDate);
+      lastFetchTime = now;
+      return cachedCountdownDate;
+    }
+  } catch (error) {
+    console.error('Failed to fetch countdown date:', error);
+  }
+  
+  // Return cached or default
+  return cachedCountdownDate || DEFAULT_COUNTDOWN_DATE;
+}
+
+// Static initial state to prevent hydration mismatch
+const INITIAL_STATE: AppsOpenCountdownData = {
+  days: 0,
+  hours: 0,
+  minutes: 0,
+  seconds: 0,
+  isOpen: false,
+  formattedString: 'Loading...',
+  openDate: new Date(),
+  isHydrated: false,
+};
 
 export function useAppsOpenCountdown(): AppsOpenCountdownData {
-  const [countdown, setCountdown] = useState<AppsOpenCountdownData>(() => {
-    return calculateCountdown();
-  });
+  // Start with static state to avoid hydration mismatch
+  const [countdown, setCountdown] = useState<AppsOpenCountdownData>(INITIAL_STATE);
+  const [openDate, setOpenDate] = useState<Date | null>(null);
+
+  // Fetch the countdown date on mount and periodically
+  useEffect(() => {
+    const loadDate = async () => {
+      const date = await fetchCountdownDate();
+      setOpenDate(date);
+    };
+    
+    loadDate();
+    
+    // Refresh the date periodically
+    const refreshInterval = setInterval(loadDate, CACHE_DURATION);
+    
+    return () => clearInterval(refreshInterval);
+  }, []);
 
   useEffect(() => {
+    if (!openDate) return;
+    
+    // Now we're on the client, calculate the real values
     const updateCountdown = () => {
-      setCountdown(calculateCountdown());
+      setCountdown(calculateCountdown(openDate));
     };
 
-    // Update immediately
+    // Update immediately on mount
     updateCountdown();
 
     // Update every second
     const interval = setInterval(updateCountdown, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [openDate]);
 
   return countdown;
 }
 
-function calculateCountdown(): AppsOpenCountdownData {
+function calculateCountdown(openDate: Date): AppsOpenCountdownData {
   const now = new Date();
-  const timeDiff = APPS_OPEN_DATE.getTime() - now.getTime();
+  const timeDiff = openDate.getTime() - now.getTime();
   
   if (timeDiff <= 0) {
     return {
@@ -48,7 +109,8 @@ function calculateCountdown(): AppsOpenCountdownData {
       seconds: 0,
       isOpen: true,
       formattedString: 'Applications Open!',
-      openDate: APPS_OPEN_DATE
+      openDate: openDate,
+      isHydrated: true,
     };
   }
 
@@ -74,6 +136,7 @@ function calculateCountdown(): AppsOpenCountdownData {
     seconds,
     isOpen: false,
     formattedString,
-    openDate: APPS_OPEN_DATE
+    openDate: openDate,
+    isHydrated: true,
   };
 }
