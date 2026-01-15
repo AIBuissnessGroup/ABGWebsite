@@ -75,6 +75,11 @@ export default function PortalSchedulePage() {
   const [availableSlots, setAvailableSlots] = useState<SlotWithDetails[]>([]);
   const [myBookings, setMyBookings] = useState<SlotBooking[]>([]);
   const [bookingLoading, setBookingLoading] = useState<string | null>(null);
+  
+  // Coffee chat filters
+  const [nameFilter, setNameFilter] = useState('');
+  const [dayFilter, setDayFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
 
   useEffect(() => {
     loadData();
@@ -330,7 +335,22 @@ export default function PortalSchedulePage() {
         </p>
         
         {(() => {
-          const coffeeSlots = availableSlots.filter(s => s.kind === 'coffee_chat');
+          const allCoffeeSlots = availableSlots.filter(s => s.kind === 'coffee_chat');
+          
+          // Get unique values for filter dropdowns
+          const uniqueDays = [...new Set(allCoffeeSlots.map(s => 
+            new Date(s.startTime).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'America/New_York' })
+          ))].sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+          const uniqueHosts = [...new Set(allCoffeeSlots.map(s => s.hostName))].sort();
+          const uniqueLocations = [...new Set(allCoffeeSlots.map(s => s.location).filter(Boolean))].sort();
+          
+          // Apply filters
+          const coffeeSlots = allCoffeeSlots.filter(slot => {
+            const matchesName = !nameFilter || slot.hostName === nameFilter;
+            const matchesDay = !dayFilter || new Date(slot.startTime).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'America/New_York' }) === dayFilter;
+            const matchesLocation = !locationFilter || slot.location === locationFilter;
+            return matchesName && matchesDay && matchesLocation;
+          });
           const coffeeSlotsByDate = coffeeSlots.reduce((acc, slot) => {
             const date = new Date(slot.startTime).toDateString();
             if (!acc[date]) acc[date] = [];
@@ -338,7 +358,67 @@ export default function PortalSchedulePage() {
             return acc;
           }, {} as Record<string, SlotWithDetails[]>);
           
-          if (coffeeSlots.length === 0) {
+          // Show filter UI if there are any coffee slots
+          const filterUI = allCoffeeSlots.length > 0 ? (
+            <div className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Host Name</label>
+                  <select
+                    value={nameFilter}
+                    onChange={(e) => setNameFilter(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
+                  >
+                    <option value="">All Hosts</option>
+                    {uniqueHosts.map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Day</label>
+                  <select
+                    value={dayFilter}
+                    onChange={(e) => setDayFilter(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
+                  >
+                    <option value="">All Days</option>
+                    {uniqueDays.map(day => (
+                      <option key={day} value={day}>{day}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Location</label>
+                  <select
+                    value={locationFilter}
+                    onChange={(e) => setLocationFilter(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
+                  >
+                    <option value="">All Locations</option>
+                    {uniqueLocations.map(loc => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {(nameFilter || dayFilter || locationFilter) && (
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-sm text-gray-600">
+                    Showing {coffeeSlots.length} of {allCoffeeSlots.length} slots
+                  </span>
+                  <button
+                    onClick={() => { setNameFilter(''); setDayFilter(''); setLocationFilter(''); }}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null;
+          
+          if (allCoffeeSlots.length === 0) {
             return (
               <div className="bg-white rounded-xl border border-gray-200 shadow-md p-6 text-center text-gray-500">
                 No coffee chat slots available at this time. Check back later!
@@ -346,8 +426,20 @@ export default function PortalSchedulePage() {
             );
           }
           
+          if (coffeeSlots.length === 0) {
+            return (
+              <>
+                {filterUI}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-md p-6 text-center text-gray-500">
+                  No slots match your filters. Try adjusting your search criteria.
+                </div>
+              </>
+            );
+          }
+          
           return (
             <div className="space-y-6">
+              {filterUI}
               {Object.entries(coffeeSlotsByDate)
                 .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
                 .map(([date, slots]) => (
@@ -417,7 +509,7 @@ export default function PortalSchedulePage() {
                                 <button
                                   onClick={() => handleBook(slot._id!)}
                                   disabled={isLoading}
-                                  className="w-full py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
+                                  className="w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                                 >
                                   {isLoading ? 'Booking...' : 'Book Coffee Chat'}
                                 </button>

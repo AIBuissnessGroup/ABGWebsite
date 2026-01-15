@@ -505,7 +505,7 @@ export default function PortalEventsPage() {
                             )}
                             <button
                               onClick={() => setCheckInEvent(event)}
-                              className="flex items-center gap-1 px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600"
+                              className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
                             >
                               <CameraIcon className="w-4 h-4" />
                               Check In
