@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
     
     await writeFile(filepath, buffer);
 
-    // Return the URL along with suggested extensions for UI
-    const url = `/applicationUploads/${filename}`;
+    // Return the API URL for serving the file (Next.js doesn't serve dynamically uploaded files)
+    const url = `/api/file-serve/${filename}`;
     const suggestedExtensions = getSuggestedExtensions(fileType);
     
     console.log(`✅ Portal file uploaded: ${filename} (${(buffer.length / 1024).toFixed(2)} KB) for user ${session.user.email}`);

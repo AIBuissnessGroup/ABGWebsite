@@ -425,7 +425,7 @@ export default function EventCountdown({
               </motion.a>
             )}
 
-            {nextEvent && (nextEvent.registrationUrl || nextEvent.registrationEnabled) ? (
+            {nextEvent && nextEvent.registrationEnabled ? (
               <motion.button
                 onClick={(e) => {
                   e.preventDefault();
@@ -451,6 +451,20 @@ export default function EventCountdown({
               >
                 {nextEvent?.registrationCtaLabel || 'RSVP Now →'}
               </motion.button>
+            ) : nextEvent?.registrationUrl ? (
+              <motion.a
+                href={nextEvent.registrationUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  analytics.events.clickRegister(nextEvent.title);
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-full bg-brand hover-brand backdrop-blur-sm border border-white/30 rounded px-3 py-2 text-white text-xs sm:text-sm font-medium transition-all duration-300 text-center"
+              >
+                {nextEvent?.registrationCtaLabel || 'Register via External Link →'}
+              </motion.a>
             ) : null}
           
           </div>

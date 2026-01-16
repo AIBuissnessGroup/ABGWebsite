@@ -576,13 +576,26 @@ export default function EventDetailPage({ event, userRegistration, userEmail, us
                         </p>
                       </div>
                     ) : !(event.registrationEnabled || event.attendanceConfirmEnabled) ? (
-                      <div className="text-center text-gray-400 py-4 rounded-xl border-2 border-gray-600/30 bg-gray-500/10">
-                        <div className="flex items-center justify-center gap-2 mb-1">
-                          <span className="text-lg">🔒</span>
-                          <span className="font-semibold">Registration Closed</span>
+                      event.registrationUrl ? (
+                        <a
+                          href={event.registrationUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full block bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-blue-500/25 text-center"
+                        >
+                          <div className="flex items-center justify-center gap-2">
+                            <span>Register here</span>
+                          </div>
+                        </a>
+                      ) : (
+                        <div className="text-center text-gray-400 py-4 rounded-xl border-2 border-gray-600/30 bg-gray-500/10">
+                          <div className="flex items-center justify-center gap-2 mb-1">
+                            <span className="text-lg">🔒</span>
+                            <span className="font-semibold">Registration Closed</span>
+                          </div>
+                          <p className="text-sm opacity-75">No longer accepting registrations</p>
                         </div>
-                        <p className="text-sm opacity-75">No longer accepting registrations</p>
-                      </div>
+                      )
                     ) : event.waitlist?.enabled ? (
                       <button
                         onClick={() => setShowAttendanceForm(true)}

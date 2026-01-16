@@ -29,7 +29,7 @@ const STAGES: { value: ApplicationStage; label: string; color: string }[] = [
   { value: 'withdrawn', label: 'Withdrawn', color: 'bg-gray-100 text-gray-500' },
 ];
 
-import { TRACK_FILTER_OPTIONS } from '@/lib/tracks';
+import { TRACK_FILTER_OPTIONS, getTrackConfig, getTrackShortLabel } from '@/lib/tracks';
 
 const TRACKS = TRACK_FILTER_OPTIONS;
 
@@ -281,11 +281,19 @@ export default function CycleApplicantsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 text-xs rounded-full ${
-                        app.track === 'business' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                      }`}>
-                        {app.track === 'business' ? 'Business' : 'Engineering'}
-                      </span>
+                      {(() => {
+                        const trackConfig = getTrackConfig(app.track as any);
+                        return (
+                          <span className={`px-2 py-0.5 text-xs rounded-full ${trackConfig?.color || 'bg-gray-100'} ${
+                            app.track === 'business' ? 'text-blue-700' : 
+                            app.track === 'engineering' ? 'text-purple-700' :
+                            app.track === 'ai_investment_fund' ? 'text-emerald-700' :
+                            app.track === 'ai_energy_efficiency' ? 'text-amber-700' : 'text-gray-700'
+                          }`}>
+                            {getTrackShortLabel(app.track as any)}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       <select

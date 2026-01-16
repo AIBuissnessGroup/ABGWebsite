@@ -113,6 +113,12 @@ body.admin-page {
   background: #f9fafb !important;
 }
 
+/* Override for host pages */
+body.host-page {
+  color: #111827 !important;
+  background: #f9fafb !important;
+}
+
 /* Global utility classes extracted from components */
 .text-muted { color: var(--light-gray); }
 .text-dark-gray { color: var(--dark-gray); }

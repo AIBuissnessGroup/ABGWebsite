@@ -790,6 +790,21 @@ export async function getSlotById(id: string): Promise<RecruitmentSlot | null> {
   }
 }
 
+export async function getSlotsByHostEmail(hostEmail: string, cycleId?: string): Promise<RecruitmentSlot[]> {
+  const client = await getClient();
+  try {
+    const collection = client.db().collection(SLOTS_COLLECTION);
+    const query: any = { hostEmail: hostEmail.toLowerCase() };
+    if (cycleId) {
+      query.cycleId = cycleId;
+    }
+    const slots = await collection.find(query).sort({ startTime: 1 }).toArray();
+    return serializeDocs<RecruitmentSlot>(slots);
+  } finally {
+    
+  }
+}
+
 export async function getAvailableSlots(cycleId: string, kind: SlotKind, track?: string): Promise<RecruitmentSlot[]> {
   const client = await getClient();
   try {

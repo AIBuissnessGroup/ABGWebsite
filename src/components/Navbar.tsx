@@ -6,15 +6,11 @@ import { useSession } from "next-auth/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { InstagramIcon, XIcon, LinkedInIcon } from "./SocialIcons";
 import { isAdmin } from "@/lib/roles";
-import { useAppsOpenCountdown } from "@/hooks/useAppsOpenCountdown";
 
 export default function Navbar() {
   const { data: session } = useSession();
   const userIsAdmin = isAdmin(session?.user?.roles || []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
-  // Check if applications are open to switch nav item
-  const { isOpen: appsAreOpen } = useAppsOpenCountdown();
 
   const navigationItems: Array<{
     href: string;
@@ -25,10 +21,7 @@ export default function Navbar() {
     { href: "/", label: "Home" },
     { href: "/projects", label: "Projects" },
     { href: "/events", label: "Events" },
-    // Dynamically switch between Recruitment (countdown) and Portal (when apps open)
-    appsAreOpen 
-      ? { href: "/portal", label: "Portal" }
-      : { href: "/recruitment", label: "Recruitment" },
+    { href: "/portal", label: "Portal" },
     { href: "/internships", label: "Internships" },
     { href: "/team", label: "Team" },
   //{ href: "/fluently", label: "Fluently" },
@@ -37,12 +30,6 @@ export default function Navbar() {
       label: "Instagram", 
       external: true,
       icon: <InstagramIcon className="w-5 h-5" />
-    },
-    { 
-      href: "https://x.com/AiBusinessUmich", 
-      label: "X", 
-      external: true,
-      icon: <XIcon className="w-5 h-5" />
     },
     { 
       href: "https://www.linkedin.com/company/michigan-ai-business-group", 

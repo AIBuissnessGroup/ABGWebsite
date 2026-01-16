@@ -22,7 +22,9 @@ import type {
   PhaseCompleteness,
   RankedApplicant,
   CutoffCriteria,
+  ApplicationTrack,
 } from '@/types/recruitment';
+import { TRACK_FILTER_OPTIONS, getTrackConfig } from '@/lib/tracks';
 
 type PhaseTab = ReviewPhase | 'overview';
 
@@ -74,7 +76,7 @@ export default function PhaseReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [subTab, setSubTab] = useState<'review' | 'rankings' | 'cutoff'>('review');
-  const [trackFilter, setTrackFilter] = useState<'all' | 'business' | 'engineering'>('all');
+  const [trackFilter, setTrackFilter] = useState<ApplicationTrack | ''>('');
   const [manualOverrides, setManualOverrides] = useState<Array<{ applicationId: string; action: 'advance' | 'reject'; reason: string }>>([]);
 
   useEffect(() => {
@@ -220,7 +222,7 @@ export default function PhaseReviewsPage() {
     
     let filtered = applications.filter(app => stageMap[phase].includes(app.stage));
     
-    if (trackFilter !== 'all') {
+    if (trackFilter) {
       filtered = filtered.filter(app => app.track === trackFilter);
     }
     
@@ -349,12 +351,14 @@ export default function PhaseReviewsPage() {
                 <FunnelIcon className="w-4 h-4 text-white/50" />
                 <select
                   value={trackFilter}
-                  onChange={(e) => setTrackFilter(e.target.value as typeof trackFilter)}
+                  onChange={(e) => setTrackFilter(e.target.value as ApplicationTrack | '')}
                   className="bg-white/10 text-white border border-white/20 rounded-lg px-3 py-2 text-sm"
                 >
-                  <option value="all">All Tracks</option>
-                  <option value="business">Business Only</option>
-                  <option value="engineering">Engineering Only</option>
+                  {TRACK_FILTER_OPTIONS.map((track) => (
+                    <option key={track.value} value={track.value}>
+                      {track.value ? `${track.label} Only` : track.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -382,9 +386,9 @@ export default function PhaseReviewsPage() {
                         <div className="text-sm text-white/60 truncate">{app.email}</div>
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            app.track === 'business' ? 'bg-amber-500/30 text-amber-300' : 'bg-cyan-500/30 text-cyan-300'
-                          }`}>
-                            {app.track}
+                            getTrackConfig(app.track as ApplicationTrack)?.color || 'bg-gray-500/30'
+                          } text-white`}>
+                            {getTrackConfig(app.track as ApplicationTrack)?.shortLabel || app.track}
                           </span>
                         </div>
                       </button>
