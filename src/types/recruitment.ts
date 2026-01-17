@@ -213,6 +213,30 @@ export interface SlotBooking {
 export type Booking = SlotBooking;
 
 // ============================================================================
+// Coffee Chat Referrals (host feedback for Phase 1 scoring)
+// ============================================================================
+
+/**
+ * Coffee chat referral from a host for an applicant
+ * These referrals contribute points to the Phase 1 (application) review scoring
+ */
+export interface CoffeeChatReferral {
+  _id?: string;
+  cycleId: string;
+  bookingId: string;                   // The coffee chat booking this referral is for
+  slotId: string;                      // The slot the booking was for
+  applicationId?: string;              // The applicant's application (if they have one)
+  applicantEmail: string;              // Applicant's email
+  applicantName?: string;              // Applicant's name
+  hostEmail: string;                   // Host who gave the referral
+  hostName?: string;                   // Host's name
+  signal: ReferralSignal;              // referral (thumbs up), neutral, deferral (thumbs down)
+  notes?: string;                      // Optional notes from the host
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// ============================================================================
 // Review Phases (3-round system)
 // ============================================================================
 

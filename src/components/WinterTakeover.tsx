@@ -29,9 +29,10 @@ type TakeoverPhase =
   | 'redirect';      // Redirect to portal
 
 // ============================================
-// REWIND PHOTOS - All photos from /public/images/rewind/
+// REWIND PHOTOS - Static list for production (fallback)
+// In dev mode, use ?reloadImages=true to fetch fresh list from API
 // ============================================
-const REWIND_PHOTOS = [
+const STATIC_REWIND_PHOTOS = [
   '/images/rewind/2xWvtNk_.jpeg',
   '/images/rewind/BOOq72E4.jpeg',
   '/images/rewind/DSC01090.jpg',
@@ -84,6 +85,39 @@ const REWIND_PHOTOS = [
   '/images/rewind/uUoqSn5l.jpeg',
   '/images/rewind/yxsirqt4.jpeg',
 ];
+
+// Hook to get rewind photos - dynamically loads in dev mode with ?reloadImages=true
+const useRewindPhotos = () => {
+  const [photos, setPhotos] = useState<string[]>(STATIC_REWIND_PHOTOS);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // Check if we're in dev mode and should reload images
+    const isDev = process.env.NODE_ENV === 'development';
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldReload = urlParams.get('reloadImages') === 'true';
+    
+    if (isDev && shouldReload) {
+      setIsLoading(true);
+      fetch('/api/rewind-images')
+        .then(res => res.json())
+        .then(data => {
+          if (data.images && data.images.length > 0) {
+            setPhotos(data.images);
+            console.log(`[Dev] Loaded ${data.images.length} rewind images from disk`);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to load rewind images:', err);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
+  }, []);
+
+  return { photos, isLoading };
+};
 
 // Helper to create staggered delays for stomp effect
 const getStompDelay = (index: number, total: number): number => {
@@ -553,6 +587,9 @@ export default function WinterTakeover() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const countdown = useAppsOpenCountdown();
   
+  // Get rewind photos (dynamically in dev mode with ?reloadImages=true)
+  const { photos: rewindPhotos } = useRewindPhotos();
+  
   const [phase, setPhase] = useState<TakeoverPhase>('pre-launch');
   const [snowIntensity, setSnowIntensity] = useState(0);
   const [frostIntensity, setFrostIntensity] = useState(0);
@@ -992,12 +1029,12 @@ export default function WinterTakeover() {
 
             {/* STOMP PHOTO SEQUENCE - Photos slam onto screen one after another */}
             <div className="absolute inset-0">
-              {REWIND_PHOTOS.map((photo, index) => (
+              {rewindPhotos.map((photo, index) => (
                 <StompPhoto
                   key={`photo-${index}`}
                   src={photo}
                   index={index}
-                  total={REWIND_PHOTOS.length}
+                  total={rewindPhotos.length}
                 />
               ))}
             </div>

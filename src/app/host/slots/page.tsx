@@ -14,9 +14,17 @@ import {
   ChevronUpIcon,
   ArrowPathIcon,
   UserGroupIcon,
+  HandThumbUpIcon,
+  HandThumbDownIcon,
+  MinusIcon,
 } from '@heroicons/react/24/outline';
+import { 
+  HandThumbUpIcon as HandThumbUpSolid,
+  HandThumbDownIcon as HandThumbDownSolid,
+  MinusIcon as MinusSolid,
+} from '@heroicons/react/24/solid';
 import { toast } from 'react-hot-toast';
-import type { RecruitmentSlot, SlotBooking, SlotKind } from '@/types/recruitment';
+import type { RecruitmentSlot, SlotBooking, SlotKind, ReferralSignal } from '@/types/recruitment';
 
 const SLOT_KIND_INFO: Record<SlotKind, { label: string; color: string; bgColor: string }> = {
   coffee_chat: { 
@@ -48,6 +56,10 @@ interface HostSlotsResponse {
   message?: string;
 }
 
+interface ReferralMap {
+  [bookingId: string]: { signal: ReferralSignal; notes?: string };
+}
+
 export default function HostSlotsPage() {
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
@@ -55,10 +67,13 @@ export default function HostSlotsPage() {
   const [data, setData] = useState<HostSlotsResponse | null>(null);
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
   const [filterKind, setFilterKind] = useState<SlotKind | ''>('');
+  const [referrals, setReferrals] = useState<ReferralMap>({});
+  const [savingReferral, setSavingReferral] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'authenticated') {
       loadSlots();
+      loadReferrals();
     } else if (status === 'unauthenticated') {
       setLoading(false);
     }
@@ -85,9 +100,55 @@ export default function HostSlotsPage() {
     }
   };
 
+  const loadReferrals = async () => {
+    try {
+      const res = await fetch('/api/host/slots/referral');
+      if (!res.ok) throw new Error('Failed to load referrals');
+      const result = await res.json();
+      setReferrals(result.referrals || {});
+    } catch (error) {
+      console.error('Error loading referrals:', error);
+      // Don't show error toast - referrals are optional
+    }
+  };
+
+  const saveReferral = async (bookingId: string, signal: ReferralSignal) => {
+    setSavingReferral(bookingId);
+    try {
+      const res = await fetch('/api/host/slots/referral', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId, signal }),
+      });
+      
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to save referral');
+      }
+      
+      // Update local state
+      setReferrals(prev => ({
+        ...prev,
+        [bookingId]: { signal },
+      }));
+      
+      const signalLabels = {
+        referral: 'Positive referral',
+        neutral: 'Neutral',
+        deferral: 'Negative referral',
+      };
+      toast.success(`${signalLabels[signal]} saved`);
+    } catch (error: any) {
+      console.error('Error saving referral:', error);
+      toast.error(error.message || 'Failed to save referral');
+    } finally {
+      setSavingReferral(null);
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadSlots();
+    await Promise.all([loadSlots(), loadReferrals()]);
     setRefreshing(false);
     toast.success('Refreshed');
   };
@@ -257,6 +318,9 @@ export default function HostSlotsPage() {
                 onToggle={() => toggleSlot(slot._id!)}
                 formatDate={formatDate}
                 formatTime={formatTime}
+                referrals={referrals}
+                onSaveReferral={saveReferral}
+                savingReferral={savingReferral}
               />
             ))}
           </div>
@@ -275,6 +339,9 @@ export default function HostSlotsPage() {
                 formatDate={formatDate}
                 formatTime={formatTime}
                 isPast
+                referrals={referrals}
+                onSaveReferral={saveReferral}
+                savingReferral={savingReferral}
               />
             ))}
           </div>
@@ -297,10 +364,24 @@ interface SlotCardProps {
   formatDate: (date: string) => string;
   formatTime: (date: string) => string;
   isPast?: boolean;
+  referrals: ReferralMap;
+  onSaveReferral: (bookingId: string, signal: ReferralSignal) => Promise<void>;
+  savingReferral: string | null;
 }
 
-function SlotCard({ slot, isExpanded, onToggle, formatDate, formatTime, isPast }: SlotCardProps) {
+function SlotCard({ 
+  slot, 
+  isExpanded, 
+  onToggle, 
+  formatDate, 
+  formatTime, 
+  isPast,
+  referrals,
+  onSaveReferral,
+  savingReferral,
+}: SlotCardProps) {
   const kindInfo = SLOT_KIND_INFO[slot.kind];
+  const isCoffeeChat = slot.kind === 'coffee_chat';
   
   return (
     <div className={`bg-white rounded-xl shadow overflow-hidden ${isPast ? 'opacity-60' : ''}`}>
@@ -363,48 +444,136 @@ function SlotCard({ slot, isExpanded, onToggle, formatDate, formatTime, isPast }
             </p>
           ) : (
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">
-                Signups ({slot.bookings.length})
-              </h4>
-              {slot.bookings.map((booking) => (
-                <div
-                  key={booking._id}
-                  className="bg-white rounded-lg p-3 border flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <UserIcon className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-900">
-                        {booking.applicantName || 'Unknown'}
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-medium text-gray-700">
+                  Signups ({slot.bookings.length})
+                </h4>
+                {isCoffeeChat && (
+                  <span className="text-xs text-gray-500 italic">
+                    Give referrals for Phase 1 review scoring
+                  </span>
+                )}
+              </div>
+              {slot.bookings.map((booking) => {
+                const currentReferral = referrals[booking._id!];
+                const isSaving = savingReferral === booking._id;
+                
+                return (
+                  <div
+                    key={booking._id}
+                    className="bg-white rounded-lg p-3 border"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <UserIcon className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900">
+                            {booking.applicantName || 'Unknown'}
+                          </div>
+                          {booking.applicantEmail && (
+                            <a
+                              href={`mailto:${booking.applicantEmail}`}
+                              className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                            >
+                              <EnvelopeIcon className="w-3 h-3" />
+                              {booking.applicantEmail}
+                            </a>
+                          )}
+                        </div>
                       </div>
-                      {booking.applicantEmail && (
-                        <a
-                          href={`mailto:${booking.applicantEmail}`}
-                          className="text-sm text-blue-600 hover:underline flex items-center gap-1"
-                        >
-                          <EnvelopeIcon className="w-3 h-3" />
-                          {booking.applicantEmail}
-                        </a>
-                      )}
+                      <div className="text-right">
+                        <div className={`text-xs px-2 py-1 rounded-full ${
+                          booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                          booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                          booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {booking.status}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Booked {new Date(booking.bookedAt).toLocaleDateString()}
+                        </div>
+                      </div>
                     </div>
+                    
+                    {/* Referral Buttons - Only for coffee chats */}
+                    {isCoffeeChat && (
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-600 font-medium">Referral:</span>
+                          <div className="flex items-center gap-2">
+                            {/* Thumbs Up - Referral */}
+                            <button
+                              onClick={() => onSaveReferral(booking._id!, 'referral')}
+                              disabled={isSaving}
+                              className={`p-2 rounded-lg transition-all ${
+                                currentReferral?.signal === 'referral'
+                                  ? 'bg-green-100 text-green-600 ring-2 ring-green-500'
+                                  : 'bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-600'
+                              } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              title="Positive referral (thumbs up)"
+                            >
+                              {currentReferral?.signal === 'referral' ? (
+                                <HandThumbUpSolid className="w-5 h-5" />
+                              ) : (
+                                <HandThumbUpIcon className="w-5 h-5" />
+                              )}
+                            </button>
+                            
+                            {/* Neutral */}
+                            <button
+                              onClick={() => onSaveReferral(booking._id!, 'neutral')}
+                              disabled={isSaving}
+                              className={`p-2 rounded-lg transition-all ${
+                                currentReferral?.signal === 'neutral'
+                                  ? 'bg-gray-200 text-gray-700 ring-2 ring-gray-400'
+                                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-600'
+                              } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              title="Neutral"
+                            >
+                              {currentReferral?.signal === 'neutral' ? (
+                                <MinusSolid className="w-5 h-5" />
+                              ) : (
+                                <MinusIcon className="w-5 h-5" />
+                              )}
+                            </button>
+                            
+                            {/* Thumbs Down - Deferral */}
+                            <button
+                              onClick={() => onSaveReferral(booking._id!, 'deferral')}
+                              disabled={isSaving}
+                              className={`p-2 rounded-lg transition-all ${
+                                currentReferral?.signal === 'deferral'
+                                  ? 'bg-red-100 text-red-600 ring-2 ring-red-500'
+                                  : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600'
+                              } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              title="Negative referral (thumbs down)"
+                            >
+                              {currentReferral?.signal === 'deferral' ? (
+                                <HandThumbDownSolid className="w-5 h-5" />
+                              ) : (
+                                <HandThumbDownIcon className="w-5 h-5" />
+                              )}
+                            </button>
+                            
+                            {isSaving && (
+                              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin ml-1"></div>
+                            )}
+                          </div>
+                        </div>
+                        {currentReferral && (
+                          <div className="text-xs text-gray-500 mt-1 text-right">
+                            Current: {currentReferral.signal === 'referral' ? '👍 Positive' : 
+                                     currentReferral.signal === 'deferral' ? '👎 Negative' : '➖ Neutral'}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div className="text-right">
-                    <div className={`text-xs px-2 py-1 rounded-full ${
-                      booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                      booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                      booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {booking.status}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Booked {new Date(booking.bookedAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

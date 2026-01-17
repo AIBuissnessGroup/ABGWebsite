@@ -28,6 +28,7 @@ import type {
   ReviewerCompletion,
   CutoffCriteria,
   ReferralSignal,
+  CoffeeChatReferral,
 } from '@/types/recruitment';
 
 // ============================================================================
@@ -111,6 +112,7 @@ export const COLLECTIONS = {
   PHASE_CONFIGS: 'recruitment_phase_configs',
   PHASE_RANKINGS: 'recruitment_phase_rankings',
   PHASE_DECISIONS: 'recruitment_phase_decisions',
+  COFFEE_CHAT_REFERRALS: 'recruitment_coffee_chat_referrals',
 } as const;
 
 // Helper to convert string to ObjectId
@@ -2157,6 +2159,170 @@ export async function bulkUpdateApplicationStages(
       { $set: { stage: newStage, updatedAt: new Date().toISOString() } }
     );
     return result.modifiedCount;
+  } finally {
+    
+  }
+}
+
+// ============================================================================
+// Coffee Chat Referrals
+// ============================================================================
+
+const COFFEE_CHAT_REFERRALS_COLLECTION = 'recruitment_coffee_chat_referrals';
+
+/**
+ * Upsert (create or update) a coffee chat referral
+ * Each host can only give one referral per booking
+ */
+export async function upsertCoffeeChatReferral(
+  data: Omit<CoffeeChatReferral, '_id' | 'createdAt' | 'updatedAt'>
+): Promise<string> {
+  const client = await getClient();
+  try {
+    const collection = client.db().collection(COFFEE_CHAT_REFERRALS_COLLECTION);
+    
+    const result = await collection.updateOne(
+      { 
+        bookingId: data.bookingId, 
+        hostEmail: data.hostEmail.toLowerCase(),
+      },
+      { 
+        $set: { 
+          ...data,
+          hostEmail: data.hostEmail.toLowerCase(),
+          applicantEmail: data.applicantEmail.toLowerCase(),
+          updatedAt: new Date().toISOString(),
+        },
+        $setOnInsert: {
+          createdAt: new Date().toISOString(),
+        }
+      },
+      { upsert: true }
+    );
+    
+    return result.upsertedId?.toString() || '';
+  } finally {
+    
+  }
+}
+
+/**
+ * Get a specific referral by booking and host
+ */
+export async function getCoffeeChatReferral(
+  bookingId: string,
+  hostEmail: string
+): Promise<CoffeeChatReferral | null> {
+  const client = await getClient();
+  try {
+    const collection = client.db().collection(COFFEE_CHAT_REFERRALS_COLLECTION);
+    const referral = await collection.findOne({ 
+      bookingId, 
+      hostEmail: hostEmail.toLowerCase() 
+    });
+    return serializeDoc<CoffeeChatReferral>(referral);
+  } finally {
+    
+  }
+}
+
+/**
+ * Get all referrals for a host's bookings
+ */
+export async function getCoffeeChatReferralsByHost(
+  hostEmail: string,
+  cycleId?: string
+): Promise<CoffeeChatReferral[]> {
+  const client = await getClient();
+  try {
+    const collection = client.db().collection(COFFEE_CHAT_REFERRALS_COLLECTION);
+    const query: any = { hostEmail: hostEmail.toLowerCase() };
+    if (cycleId) query.cycleId = cycleId;
+    
+    const referrals = await collection.find(query).toArray();
+    return serializeDocs<CoffeeChatReferral>(referrals);
+  } finally {
+    
+  }
+}
+
+/**
+ * Get all referrals for a specific applicant (by email)
+ */
+export async function getCoffeeChatReferralsByApplicant(
+  applicantEmail: string,
+  cycleId?: string
+): Promise<CoffeeChatReferral[]> {
+  const client = await getClient();
+  try {
+    const collection = client.db().collection(COFFEE_CHAT_REFERRALS_COLLECTION);
+    const query: any = { applicantEmail: applicantEmail.toLowerCase() };
+    if (cycleId) query.cycleId = cycleId;
+    
+    const referrals = await collection.find(query).toArray();
+    return serializeDocs<CoffeeChatReferral>(referrals);
+  } finally {
+    
+  }
+}
+
+/**
+ * Get all referrals for a specific application
+ */
+export async function getCoffeeChatReferralsByApplication(
+  applicationId: string
+): Promise<CoffeeChatReferral[]> {
+  const client = await getClient();
+  try {
+    const collection = client.db().collection(COFFEE_CHAT_REFERRALS_COLLECTION);
+    const referrals = await collection.find({ applicationId }).toArray();
+    return serializeDocs<CoffeeChatReferral>(referrals);
+  } finally {
+    
+  }
+}
+
+/**
+ * Get referral counts summary for an applicant (for scoring)
+ * Returns counts of referrals, neutrals, and deferrals
+ */
+export async function getCoffeeChatReferralSummary(
+  applicantEmail: string,
+  cycleId: string
+): Promise<{ referral: number; neutral: number; deferral: number }> {
+  const client = await getClient();
+  try {
+    const collection = client.db().collection(COFFEE_CHAT_REFERRALS_COLLECTION);
+    const referrals = await collection.find({ 
+      applicantEmail: applicantEmail.toLowerCase(),
+      cycleId,
+    }).toArray();
+    
+    const summary = { referral: 0, neutral: 0, deferral: 0 };
+    for (const ref of referrals) {
+      const signal = (ref.signal || 'neutral') as keyof typeof summary;
+      if (signal in summary) {
+        summary[signal]++;
+      }
+    }
+    
+    return summary;
+  } finally {
+    
+  }
+}
+
+/**
+ * Get all referrals for a cycle (for admin analytics)
+ */
+export async function getCoffeeChatReferralsByCycle(
+  cycleId: string
+): Promise<CoffeeChatReferral[]> {
+  const client = await getClient();
+  try {
+    const collection = client.db().collection(COFFEE_CHAT_REFERRALS_COLLECTION);
+    const referrals = await collection.find({ cycleId }).toArray();
+    return serializeDocs<CoffeeChatReferral>(referrals);
   } finally {
     
   }
