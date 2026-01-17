@@ -211,6 +211,28 @@ export default function PortalDashboardPage() {
     <div className="flex flex-col lg:flex-row gap-6">
       {/* Main Content */}
       <div className="flex-1 space-y-6 min-w-0">
+      
+      {/* Mass Meeting Attendance Notice */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-2">
+        <div className="flex items-start gap-3">
+          <ExclamationCircleIcon className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-amber-800 mb-1">Important Notice About Mass Meeting Attendance</h3>
+            <p className="text-sm text-amber-700">
+              Due to an internet outage, we are not counting attendance at the Mass Meeting to ensure fairness. 
+              However, attendance will still be tracked at all other recruitment events, so be sure to RSVP!
+            </p>
+            <Link 
+              href="/portal/events" 
+              className="inline-flex items-center gap-1 text-sm font-medium text-amber-800 hover:text-amber-900 mt-2 underline"
+            >
+              View & RSVP to Events
+              <ArrowRightIcon className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </div>
+      
       {/* LinkedIn-Shareable Welcome Card - Show for accepted applicants */}
       {application?.stage === 'accepted' && (
         <div className="relative overflow-hidden">
