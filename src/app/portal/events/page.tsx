@@ -305,9 +305,14 @@ export default function PortalEventsPage() {
   }
 
   // Separate ongoing, upcoming, and past events
-  const ongoingEvents = events.filter(e => isEventOngoing(e));
-  const upcomingEvents = events.filter(e => !isEventPast(e) && !isEventOngoing(e));
-  const pastEvents = events.filter(e => isEventPast(e));
+  // Sort upcoming events by startAt ascending (soonest first)
+  // Sort past events by startAt descending (most recent first)
+  const ongoingEvents = events.filter(e => isEventOngoing(e))
+    .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+  const upcomingEvents = events.filter(e => !isEventPast(e) && !isEventOngoing(e))
+    .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+  const pastEvents = events.filter(e => isEventPast(e))
+    .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
 
   return (
     <div className="space-y-8">
@@ -400,7 +405,7 @@ export default function PortalEventsPage() {
                             <CheckCircleIcon className="w-5 h-5" />
                             RSVP'd
                           </span>
-                        ) : (
+                        ) : event.rsvpEnabled !== false ? (
                           <button
                             onClick={() => handleRsvp(event._id!)}
                             disabled={isLoading}
@@ -408,7 +413,7 @@ export default function PortalEventsPage() {
                           >
                             {isLoading ? 'RSVPing...' : 'RSVP'}
                           </button>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -537,7 +542,7 @@ export default function PortalEventsPage() {
                               + Add to Calendar
                             </a>
                           </div>
-                        ) : (
+                        ) : event.rsvpEnabled !== false ? (
                           <button
                             onClick={() => handleRsvp(event._id!)}
                             disabled={isLoading}
@@ -545,12 +550,12 @@ export default function PortalEventsPage() {
                           >
                             {isLoading ? 'RSVPing...' : 'RSVP'}
                           </button>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </div>
 
-                  {event.rsvpCount !== undefined && (
+                  {event.rsvpCount !== undefined && event.rsvpEnabled !== false && (
                     <div className="px-6 py-3 bg-gray-50 border-t flex items-center justify-between text-sm text-gray-500">
                       <span>
                         {event.rsvpCount} {event.rsvpCount === 1 ? 'person' : 'people'} attending
