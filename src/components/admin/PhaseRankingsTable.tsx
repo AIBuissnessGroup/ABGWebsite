@@ -11,6 +11,7 @@ import {
   ChevronUpIcon,
   ChevronDownIcon,
   MagnifyingGlassIcon,
+  ChatBubbleBottomCenterTextIcon,
 } from '@heroicons/react/24/outline';
 import { TRACK_FILTER_OPTIONS } from '@/lib/tracks';
 import type { 
@@ -256,6 +257,12 @@ export default function PhaseRankingsTable({
                   Signals <SortIcon column="referralCount" />
                 </div>
               </th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-white/80">
+                <div className="flex items-center gap-1">
+                  <ChatBubbleBottomCenterTextIcon className="w-4 h-4" />
+                  Coffee Chats
+                </div>
+              </th>
               <th className="px-4 py-3 text-left text-sm font-medium text-white/80">Recommendations</th>
               {isFinalized && (
                 <th className="px-4 py-3 text-left text-sm font-medium text-white/80">Decision</th>
@@ -330,6 +337,51 @@ export default function PhaseRankingsTable({
                       </span>
                     )}
                   </div>
+                </td>
+                <td className="px-4 py-3">
+                  {ranking.coffeeChatReferrals ? (
+                    <div className="group relative">
+                      <div className="flex items-center gap-2 cursor-help">
+                        {ranking.coffeeChatReferrals.referral > 0 && (
+                          <span className="flex items-center gap-1 text-green-400 text-sm">
+                            👍 {ranking.coffeeChatReferrals.referral}
+                          </span>
+                        )}
+                        {ranking.coffeeChatReferrals.neutral > 0 && (
+                          <span className="flex items-center gap-1 text-gray-400 text-sm">
+                            ➖ {ranking.coffeeChatReferrals.neutral}
+                          </span>
+                        )}
+                        {ranking.coffeeChatReferrals.deferral > 0 && (
+                          <span className="flex items-center gap-1 text-red-400 text-sm">
+                            👎 {ranking.coffeeChatReferrals.deferral}
+                          </span>
+                        )}
+                      </div>
+                      {/* Tooltip with host details */}
+                      {ranking.coffeeChatReferrals.details && ranking.coffeeChatReferrals.details.length > 0 && (
+                        <div className="absolute z-50 left-0 top-full mt-1 hidden group-hover:block bg-gray-900 border border-white/20 rounded-lg p-3 shadow-xl min-w-[200px]">
+                          <div className="text-xs font-medium text-white/60 mb-2">Coffee Chat Hosts:</div>
+                          <div className="space-y-1.5">
+                            {ranking.coffeeChatReferrals.details.map((detail, idx) => (
+                              <div key={idx} className="flex items-center justify-between gap-3 text-sm">
+                                <span className="text-white/90">{detail.hostName}</span>
+                                <span className={`${
+                                  detail.signal === 'referral' ? 'text-green-400' :
+                                  detail.signal === 'deferral' ? 'text-red-400' :
+                                  'text-gray-400'
+                                }`}>
+                                  {detail.signal === 'referral' ? '👍' : detail.signal === 'deferral' ? '👎' : '➖'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-white/30 text-sm">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">

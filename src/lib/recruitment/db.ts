@@ -1004,6 +1004,7 @@ export async function updateBooking(bookingId: string, updates: Partial<SlotBook
 // ============================================================================
 
 const REVIEWS_COLLECTION = 'recruitment_reviews';
+const COFFEE_CHAT_REFERRALS_COLLECTION = 'recruitment_coffee_chat_referrals';
 
 export async function getReviewsByApplication(applicationId: string): Promise<ApplicationReview[]> {
   const client = await getClient();
@@ -1783,11 +1784,53 @@ export async function generatePhaseRanking(
         }
       }
       
-      // Apply referral weights to score
+      // Apply referral weights to score (from phase reviews)
       if (config?.referralWeights) {
         const advocateWeight = config.referralWeights.advocate || 0;
         const opposeWeight = config.referralWeights.oppose || 0;
         weightedScore += (referralCount * advocateWeight) + (deferralCount * opposeWeight);
+      }
+      
+      // Get coffee chat referrals for this applicant (only for application phase)
+      let coffeeChatReferrals: { 
+        referral: number; 
+        neutral: number; 
+        deferral: number; 
+        total: number;
+        details: Array<{ hostName: string; hostEmail: string; signal: 'referral' | 'neutral' | 'deferral' }>;
+      } | undefined;
+      if (phase === 'application') {
+        const coffeeChatReferralsCollection = client.db().collection(COFFEE_CHAT_REFERRALS_COLLECTION);
+        const ccReferrals = await coffeeChatReferralsCollection.find({
+          cycleId,
+          applicantEmail: userInfo.email.toLowerCase(),
+        }).toArray();
+        
+        if (ccReferrals.length > 0) {
+          coffeeChatReferrals = { 
+            referral: 0, 
+            neutral: 0, 
+            deferral: 0, 
+            total: ccReferrals.length,
+            details: [],
+          };
+          for (const ref of ccReferrals) {
+            const signal = (ref.signal || 'neutral') as 'referral' | 'neutral' | 'deferral';
+            coffeeChatReferrals[signal]++;
+            coffeeChatReferrals.details.push({
+              hostName: ref.hostName || ref.hostEmail?.split('@')[0] || 'Unknown Host',
+              hostEmail: ref.hostEmail,
+              signal,
+            });
+          }
+          
+          // Apply coffee chat referral weights to score (using same weights as phase reviews)
+          if (config?.referralWeights) {
+            const advocateWeight = config.referralWeights.advocate || 0;
+            const opposeWeight = config.referralWeights.oppose || 0;
+            weightedScore += (coffeeChatReferrals.referral * advocateWeight) + (coffeeChatReferrals.deferral * opposeWeight);
+          }
+        }
       }
       
       rankings.push({
@@ -1804,6 +1847,7 @@ export async function generatePhaseRanking(
         deferralCount,
         neutralCount,
         recommendations,
+        coffeeChatReferrals,
       });
     }
     
@@ -2167,8 +2211,6 @@ export async function bulkUpdateApplicationStages(
 // ============================================================================
 // Coffee Chat Referrals
 // ============================================================================
-
-const COFFEE_CHAT_REFERRALS_COLLECTION = 'recruitment_coffee_chat_referrals';
 
 /**
  * Upsert (create or update) a coffee chat referral

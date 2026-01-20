@@ -365,13 +365,25 @@ export interface RankedApplicant {
   averageScore: number;
   weightedScore: number;
   reviewCount: number;
-  referralCount: number;           // Strong advocates
-  deferralCount: number;           // Strong opposes
+  referralCount: number;           // Strong advocates (from phase reviews)
+  deferralCount: number;           // Strong opposes (from phase reviews)
   neutralCount: number;
   recommendations: {
     advance: number;
     hold: number;
     reject: number;
+  };
+  // Coffee chat referrals from hosts (separate from phase review referrals)
+  coffeeChatReferrals?: {
+    referral: number;              // Thumbs up from hosts
+    neutral: number;
+    deferral: number;              // Thumbs down from hosts
+    total: number;                 // Total coffee chats with referrals
+    details: Array<{               // Individual referral details
+      hostName: string;
+      hostEmail: string;
+      signal: 'referral' | 'neutral' | 'deferral';
+    }>;
   };
   decision?: 'advance' | 'reject' | 'manual_advance' | 'manual_reject';
   decisionReason?: string;         // For manual overrides
