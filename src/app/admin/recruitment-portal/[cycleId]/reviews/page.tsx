@@ -16,6 +16,7 @@ import { useAdminApi } from '@/hooks/useAdminApi';
 import { useCycle } from '../layout';
 import { AdminLoadingState } from '@/components/admin/ui';
 import { TRACKS, getTrackLabel } from '@/lib/tracks';
+import AudioRecorder from '@/components/admin/AudioRecorder';
 import type { Application, ApplicationReview, ApplicationStage, ApplicationTrack, ReviewPhase, ReferralSignal, QuestionField, PhaseConfig, ScoringCategory } from '@/types/recruitment';
 
 // Stage display labels
@@ -110,6 +111,7 @@ export default function CycleReviewsPage() {
   const [notes, setNotes] = useState('');
   const [questionNotes, setQuestionNotes] = useState<Record<string, string>>({});
   const [referralSignal, setReferralSignal] = useState<ReferralSignal>('neutral');
+  const [audioRecordingUrl, setAudioRecordingUrl] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [filterStage, setFilterStage] = useState<ApplicationStage | ''>('');
   const [filterTrack, setFilterTrack] = useState<ApplicationTrack | ''>('');
@@ -272,12 +274,14 @@ export default function CycleReviewsPage() {
         setNotes(myReview.notes || '');
         setQuestionNotes(myReview.questionNotes || {});
         setReferralSignal(myReview.referralSignal || 'neutral');
+        setAudioRecordingUrl(myReview.audioRecordingUrl);
       } else {
         // Reset form for new review
         setScores({});
         setNotes('');
         setQuestionNotes({});
         setReferralSignal('neutral');
+        setAudioRecordingUrl(undefined);
       }
     } catch (error) {
       console.error('Error loading application:', error);
@@ -311,6 +315,7 @@ export default function CycleReviewsPage() {
         notes,
         questionNotes: isInterviewPhase ? questionNotes : undefined,
         referralSignal,
+        audioRecordingUrl: isInterviewPhase ? audioRecordingUrl : undefined,
       }, {
         successMessage: 'Review saved successfully',
       });
@@ -727,6 +732,20 @@ export default function CycleReviewsPage() {
                     </div>
                   )}
 
+                  {/* Audio Recording - Only show for interview phases */}
+                  {isInterviewPhase && selectedAppId && (
+                    <div className="border-t pt-4">
+                      <AudioRecorder
+                        applicationId={selectedAppId}
+                        phase={activePhase}
+                        existingAudioUrl={audioRecordingUrl}
+                        onAudioUploaded={(url) => setAudioRecordingUrl(url)}
+                        onAudioRemoved={() => setAudioRecordingUrl(undefined)}
+                        disabled={isFinalized}
+                      />
+                    </div>
+                  )}
+
                   {/* Notes */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -806,6 +825,20 @@ export default function CycleReviewsPage() {
                             )}
                             {review.notes && (
                               <p className="text-sm text-gray-600">{review.notes}</p>
+                            )}
+                            {/* Audio recording playback */}
+                            {review.audioRecordingUrl && (
+                              <div className="mt-2 pt-2 border-t border-gray-200">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500">🎙️ Recording:</span>
+                                  <audio
+                                    src={review.audioRecordingUrl}
+                                    controls
+                                    className="h-8 flex-1"
+                                    style={{ maxWidth: '250px' }}
+                                  />
+                                </div>
+                              </div>
                             )}
                           </div>
                         ))}

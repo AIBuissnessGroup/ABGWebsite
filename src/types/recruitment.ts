@@ -273,6 +273,7 @@ export interface ApplicationReview {
   questionNotes?: Record<string, string>;  // Per-question notes for interviews (questionKey -> notes)
   recommendation?: ReviewRecommendation;
   referralSignal?: ReferralSignal; // Referral/deferral for tie-breaking
+  audioRecordingUrl?: string;      // URL to recorded interview audio
   interviewDetails?: {             // For interview phases, link to the actual interview
     bookingId?: string;
     interviewerNames?: string[];

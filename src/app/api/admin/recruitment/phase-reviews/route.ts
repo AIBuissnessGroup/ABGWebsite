@@ -244,6 +244,7 @@ export async function POST(request: NextRequest) {
       questionNotes: data.questionNotes,  // Per-question notes for interview phases
       recommendation: data.recommendation,
       referralSignal: data.referralSignal || 'neutral',
+      audioRecordingUrl: data.audioRecordingUrl,  // Audio recording for interview
       interviewDetails,
     };
 
