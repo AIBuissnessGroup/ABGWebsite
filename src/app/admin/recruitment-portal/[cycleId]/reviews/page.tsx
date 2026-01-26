@@ -348,23 +348,35 @@ export default function CycleReviewsPage() {
     setScores(prev => ({ ...prev, [category]: star }));
   }, []);
 
-  const renderStars = useCallback((category: string, currentScore: number) => {
+  const renderStars = useCallback((category: ScoringCategory, currentScore: number) => {
+    const starDescriptions = category.starDescriptions;
+    const currentDescription = currentScore > 0 && starDescriptions?.[currentScore as 1|2|3|4|5];
+    
     return (
-      <div className="flex gap-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={`${category}-star-${star}`}
-            type="button"
-            onClick={() => handleStarClick(category, star)}
-            className="p-0.5 transition-transform hover:scale-110"
-          >
-            {star <= currentScore ? (
-              <StarIconSolid className="w-6 h-6 text-yellow-400" />
-            ) : (
-              <StarIcon className="w-6 h-6 text-gray-300 hover:text-yellow-300" />
-            )}
-          </button>
-        ))}
+      <div className="flex flex-col gap-1">
+        <div className="flex gap-1">
+          {[1, 2, 3, 4, 5].map((star) => {
+            const description = starDescriptions?.[star as 1|2|3|4|5];
+            return (
+              <button
+                key={`${category.key}-star-${star}`}
+                type="button"
+                onClick={() => handleStarClick(category.key, star)}
+                title={description || `${star} star${star > 1 ? 's' : ''}`}
+                className="p-0.5 transition-transform hover:scale-110"
+              >
+                {star <= currentScore ? (
+                  <StarIconSolid className="w-6 h-6 text-yellow-400" />
+                ) : (
+                  <StarIcon className="w-6 h-6 text-gray-300 hover:text-yellow-300" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {currentDescription && (
+          <span className="text-xs text-amber-600 italic">{currentDescription}</span>
+        )}
       </div>
     );
   }, [handleStarClick]);
@@ -628,14 +640,14 @@ export default function CycleReviewsPage() {
                               <span className="text-xs text-gray-400">{cat.description}</span>
                             )}
                           </div>
-                          {renderStars(cat.key, scores[cat.key] || 0)}
+                          {renderStars(cat, scores[cat.key] || 0)}
                         </div>
                       ))}
                       {/* Always include overall if not already in categories */}
                       {!scoringCategories.some(c => c.key === 'overall') && (
                         <div className="flex items-center justify-between pt-2 border-t">
                           <span className="text-sm font-medium text-gray-900">Overall</span>
-                          {renderStars('overall', scores.overall || 0)}
+                          {renderStars({ key: 'overall', label: 'Overall', minScore: 1, maxScore: 5, weight: 1 }, scores.overall || 0)}
                         </div>
                       )}
                     </div>
