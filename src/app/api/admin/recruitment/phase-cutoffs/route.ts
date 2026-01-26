@@ -24,6 +24,7 @@ import type {
   ReviewPhase, 
   CutoffCriteria,
   ApplicationStage,
+  ApplicationTrack,
 } from '@/types/recruitment';
 
 // MongoDB connection options
@@ -127,6 +128,7 @@ export async function POST(request: NextRequest) {
     const { 
       cycleId, 
       phase, 
+      track,  // Optional: filter by specific track
       cutoffCriteria, 
       manualOverrides = [], 
       sendEmails = false,
@@ -166,13 +168,14 @@ export async function POST(request: NextRequest) {
 
     const adminEmail = session.user.email;
 
-    // Apply cutoff
+    // Apply cutoff (filtered by track if specified)
     const result = await applyCutoff(
       cycleId,
       phase,
       cutoffCriteria,
       manualOverrides,
-      adminEmail
+      adminEmail,
+      track  // Pass track filter
     );
 
     // Finalize phase if requested

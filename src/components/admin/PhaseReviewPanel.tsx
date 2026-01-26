@@ -198,25 +198,36 @@ export default function PhaseReviewPanel({
   const renderStarRating = (key: string, category: ScoringCategory) => {
     const currentScore = scores[key] || 0;
     const maxScore = category.maxScore;
+    const starDescriptions = category.starDescriptions;
+    const currentDescription = currentScore > 0 && starDescriptions?.[currentScore as 1|2|3|4|5];
     
     return (
-      <div className="flex items-center gap-1">
-        {Array.from({ length: maxScore }, (_, i) => i + 1).map(star => (
-          <button
-            key={star}
-            type="button"
-            disabled={isFinalized}
-            onClick={() => handleScoreChange(key, star)}
-            className={`transition-colors ${isFinalized ? 'cursor-not-allowed' : 'hover:scale-110'}`}
-          >
-            {star <= currentScore ? (
-              <StarIconSolid className="w-6 h-6 text-yellow-400" />
-            ) : (
-              <StarIcon className="w-6 h-6 text-gray-400 hover:text-yellow-300" />
-            )}
-          </button>
-        ))}
-        <span className="ml-2 text-sm text-gray-300">{currentScore}/{maxScore}</span>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-1">
+          {Array.from({ length: maxScore }, (_, i) => i + 1).map(star => {
+            const description = starDescriptions?.[star as 1|2|3|4|5];
+            return (
+              <button
+                key={star}
+                type="button"
+                disabled={isFinalized}
+                onClick={() => handleScoreChange(key, star)}
+                title={description || `${star} star${star > 1 ? 's' : ''}`}
+                className={`transition-colors ${isFinalized ? 'cursor-not-allowed' : 'hover:scale-110'}`}
+              >
+                {star <= currentScore ? (
+                  <StarIconSolid className="w-6 h-6 text-yellow-400" />
+                ) : (
+                  <StarIcon className="w-6 h-6 text-gray-400 hover:text-yellow-300" />
+                )}
+              </button>
+            );
+          })}
+          <span className="ml-2 text-sm text-gray-300">{currentScore}/{maxScore}</span>
+        </div>
+        {currentDescription && (
+          <span className="text-xs text-yellow-300/80 italic">{currentDescription}</span>
+        )}
       </div>
     );
   };

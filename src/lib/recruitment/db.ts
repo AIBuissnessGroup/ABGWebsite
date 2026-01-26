@@ -821,12 +821,15 @@ export async function getAvailableSlots(cycleId: string, kind: SlotKind, track?:
     };
     
     // If track is specified, only return slots for that track or slots with no track restriction
+    // Note: slots can use either 'track' or 'forTrack' field for track filtering
     if (track) {
       query.$or = [
+        // Match slots explicitly for this track (using either field name)
+        { track: track },
         { forTrack: track },
-        { forTrack: { $exists: false } },
-        { forTrack: null },
-        { forTrack: '' },
+        // Match slots with no track restriction (no track field, null, or empty string)
+        { track: { $in: [null, ''] }, forTrack: { $in: [null, '', undefined] } },
+        { track: { $exists: false } },
       ];
     }
     
@@ -1938,12 +1941,13 @@ export async function applyCutoff(
   phase: ReviewPhase,
   cutoffCriteria: CutoffCriteria,
   manualOverrides: Array<{ applicationId: string; action: 'advance' | 'reject'; reason: string }>,
-  adminEmail: string
+  adminEmail: string,
+  track?: ApplicationTrack
 ): Promise<{ advanced: string[]; rejected: string[] }> {
   const client = await getClient();
   try {
-    // Generate fresh ranking
-    const ranking = await generatePhaseRanking(cycleId, phase);
+    // Generate fresh ranking (filtered by track if specified)
+    const ranking = await generatePhaseRanking(cycleId, phase, track);
     
     // Determine who advances/rejects based on criteria
     const advanced: string[] = [];

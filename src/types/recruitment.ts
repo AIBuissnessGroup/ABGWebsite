@@ -165,7 +165,9 @@ export interface RecruitmentSlot {
   durationMinutes: number;
   location?: string;
   meetingUrl?: string;
-  forTrack?: ApplicationTrack;
+  forTrack?: ApplicationTrack;     // Preferred field name
+  track?: ApplicationTrack;        // Alias for forTrack (backwards compatibility)
+  subTrack?: 'strategy' | 'quant'; // Sub-track for Investment Fund (Strategy vs Quant)
   maxBookings: number;
   bookedCount: number;
   notes?: string;
@@ -328,6 +330,13 @@ export interface ScoringCategory {
   minScore: number;                // Usually 1
   maxScore: number;                // Usually 5
   weight: number;                  // Weight for overall score (0-1)
+  starDescriptions?: {             // Descriptions for each star rating
+    1?: string;                    // e.g., "No meaningful reflection"
+    2?: string;                    // e.g., "Limited insight"
+    3?: string;                    // e.g., "Generic reflection"
+    4?: string;                    // e.g., "Good reflection with some specificity"
+    5?: string;                    // e.g., "Thoughtful reflection; strong awareness"
+  };
 }
 
 export interface CutoffCriteria {

@@ -176,7 +176,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const data = await request.json();
-    const { cycleId, phase, action } = data;
+    const { cycleId, phase, track, action } = data;
 
     if (!cycleId || !phase) {
       return corsResponse(
@@ -189,6 +189,14 @@ export async function PUT(request: NextRequest) {
     if (!validPhases.includes(phase)) {
       return corsResponse(
         NextResponse.json({ error: 'Invalid phase' }, { status: 400 })
+      );
+    }
+
+    // Validate track if provided
+    const validTracks: ApplicationTrack[] = ['business', 'engineering', 'ai_investment_fund', 'ai_energy_efficiency', 'both'];
+    if (track && !validTracks.includes(track)) {
+      return corsResponse(
+        NextResponse.json({ error: 'Invalid track' }, { status: 400 })
       );
     }
 
@@ -331,7 +339,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update config fields
-    const existingConfig = await getPhaseConfig(cycleId, phase);
+    const existingConfig = await getPhaseConfig(cycleId, phase, track || undefined);
     if (existingConfig?.status === 'finalized') {
       return corsResponse(
         NextResponse.json({ error: 'Cannot modify finalized phase config' }, { status: 400 })
@@ -341,6 +349,11 @@ export async function PUT(request: NextRequest) {
     const allowedFields = ['scoringCategories', 'minReviewersRequired', 'referralWeights', 'interviewQuestions', 'useZScoreNormalization', 'status'];
     const updateData: Partial<PhaseConfig> = { cycleId, phase };
     
+    // Include track if provided (for track-specific configs)
+    if (track) {
+      updateData.track = track;
+    }
+    
     for (const field of allowedFields) {
       if (data[field] !== undefined) {
         (updateData as any)[field] = data[field];
@@ -348,7 +361,7 @@ export async function PUT(request: NextRequest) {
     }
 
     await upsertPhaseConfig(updateData as Omit<PhaseConfig, '_id'>);
-    const updatedConfig = await getPhaseConfig(cycleId, phase);
+    const updatedConfig = await getPhaseConfig(cycleId, phase, track || undefined);
 
     await logAuditEvent(
       session.user.id || session.user.email,
@@ -356,8 +369,8 @@ export async function PUT(request: NextRequest) {
       'content.updated',
       'RecruitmentPhaseConfig',
       {
-        targetId: `${cycleId}_${phase}`,
-        meta: { updatedFields: Object.keys(updateData) },
+        targetId: `${cycleId}_${phase}${track ? `_${track}` : ''}`,
+        meta: { updatedFields: Object.keys(updateData), track },
       }
     );
 

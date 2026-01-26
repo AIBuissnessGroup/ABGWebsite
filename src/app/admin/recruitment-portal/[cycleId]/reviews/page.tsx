@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { 
   StarIcon,
@@ -116,15 +116,20 @@ export default function CycleReviewsPage() {
 
   const currentPhaseConfig = PHASE_CONFIG[activePhase];
   // Get scoring categories from database config, fallback to defaults
-  const scoringCategories = phaseConfig?.scoringCategories?.length 
-    ? phaseConfig.scoringCategories 
-    : DEFAULT_CATEGORIES;
+  // Use useMemo to prevent unnecessary re-renders when phaseConfig reference changes but categories are the same
+  const scoringCategories = useMemo(() => {
+    return phaseConfig?.scoringCategories?.length 
+      ? phaseConfig.scoringCategories 
+      : DEFAULT_CATEGORIES;
+  }, [phaseConfig?.scoringCategories]);
   // Check if phase is finalized
   const isFinalized = phaseConfig?.status === 'finalized';
   // Check if this is an interview phase
   const isInterviewPhase = activePhase === 'interview_round1' || activePhase === 'interview_round2';
-  // Get interview questions for this phase
-  const interviewQuestions = phaseConfig?.interviewQuestions || [];
+  // Get interview questions for this phase - memoized to prevent flashing
+  const interviewQuestions = useMemo(() => {
+    return phaseConfig?.interviewQuestions || [];
+  }, [phaseConfig?.interviewQuestions]);
 
   // Load phase config when phase changes
   const loadPhaseConfig = async () => {
@@ -199,15 +204,29 @@ export default function CycleReviewsPage() {
   }, [activePhase, filterTrack]);
 
   // Refresh phase config when window regains focus (in case it was unlocked on another page)
+  // Only update if the status has actually changed to avoid unnecessary re-renders
   useEffect(() => {
-    const handleFocus = () => {
+    const handleFocus = async () => {
       if (cycleId) {
-        loadPhaseConfig();
+        try {
+          const trackParam = filterTrack ? `&track=${filterTrack}` : '';
+          const response = await fetch(`/api/admin/recruitment/phase-configs?cycleId=${cycleId}&phase=${activePhase}${trackParam}`);
+          if (response.ok) {
+            const config = await response.json();
+            // Only update if status changed (e.g., unlocked) to avoid resetting UI state
+            if (config?.status !== phaseConfig?.status) {
+              console.log('Phase status changed, updating config');
+              setPhaseConfig(config || null);
+            }
+          }
+        } catch (error) {
+          console.error('Error checking phase config on focus:', error);
+        }
       }
     };
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [cycleId, activePhase]);
+  }, [cycleId, activePhase, filterTrack, phaseConfig?.status]);
 
   useEffect(() => {
     if (selectedAppId) {
@@ -324,15 +343,20 @@ export default function CycleReviewsPage() {
     }
   };
 
-  const renderStars = (category: string, currentScore: number) => {
+  // Stable handler for star clicks - prevents flickering
+  const handleStarClick = useCallback((category: string, star: number) => {
+    setScores(prev => ({ ...prev, [category]: star }));
+  }, []);
+
+  const renderStars = useCallback((category: string, currentScore: number) => {
     return (
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((star) => (
           <button
-            key={star}
+            key={`${category}-star-${star}`}
             type="button"
-            onClick={() => setScores({ ...scores, [category]: star })}
-            className="p-0.5"
+            onClick={() => handleStarClick(category, star)}
+            className="p-0.5 transition-transform hover:scale-110"
           >
             {star <= currentScore ? (
               <StarIconSolid className="w-6 h-6 text-yellow-400" />
@@ -343,7 +367,7 @@ export default function CycleReviewsPage() {
         ))}
       </div>
     );
-  };
+  }, [handleStarClick]);
 
   if (loading) {
     return <AdminLoadingState message="Loading applications..." />;

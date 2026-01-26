@@ -12,6 +12,7 @@ import {
   ChevronDownIcon,
   MagnifyingGlassIcon,
   ChatBubbleBottomCenterTextIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import { TRACK_FILTER_OPTIONS } from '@/lib/tracks';
 import type { 
@@ -52,6 +53,45 @@ export default function PhaseRankingsTable({
     action: 'advance' | 'reject';
   } | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
+  const [cutoffRank, setCutoffRank] = useState<number>(10);
+
+  // Get applicants who beat the cutoff (rank <= cutoffRank)
+  const getApplicantsAboveCutoff = () => {
+    return sortedRankings.filter(r => r.rank <= cutoffRank);
+  };
+
+  // Download CSV of emails for applicants above cutoff
+  const handleDownloadCSV = () => {
+    const aboveCutoff = getApplicantsAboveCutoff();
+    
+    // Create CSV content with headers
+    const headers = ['Rank', 'Name', 'Email', 'Track', 'Weighted Score', 'Review Count'];
+    const rows = aboveCutoff.map(r => [
+      r.rank,
+      `"${r.applicantName.replace(/"/g, '""')}"`,
+      r.applicantEmail,
+      r.track,
+      r.weightedScore.toFixed(2),
+      r.reviewCount,
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+    
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `rankings_above_cutoff_${cutoffRank}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Sort rankings
   const sortedRankings = [...rankings].sort((a, b) => {
@@ -209,6 +249,34 @@ export default function PhaseRankingsTable({
             <option key={t.value} value={t.value}>{t.label}</option>
           ))}
         </select>
+      </div>
+
+      {/* CSV Download Section */}
+      <div className="bg-white/5 rounded-lg p-4">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-white/70">Cutoff Rank:</label>
+            <input
+              type="number"
+              min={1}
+              max={rankings.length || 100}
+              value={cutoffRank}
+              onChange={(e) => setCutoffRank(Math.max(1, parseInt(e.target.value) || 1))}
+              className="w-20 px-3 py-1.5 bg-white/5 border border-white/20 rounded-lg text-white text-center focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            />
+          </div>
+          <div className="text-sm text-white/60">
+            {getApplicantsAboveCutoff().length} applicant{getApplicantsAboveCutoff().length !== 1 ? 's' : ''} at or above rank {cutoffRank}
+          </div>
+          <button
+            onClick={handleDownloadCSV}
+            disabled={getApplicantsAboveCutoff().length === 0}
+            className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+          >
+            <ArrowDownTrayIcon className="w-5 h-5" />
+            Download CSV
+          </button>
+        </div>
       </div>
 
       {/* Rankings Table */}

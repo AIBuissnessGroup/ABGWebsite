@@ -352,6 +352,7 @@ export default function NotificationsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMcommunityGroups, setSelectedMcommunityGroups] = useState<string[]>([]);
+  const [customEmailInput, setCustomEmailInput] = useState('');
   const [contentSections, setContentSections] = useState<ContentSection[]>([
     { id: '1', type: 'text', content: 'Hello Team,' }
   ]);
@@ -2017,7 +2018,72 @@ export default function NotificationsPage() {
             <div className="p-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900">Mcommunity Groups</h2>
             </div>
-            <div className="p-4 space-y-3 max-h-96 overflow-y-scroll scrollbar-visible" style={{scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9'}}>{MCOMMUNITY_GROUPS.map(group => (
+            <div className="p-4 space-y-3 max-h-96 overflow-y-scroll scrollbar-visible" style={{scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9'}}>
+              {/* Custom Email Input */}
+              <div className="pb-3 border-b border-gray-200">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Add Custom Email</label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    placeholder="email@umich.edu"
+                    value={customEmailInput}
+                    onChange={(e) => setCustomEmailInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const email = customEmailInput.trim().toLowerCase();
+                        if (email && email.includes('@') && !selectedMcommunityGroups.includes(email)) {
+                          setSelectedMcommunityGroups([...selectedMcommunityGroups, email]);
+                          setCustomEmailInput('');
+                        }
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const email = customEmailInput.trim().toLowerCase();
+                      if (email && email.includes('@') && !selectedMcommunityGroups.includes(email)) {
+                        setSelectedMcommunityGroups([...selectedMcommunityGroups, email]);
+                        setCustomEmailInput('');
+                      }
+                    }}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Custom Emails Added */}
+              {selectedMcommunityGroups.filter(email => !MCOMMUNITY_GROUPS.some(g => g.email === email)).length > 0 && (
+                <div className="pb-3 border-b border-gray-200">
+                  <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Custom Emails</label>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedMcommunityGroups
+                      .filter(email => !MCOMMUNITY_GROUPS.some(g => g.email === email))
+                      .map(email => (
+                        <span key={email} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+                          {email}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedMcommunityGroups(selectedMcommunityGroups.filter(e => e !== email))}
+                            className="text-blue-500 hover:text-blue-700"
+                          >
+                            <XCircleIcon className="w-4 h-4" />
+                          </button>
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Predefined Groups */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Predefined Groups</label>
+                {MCOMMUNITY_GROUPS.map(group => (
                 <label key={group.email} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
                   <input
                     type="checkbox"
@@ -2037,6 +2103,7 @@ export default function NotificationsPage() {
                   </div>
                 </label>
               ))}
+              </div>
             </div>
           </div>
 

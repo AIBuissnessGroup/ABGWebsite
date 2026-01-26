@@ -11,8 +11,10 @@ import {
   ExclamationTriangleIcon,
   UserGroupIcon,
   ArrowUturnLeftIcon,
+  ClipboardDocumentIcon,
 } from '@heroicons/react/24/outline';
 import { useSession } from 'next-auth/react';
+import toast from 'react-hot-toast';
 import { useAdminApi } from '@/hooks/useAdminApi';
 import { useCycle } from '../layout';
 import { AdminLoadingState } from '@/components/admin/ui';
@@ -34,6 +36,13 @@ interface SimpleScoringCategory {
   key: string;
   label: string;
   weight: number;
+  starDescriptions?: {
+    1?: string;
+    2?: string;
+    3?: string;
+    4?: string;
+    5?: string;
+  };
 }
 
 // Map phases to their corresponding application stages
@@ -260,6 +269,7 @@ export default function RankingsPage() {
       await post('/api/admin/recruitment/phase-cutoffs', {
         cycleId,
         phase: activePhase,
+        track: filterTrack || undefined,  // Only apply to filtered track
         cutoffCriteria: {
           type: 'top_n',
           topN: cutoffCount,
@@ -270,7 +280,7 @@ export default function RankingsPage() {
         finalizeAfter: true, // Lock the phase after applying cutoff
         forceFinalize, // Allow skipping admin completion check
       }, {
-        successMessage: `Applied cutoff: advancing top ${cutoffCount} applicants`,
+        successMessage: `Applied cutoff: advancing top ${cutoffCount} applicants${filterTrack ? ` for ${filterTrack}` : ''}`,
       });
       await refreshAfterCutoff(); // Refresh data and counts
       setShowCutoffPreview(false);
@@ -649,48 +659,81 @@ export default function RankingsPage() {
               Higher weights mean that category counts more in the final score.
             </p>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {editingCategories.map((cat, idx) => (
-              <div key={cat.key} className="flex items-center gap-4">
-                <input
-                  type="text"
-                  value={cat.label}
-                  onChange={(e) => {
-                    const updated = [...editingCategories];
-                    updated[idx] = { ...cat, label: e.target.value };
-                    setEditingCategories(updated);
-                  }}
-                  disabled={isFinalized}
-                  className="flex-1 px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100"
-                  placeholder="Category name"
-                />
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">Weight:</span>
+              <div key={cat.key} className="border rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center gap-4">
                   <input
-                    type="number"
-                    value={cat.weight}
+                    type="text"
+                    value={cat.label}
                     onChange={(e) => {
                       const updated = [...editingCategories];
-                      updated[idx] = { ...cat, weight: parseFloat(e.target.value) || 1 };
+                      updated[idx] = { ...cat, label: e.target.value };
                       setEditingCategories(updated);
                     }}
                     disabled={isFinalized}
-                    min={0.1}
-                    max={5}
-                    step={0.1}
-                    className="w-20 px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100"
+                    className="flex-1 px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100"
+                    placeholder="Category name"
                   />
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Weight:</span>
+                    <input
+                      type="number"
+                      value={cat.weight}
+                      onChange={(e) => {
+                        const updated = [...editingCategories];
+                        updated[idx] = { ...cat, weight: parseFloat(e.target.value) || 1 };
+                        setEditingCategories(updated);
+                      }}
+                      disabled={isFinalized}
+                      min={0.1}
+                      max={5}
+                      step={0.1}
+                      className="w-20 px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100"
+                    />
+                  </div>
+                  {!isFinalized && editingCategories.length > 1 && (
+                    <button
+                      onClick={() => {
+                        setEditingCategories(editingCategories.filter((_, i) => i !== idx));
+                      }}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded"
+                    >
+                      <XCircleIcon className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
-                {!isFinalized && editingCategories.length > 1 && (
-                  <button
-                    onClick={() => {
-                      setEditingCategories(editingCategories.filter((_, i) => i !== idx));
-                    }}
-                    className="p-2 text-red-500 hover:bg-red-50 rounded"
-                  >
-                    <XCircleIcon className="w-5 h-5" />
-                  </button>
-                )}
+                {/* Star Rating Descriptions */}
+                <details className="mt-3">
+                  <summary className="text-sm text-blue-600 cursor-pointer hover:text-blue-700">
+                    ★ Configure star descriptions (helps reviewers understand what each rating means)
+                  </summary>
+                  <div className="mt-3 space-y-2 pl-2 border-l-2 border-blue-200">
+                    {[5, 4, 3, 2, 1].map(star => (
+                      <div key={star} className="flex items-start gap-2">
+                        <span className="text-yellow-500 font-bold w-8 flex-shrink-0">{star} ★</span>
+                        <input
+                          type="text"
+                          value={cat.starDescriptions?.[star as 1|2|3|4|5] || ''}
+                          onChange={(e) => {
+                            const updated = [...editingCategories];
+                            updated[idx] = {
+                              ...cat,
+                              starDescriptions: {
+                                ...cat.starDescriptions,
+                                [star]: e.target.value,
+                              },
+                            };
+                            setEditingCategories(updated);
+                          }}
+                          disabled={isFinalized}
+                          className="flex-1 px-2 py-1 border rounded text-sm disabled:bg-gray-100"
+                          placeholder={`Description for ${star} star${star > 1 ? 's' : ''} (e.g., "${star === 5 ? 'Exceptional - exceeds expectations' : star === 4 ? 'Strong - above average' : star === 3 ? 'Average - meets expectations' : star === 2 ? 'Below average - needs improvement' : 'Poor - does not meet expectations'}")`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </details>
               </div>
             ))}
           </div>
@@ -855,6 +898,18 @@ export default function RankingsPage() {
                   📊 Z-Score Normalized
                 </span>
               )}
+              <button
+                onClick={() => {
+                  const emails = ranking.rankings.map((r: RankedApplicant) => r.applicantEmail).join(', ');
+                  navigator.clipboard.writeText(emails);
+                  toast.success(`Copied ${ranking.rankings.length} emails to clipboard!`);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Copy all emails to clipboard"
+              >
+                <ClipboardDocumentIcon className="w-4 h-4" />
+                Copy Emails
+              </button>
             </div>
             
             {!isFinalized && (
@@ -884,10 +939,24 @@ export default function RankingsPage() {
           {/* Cutoff Preview */}
           {showCutoffPreview && !isFinalized && (
             <div className="p-4 bg-gray-50 border-b">
+              {/* Track Filter Warning */}
+              {filterTrack ? (
+                <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <span className="font-semibold">🎯 Track Filter Active:</span> This cutoff will only affect applicants in the <strong>{filterTrack}</strong> track.
+                  </p>
+                </div>
+              ) : (
+                <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-800">
+                    <span className="font-semibold">⚠️ No Track Filter:</span> This cutoff will affect <strong>ALL tracks</strong>. Select a specific track above if you only want to advance applicants from one track.
+                  </p>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-gray-900">
-                    Cutoff at rank {cutoffCount}
+                    Cutoff at rank {cutoffCount}{filterTrack ? ` (${filterTrack} only)` : ' (all tracks)'}
                   </p>
                   <p className="text-sm text-gray-600 mt-1">
                     <span className="text-green-600 font-medium">
