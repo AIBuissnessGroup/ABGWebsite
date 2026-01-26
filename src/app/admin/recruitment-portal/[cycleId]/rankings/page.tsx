@@ -167,6 +167,8 @@ export default function RankingsPage() {
       
       // Initialize editing categories from config or defaults
       const currentConfig = configMap[activePhase];
+      console.log('Loaded phase config:', activePhase, currentConfig);
+      console.log('Loaded scoringCategories:', JSON.stringify(currentConfig?.scoringCategories, null, 2));
       if (currentConfig?.scoringCategories) {
         setEditingCategories(currentConfig.scoringCategories);
       } else {
@@ -233,17 +235,19 @@ export default function RankingsPage() {
   const handleSaveSettings = async () => {
     try {
       setSavingSettings(true);
+      console.log('Saving settings with categories:', JSON.stringify(editingCategories, null, 2));
+      // Note: We save settings WITHOUT track filter - scoring categories/settings apply to all tracks
       await put('/api/admin/recruitment/phase-configs', {
         cycleId,
         phase: activePhase,
-        track: filterTrack || undefined,
+        // Don't include track - settings are shared across all tracks
         scoringCategories: editingCategories,
         minReviewersRequired,
         referralWeights,
         interviewQuestions: isInterviewPhase ? interviewQuestions : undefined,
         useZScoreNormalization,
       }, {
-        successMessage: 'Phase settings saved',
+        successMessage: 'Phase settings saved (applies to all tracks)',
       });
       await loadPhaseData();
       setShowSettings(false);

@@ -631,18 +631,43 @@ export default function CycleReviewsPage() {
                     </h4>
                     
                     {/* Scores - Categories from phase settings */}
-                    <div className="space-y-3">
-                      {scoringCategories.map((cat) => (
-                        <div key={cat.key} className="flex items-center justify-between">
-                          <div className="flex flex-col">
-                            <span className="text-sm text-gray-700">{cat.label}</span>
-                            {cat.description && (
-                              <span className="text-xs text-gray-400">{cat.description}</span>
+                    <div className="space-y-4">
+                      {scoringCategories.map((cat) => {
+                        const hasDescriptions = cat.starDescriptions && Object.values(cat.starDescriptions).some(d => d);
+                        return (
+                          <div key={cat.key} className="border rounded-lg p-3 bg-gray-50">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium text-gray-700">{cat.label}</span>
+                                {cat.description && (
+                                  <span className="text-xs text-gray-400">{cat.description}</span>
+                                )}
+                              </div>
+                              {renderStars(cat, scores[cat.key] || 0)}
+                            </div>
+                            {/* Show star rubric if descriptions are configured */}
+                            {hasDescriptions && (
+                              <details className="mt-2">
+                                <summary className="text-xs text-blue-600 cursor-pointer hover:text-blue-700">
+                                  📋 View scoring rubric
+                                </summary>
+                                <div className="mt-2 text-xs space-y-1 pl-2 border-l-2 border-blue-200">
+                                  {[5, 4, 3, 2, 1].map(star => {
+                                    const desc = cat.starDescriptions?.[star as 1|2|3|4|5];
+                                    if (!desc) return null;
+                                    return (
+                                      <div key={star} className="flex gap-2">
+                                        <span className="text-yellow-500 font-bold w-6">{star}★</span>
+                                        <span className="text-gray-600">{desc}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </details>
                             )}
                           </div>
-                          {renderStars(cat, scores[cat.key] || 0)}
-                        </div>
-                      ))}
+                        );
+                      })}
                       {/* Always include overall if not already in categories */}
                       {!scoringCategories.some(c => c.key === 'overall') && (
                         <div className="flex items-center justify-between pt-2 border-t">

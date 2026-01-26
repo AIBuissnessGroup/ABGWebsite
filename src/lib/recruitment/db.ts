@@ -1140,9 +1140,18 @@ export async function getPhaseConfig(
   const client = await getClient();
   try {
     const collection = client.db().collection(PHASE_CONFIGS_COLLECTION);
-    const query: any = { cycleId, phase };
-    if (track) query.track = track;
-    const config = await collection.findOne(query);
+    
+    // If track is specified, first try to find track-specific config
+    if (track) {
+      const trackConfig = await collection.findOne({ cycleId, phase, track });
+      if (trackConfig) {
+        return serializeDoc<PhaseConfig>(trackConfig);
+      }
+      // Fall back to non-track-specific config
+    }
+    
+    // Find config without track (general config for all tracks)
+    const config = await collection.findOne({ cycleId, phase, track: { $exists: false } });
     return serializeDoc<PhaseConfig>(config);
   } finally {
     
@@ -1156,9 +1165,33 @@ export async function getPhaseConfigsByCycle(
   const client = await getClient();
   try {
     const collection = client.db().collection(PHASE_CONFIGS_COLLECTION);
-    const query: any = { cycleId };
-    if (track) query.track = track;
-    const configs = await collection.find(query).toArray();
+    
+    // If track specified, get both track-specific and general (no track) configs
+    // Then merge them, preferring track-specific over general for the same phase
+    if (track) {
+      const allConfigs = await collection.find({
+        cycleId,
+        $or: [
+          { track },
+          { track: { $exists: false } }
+        ]
+      }).toArray();
+      
+      // Group by phase, prefer track-specific
+      const configMap = new Map<string, any>();
+      allConfigs.forEach(c => {
+        const existing = configMap.get(c.phase);
+        // If no existing, or existing is general and this is track-specific, use this one
+        if (!existing || (!existing.track && c.track)) {
+          configMap.set(c.phase, c);
+        }
+      });
+      
+      return serializeDocs<PhaseConfig>(Array.from(configMap.values()));
+    }
+    
+    // No track filter - get all configs without track (general configs)
+    const configs = await collection.find({ cycleId, track: { $exists: false } }).toArray();
     return serializeDocs<PhaseConfig>(configs);
   } finally {
     
