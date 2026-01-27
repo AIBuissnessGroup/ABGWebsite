@@ -11,7 +11,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 
-const MAX_AUDIO_SIZE = 100 * 1024 * 1024; // 100MB max for audio recordings
+const MAX_AUDIO_SIZE = 500 * 1024 * 1024; // 500MB max for audio recordings (supports 1+ hour recordings)
 
 export async function POST(request: NextRequest) {
   try {
