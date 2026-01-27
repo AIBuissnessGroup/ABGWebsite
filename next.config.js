@@ -63,6 +63,15 @@ const nextConfig = {
       },
     ]
   },
+  // Rewrite old audio recording URLs to the API route
+  async rewrites() {
+    return [
+      {
+        source: '/audioRecordings/:filename*',
+        destination: '/api/audio-serve/:filename*',
+      },
+    ]
+  },
   typescript: {
     ignoreBuildErrors: true,
   }

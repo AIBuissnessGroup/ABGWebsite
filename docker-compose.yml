@@ -10,3 +10,4 @@ services:
       # Mount upload directories so files persist across container rebuilds
       - ./public/applicationUploads:/app/public/applicationUploads
       - ./public/emailUploads:/app/public/emailUploads
+      - ./public/audioRecordings:/app/public/audioRecordings
