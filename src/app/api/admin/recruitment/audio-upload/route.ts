@@ -80,8 +80,8 @@ export async function POST(request: NextRequest) {
     
     await writeFile(filepath, buffer);
 
-    // Return the URL for serving the audio file
-    const url = `/audioRecordings/${filename}`;
+    // Return the API URL for serving the audio file (Next.js doesn't serve dynamic files from public)
+    const url = `/api/audio-serve/${filename}`;
     
     console.log(`✅ Audio recording uploaded: ${filename} (${(buffer.length / 1024 / 1024).toFixed(2)} MB) by ${session.user.email}`);
 
