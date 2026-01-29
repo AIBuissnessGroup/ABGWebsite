@@ -13,6 +13,7 @@ import type {
   CutoffCriteria,
   PhaseCompleteness,
   RankedApplicant,
+  ApplicationTrack,
 } from '@/types/recruitment';
 
 interface CutoffDecisionPanelProps {
@@ -22,6 +23,7 @@ interface CutoffDecisionPanelProps {
   manualOverrides: Array<{ applicationId: string; action: 'advance' | 'reject'; reason: string }>;
   isFinalized: boolean;
   onApplyCutoff: (criteria: CutoffCriteria, sendEmails: boolean) => Promise<void>;
+  trackFilter?: ApplicationTrack | '';  // Current track filter selection
 }
 
 const PHASE_LABELS: Record<ReviewPhase, string> = {
@@ -43,6 +45,7 @@ export default function CutoffDecisionPanel({
   manualOverrides,
   isFinalized,
   onApplyCutoff,
+  trackFilter,
 }: CutoffDecisionPanelProps) {
   const [cutoffType, setCutoffType] = useState<CutoffCriteria['type']>('top_n');
   const [topN, setTopN] = useState<number>(10);
@@ -127,6 +130,21 @@ export default function CutoffDecisionPanel({
 
   return (
     <div className="space-y-6">
+      {/* Track Filter Warning - show when no track is selected */}
+      {!trackFilter && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 flex items-start gap-3">
+          <ExclamationTriangleIcon className="w-6 h-6 text-red-400 flex-shrink-0" />
+          <div>
+            <h4 className="text-red-300 font-medium">⚠️ No Track Selected</h4>
+            <p className="text-red-200/70 text-sm">
+              You must select a specific track filter before applying cutoff. 
+              Applying cutoff without a track will affect <strong>all tracks</strong> at once.
+              Please select Business, Engineering, or AI Investment Fund from the filter dropdown above.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Completeness Warning */}
       {completeness.applicantsFullyReviewed < completeness.totalApplicants && (
         <div className="bg-yellow-500/20 border border-yellow-400/50 rounded-lg p-4 flex items-start gap-3">
@@ -313,10 +331,16 @@ export default function CutoffDecisionPanel({
       <div className="flex justify-end">
         <button
           onClick={() => setShowConfirmation(true)}
-          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+          disabled={!trackFilter}
+          className={`px-6 py-3 text-white rounded-lg font-medium transition-colors flex items-center gap-2 ${
+            !trackFilter 
+              ? 'bg-gray-500 cursor-not-allowed opacity-50' 
+              : 'bg-blue-600 hover:bg-blue-700'
+          }`}
+          title={!trackFilter ? 'Select a track filter first' : undefined}
         >
           <LockClosedIcon className="w-5 h-5" />
-          Apply Cutoff & Finalize
+          Apply Cutoff & Finalize{trackFilter ? ` (${trackFilter})` : ''}
         </button>
       </div>
 

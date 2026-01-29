@@ -160,6 +160,13 @@ export default function RankingsPage() {
       setCompleteness(rankingData.completeness);
       setIncompleteAdmins(rankingData.incompleteAdmins || []);
       
+      // Update the phase config for current phase with the track-specific one from ranking API
+      // This ensures we get the correct finalization status for the selected track
+      if (rankingData.phaseConfig) {
+        configMap[activePhase] = rankingData.phaseConfig;
+        setPhaseConfigs({...configMap});
+      }
+      
       // Set default cutoff to half of applicants
       if (rankingData.ranking?.rankings) {
         setCutoffCount(Math.ceil(rankingData.ranking.rankings.length / 2));

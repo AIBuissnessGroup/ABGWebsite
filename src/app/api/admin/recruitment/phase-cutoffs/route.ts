@@ -150,11 +150,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if phase is already finalized
-    const phaseConfig = await getPhaseConfig(cycleId, phase);
+    // Check if phase is already finalized (check track-specific config if track is provided)
+    const phaseConfig = await getPhaseConfig(cycleId, phase, track || undefined);
     if (phaseConfig?.status === 'finalized') {
       return corsResponse(
-        NextResponse.json({ error: 'Phase is already finalized' }, { status: 400 })
+        NextResponse.json({ error: `Phase is already finalized${track ? ` for ${track} track` : ''}` }, { status: 400 })
       );
     }
 
@@ -211,7 +211,8 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      await finalizePhase(cycleId, phase, adminEmail);
+      // Finalize only the track-specific config if track is specified
+      await finalizePhase(cycleId, phase, adminEmail, track || undefined);
     }
 
     // Send emails if requested

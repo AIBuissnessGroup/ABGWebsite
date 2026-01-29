@@ -180,7 +180,8 @@ export default function PhaseReviewsPage() {
       body: JSON.stringify({
         cycleId,
         phase,
-        criteria,
+        track: trackFilter || undefined,  // Only apply to filtered track if selected
+        cutoffCriteria: criteria,
         manualOverrides,
         sendEmails,
       }),
@@ -454,6 +455,7 @@ export default function PhaseReviewsPage() {
                 manualOverrides={manualOverrides}
                 isFinalized={currentPhaseData.isFinalized}
                 onApplyCutoff={(criteria, sendEmails) => handleApplyCutoff(activeTab, criteria, sendEmails)}
+                trackFilter={trackFilter}
               />
             )}
           </div>
