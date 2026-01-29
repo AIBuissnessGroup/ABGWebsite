@@ -51,3 +51,6 @@ next-env.d.ts
 # OneDrive sync issues
 .next/
 node_modules/.cache/
+
+# Interview recordings (large audio files)
+/public/audioRecordings/

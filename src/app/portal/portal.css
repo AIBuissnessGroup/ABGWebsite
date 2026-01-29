@@ -50,23 +50,23 @@
    ================================ */
 
 /* Primary headings and important text */
-.portal-container h1:not(.portal-welcome-banner h1),
-.portal-container h2:not(.portal-welcome-banner h2),
-.portal-container h3,
-.portal-container h4,
-.portal-container h5,
-.portal-container h6 {
+.portal-container h1:not(.portal-welcome-banner h1):not(.acceptance-celebration-modal h1),
+.portal-container h2:not(.portal-welcome-banner h2):not(.acceptance-celebration-modal h2),
+.portal-container h3:not(.acceptance-celebration-modal h3),
+.portal-container h4:not(.acceptance-celebration-modal h4),
+.portal-container h5:not(.acceptance-celebration-modal h5),
+.portal-container h6:not(.acceptance-celebration-modal h6) {
   color: var(--portal-text-primary) !important;
 }
 
 /* Body text - explicit selectors */
-.portal-container p:not(.portal-welcome-banner p),
-.portal-container span:not(.portal-welcome-banner span),
-.portal-container div:not(.portal-welcome-banner):not(.portal-welcome-banner div),
-.portal-container label,
-.portal-container li,
-.portal-container td,
-.portal-container th {
+.portal-container p:not(.portal-welcome-banner p):not(.acceptance-celebration-modal p),
+.portal-container span:not(.portal-welcome-banner span):not(.acceptance-celebration-modal span),
+.portal-container div:not(.portal-welcome-banner):not(.portal-welcome-banner div):not(.acceptance-celebration-modal):not(.acceptance-celebration-modal div),
+.portal-container label:not(.acceptance-celebration-modal label),
+.portal-container li:not(.acceptance-celebration-modal li),
+.portal-container td:not(.acceptance-celebration-modal td),
+.portal-container th:not(.acceptance-celebration-modal th) {
   color: var(--portal-text-primary);
 }
 
@@ -969,4 +969,251 @@
 
 .snowflake:nth-child(3n) {
   animation-duration: 12s;
+}
+
+/* ================================
+   ACCEPTANCE CELEBRATION STYLES
+   ================================ */
+
+/* Background gradient animation */
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift 15s ease infinite;
+}
+
+/* Floating orbs */
+.celebration-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.4;
+  animation: float-orb 20s ease-in-out infinite;
+}
+
+.celebration-orb-1 {
+  width: 400px;
+  height: 400px;
+  background: linear-gradient(135deg, #FFCB05 0%, #FFD700 100%);
+  top: -10%;
+  right: -10%;
+  animation-delay: 0s;
+}
+
+.celebration-orb-2 {
+  width: 300px;
+  height: 300px;
+  background: linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%);
+  bottom: -5%;
+  left: -5%;
+  animation-delay: -5s;
+}
+
+.celebration-orb-3 {
+  width: 250px;
+  height: 250px;
+  background: linear-gradient(135deg, #FFCB05 0%, #F59E0B 100%);
+  top: 40%;
+  left: 10%;
+  animation-delay: -10s;
+}
+
+.celebration-orb-4 {
+  width: 200px;
+  height: 200px;
+  background: linear-gradient(135deg, #60A5FA 0%, #93C5FD 100%);
+  top: 20%;
+  right: 15%;
+  animation-delay: -15s;
+}
+
+@keyframes float-orb {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(30px, -30px) scale(1.1);
+  }
+  50% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  75% {
+    transform: translate(-30px, -20px) scale(1.05);
+  }
+}
+
+/* Confetti pieces */
+.confetti-piece {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  top: -20px;
+  opacity: 0;
+  animation: confetti-fall 5s ease-out infinite;
+}
+
+.confetti-piece:nth-child(odd) {
+  width: 8px;
+  height: 16px;
+  border-radius: 2px;
+}
+
+.confetti-piece:nth-child(even) {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.confetti-piece:nth-child(3n) {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+
+@keyframes confetti-fall {
+  0% {
+    top: -5%;
+    opacity: 1;
+    transform: translateX(0) rotateZ(0deg);
+  }
+  25% {
+    opacity: 1;
+    transform: translateX(50px) rotateZ(180deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-30px) rotateZ(360deg);
+  }
+  75% {
+    opacity: 0.8;
+    transform: translateX(40px) rotateZ(540deg);
+  }
+  100% {
+    top: 105%;
+    opacity: 0;
+    transform: translateX(-20px) rotateZ(720deg);
+  }
+}
+
+/* Sparkle stars */
+.sparkle-star {
+  position: absolute;
+  color: #FFCB05;
+  font-size: 24px;
+  opacity: 0;
+  animation: sparkle 2s ease-in-out infinite;
+  text-shadow: 0 0 10px rgba(255, 203, 5, 0.8), 0 0 20px rgba(255, 203, 5, 0.5);
+}
+
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.5) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2) rotate(180deg);
+  }
+}
+
+/* Pulse glow effect for badges */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 203, 5, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 203, 5, 0.6), 0 0 60px rgba(255, 203, 5, 0.3);
+  }
+}
+
+/* Text shimmer effect */
+@keyframes text-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* ================================
+   CELEBRATION MODAL TEXT OVERRIDE
+   Force all text white - overrides portal dark text rules
+   Must be more specific than .portal-container rules
+   ================================ */
+
+/* Override portal-container rules - need higher specificity */
+.portal-container .acceptance-celebration-modal,
+.portal-container .acceptance-celebration-modal *,
+.acceptance-celebration-modal,
+.acceptance-celebration-modal * {
+  color: #ffffff !important;
+}
+
+.portal-container .acceptance-celebration-modal h1,
+.portal-container .acceptance-celebration-modal h2,
+.portal-container .acceptance-celebration-modal h3,
+.portal-container .acceptance-celebration-modal p,
+.portal-container .acceptance-celebration-modal span,
+.portal-container .acceptance-celebration-modal div,
+.acceptance-celebration-modal h1,
+.acceptance-celebration-modal h2,
+.acceptance-celebration-modal h3,
+.acceptance-celebration-modal p,
+.acceptance-celebration-modal span,
+.acceptance-celebration-modal div {
+  color: #ffffff !important;
+}
+
+/* Yellow accent text in celebration - must be more specific */
+.portal-container .acceptance-celebration-modal .text-yellow-400,
+.acceptance-celebration-modal .text-yellow-400 {
+  color: #facc15 !important;
+}
+
+.portal-container .acceptance-celebration-modal svg.text-yellow-400,
+.acceptance-celebration-modal svg.text-yellow-400 {
+  color: #facc15 !important;
+}
+
+/* Button text should stay dark on yellow background */
+.portal-container .acceptance-celebration-modal button,
+.acceptance-celebration-modal button {
+  color: #00274C !important;
+}
+
+.portal-container .acceptance-celebration-modal button span,
+.acceptance-celebration-modal button span {
+  color: #00274C !important;
+}
+
+/* Social icons keep their brand colors */
+.portal-container .acceptance-celebration-modal .text-\[\#0077b5\],
+.acceptance-celebration-modal .text-\[\#0077b5\] {
+  color: #0077b5 !important;
+}
+
+.portal-container .acceptance-celebration-modal .text-\[\#E4405F\],
+.acceptance-celebration-modal .text-\[\#E4405F\] {
+  color: #E4405F !important;
+}
+
+.portal-container .acceptance-celebration-modal .text-\[\#1DA1F2\],
+.acceptance-celebration-modal .text-\[\#1DA1F2\] {
+  color: #1DA1F2 !important;
+}
+
+/* Force SVG icons to inherit or use specific colors */
+.portal-container .acceptance-celebration-modal svg,
+.acceptance-celebration-modal svg {
+  color: inherit !important;
 }

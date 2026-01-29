@@ -18,6 +18,7 @@ import { FaLinkedin } from 'react-icons/fa';
 import { useSession } from 'next-auth/react';
 import RoundTracker from '@/components/portal/RoundTracker';
 import RecruitmentConnects from '@/components/portal/RecruitmentConnects';
+import AcceptanceCelebration from '@/components/portal/AcceptanceCelebration';
 import { getTrackLabel } from '@/lib/tracks';
 import type { PortalDashboard, ApplicationStage, RecruitmentCycle } from '@/types/recruitment';
 
@@ -43,6 +44,7 @@ export default function PortalDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [showCelebration, setShowCelebration] = useState(true);
 
   useEffect(() => {
     loadDashboard();
@@ -83,6 +85,8 @@ export default function PortalDashboardPage() {
       const res = await fetch('/api/portal/dashboard');
       const data = await res.json();
       
+      console.log('Portal loadDashboard - response ok:', res.ok, 'data:', data);
+      
       if (!res.ok) {
         // Check if we have an upcoming cycle
         if (data.upcomingCycle) {
@@ -93,6 +97,7 @@ export default function PortalDashboardPage() {
           setUpcomingCycle(null);
         }
       } else {
+        console.log('Portal - Setting dashboard, application stage:', data.application?.stage);
         setDashboard(data);
         setUpcomingCycle(null);
       }
@@ -204,34 +209,27 @@ export default function PortalDashboardPage() {
   const application = dashboard.application;
   const stageInfo = application ? STAGE_INFO[application.stage] : STAGE_INFO.not_started;
 
+  // Debug: Log application stage
+  console.log('Portal Debug - Application stage:', application?.stage, 'showCelebration:', showCelebration);
+
   // Get recruitment connects from cycle settings
   const recruitmentConnects = cycle.settings?.recruitmentConnects || [];
 
   return (
+    <>
+      {/* Full-screen Acceptance Celebration - Show for accepted applicants */}
+      {application?.stage === 'accepted' && showCelebration && (
+        <AcceptanceCelebration
+          userName={session?.user?.name || 'New Member'}
+          track={application?.track}
+          cycleName={cycle.name}
+          onClose={() => setShowCelebration(false)}
+        />
+      )}
+
     <div className="flex flex-col lg:flex-row gap-6">
       {/* Main Content */}
       <div className="flex-1 space-y-6 min-w-0">
-      
-      {/* Mass Meeting Attendance Notice */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-2">
-        <div className="flex items-start gap-3">
-          <ExclamationCircleIcon className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-amber-800 mb-1">Important Notice About Mass Meeting Attendance</h3>
-            <p className="text-sm text-amber-700">
-              Due to an internet outage, we are not counting attendance at the Mass Meeting to ensure fairness. 
-              However, attendance will still be tracked at all other recruitment events, so be sure to RSVP!
-            </p>
-            <Link 
-              href="/portal/events" 
-              className="inline-flex items-center gap-1 text-sm font-medium text-amber-800 hover:text-amber-900 mt-2 underline"
-            >
-              View & RSVP to Events
-              <ArrowRightIcon className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-      </div>
       
       {/* LinkedIn-Shareable Welcome Card - Show for accepted applicants */}
       {application?.stage === 'accepted' && (
@@ -346,23 +344,43 @@ export default function PortalDashboardPage() {
           </div>
 
           {/* LinkedIn Share Prompt - Below the card */}
-          <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100">
-            <div className="flex items-start md:items-center gap-4 flex-col md:flex-row">
-              <div className="flex items-center gap-3 flex-1">
-                <div className="w-12 h-12 bg-[#0077b5] rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
-                  <FaLinkedin className="w-6 h-6 text-white" />
+          <div className="mt-4 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-xl p-6 border border-blue-100 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <ShareIcon className="w-5 h-5 text-blue-600" />
+              <h3 className="font-bold text-gray-800 text-lg">Share Your Achievement!</h3>
+            </div>
+            <p className="text-gray-700 text-sm mb-4">
+              You&apos;ve earned this! We encourage you to <strong>screenshot your acceptance letter</strong> above and share it with your network. 
+              Whether it&apos;s LinkedIn, Instagram, or just texting your parents—celebrate this moment! 🎉
+            </p>
+            
+            <div className="grid sm:grid-cols-2 gap-3 mb-4">
+              <div className="flex items-center gap-3 bg-white/80 rounded-lg p-3 border border-blue-100">
+                <div className="w-10 h-10 bg-[#0077b5] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <FaLinkedin className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-800">Share Your Achievement!</h3>
-                  <p className="text-gray-600 text-sm">
-                    Screenshot the card above and share it on LinkedIn! Tag us!
-                  </p>
+                  <p className="font-medium text-gray-800 text-sm">LinkedIn</p>
+                  <p className="text-gray-500 text-xs">Share with your professional network</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-white/80 rounded-lg p-3 border border-blue-100">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-lg">📱</span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800 text-sm">Family & Friends</p>
+                  <p className="text-gray-500 text-xs">They&apos;ll be proud of you!</p>
                 </div>
               </div>
             </div>
-            <div className="mt-3 p-3 bg-white/70 rounded-lg border border-blue-100">
-              <p className="text-gray-600 text-xs">
-                <span className="font-medium text-gray-700">Suggested caption:</span> &quot;Excited to announce that I&apos;ve been accepted into the AI Business Group at the University of Michigan! Looking forward to working on impactful AI projects with this incredible team. 🎉 #ABG #UMich #AIBusinessGroup&quot;
+            
+            <div className="p-4 bg-white rounded-lg border border-blue-100">
+              <p className="text-gray-600 text-sm">
+                <span className="font-semibold text-gray-800">💡 Suggested caption:</span>
+              </p>
+              <p className="text-gray-600 text-sm mt-2 italic">
+                &quot;Excited to announce that I&apos;ve been accepted into the AI Business Group at the University of Michigan! Looking forward to working on impactful AI projects with this incredible team. 🎉 #ABG #UMich #AIBusinessGroup&quot;
               </p>
             </div>
           </div>
@@ -677,5 +695,6 @@ export default function PortalDashboardPage() {
         </div>
       )}
     </div>
+    </>
   );
 }
