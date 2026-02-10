@@ -9,6 +9,7 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import Link from 'next/link';
 
 export default function ProfilePage() {
   const { data: session, status } = useSession();
@@ -384,6 +385,28 @@ export default function ProfilePage() {
               Your account is not yet linked to a team member profile. Contact an administrator to link your account 
               if you are a member of the team. Once linked, you'll be able to manage your team profile information here.
             </p>
+          </div>
+        )}
+
+        {/* Projects Link */}
+        {profile?.teamMember && (
+          <div className="mt-6">
+            <Link 
+              href="/profile/projects"
+              className="block bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">My Projects</h3>
+                  <p className="text-gray-600">
+                    View and manage your contributions to ABG projects
+                  </p>
+                </div>
+                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </Link>
           </div>
         )}
       </div>
