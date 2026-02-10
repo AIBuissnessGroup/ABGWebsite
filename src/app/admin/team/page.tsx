@@ -30,7 +30,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 // Sortable Team Member Card Component
-function SortableTeamMemberCard({ member, onEdit, onDelete, showForm }: any) {
+function SortableTeamMemberCard({ member, onEdit, onDelete, onLink, showForm }: any) {
   const {
     attributes,
     listeners,
@@ -116,6 +116,14 @@ function SortableTeamMemberCard({ member, onEdit, onDelete, showForm }: any) {
       
       <div className="flex justify-end space-x-2">
         <button
+          onClick={() => onLink(member)}
+          className="text-purple-600 hover:text-purple-900 p-2 text-xs"
+          title="Link User Account"
+          disabled={showForm}
+        >
+          🔗 Link User
+        </button>
+        <button
           onClick={() => onEdit(member)}
           className="text-green-600 hover:text-green-900 p-2"
           title="Edit Member"
@@ -136,14 +144,105 @@ function SortableTeamMemberCard({ member, onEdit, onDelete, showForm }: any) {
   );
 }
 
+// Link User Dialog Component
+function LinkUserDialog({ member, users, onClose, onLink }: any) {
+  const [selectedEmail, setSelectedEmail] = useState('');
+  const [linking, setLinking] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEmail) {
+      alert('Please select a user');
+      return;
+    }
+
+    setLinking(true);
+    try {
+      const res = await fetch('/api/profile/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userEmail: selectedEmail,
+          teamMemberId: member.id
+        })
+      });
+
+      if (res.ok) {
+        alert('User linked successfully!');
+        onLink();
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Failed to link user');
+      }
+    } catch (error) {
+      console.error('Error linking user:', error);
+      alert('Error linking user');
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">
+          Link User to {member.name}
+        </h3>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select User Account
+            </label>
+            <select
+              value={selectedEmail}
+              onChange={(e) => setSelectedEmail(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+              required
+            >
+              <option value="">Select a user...</option>
+              {users.filter((u: any) => u.email.endsWith('@umich.edu')).map((user: any) => (
+                <option key={user.email} value={user.email}>
+                  {user.name} ({user.email})
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              This will allow the user to edit their team profile info
+            </p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={linking}
+              className="px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366] disabled:opacity-50 admin-white-text"
+            >
+              {linking ? 'Linking...' : 'Link User'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function TeamAdmin() {
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
   const [members, setMembers] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]); // Add users state
   const [showForm, setShowForm] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showLinkDialog, setShowLinkDialog] = useState(false); // Link dialog state
+  const [linkingMember, setLinkingMember] = useState<any>(null); // Member to link
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -218,8 +317,21 @@ export default function TeamAdmin() {
     if (session?.user) {
       loadMembers();
       loadProjects();
+      loadUsers(); // Load users for linking
     }
   }, [session]);
+
+  const loadUsers = async () => {
+    try {
+      const res = await fetch('/api/admin/users?limit=1000');
+      const data = await res.json();
+      if (data && data.users) {
+        setUsers(data.users);
+      }
+    } catch (error) {
+      console.error('Error loading users:', error);
+    }
+  };
 
   const loadMembers = async () => {
     setLoading(true);
@@ -261,6 +373,30 @@ export default function TeamAdmin() {
         }
       } catch (error) {
         console.error('Error deleting team member:', error);
+      }
+    }
+  };
+
+  const handleLinkUser = (member: any) => {
+    setLinkingMember(member);
+    setShowLinkDialog(true);
+  };
+
+  const handleUnlinkUser = async (userEmail: string) => {
+    if (confirm(`Unlink ${userEmail} from this team member?`)) {
+      try {
+        const res = await fetch(`/api/profile/link?email=${encodeURIComponent(userEmail)}`, {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          alert('User unlinked successfully!');
+          loadMembers(); // Refresh if needed
+        } else {
+          alert('Failed to unlink user');
+        }
+      } catch (error) {
+        console.error('Error unlinking user:', error);
+        alert('Error unlinking user');
       }
     }
   };
@@ -383,6 +519,7 @@ export default function TeamAdmin() {
                     setShowForm(true);
                   }}
                   onDelete={deleteMember}
+                  onLink={handleLinkUser}
                   showForm={showForm}
                 />
               ))}
@@ -406,6 +543,24 @@ export default function TeamAdmin() {
         </div>
       )}
     </div>
+
+    {/* Link User Dialog */}
+    {showLinkDialog && linkingMember && (
+      <LinkUserDialog
+        member={linkingMember}
+        users={users}
+        onClose={() => {
+          setShowLinkDialog(false);
+          setLinkingMember(null);
+        }}
+        onLink={() => {
+          loadMembers();
+          setShowLinkDialog(false);
+          setLinkingMember(null);
+        }}
+      />
+    )}
+  </div>
   );
 }
 
