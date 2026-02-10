@@ -542,25 +542,24 @@ export default function TeamAdmin() {
           </button>
         </div>
       )}
-    </div>
 
-    {/* Link User Dialog */}
-    {showLinkDialog && linkingMember && (
-      <LinkUserDialog
-        member={linkingMember}
-        users={users}
-        onClose={() => {
-          setShowLinkDialog(false);
-          setLinkingMember(null);
-        }}
-        onLink={() => {
-          loadMembers();
-          setShowLinkDialog(false);
-          setLinkingMember(null);
-        }}
-      />
-    )}
-  </div>
+      {/* Link User Dialog */}
+      {showLinkDialog && linkingMember && (
+        <LinkUserDialog
+          member={linkingMember}
+          users={users}
+          onClose={() => {
+            setShowLinkDialog(false);
+            setLinkingMember(null);
+          }}
+          onLink={() => {
+            loadMembers();
+            setShowLinkDialog(false);
+            setLinkingMember(null);
+          }}
+        />
+      )}
+    </div>
   );
 }
 
