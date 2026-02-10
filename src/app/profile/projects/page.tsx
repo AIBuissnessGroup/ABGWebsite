@@ -29,13 +29,6 @@ export default function ProfileProjectsPage() {
     }
   }, [session, status]);
 
-  // Load user's projects
-  useEffect(() => {
-    if (session?.user) {
-      loadProjects();
-    }
-  }, [session]);
-
   const loadProjects = async () => {
     setLoading(true);
     try {
@@ -53,6 +46,14 @@ export default function ProfileProjectsPage() {
       setLoading(false);
     }
   };
+
+  // Load user's projects
+  useEffect(() => {
+    if (session?.user) {
+      loadProjects();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.email]);
 
   const handleEdit = (project: any) => {
     setEditingProject(project.id);

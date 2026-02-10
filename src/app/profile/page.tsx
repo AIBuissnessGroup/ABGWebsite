@@ -40,13 +40,6 @@ export default function ProfilePage() {
     }
   }, [session, status]);
 
-  // Load profile data
-  useEffect(() => {
-    if (session?.user) {
-      loadProfile();
-    }
-  }, [session]);
-
   const loadProfile = async () => {
     setLoading(true);
     try {
@@ -76,6 +69,14 @@ export default function ProfilePage() {
       setLoading(false);
     }
   };
+
+  // Load profile data
+  useEffect(() => {
+    if (session?.user) {
+      loadProfile();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.email]);
 
   const handleSave = async () => {
     setSaving(true);
