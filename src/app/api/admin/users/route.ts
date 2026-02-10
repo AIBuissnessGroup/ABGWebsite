@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
+    const roleFilter = searchParams.get('role') || '';
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
     const skip = (page - 1) * limit;
@@ -49,6 +50,11 @@ export async function GET(request: NextRequest) {
         { email: { $regex: search, $options: 'i' } },
         { name: { $regex: search, $options: 'i' } }
       ];
+    }
+    
+    // Role filter
+    if (roleFilter && USER_ROLES.includes(roleFilter as UserRole)) {
+      filter.roles = roleFilter;
     }
 
     // Get users with pagination
@@ -92,7 +98,8 @@ export async function GET(request: NextRequest) {
       roles: user.roles || ['USER'],
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
-      profile: user.profile || {}
+      profile: user.profile || {},
+      teamMemberId: user.teamMemberId?.toString() || null
     }));
 
     return NextResponse.json({

@@ -173,6 +173,72 @@ export const authOptions: NextAuthOptions = {
                 timestamp: new Date().toISOString()
               });
             }
+
+            // Refetch user after updates to get current state
+            dbUser = await usersCollection.findOne({ email: user.email });
+          }
+
+          // Auto-create TeamMember for PROJECT_TEAM_MEMBER users without one
+          const userRoles = dbUser?.roles || [];
+          if (userRoles.includes('PROJECT_TEAM_MEMBER') && !dbUser?.teamMemberId) {
+            try {
+              const teamMemberCollection = db.collection('TeamMember');
+              
+              // Check if a TeamMember with this email already exists
+              let teamMember = await teamMemberCollection.findOne({ email: user.email });
+              
+              if (!teamMember) {
+                // Create new TeamMember record
+                const newTeamMember = {
+                  name: user.name || user.email?.split('@')[0] || 'Team Member',
+                  email: user.email,
+                  role: 'Project Team Member',
+                  year: new Date().getFullYear().toString(),
+                  major: null,
+                  bio: null,
+                  linkedIn: null,
+                  github: null,
+                  imageUrl: user.image || null,
+                  featured: false,
+                  active: true,
+                  memberType: 'analyst',
+                  project: null,
+                  sortOrder: 100,
+                  joinDate: new Date(),
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                };
+                
+                const teamMemberResult = await teamMemberCollection.insertOne(newTeamMember);
+                teamMember = { ...newTeamMember, _id: teamMemberResult.insertedId };
+                
+                console.log('AUTO-CREATED TEAM MEMBER:', {
+                  email: user.email,
+                  teamMemberId: teamMemberResult.insertedId,
+                  timestamp: new Date().toISOString()
+                });
+              }
+              
+              // Link user to TeamMember
+              await usersCollection.updateOne(
+                { email: user.email },
+                { 
+                  $set: { 
+                    teamMemberId: teamMember._id.toString(),
+                    updatedAt: new Date()
+                  }
+                }
+              );
+              
+              console.log('AUTO-LINKED USER TO TEAM MEMBER:', {
+                email: user.email,
+                teamMemberId: teamMember._id.toString(),
+                timestamp: new Date().toISOString()
+              });
+            } catch (teamMemberError) {
+              console.error('Failed to auto-create/link TeamMember:', teamMemberError);
+              // Don't fail sign-in if TeamMember creation fails
+            }
           }
 
           console.log('GOOGLE SIGN-IN SUCCESS:', {

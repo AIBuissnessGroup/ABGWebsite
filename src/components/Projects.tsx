@@ -1,17 +1,22 @@
 'use client';
-import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
-import { 
-  UserGroupIcon, 
-  CurrencyDollarIcon, 
-  ClockIcon,
-  CheckCircleIcon,
-  PlayCircleIcon,
-  PauseCircleIcon,
-  LinkIcon,
-  TagIcon
-} from '@heroicons/react/24/outline';
+import { motion, useInView } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
+import { FaLinkedin, FaGithub } from 'react-icons/fa';
+import { LinkIcon } from '@heroicons/react/24/outline';
 import FloatingShapes from './FloatingShapes';
+
+interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  imageUrl?: string;
+  linkedIn?: string;
+  github?: string;
+  email?: string;
+  major?: string;
+  project?: string;
+  projects?: string[];
+}
 
 interface Project {
   id: string;
@@ -20,414 +25,411 @@ interface Project {
   status: string;
   startDate: string;
   endDate?: string;
-  budget?: string;
-  progress: number;
-  objectives: string;
-  outcomes?: string;
-  technologies: string;
   links?: string;
   imageUrl?: string;
   featured: boolean;
   published: boolean;
-  teamMembers?: any[];
-  funding?: any[];
-  partnerships?: any[];
 }
 
+// Team Member Card for Projects
+function ProjectTeamMemberCard({ member, index }: { member: TeamMember; index: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3, delay: index * 0.05 }}
+      className="flex flex-col items-center"
+    >
+      {/* Avatar */}
+      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#00274c] to-[#1a2c45] border-2 border-white/20 overflow-hidden shadow-md mb-2">
+        {member.imageUrl ? (
+          <img
+            src={member.imageUrl}
+            alt={member.name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              target.nextElementSibling?.classList.remove('hidden');
+            }}
+          />
+        ) : null}
+        <div className={`w-full h-full bg-gradient-to-br from-[#00274c] to-[#1a2c45] flex items-center justify-center ${member.imageUrl ? 'hidden' : ''}`}>
+          <span className="text-sm font-bold text-white">
+            {member.name.split(' ').map((n: string) => n[0]).join('')}
+          </span>
+        </div>
+      </div>
+      
+      {/* Name & Role */}
+      <h5 className="text-sm font-semibold text-white text-center truncate max-w-[100px]">
+        {member.name.split(' ')[0]}
+      </h5>
+      <p className="text-xs text-[#5e6472] text-center truncate max-w-[100px]">
+        {member.role}
+      </p>
+      
+      {/* Social Icons */}
+      <div className="flex gap-2 mt-2">
+        {member.linkedIn && (
+          <a
+            href={member.linkedIn}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-6 h-6 rounded-full bg-white/5 hover:bg-blue-500/30 flex items-center justify-center text-white/40 hover:text-white transition-all duration-300"
+          >
+            <FaLinkedin className="w-3 h-3" />
+          </a>
+        )}
+        {member.github && (
+          <a
+            href={member.github}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-6 h-6 rounded-full bg-white/5 hover:bg-gray-500/30 flex items-center justify-center text-white/40 hover:text-white transition-all duration-300"
+          >
+            <FaGithub className="w-3 h-3" />
+          </a>
+        )}
+      </div>
+    </motion.div>
+  );
+}
 
+// Project Card Component with reactive gradient
+function ProjectCard({ 
+  project, 
+  members, 
+  index, 
+  isPast = false 
+}: { 
+  project: Project; 
+  members: TeamMember[]; 
+  index: number;
+  isPast?: boolean;
+}) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
 
-const statusConfig: any = {
-  ACTIVE: { 
-    icon: PlayCircleIcon, 
-    color: 'text-green-400', 
-    bg: 'bg-green-400/20', 
-    label: 'Active' 
-  },
-  COMPLETED: { 
-    icon: CheckCircleIcon, 
-    color: 'text-blue-400', 
-    bg: 'bg-blue-400/20', 
-    label: 'Completed' 
-  },
-  PLANNING: { 
-    icon: ClockIcon, 
-    color: 'text-blue-300', 
-    bg: 'bg-blue-300/20', 
-    label: 'Planning' 
-  },
-  ON_HOLD: { 
-    icon: PauseCircleIcon, 
-    color: 'text-gray-400', 
-    bg: 'bg-gray-400/20', 
-    label: 'On Hold' 
-  },
-  CANCELLED: { 
-    icon: PauseCircleIcon, 
-    color: 'text-red-400', 
-    bg: 'bg-red-400/20', 
-    label: 'Cancelled' 
-  }
-};
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    setMousePosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  };
+
+  return (
+    <motion.div
+      ref={cardRef}
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`relative overflow-hidden bg-gradient-to-br ${isPast ? 'from-white/5 to-white/2 opacity-80' : 'from-white/10 to-white/5'} backdrop-blur-lg rounded-3xl p-6 md:p-8 border ${isPast ? 'border-white/10' : 'border-white/20'} shadow-xl hover:shadow-2xl hover:border-white/30 transition-all duration-300`}
+    >
+      {/* Reactive gradient overlay */}
+      {!isPast && (
+        <div
+          className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 rounded-3xl"
+          style={{
+            opacity: isHovered ? 0.15 : 0,
+            background: `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(59, 130, 246, 0.4), transparent 40%)`,
+          }}
+        />
+      )}
+      
+      <div className="relative z-10 flex flex-col lg:flex-row gap-6">
+        {/* Project Info */}
+        <div className="flex-1 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                {!isPast && (
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-green-400 to-emerald-400 animate-pulse" />
+                )}
+                {isPast && (
+                  <div className="w-3 h-3 rounded-full bg-gray-500" />
+                )}
+                <h3 className={`text-xl md:text-2xl font-bold ${isPast ? 'text-white/70' : 'text-white'}`}>
+                  {project.title}
+                </h3>
+              </div>
+              {project.startDate && (
+                <p className="text-xs text-[#5e6472]">
+                  {new Date(project.startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                  {project.endDate && ` - ${new Date(project.endDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`}
+                  {!project.endDate && ' - Present'}
+                </p>
+              )}
+            </div>
+            
+            {project.links && (
+              <a
+                href={project.links}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full text-[#BBBBBB] hover:text-white transition-all duration-300 text-sm flex-shrink-0"
+              >
+                <LinkIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">View</span>
+              </a>
+            )}
+          </div>
+          
+          <p className={`text-sm md:text-base leading-relaxed project-description ${isPast ? 'past' : 'active'}`}>
+            {project.description}
+            <style jsx>{`
+              .project-description.active {
+                color: #b0b0b0 !important;
+              }
+              .project-description.past {
+                color: #888888 !important;
+              }
+            `}</style>
+          </p>
+        </div>
+        
+        {/* Team Members */}
+        {members.length > 0 && (
+          <div className="lg:w-auto lg:min-w-[200px]">
+            <h4 className={`text-sm font-semibold mb-4 ${isPast ? 'text-white/50' : 'text-white/70'}`}>
+              Team ({members.length})
+            </h4>
+            <div className="flex flex-wrap gap-4 justify-start lg:justify-end">
+              {members.slice(0, 6).map((member, idx) => (
+                <ProjectTeamMemberCard key={member.id} member={member} index={idx} />
+              ))}
+              {members.length > 6 && (
+                <div className="flex items-center justify-center w-16 h-16 rounded-full bg-white/10 border-2 border-white/20">
+                  <span className="text-sm font-bold text-white/60">
+                    +{members.length - 6}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
 
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true });
 
-  // Load projects from database
+  // Load projects and team members
   useEffect(() => {
-    const loadProjects = async () => {
+    const loadData = async () => {
       try {
-        const res = await fetch('/api/projects');
-        if (res.ok) {
-          const data = await res.json();
+        const [projectsRes, membersRes] = await Promise.all([
+          fetch('/api/projects'),
+          fetch('/api/public/team')
+        ]);
+        
+        if (projectsRes.ok) {
+          const data = await projectsRes.json();
           setProjects(data);
         }
+        
+        if (membersRes.ok) {
+          const data = await membersRes.json();
+          setTeamMembers(data);
+        }
       } catch (error) {
-        console.error('Failed to load projects:', error);
+        console.error('Failed to load data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadProjects();
+    loadData();
   }, []);
+
+  // Get members for a project
+  const getMembersForProject = (projectTitle: string): TeamMember[] => {
+    return teamMembers.filter(member => {
+      // Check projects array first
+      if (member.projects && member.projects.length > 0) {
+        return member.projects.includes(projectTitle);
+      }
+      // Fall back to single project field
+      if (member.project) {
+        return member.project === projectTitle;
+      }
+      return false;
+    });
+  };
+
+  // Separate active and past projects
+  const now = new Date();
+  const activeProjects = projects.filter(p => {
+    if (!p.endDate) return true;
+    return new Date(p.endDate) > now;
+  });
+  const pastProjects = projects.filter(p => {
+    if (!p.endDate) return false;
+    return new Date(p.endDate) <= now;
+  });
+
   return (
-    <main className="bg-[#00274c] min-h-screen">
-      {/* Hero Section */}
-      <section 
-        className="relative py-16 sm:py-20 lg:py-24 overflow-hidden px-4 sm:px-6"
-        style={{
-          background: `linear-gradient(135deg, #00274c 0%, #1a2c45 50%, #2d3e5a 100%)`,
-        }}
-      >
-        <FloatingShapes variant="minimal" opacity={0.06} />
-        
-        <div className="max-w-7xl mx-auto lg:px-6 xl:px-12 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center space-y-4 sm:space-y-6"
-          >
-            <h1 className="heading-primary text-3xl sm:text-4xl lg:text-5xl xl:text-6xl text-white">
-              Our <span className="text-[#BBBBBB]">Projects</span>
-            </h1>
-            <p className="body-text text-lg sm:text-xl lg:text-2xl text-[#BBBBBB] max-w-3xl mx-auto px-4">
-              Discover the innovative AI and business solutions we're building to shape the future. 
-              From market analysis to supply chain optimization, our projects drive real-world impact.
-            </p>
-          </motion.div>
-        </div>
-      </section>
+    <section
+      ref={ref}
+      className="min-h-screen py-24 px-6 md:px-12 relative overflow-hidden"
+      style={{
+        background: `linear-gradient(135deg, #00274c 0%, #0d1d35 50%, #1a2c45 100%)`,
+      }}
+    >
+      {/* Floating Background Shapes */}
+      <FloatingShapes variant="default" opacity={0.06} />
 
-      {/* Projects Grid */}
-      <section className="py-16 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-12">
-        <div className="max-w-7xl mx-auto">
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-              <p className="text-[#BBBBBB]">Loading projects...</p>
-            </div>
-          ) : projects.length === 0 ? (
-            <div className="text-center py-16 sm:py-20">
-              <h3 className="text-2xl sm:text-3xl text-white mb-4">Coming Soon</h3>
-              <p className="text-[#BBBBBB] text-lg sm:text-xl mb-8">We're working on exciting new projects!</p>
-              <a href="/#join" className="btn-primary">
-                Join Our Team
-              </a>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-12">
-              {projects.map((project: any, index: number) => {
-              const StatusIcon = statusConfig[project.status].icon;
-              
-              return (
+      {/* Background Elements */}
+      <div className="absolute inset-0 opacity-10 pointer-events-none">
+        <div className="absolute top-40 left-10 w-40 h-40 border border-white rounded-full"></div>
+        <div className="absolute top-20 right-20 w-32 h-32 border border-white rounded-lg rotate-45"></div>
+        <div className="absolute bottom-40 left-32 w-36 h-36 border border-white rounded-full"></div>
+        <div className="absolute bottom-20 right-40 w-28 h-28 border border-white rounded-lg -rotate-12"></div>
+      </div>
+
+      <div className="max-w-7xl mx-auto relative z-10">
+        {/* Page Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.8 }}
+          className="text-center mb-20"
+        >
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 tracking-tight">
+            OUR PROJECTS
+          </h1>
+          <motion.div
+            initial={{ width: 0 }}
+            animate={isInView ? { width: "180px" } : {}}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="h-1 bg-gradient-to-r from-transparent via-white to-transparent mx-auto mb-8"
+          />
+          <p className="text-xl md:text-2xl text-[#BBBBBB] max-w-4xl mx-auto leading-relaxed">
+            Discover the innovative AI and business solutions we're building to shape the future.
+          </p>
+        </motion.div>
+
+        {loading ? (
+          <div className="text-center py-20">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-6"></div>
+            <p className="text-[#BBBBBB] text-lg">Loading projects...</p>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="text-center py-16 sm:py-20">
+            <h3 className="text-2xl sm:text-3xl text-white mb-4">Coming Soon</h3>
+            <p className="text-[#BBBBBB] text-lg sm:text-xl mb-8">We're working on exciting new projects!</p>
+            <a href="/#join" className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full text-white transition-all duration-300">
+              Join Our Team
+            </a>
+          </div>
+        ) : (
+          <>
+            {/* Active Projects */}
+            {activeProjects.length > 0 && (
+              <div className="mb-20">
                 <motion.div
-                  key={project.id}
-                  initial={{ opacity: 0, y: 50 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: index * 0.2 }}
-                  className="glass-card p-4 sm:p-6 lg:p-8 hover:scale-[1.02] transition-all duration-300 relative overflow-hidden"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={isInView ? { opacity: 1, y: 0 } : {}}
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                  className="text-center mb-12"
                 >
-                  {/* Background Image */}
-                  {project.imageUrl && (
-                    <div 
-                      className="absolute inset-0 bg-cover bg-center opacity-5 hover:opacity-10 transition-opacity duration-300"
-                      style={{ backgroundImage: `url(${project.imageUrl})` }}
-                    />
-                  )}
-                  <div className="grid lg:grid-cols-3 gap-6 sm:gap-8 relative z-10">
-                    {/* Project Info */}
-                    <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-                      <div className="space-y-3 sm:space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                          <h3 className="heading-secondary text-xl sm:text-2xl text-white leading-tight">
-                            {project.title}
-                          </h3>
-                          <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${statusConfig[project.status].bg} self-start`}>
-                            <StatusIcon className={`w-3 h-3 sm:w-4 sm:h-4 ${statusConfig[project.status].color}`} />
-                            <span className={`text-xs sm:text-sm font-medium ${statusConfig[project.status].color}`}>
-                              {statusConfig[project.status].label}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <p className="body-text text-sm sm:text-base text-[#BBBBBB] leading-relaxed">
-                          {project.description}
-                        </p>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-xs sm:text-sm">
-                          <span className="text-[#BBBBBB]">Progress</span>
-                          <span className="text-white font-medium">{project.progress}%</span>
-                        </div>
-                        <div className="w-full bg-white/10 rounded-full h-2">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${project.progress}%` }}
-                            transition={{ duration: 1, delay: 0.5 }}
-                            className="bg-gradient-to-r from-[#BBBBBB] to-white h-2 rounded-full"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Objectives/Outcomes */}
-                      <div className="space-y-2 sm:space-y-3">
-                        <h4 className="text-white font-semibold text-sm sm:text-base">
-                          {project.status === 'COMPLETED' ? 'Outcomes' : 'Objectives'}
-                        </h4>
-                        <ul className="space-y-1 sm:space-y-2">
-                          {(() => {
-                            const content = project.outcomes || project.objectives;
-                            if (!content) return [];
-                            
-                            // Try to parse as JSON first (for legacy data)
-                            try {
-                              const parsed = JSON.parse(content);
-                              if (Array.isArray(parsed)) {
-                                return parsed.slice(0, 3).map((item: string, idx: number) => (
-                                  <li key={idx} className="flex items-start gap-2 text-[#BBBBBB] text-xs sm:text-sm">
-                                    <CheckCircleIcon className="w-3 h-3 sm:w-4 sm:h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                                    {item.trim()}
-                                  </li>
-                                ));
-                              }
-                            } catch (e) {
-                              // Not JSON, treat as newline-separated text
-                            }
-                            
-                            // Handle newline-separated text
-                            return content.split('\n').filter((item: string) => item.trim()).slice(0, 3).map((item: string, idx: number) => (
-                              <li key={idx} className="flex items-start gap-2 text-[#BBBBBB] text-xs sm:text-sm">
-                                <CheckCircleIcon className="w-3 h-3 sm:w-4 sm:h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                                {item.trim()}
-                              </li>
-                            ));
-                          })()}
-                        </ul>
-                      </div>
-
-                      {/* Technologies */}
-                      {project.technologies && (
-                        <div className="space-y-2 sm:space-y-3">
-                          <div className="flex items-center gap-2">
-                            <TagIcon className="w-3 h-3 sm:w-4 sm:h-4 text-[#BBBBBB]" />
-                            <h4 className="text-white font-semibold text-sm sm:text-base">Technologies</h4>
-                          </div>
-                          <div className="flex flex-wrap gap-1 sm:gap-2">
-                            {(() => {
-                              // Try to parse as JSON first (for legacy data)
-                              try {
-                                const parsed = JSON.parse(project.technologies);
-                                if (Array.isArray(parsed)) {
-                                  return parsed.slice(0, 4).map((tech: string, idx: number) => (
-                                    <span
-                                      key={idx}
-                                      className="px-2 sm:px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-[#BBBBBB] text-xs sm:text-sm"
-                                    >
-                                      {tech.trim()}
-                                    </span>
-                                  ));
-                                }
-                              } catch (e) {
-                                // Not JSON, treat as comma-separated text
-                              }
-                              
-                              // Handle comma-separated text
-                              return project.technologies.split(',').slice(0, 4).map((tech: string, idx: number) => (
-                                <span
-                                  key={idx}
-                                  className="px-2 sm:px-3 py-1 bg-white/10 border border-white/20 rounded-lg text-[#BBBBBB] text-xs sm:text-sm"
-                                >
-                                  {tech.trim()}
-                                </span>
-                              ));
-                            })()}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Links - Mobile */}
-                      {project.links && (
-                        <div className="lg:hidden">
-                          <a
-                            href={project.links}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-[#BBBBBB] hover:text-white transition-all duration-300 text-sm"
-                          >
-                            <LinkIcon className="w-4 h-4" />
-                            View Project
-                          </a>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Sidebar Info */}
-                    <div className="space-y-4 sm:space-y-6">
-                      {/* Timeline */}
-                      <div className="space-y-2 sm:space-y-3">
-                        <div className="flex items-center gap-2">
-                          <ClockIcon className="w-3 h-3 sm:w-4 sm:h-4 text-[#BBBBBB]" />
-                          <h4 className="text-white font-semibold text-sm sm:text-base">Timeline</h4>
-                        </div>
-                        <div className="text-[#BBBBBB] text-xs sm:text-sm space-y-1">
-                          <div>Start: {new Date(project.startDate).toLocaleDateString()}</div>
-                          {project.endDate && (
-                            <div>End: {new Date(project.endDate).toLocaleDateString()}</div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Budget */}
-                      {project.budget && (
-                        <div className="space-y-2 sm:space-y-3">
-                          <div className="flex items-center gap-2">
-                            <CurrencyDollarIcon className="w-3 h-3 sm:w-4 sm:h-4 text-[#BBBBBB]" />
-                            <h4 className="text-white font-semibold text-sm sm:text-base">Budget</h4>
-                          </div>
-                          <div className="text-[#BBBBBB] text-xs sm:text-sm">{project.budget}</div>
-                        </div>
-                      )}
-
-                      {/* Team */}
-                      {project.teamMembers && project.teamMembers.length > 0 && (
-                        <div className="space-y-2 sm:space-y-3">
-                          <div className="flex items-center gap-2">
-                            <UserGroupIcon className="w-3 h-3 sm:w-4 sm:h-4 text-[#BBBBBB]" />
-                            <h4 className="text-white font-semibold text-sm sm:text-base">Team</h4>
-                          </div>
-                          <div className="space-y-2 sm:space-y-3">
-                            {project.teamMembers.slice(0, 3).map((member: any, idx: number) => (
-                              <div key={idx} className="space-y-1">
-                                <div className="text-white text-xs sm:text-sm font-medium">{member.name}</div>
-                                <div className="text-[#5e6472] text-xs">{member.role} • {member.year}</div>
-                                {member.linkedIn && (
-                                  <a
-                                    href={member.linkedIn}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-[#BBBBBB] hover:text-white text-xs transition-colors"
-                                  >
-                                    <span>LinkedIn</span>
-                                    <span>→</span>
-                                  </a>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Company Partnerships */}
-                      {project.partnerships && project.partnerships.length > 0 && (
-                        <div className="space-y-2 sm:space-y-3">
-                          <h4 className="text-white font-semibold text-sm sm:text-base">Partners</h4>
-                          <div className="space-y-2 sm:space-y-3">
-                            {project.partnerships.slice(0, 2).map((partnership: any, idx: number) => (
-                              <div key={idx} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-white/5 rounded-lg border border-white/10">
-                                {partnership.company?.logoUrl && (
-                                  <img 
-                                    src={partnership.company.logoUrl} 
-                                    alt={partnership.company?.name || 'Partner'}
-                                    className="w-6 h-6 sm:w-8 sm:h-8 object-contain flex-shrink-0"
-                                    onError={(e) => {
-                                      const target = e.target as HTMLImageElement;
-                                      target.style.display = 'none';
-                                    }}
-                                  />
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                                    <span className="text-white text-xs sm:text-sm font-medium truncate">{partnership.company?.name || 'Partner'}</span>
-                                    <span className={`px-2 py-0.5 rounded text-xs self-start flex-shrink-0 ${
-                                      partnership.type === 'SPONSOR' ? 'bg-purple-400/20 text-purple-400' :
-                                      partnership.type === 'CLIENT' ? 'bg-blue-400/20 text-blue-400' :
-                                      partnership.type === 'COLLABORATOR' ? 'bg-green-400/20 text-green-400' :
-                                      'bg-gray-400/20 text-gray-400'
-                                    }`}>
-                                      {partnership.type}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Links - Desktop */}
-                      {project.links && (
-                        <div className="hidden lg:block">
-                          <a
-                            href={project.links}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-[#BBBBBB] hover:text-white transition-all duration-300 text-sm"
-                          >
-                            <LinkIcon className="w-4 h-4" />
-                            View Project
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
+                    ACTIVE PROJECTS
+                  </h2>
+                  <div className="w-24 h-0.5 bg-gradient-to-r from-green-500/50 via-green-400 to-green-500/50 mx-auto mb-4"></div>
+                  <p className="text-lg text-[#BBBBBB] max-w-2xl mx-auto">
+                    Current initiatives driving innovation across AI and business.
+                  </p>
                 </motion.div>
-              );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
 
-      {/* Call to Action */}
-      <section className="py-16 sm:py-20 bg-gradient-to-r from-[#00274c] to-[#1a2c45]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-12 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="space-y-4 sm:space-y-6"
-          >
-            <h2 className="heading-secondary text-2xl sm:text-3xl lg:text-4xl text-white">
-              Ready to Join Our Projects?
-            </h2>
-            <p className="body-text text-lg sm:text-xl lg:text-2xl text-[#BBBBBB] px-4">
-              We're always looking for passionate students to contribute to our innovative projects.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-              <a href="/#join" className="btn-primary text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4">
-                Join ABG
-              </a>
-              <a href="/team" className="btn-secondary text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4">
-                Meet the Team
-              </a>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-    </main>
+                <div className="space-y-8">
+                  {activeProjects.map((project, index) => (
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      members={getMembersForProject(project.title)}
+                      index={index}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Past Projects */}
+            {pastProjects.length > 0 && (
+              <div className="mb-20">
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={isInView ? { opacity: 1, y: 0 } : {}}
+                  transition={{ duration: 0.6, delay: 0.4 }}
+                  className="text-center mb-12"
+                >
+                  <h2 className="text-3xl md:text-4xl font-bold text-white/70 mb-3">
+                    PAST PROJECTS
+                  </h2>
+                  <div className="w-24 h-0.5 bg-gradient-to-r from-gray-500/50 via-gray-400 to-gray-500/50 mx-auto mb-4"></div>
+                  <p className="text-lg text-[#5e6472] max-w-2xl mx-auto">
+                    Completed initiatives and the impact they made.
+                  </p>
+                </motion.div>
+
+                <div className="space-y-6">
+                  {pastProjects.map((project, index) => (
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      members={getMembersForProject(project.title)}
+                      index={index}
+                      isPast
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Call to Action */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.8, delay: 0.6 }}
+          className="text-center py-16"
+        >
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+            Ready to Join Our Projects?
+          </h2>
+          <p className="text-lg text-[#BBBBBB] mb-8 max-w-2xl mx-auto">
+            We're always looking for passionate students to contribute to our innovative projects.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <a 
+              href="/#join" 
+              className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-white/10 hover:bg-white/20 border border-white/30 rounded-full text-white font-semibold transition-all duration-300"
+            >
+              Join ABG
+            </a>
+            <a 
+              href="/team" 
+              className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-transparent hover:bg-white/10 border border-white/20 rounded-full text-[#BBBBBB] hover:text-white font-semibold transition-all duration-300"
+            >
+              Meet the Team
+            </a>
+          </div>
+        </motion.div>
+      </div>
+    </section>
   );
-} 
+}

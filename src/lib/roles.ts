@@ -47,24 +47,28 @@ export function isAdmin(userRoles: UserRole[]): boolean {
 }
 
 /**
+ * Roles that should appear on the team page
+ */
+export const EXEC_ROLES: UserRole[] = [
+  'PRESIDENT',
+  'VP_EXTERNAL',
+  'VP_OPERATIONS',
+  'VP_EDUCATION',
+  'VP_MARKETING',
+  'VP_CONFERENCES',
+  'VP_FINANCE',
+  'VP_COMMUNITY',
+  'VP_SPONSORSHIPS',
+  'VP_RECRUITMENT',
+  'VP_TECHNOLOGY',
+  'ADVISOR'
+];
+
+/**
  * Check if a user is an executive board member
  */
 export function isExecutiveBoard(userRoles: UserRole[]): boolean {
-  const execRoles: UserRole[] = [
-    'PRESIDENT',
-    'VP_EXTERNAL',
-    'VP_OPERATIONS',
-    'VP_EDUCATION',
-    'VP_MARKETING',
-    'VP_CONFERENCES',
-    'VP_FINANCE',
-    'VP_COMMUNITY',
-    'VP_SPONSORSHIPS',
-    'VP_RECRUITMENT',
-    'VP_TECHNOLOGY',
-    'ADVISOR'
-  ];
-  return hasAnyRole(userRoles, execRoles);
+  return hasAnyRole(userRoles, EXEC_ROLES);
 }
 
 /**
