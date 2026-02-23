@@ -206,3 +206,59 @@ export interface EventListResponse {
     upcoming?: boolean;
   };
 }
+
+// ============================================
+// SXSW Flagship Event Types
+// ============================================
+
+export interface SXSWLivestreamConfig {
+  enabled: boolean;
+  hlsUrl?: string;
+  status: 'upcoming' | 'live' | 'ended';
+  startTime?: number; // timestamp when stream started
+  title?: string;
+  description?: string;
+}
+
+export interface SXSWPanelSpeaker {
+  id: string;
+  name: string;
+  title: string;
+  company: string;
+  photo?: string;
+  companyLogo?: string;
+  linkedIn?: string;
+}
+
+export interface SXSWPanel {
+  id: string;
+  title: string;
+  description: string;
+  startTime: number; // timestamp
+  endTime: number; // timestamp
+  location?: string;
+  speakers: SXSWPanelSpeaker[];
+  type: 'panel' | 'keynote' | 'demo' | 'networking' | 'break' | 'activation';
+  order: number;
+  isLive?: boolean;
+}
+
+export interface SXSWEventData {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  eventDate: number; // March 13, 2026
+  endDate: number;
+  location: string;
+  venue: string;
+  livestream: SXSWLivestreamConfig;
+  panels: SXSWPanel[];
+  aboutEvent: string;
+  aboutLivestream: string;
+  registrationUrl?: string;
+  waitlistUrl?: string;
+  isEventFull: boolean;
+  updatedAt: number;
+  createdAt: number;
+}

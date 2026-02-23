@@ -142,8 +142,29 @@ export default function Hero() {
               {content.description}
             </motion.p>
           
-            {/* Applications CTA with Countdown */}
-            <ApplicationCTA className="pt-2 sm:pt-4 justify-center lg:justify-start" />
+            {/* SXSW Event Teaser */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.9 }}
+              className="pt-2 sm:pt-4 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3"
+            >
+              <a 
+                href="#sxsw-promotion" 
+                className="group flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#bf5a36]/20 to-[#d4764e]/20 border border-[#bf5a36]/40 hover:border-[#bf5a36] transition-all cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('sxsw-promotion')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                <span className="w-2 h-2 rounded-full bg-[#bf5a36] animate-pulse"></span>
+                <span className="text-sm sm:text-base text-white font-semibold">Hail to the Innovators</span>
+                <span className="text-xs sm:text-sm text-[#bf5a36]">SXSW 2026</span>
+                <svg className="w-4 h-4 text-[#bf5a36] group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </a>
+            </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}

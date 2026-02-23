@@ -40,12 +40,12 @@ export default function Navbar() {
   ];
 
   // Add profile link for logged in users
-  if (session?.user) {
-    navigationItems.splice(navigationItems.length - 2, 0, { 
-      href: "/profile", 
-      label: "Profile" 
-    });
-  }
+  // if (session?.user) {
+  //   navigationItems.splice(navigationItems.length - 2, 0, { 
+  //     href: "/profile", 
+  //     label: "Profile" 
+  //   });
+  // }
 
   if (userIsAdmin) {
     navigationItems.push({ href: "/admin", label: "Admin" });

@@ -17,6 +17,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 import { USER_ROLES, getRoleDisplayName } from '@/lib/roles';
+import { UserRole } from '@/types/next-auth';
 import { useAdminApi, useAdminQuery } from '@/hooks/useAdminApi';
 import { withAdminPageProtection } from '@/components/admin/AdminPageProtection';
 import { AdminSection, AdminEmptyState, AdminLoadingState } from '@/components/admin/ui';
@@ -143,7 +144,12 @@ function EventsAdmin() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'events' | 'analytics' | 'waitlist' | 'registrations'>('events');
+  const [activeTab, setActiveTab] = useState<'events' | 'analytics' | 'waitlist' | 'registrations' | 'sxsw'>('events');
+  const [sxswData, setSxswData] = useState<any>(null);
+  const [sxswPanels, setSxswPanels] = useState<any[]>([]);
+  const [loadingSxsw, setLoadingSxsw] = useState(false);
+  const [editingSxswPanel, setEditingSxswPanel] = useState<any>(null);
+  const [showSxswPanelForm, setShowSxswPanelForm] = useState(false);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [waitlistData, setWaitlistData] = useState<WaitlistData | null>(null);
   const [registrationsData, setRegistrationsData] = useState<any>(null);
@@ -265,6 +271,79 @@ function EventsAdmin() {
     }
   };
 
+  const loadSxswData = async () => {
+    setLoadingSxsw(true);
+    try {
+      const [eventResponse, panelsResponse] = await Promise.all([
+        fetch('/api/events/sxsw').then(r => r.json()),
+        fetch('/api/events/sxsw/panels').then(r => r.json()),
+      ]);
+      setSxswData(eventResponse);
+      setSxswPanels(panelsResponse.panels || []);
+    } catch {
+      toast.error('Failed to load SXSW data');
+    } finally {
+      setLoadingSxsw(false);
+    }
+  };
+
+  const saveSxswEvent = async (data: any) => {
+    try {
+      await fetch('/api/events/sxsw', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      toast.success('SXSW event updated');
+      loadSxswData();
+    } catch {
+      toast.error('Failed to update SXSW event');
+    }
+  };
+
+  const updateSxswLivestream = async (data: any) => {
+    try {
+      await fetch('/api/events/sxsw/livestream', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      toast.success('Livestream updated');
+      loadSxswData();
+    } catch {
+      toast.error('Failed to update livestream');
+    }
+  };
+
+  const saveSxswPanel = async (panel: any) => {
+    try {
+      const isNew = !panel.id || panel.id.startsWith('new-');
+      const method = isNew ? 'POST' : 'PUT';
+      await fetch('/api/events/sxsw/panels', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(panel),
+      });
+      toast.success(isNew ? 'Panel created' : 'Panel updated');
+      setShowSxswPanelForm(false);
+      setEditingSxswPanel(null);
+      loadSxswData();
+    } catch {
+      toast.error('Failed to save panel');
+    }
+  };
+
+  const deleteSxswPanel = async (panelId: string) => {
+    if (!confirm('Are you sure you want to delete this panel?')) return;
+    try {
+      await fetch(`/api/events/sxsw/panels?id=${panelId}`, { method: 'DELETE' });
+      toast.success('Panel deleted');
+      loadSxswData();
+    } catch {
+      toast.error('Failed to delete panel');
+    }
+  };
+
   const promoteFromWaitlist = async (eventId: string, attendanceId: string) => {
     if (!confirm('Are you sure you want to promote this person from the waitlist?')) {
       return;
@@ -364,6 +443,8 @@ function EventsAdmin() {
         loadWaitlistData();
       } else if (activeTab === 'registrations' && !registrationsData) {
         loadRegistrationsData();
+      } else if (activeTab === 'sxsw' && !sxswData) {
+        loadSxswData();
       }
     }
   }, [activeTab, session]);
@@ -458,6 +539,17 @@ function EventsAdmin() {
             >
               All Registrations
             </button>
+            <button
+              onClick={() => setActiveTab('sxsw')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-1.5 ${
+                activeTab === 'sxsw'
+                  ? 'border-[#bf5a36] text-[#bf5a36]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-[#bf5a36]"></span>
+              SXSW 2026
+            </button>
           </nav>
         </div>
       )}
@@ -491,7 +583,7 @@ function EventsAdmin() {
                   const json = await post('/api/admin/events/import', form, {
                     parseAs: 'json',
                     skipErrorToast: true,
-                  });
+                  }) as { success?: boolean; error?: string };
                   setImportResult(json);
                   if (json?.success) {
                     await refetchEvents();
@@ -1388,7 +1480,598 @@ function EventsAdmin() {
           </div>
         </div>
       )}
+
+      {/* SXSW 2026 Tab */}
+      {activeTab === 'sxsw' && (
+        <div className="space-y-6">
+          {loadingSxsw ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#bf5a36]"></div>
+              <span className="ml-2 text-gray-600">Loading SXSW data...</span>
+            </div>
+          ) : (
+            <>
+              {/* SXSW Event Header */}
+              <div className="bg-gradient-to-r from-[#0a1628] to-[#1a0f0a] rounded-lg p-6 text-white">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-[#bf5a36]">
+                    UPCOMING EVENT
+                  </span>
+                  <span className="text-white/60 text-sm">March 13, 2026</span>
+                </div>
+                <h2 className="text-2xl font-bold mb-1">
+                  {sxswData?.title || 'Hail to the Innovators'}
+                </h2>
+                <p className="text-white/70">
+                  {sxswData?.subtitle || 'University of Michigan @ SXSW 2026'}
+                </p>
+              </div>
+
+              {/* Livestream Controls */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Livestream Controls</h3>
+                  <div className="flex items-center gap-2">
+                    {sxswData?.livestream?.status === 'live' && (
+                      <span className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                        LIVE
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      HLS Stream URL
+                    </label>
+                    <input
+                      type="url"
+                      value={sxswData?.livestream?.hlsUrl || ''}
+                      onChange={(e) => setSxswData({
+                        ...sxswData,
+                        livestream: { ...sxswData?.livestream, hlsUrl: e.target.value }
+                      })}
+                      placeholder="https://your-server.com/stream.m3u8"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Stream Status
+                    </label>
+                    <select
+                      value={sxswData?.livestream?.status || 'upcoming'}
+                      onChange={(e) => setSxswData({
+                        ...sxswData,
+                        livestream: { ...sxswData?.livestream, status: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    >
+                      <option value="upcoming">Upcoming</option>
+                      <option value="live">Live</option>
+                      <option value="ended">Ended</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={sxswData?.livestream?.enabled || false}
+                      onChange={(e) => setSxswData({
+                        ...sxswData,
+                        livestream: { ...sxswData?.livestream, enabled: e.target.checked }
+                      })}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm text-gray-700">Enable livestream</span>
+                  </label>
+                  <button
+                    onClick={() => updateSxswLivestream(sxswData?.livestream)}
+                    className="px-4 py-2 bg-[#bf5a36] text-white rounded-md text-sm font-medium hover:bg-[#a84d2e]"
+                  >
+                    Update Livestream
+                  </button>
+                  {sxswData?.livestream?.status !== 'live' && sxswData?.livestream?.hlsUrl && (
+                    <button
+                      onClick={() => updateSxswLivestream({ status: 'live', enabled: true })}
+                      className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 flex items-center gap-1.5"
+                    >
+                      <span className="w-2 h-2 bg-white rounded-full"></span>
+                      Go Live
+                    </button>
+                  )}
+                  {sxswData?.livestream?.status === 'live' && (
+                    <button
+                      onClick={() => updateSxswLivestream({ status: 'ended' })}
+                      className="px-4 py-2 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700"
+                    >
+                      End Stream
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Panel Schedule Management */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Panel Schedule</h3>
+                  <button
+                    onClick={() => {
+                      setEditingSxswPanel(null);
+                      setShowSxswPanelForm(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-[#00274c] text-white rounded-md text-sm font-medium hover:bg-[#001a33]"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    Add Panel
+                  </button>
+                </div>
+
+                {/* Panel Form */}
+                {showSxswPanelForm && (
+                  <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <h4 className="font-medium text-gray-900 mb-3">
+                      {editingSxswPanel ? 'Edit Panel' : 'New Panel'}
+                    </h4>
+                    <SxswPanelForm
+                      panel={editingSxswPanel}
+                      onSave={saveSxswPanel}
+                      onCancel={() => {
+                        setShowSxswPanelForm(false);
+                        setEditingSxswPanel(null);
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Panels List */}
+                <div className="space-y-3">
+                  {sxswPanels.length > 0 ? (
+                    sxswPanels.map((panel: any) => (
+                      <div
+                        key={panel.id}
+                        className="flex items-start justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm text-gray-500">
+                              {new Date(panel.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago' })} - 
+                              {new Date(panel.endTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago' })} CDT
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                              panel.type === 'keynote' ? 'bg-yellow-100 text-yellow-800' :
+                              panel.type === 'demo' ? 'bg-blue-100 text-blue-800' :
+                              panel.type === 'networking' ? 'bg-green-100 text-green-800' :
+                              panel.type === 'break' ? 'bg-gray-100 text-gray-600' :
+                              'bg-purple-100 text-purple-800'
+                            }`}>
+                              {panel.type}
+                            </span>
+                          </div>
+                          <h4 className="font-medium text-gray-900">{panel.title}</h4>
+                          {panel.description && (
+                            <p className="text-sm text-gray-600 mt-1 line-clamp-2">{panel.description}</p>
+                          )}
+                          {panel.speakers && panel.speakers.length > 0 && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <UserGroupIcon className="w-4 h-4 text-gray-400" />
+                              <span className="text-sm text-gray-500">
+                                {panel.speakers.map((s: any) => s.name).join(', ')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          <button
+                            onClick={() => {
+                              setEditingSxswPanel(panel);
+                              setShowSxswPanelForm(true);
+                            }}
+                            className="p-2 text-gray-400 hover:text-[#00274c]"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteSxswPanel(panel.id)}
+                            className="p-2 text-gray-400 hover:text-red-600"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      No panels scheduled yet. Click "Add Panel" to create your first panel.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Event Content */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Event Content</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      About Event
+                    </label>
+                    <textarea
+                      value={sxswData?.aboutEvent || ''}
+                      onChange={(e) => setSxswData({ ...sxswData, aboutEvent: e.target.value })}
+                      rows={6}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      placeholder="Describe what attendees can expect..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      About Livestream
+                    </label>
+                    <textarea
+                      value={sxswData?.aboutLivestream || ''}
+                      onChange={(e) => setSxswData({ ...sxswData, aboutLivestream: e.target.value })}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      placeholder="Describe the livestream experience..."
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Registration URL
+                      </label>
+                      <input
+                        type="url"
+                        value={sxswData?.registrationUrl || ''}
+                        onChange={(e) => setSxswData({ ...sxswData, registrationUrl: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Waitlist URL
+                      </label>
+                      <input
+                        type="url"
+                        value={sxswData?.waitlistUrl || ''}
+                        onChange={(e) => setSxswData({ ...sxswData, waitlistUrl: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="eventFull"
+                      checked={sxswData?.isEventFull || false}
+                      onChange={(e) => setSxswData({ ...sxswData, isEventFull: e.target.checked })}
+                      className="rounded border-gray-300"
+                    />
+                    <label htmlFor="eventFull" className="text-sm text-gray-700">
+                      Event is full (show waitlist option)
+                    </label>
+                  </div>
+                  <button
+                    onClick={() => saveSxswEvent(sxswData)}
+                    className="px-4 py-2 bg-[#00274c] text-white rounded-md text-sm font-medium hover:bg-[#001a33]"
+                  >
+                    Save Event Content
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+// SXSW Panel Form Component
+function SxswPanelForm({ panel, onSave, onCancel }: { panel: any; onSave: (data: any) => void; onCancel: () => void }) {
+  // Helper to format timestamp to CDT datetime-local input value
+  const formatToCDTDatetime = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(date);
+    const get = (type: string) => parts.find(p => p.type === type)?.value || '00';
+    return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+  };
+
+  // Helper to parse datetime-local string as CDT and return timestamp
+  const cdtToTimestamp = (dateTimeStr: string): number => {
+    if (!dateTimeStr) return 0;
+    const [datePart, timePart] = dateTimeStr.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hours, minutes] = (timePart || '00:00').split(':').map(Number);
+    
+    // Check if DST is active in Chicago for this date
+    const testDate = new Date(year, month - 1, day, 12, 0, 0);
+    const chicagoTimeStr = testDate.toLocaleString('en-US', {
+      timeZone: 'America/Chicago',
+      timeZoneName: 'short'
+    });
+    const isDST = chicagoTimeStr.includes('CDT');
+    const offsetHours = isDST ? 5 : 6; // CDT is UTC-5, CST is UTC-6
+    
+    // Create UTC timestamp: wall clock time in Chicago + offset = UTC time
+    return Date.UTC(year, month - 1, day, hours + offsetHours, minutes);
+  };
+
+  const [formData, setFormData] = useState({
+    id: panel?.id || `new-${Date.now()}`,
+    title: panel?.title || '',
+    description: panel?.description || '',
+    startTime: panel?.startTime ? formatToCDTDatetime(panel.startTime) : '',
+    endTime: panel?.endTime ? formatToCDTDatetime(panel.endTime) : '',
+    type: panel?.type || 'panel',
+    location: panel?.location || '',
+    speakers: panel?.speakers || [],
+    order: panel?.order || 0,
+  });
+
+  const [newSpeaker, setNewSpeaker] = useState({ name: '', title: '', company: '', photo: '', companyLogo: '' });
+  const [editingSpeakerIndex, setEditingSpeakerIndex] = useState<number | null>(null);
+
+  const addSpeaker = () => {
+    if (newSpeaker.name.trim()) {
+      if (editingSpeakerIndex !== null) {
+        // Edit existing speaker
+        const updatedSpeakers = [...formData.speakers];
+        updatedSpeakers[editingSpeakerIndex] = { ...newSpeaker, id: formData.speakers[editingSpeakerIndex].id };
+        setFormData({ ...formData, speakers: updatedSpeakers });
+        setEditingSpeakerIndex(null);
+      } else {
+        // Add new speaker
+        setFormData({
+          ...formData,
+          speakers: [...formData.speakers, { ...newSpeaker, id: `speaker-${Date.now()}` }],
+        });
+      }
+      setNewSpeaker({ name: '', title: '', company: '', photo: '', companyLogo: '' });
+    }
+  };
+
+  const editSpeaker = (index: number) => {
+    const speaker = formData.speakers[index];
+    setNewSpeaker({
+      name: speaker.name || '',
+      title: speaker.title || '',
+      company: speaker.company || '',
+      photo: speaker.photo || '',
+      companyLogo: speaker.companyLogo || '',
+    });
+    setEditingSpeakerIndex(index);
+  };
+
+  const cancelEdit = () => {
+    setNewSpeaker({ name: '', title: '', company: '', photo: '', companyLogo: '' });
+    setEditingSpeakerIndex(null);
+  };
+
+  const removeSpeaker = (index: number) => {
+    setFormData({
+      ...formData,
+      speakers: formData.speakers.filter((_: any, i: number) => i !== index),
+    });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      ...formData,
+      startTime: cdtToTimestamp(formData.startTime),
+      endTime: cdtToTimestamp(formData.endTime),
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+          <input
+            type="text"
+            required
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+          <select
+            value={formData.type}
+            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="panel">Panel</option>
+            <option value="keynote">Keynote</option>
+            <option value="demo">Demo</option>
+            <option value="networking">Networking</option>
+            <option value="break">Break</option>
+            <option value="activation">Activation</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+        <textarea
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          rows={2}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Start Time *</label>
+          <input
+            type="datetime-local"
+            required
+            value={formData.startTime}
+            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">End Time *</label>
+          <input
+            type="datetime-local"
+            required
+            value={formData.endTime}
+            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Location (optional)</label>
+        <input
+          type="text"
+          value={formData.location}
+          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+          placeholder="e.g., Main Stage, Room 2"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+        />
+      </div>
+
+      {/* Speakers */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Speakers</label>
+        {formData.speakers.length > 0 && (
+          <div className="space-y-2 mb-3">
+            {formData.speakers.map((speaker: any, index: number) => (
+              <div key={speaker.id || index} className="flex items-center gap-2 p-2 bg-gray-100 rounded">
+                {speaker.photo && (
+                  <img src={speaker.photo} alt={speaker.name} className="w-8 h-8 rounded-full object-cover" />
+                )}
+                <div className="flex-1">
+                  <span className="text-sm font-medium">
+                    {speaker.name}
+                  </span>
+                  {(speaker.title || speaker.company) && (
+                    <p className="text-xs text-gray-500">
+                      {speaker.title}{speaker.title && speaker.company ? ' · ' : ''}{speaker.company}
+                    </p>
+                  )}
+                </div>
+                {speaker.companyLogo && (
+                  <img src={speaker.companyLogo} alt="" className="h-5 w-auto object-contain" />
+                )}
+                <button
+                  type="button"
+                  onClick={() => editSpeaker(index)}
+                  className="text-blue-500 hover:text-blue-700 p-1"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeSpeaker(index)}
+                  className="text-red-500 hover:text-red-700 p-1"
+                >
+                  <XMarkIcon className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="space-y-2 p-3 border border-gray-200 rounded-md bg-gray-50">
+          <p className="text-xs font-medium text-gray-600 mb-2">
+            {editingSpeakerIndex !== null ? 'Edit Speaker' : 'Add New Speaker'}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="text"
+              placeholder="Name *"
+              value={newSpeaker.name}
+              onChange={(e) => setNewSpeaker({ ...newSpeaker, name: e.target.value })}
+              className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+            />
+            <input
+              type="text"
+              placeholder="Title"
+              value={newSpeaker.title}
+              onChange={(e) => setNewSpeaker({ ...newSpeaker, title: e.target.value })}
+              className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="text"
+              placeholder="Company"
+              value={newSpeaker.company}
+              onChange={(e) => setNewSpeaker({ ...newSpeaker, company: e.target.value })}
+              className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+            />
+            <input
+              type="text"
+              placeholder="Photo URL"
+              value={newSpeaker.photo}
+              onChange={(e) => setNewSpeaker({ ...newSpeaker, photo: e.target.value })}
+              className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+            />
+          </div>
+          <input
+            type="text"
+            placeholder="Company Logo URL (optional)"
+            value={newSpeaker.companyLogo}
+            onChange={(e) => setNewSpeaker({ ...newSpeaker, companyLogo: e.target.value })}
+            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={addSpeaker}
+              className="flex-1 px-3 py-1.5 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+            >
+              {editingSpeakerIndex !== null ? 'Save Changes' : '+ Add Speaker'}
+            </button>
+            {editingSpeakerIndex !== null && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="px-3 py-1.5 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 pt-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="px-4 py-2 bg-[#00274c] text-white rounded-md text-sm font-medium hover:bg-[#001a33]"
+        >
+          {panel ? 'Update Panel' : 'Create Panel'}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -1419,7 +2102,7 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
     requireGradeLevel: false,
     requirePhone: false,
     roleGatedRegistration: false,
-    requiredRoles: []
+    requiredRoles: [] as UserRole[]
   });
   const [saving, setSaving] = useState(false);
   const [hasExistingPassword, setHasExistingPassword] = useState(false);
@@ -1474,14 +2157,14 @@ function EventForm({ event, onClose, onSave, parentEvent }: any) {
         // Always load companies first
         const companiesData = await get('/api/admin/companies', { skipErrorToast: true });
         if (companiesData) {
-          setCompanies(companiesData as Company[]);
+          setCompanies(companiesData as any[]);
         }
 
         if (event?.id) {
           const partnershipsData = await get(`/api/admin/partnerships/event/${event.id}`, {
             skipErrorToast: true,
           });
-          if (partnershipsData) {
+          if (partnershipsData && Array.isArray(partnershipsData)) {
             setPartnerships(partnershipsData);
           }
           

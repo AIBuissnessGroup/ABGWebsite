@@ -991,4 +991,247 @@ body.profile-page .text-white {
   color: #2563eb !important;
 }
 
+/* ============================================
+   SXSW 2026 - Flagship Event Styles
+   Premium cinematic design with film grain
+   ============================================ */
 
+/* Ambient light sweep animation - slow, subtle, elegant */
+@keyframes ambientSweep {
+  0% {
+    background-position: -100% -100%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.03;
+  }
+  50% {
+    background-position: 200% 200%;
+    opacity: 0.06;
+  }
+  85% {
+    opacity: 0.03;
+  }
+  100% {
+    background-position: -100% -100%;
+    opacity: 0;
+  }
+}
+
+/* SXSW page background with film grain */
+.sxsw-bg {
+  position: relative;
+  background: linear-gradient(135deg, #0a1628 0%, #0d1f35 50%, #0a1628 100%);
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* Film grain overlay - extremely fine, non-repeating */
+.sxsw-bg::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Ambient light sweep overlay */
+.sxsw-bg::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse 80% 50% at 50% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+  background-size: 200% 200%;
+  animation: ambientSweep 25s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* SXSW content layer - must be above overlays */
+.sxsw-content {
+  position: relative;
+  z-index: 10;
+}
+
+/* Austin accent color - warm terracotta/rust */
+.austin-accent {
+  color: #bf5a36;
+}
+
+.austin-accent-bg {
+  background-color: #bf5a36;
+}
+
+.austin-accent-border {
+  border-color: #bf5a36;
+}
+
+/* Austin gradient accent */
+.austin-gradient {
+  background: linear-gradient(135deg, #bf5a36 0%, #d4764e 50%, #bf5a36 100%);
+}
+
+/* SXSW glass card - slightly warmer tint */
+.sxsw-glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+
+.sxsw-glass-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(191, 90, 54, 0.3);
+  transform: translateY(-2px);
+}
+
+/* SXSW panel card - active/live state */
+.sxsw-panel-live {
+  border-left: 3px solid #bf5a36;
+  background: rgba(191, 90, 54, 0.08);
+}
+
+/* Live indicator pulse */
+@keyframes livePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+.live-indicator {
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+/* SXSW video player container */
+.sxsw-video-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sxsw-video-container video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* SXSW countdown boxes */
+.sxsw-countdown-box {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px 16px;
+  min-width: 70px;
+  text-align: center;
+}
+
+/* Mobile optimizations for SXSW */
+@media (max-width: 640px) {
+  /* Reduce film grain animation complexity on mobile */
+  .sxsw-bg::before {
+    animation: none;
+    opacity: 0.03;
+  }
+  
+  /* Simplify ambient sweep on mobile */
+  .sxsw-bg::after {
+    animation: ambientSweep 40s ease-in-out infinite;
+  }
+  
+  .sxsw-countdown-box {
+    padding: 6px 8px;
+    min-width: 50px;
+    border-radius: 6px;
+  }
+  
+  .sxsw-glass-card {
+    border-radius: 12px;
+  }
+  
+  /* Smaller video container on mobile */
+  .sxsw-video-container {
+    border-radius: 8px;
+    min-height: 200px;
+  }
+  
+  /* Touch-friendly tap targets */
+  .sxsw-glass-card button,
+  .sxsw-glass-card a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Reduce heading sizes on very small screens */
+  .sxsw-heading {
+    letter-spacing: 0.02em;
+  }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .sxsw-bg::before,
+  .sxsw-bg::after {
+    animation: none;
+  }
+  
+  .live-indicator {
+    animation: none;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.5);
+  }
+}
+
+/* SXSW section headings */
+.sxsw-heading {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.1;
+}
+
+/* SXSW scrollable schedule list */
+.sxsw-schedule-list {
+  max-height: 70vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.sxsw-schedule-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sxsw-schedule-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sxsw-schedule-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+@media (max-width: 1024px) {
+  .sxsw-schedule-list {
+    max-height: none;
+    overflow-y: visible;
+  }
+}

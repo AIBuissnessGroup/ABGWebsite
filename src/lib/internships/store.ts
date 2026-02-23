@@ -152,72 +152,9 @@ let internshipsPageContent: InternshipPageContent = {
   lastUpdated: new Date().toISOString(),
 };
 
-let internshipCompanies: InternshipCompany[] = [
-  {
-    id: '1',
-    name: 'TechCorp Inc.',
-    description:
-      'Leading AI technology company specializing in natural language processing and machine learning solutions.',
-    logoUrl: '',
-    website: 'https://techcorp.com',
-    industry: 'Technology',
-    location: 'San Francisco, CA',
-    contactEmail: 'internships@techcorp.com',
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    name: 'StartupAI',
-    description: 'Fast-growing startup building cutting-edge AI applications for business automation.',
-    logoUrl: '',
-    website: 'https://startupai.com',
-    industry: 'Technology',
-    location: 'Remote',
-    contactEmail: 'careers@startupai.com',
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
-];
+let internshipCompanies: InternshipCompany[] = [];
 
-let internshipProjects: InternshipProject[] = [
-  {
-    id: '1',
-    title: 'AI Research Intern',
-    description:
-      'Work on cutting-edge NLP projects and machine learning model development. You will collaborate with our research team to develop innovative AI solutions.',
-    companyId: '1',
-    linkedForm: '1735847762089',
-    status: 'OPEN',
-    duration: '12 weeks',
-    location: 'Remote',
-    type: 'Research',
-    skills: '["Python", "PyTorch", "NLP", "Machine Learning"]',
-    requirements: 'Strong programming skills, machine learning background, and enthusiasm for AI research.',
-    applicationDeadline: '2025-03-01',
-    applicationsCount: 5,
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    title: 'ML Engineering Intern',
-    description:
-      'Build production ML pipelines and deploy AI models at scale. Work with our engineering team to bring AI solutions to production.',
-    companyId: '2',
-    linkedForm: '',
-    status: 'FILLED',
-    duration: '10 weeks',
-    location: 'San Francisco, CA',
-    type: 'Engineering',
-    skills: '["Python", "Docker", "AWS", "MLOps", "Kubernetes"]',
-    requirements: 'Experience with cloud platforms, containerization, and ML deployment.',
-    applicationDeadline: '2025-02-15',
-    applicationsCount: 12,
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
-];
+let internshipProjects: InternshipProject[] = [];
 
 export const internshipsStore = {
   getContent: () => internshipsPageContent,
