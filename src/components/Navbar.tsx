@@ -3,14 +3,21 @@ import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { InstagramIcon, XIcon, LinkedInIcon } from "./SocialIcons";
 import { isAdmin } from "@/lib/roles";
 
 export default function Navbar() {
   const { data: session } = useSession();
+  const pathname = usePathname();
   const userIsAdmin = isAdmin(session?.user?.roles || []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Hide navbar on overlay routes (for vMix screens)
+  if (pathname?.startsWith('/sxsw/overlay')) {
+    return null;
+  }
 
   const navigationItems: Array<{
     href: string;
