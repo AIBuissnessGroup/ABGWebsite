@@ -443,6 +443,118 @@ body.profile-page .text-white {
   box-shadow: 0 0 30px rgba(187, 187, 187, 0.3);
 }
 
+/* SXSW Navbar Glow Effect */
+.sxsw-glow {
+  text-shadow: 0 0 10px rgba(191, 90, 54, 0.8), 0 0 20px rgba(191, 90, 54, 0.5), 0 0 30px rgba(191, 90, 54, 0.3);
+  transition: text-shadow 0.3s ease, color 0.3s ease;
+}
+
+.sxsw-glow:hover {
+  color: #ffaa77 !important;
+  text-shadow: 0 0 20px rgba(255, 170, 119, 1), 0 0 40px rgba(255, 170, 119, 0.9), 0 0 60px rgba(255, 170, 119, 0.7), 0 0 80px rgba(255, 170, 119, 0.5), 0 0 100px rgba(255, 170, 119, 0.3);
+}
+
+/* SXSW Event Card Special Styling */
+.sxsw-event-card {
+  border: 2px solid rgba(255, 122, 86, 0.7) !important;
+  border-radius: 20px !important;
+  box-shadow: 
+    0 0 15px rgba(191, 90, 54, 0.5),
+    0 0 30px rgba(191, 90, 54, 0.3),
+    0 0 45px rgba(191, 90, 54, 0.2),
+    inset 0 0 20px rgba(191, 90, 54, 0.05);
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: visible;
+  background: linear-gradient(135deg, rgba(191, 90, 54, 0.08) 0%, transparent 50%) !important;
+}
+
+.sxsw-event-card::before {
+  content: 'SXSW 2026';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: linear-gradient(135deg, #bf5a36 0%, #ff7a56 100%);
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  z-index: 10;
+  box-shadow: 0 0 15px rgba(191, 90, 54, 0.8), 0 0 30px rgba(191, 90, 54, 0.4);
+  animation: sxsw-badge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes sxsw-badge-pulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(191, 90, 54, 0.8), 0 0 30px rgba(191, 90, 54, 0.4); }
+  50% { box-shadow: 0 0 25px rgba(255, 122, 86, 1), 0 0 50px rgba(255, 122, 86, 0.6); }
+}
+
+.sxsw-event-card::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(255, 122, 86, 0.3), rgba(191, 90, 54, 0.1), rgba(255, 122, 86, 0.3));
+  z-index: -1;
+  animation: sxsw-glow-rotate 4s linear infinite;
+  filter: blur(8px);
+}
+
+@keyframes sxsw-glow-rotate {
+  0% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.5; }
+}
+
+.sxsw-event-card:hover {
+  border-color: rgba(255, 170, 119, 1) !important;
+  box-shadow: 
+    0 0 25px rgba(255, 122, 86, 0.7),
+    0 0 50px rgba(255, 122, 86, 0.5),
+    0 0 75px rgba(255, 122, 86, 0.3),
+    0 0 100px rgba(255, 122, 86, 0.2),
+    inset 0 0 30px rgba(255, 122, 86, 0.1);
+  transform: scale(1.02);
+}
+
+/* SXSW Featured Event (Home Page) - Light Glow */
+.sxsw-featured-event {
+  border: 1px solid rgba(255, 170, 119, 0.5) !important;
+  border-radius: 16px !important;
+  box-shadow: 
+    0 0 25px rgba(255, 170, 119, 0.25),
+    0 0 50px rgba(255, 170, 119, 0.15),
+    0 0 75px rgba(255, 170, 119, 0.08),
+    0 0 100px rgba(255, 170, 119, 0.04);
+  transition: all 0.4s ease;
+}
+
+.sxsw-featured-event::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 19px;
+  background: linear-gradient(135deg, rgba(255, 170, 119, 0.25), transparent 40%, rgba(255, 170, 119, 0.15));
+  z-index: -1;
+  animation: sxsw-featured-pulse 3s ease-in-out infinite;
+}
+
+@keyframes sxsw-featured-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.sxsw-featured-event:hover {
+  border-color: rgba(255, 170, 119, 0.7) !important;
+  box-shadow: 
+    0 0 35px rgba(255, 170, 119, 0.35),
+    0 0 70px rgba(255, 170, 119, 0.2),
+    0 0 105px rgba(255, 170, 119, 0.1);
+  transform: translateY(-4px);
+}
+
 /* Timeline Styles */
 .timeline-item {
   position: relative;

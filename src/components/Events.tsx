@@ -2,7 +2,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, useInView } from 'framer-motion'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import FloatingShapes from './FloatingShapes'
+
+// Helper function to check if event is SXSW
+const isSXSWEvent = (title: string): boolean => {
+  return title.toLowerCase().includes('sxsw');
+};
 
 // Helper function to convert UTC dates to EST for display
 const convertUtcToEst = (utcDate: Date): Date => {
@@ -29,6 +35,7 @@ interface Event {
 
 export default function Events() {
   const { data: session } = useSession()
+  const router = useRouter()
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null)
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
@@ -320,8 +327,16 @@ export default function Events() {
                 }`}>
                   <motion.div
                     whileHover={{ scale: 1.02, y: -4 }}
-                    onClick={() => setSelectedEvent(selectedEvent === index ? null : index)}
-                    className="glass-card p-4 sm:p-6 md:p-8 cursor-pointer glow-on-hover relative overflow-hidden"
+                    onClick={() => {
+                      if (isSXSWEvent(event.title)) {
+                        router.push('/sxsw');
+                      } else {
+                        setSelectedEvent(selectedEvent === index ? null : index);
+                      }
+                    }}
+                    className={`glass-card p-4 sm:p-6 md:p-8 cursor-pointer glow-on-hover relative overflow-hidden ${
+                      isSXSWEvent(event.title) ? 'sxsw-event-card' : ''
+                    }`}
                   >
                     {/* Background Image */}
                     {event.imageUrl && (

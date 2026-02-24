@@ -5,6 +5,11 @@ import { CalendarIcon, MapPinIcon, UserGroupIcon } from '@heroicons/react/24/out
 import { analytics } from '@/lib/analytics';
 import { useRouter } from 'next/navigation';
 
+// Helper function to check if event is SXSW
+const isSXSWEvent = (title: string): boolean => {
+  return title?.toLowerCase().includes('sxsw');
+};
+
 // Helper function to format dates in ET timezone
 const formatDateInET = (date: Date, format: 'date' | 'time' | 'datetime' = 'datetime'): string => {
   const options: Intl.DateTimeFormatOptions = {
@@ -207,9 +212,16 @@ export default function EventCountdown({
     { label: 'Seconds', value: timeLeft.seconds }
   ];
 
+  const isSXSW = nextEvent ? isSXSWEvent(nextEvent.title) : false;
+
   return (
     <div className="w-full max-w-sm mx-auto lg:max-w-none">
-      <div className="glass-card p-3 sm:p-4 lg:p-6 min-h-[400px] sm:min-h-[480px] lg:min-h-[600px] flex flex-col relative overflow-hidden">
+      <div 
+        onClick={isSXSW ? () => router.push('/sxsw') : undefined}
+        className={`glass-card p-3 sm:p-4 lg:p-6 min-h-[400px] sm:min-h-[480px] lg:min-h-[600px] flex flex-col relative overflow-hidden ${
+          isSXSW ? 'cursor-pointer sxsw-featured-event' : ''
+        }`}
+      >
         {/* Background Image */}
         {nextEvent?.backgroundImageUrl && (
           <div 
@@ -413,19 +425,34 @@ export default function EventCountdown({
           <div className="flex flex-col gap-1 sm:gap-2 justify-center items-center">
             {nextEvent && (
               <motion.a
-                href={`/events/${nextEvent.slug || generateSlug(nextEvent.title)}`}
+                href={isSXSW ? '/sxsw' : `/events/${nextEvent.slug || generateSlug(nextEvent.title)}`}
                 onClick={() => {
                   analytics.events.viewEvent(nextEvent.title);
                 }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="w-full bg-brand hover-brand backdrop-blur-sm border border-white/30 rounded px-3 py-2 text-white text-xs sm:text-sm font-medium transition-all duration-300 text-center"
+                className={`w-full backdrop-blur-sm border border-white/30 rounded px-3 py-2 text-white text-xs sm:text-sm font-medium transition-all duration-300 text-center ${
+                  isSXSW ? 'bg-[#bf5a36] hover:bg-[#d46a46]' : 'bg-brand hover-brand'
+                }`}
               >
-                Event Details
+                {isSXSW ? 'View SXSW Event →' : 'Event Details'}
               </motion.a>
             )}
 
-            {nextEvent && nextEvent.registrationEnabled ? (
+            {isSXSW && (
+              <motion.a
+                href="https://lu.ma/asqx2mhv?pk=g-6jSNwYTA6ZC1ijS"
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-[#bf5a36] rounded px-3 py-2 text-[#ff7a56] text-xs sm:text-sm font-medium transition-all duration-300 text-center"
+              >
+                Join the Waitlist →
+              </motion.a>
+            )}
+
+            {nextEvent && nextEvent.registrationEnabled && !isSXSW ? (
               <motion.button
                 onClick={(e) => {
                   e.preventDefault();
@@ -451,7 +478,7 @@ export default function EventCountdown({
               >
                 {nextEvent?.registrationCtaLabel || 'RSVP Now →'}
               </motion.button>
-            ) : nextEvent?.registrationUrl ? (
+            ) : nextEvent?.registrationUrl && !isSXSW ? (
               <motion.a
                 href={nextEvent.registrationUrl}
                 target="_blank"

@@ -2,8 +2,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, useInView, AnimatePresence } from 'framer-motion'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import FloatingShapes from './FloatingShapes'
 import Link from 'next/link'
+
+// Helper function to check if event is SXSW
+const isSXSWEvent = (title: string): boolean => {
+  return title.toLowerCase().includes('sxsw');
+};
 
 interface Event {
   id: string;
@@ -145,6 +151,7 @@ const EventsListDesign = ({
   const [viewMode, setViewMode] = useState<'list' | 'card'>('card')
   
   const { data: session } = useSession()
+  const router = useRouter()
 
   useEffect(() => {
     const loadEvents = async () => {
@@ -342,6 +349,7 @@ const EventsListDesign = ({
                 const eventDate = formatDate(event.eventDate || event.date)
                 const eventTime = formatTime(event.eventTime || event.time || '')
                 const isUpcomingNext = selectedFilter === 'upcoming' && index === 0
+                const isSXSW = isSXSWEvent(event.title)
                 
                 return (
                   <motion.div
@@ -356,7 +364,8 @@ const EventsListDesign = ({
                       layout: { duration: 0.4 }
                     }}
                     whileHover={{ y: -5 }}
-                    className={viewMode === 'card' ? 'h-full' : ''}
+                    onClick={isSXSW ? () => router.push('/sxsw') : undefined}
+                    className={`${viewMode === 'card' ? 'h-full' : ''} ${isSXSW ? 'cursor-pointer sxsw-event-card' : ''}`}
                   >
                     {viewMode === 'list' ? (
                       // List View

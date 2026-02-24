@@ -42,22 +42,19 @@ export default function CollaborationCarousel({
   // Image mode
   if (displayMode === 'image' && teamImage) {
     return (
-      <div className="glass-card p-6 sm:p-8 h-72 sm:h-96 relative overflow-hidden">
+      <div className="glass-card p-6 sm:p-8 overflow-hidden">
         <img 
           src={teamImage} 
           alt={title}
-          className="absolute inset-0 w-full h-full object-cover"
+          className="w-full h-auto object-contain rounded-lg"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#00274c]/70 via-transparent to-transparent"></div>
-        <div className="relative z-10 h-full flex items-end">
-          <div className="text-left">
-            <p className="text-white text-base sm:text-lg font-bold mb-2 drop-shadow-lg">
-              {title}
-            </p>
-            <p className="text-[#BBBBBB] text-xs sm:text-sm drop-shadow-md">
-              {subtitle}
-            </p>
-          </div>
+        <div className="mt-4 text-left">
+          <p className="text-white text-base sm:text-lg font-bold mb-2">
+            {title}
+          </p>
+          <p className="text-[#BBBBBB] text-xs sm:text-sm">
+            {subtitle}
+          </p>
         </div>
       </div>
     );

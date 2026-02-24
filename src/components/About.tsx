@@ -50,18 +50,18 @@ export default function About() {
     secondaryButtonText: "Meet the Team",
     secondaryButtonLink: "/team",
     membersCount: "25+",
-    projectsCount: "12",
-    partnersCount: "3",
+    projectsCount: "10",
+    partnersCount: "20+",
     missionCount: "1",
     value1Title: "AI-DRIVEN",
     value1Desc: "We leverage cutting-edge artificial intelligence to solve real business challenges.",
-    value1Icon: "🧠",
+    value1Icon: "",
     value2Title: "IMPACT-FOCUSED",
     value2Desc: "Every project we build has measurable business outcomes and real-world applications.",
-    value2Icon: "🚀",
+    value2Icon: "",
     value3Title: "FUTURE-READY",
     value3Desc: "Preparing the next generation of leaders for an AI-first business landscape.",
-    value3Icon: "⚡",
+    value3Icon: "",
     collaborationDisplayMode: 'carousel',
     collaborationTitle: "Innovation Through Collaboration",
     collaborationSubtitle: "Team photo coming soon",
@@ -191,7 +191,7 @@ export default function About() {
                   return [];
                 }
               })()}
-              teamImage="/ABG.Group.Photo.jpg"
+              teamImage="/GroupPhoto.jpg"
             />
           </motion.div>
         </div>
@@ -215,7 +215,7 @@ export default function About() {
                 transition={{ duration: 0.6, delay: 1.0 + (index * 0.2) }}
                 className="glass-card p-6 sm:p-8 text-center group glow-on-hover"
               >
-                <div className="text-3xl sm:text-4xl mb-3 sm:mb-4">{value.icon}</div>
+                {value.icon && <div className="text-3xl sm:text-4xl mb-3 sm:mb-4">{value.icon}</div>}
                 <h4 className="heading-secondary text-lg sm:text-xl text-white mb-3 sm:mb-4">
                   {value.title}
                 </h4>
@@ -241,7 +241,7 @@ export default function About() {
             </div>
             <div>
               <div className="heading-primary text-3xl md:text-4xl text-white mb-2">{content.projectsCount}</div>
-              <p className="text-[#BBBBBB] text-sm uppercase tracking-wider">Live Projects</p>
+              <p className="text-[#BBBBBB] text-sm tracking-wider">live projects</p>
             </div>
             <div>
               <div className="heading-primary text-3xl md:text-4xl text-white mb-2">{content.partnersCount}</div>

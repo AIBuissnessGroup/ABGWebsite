@@ -17,8 +17,10 @@ export default function Navbar() {
     label: string;
     external?: boolean;
     icon?: React.ReactNode;
+    glow?: boolean;
   }> = [
     { href: "/", label: "Home" },
+    { href: "/sxsw", label: "SXSW", glow: true },
     { href: "/projects", label: "Projects" },
     { href: "/events", label: "Events" },
     { href: "/portal", label: "Portal" },
@@ -110,6 +112,8 @@ export default function Navbar() {
                     className={`border-b-2 border-transparent hover:border-white/60 transition-all duration-300 pb-1 text-xs lg:text-sm font-bold ${
                       item.label === "Admin" 
                         ? "text-yellow-300 hover:text-yellow-100 hover:border-yellow-300/60" 
+                        : item.glow
+                        ? "text-[#bf5a36] hover:text-[#ff7a56] hover:border-[#bf5a36]/60 relative sxsw-glow"
                         : "text-white/80 hover:text-white"
                     }`}
                   >
@@ -187,7 +191,11 @@ export default function Navbar() {
                     key={item.label}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 py-4 px-2 font-bold text-base rounded-lg min-h-[56px] flex items-center"
+                    className={`hover:bg-white/10 transition-all duration-200 py-4 px-2 font-bold text-base rounded-lg min-h-[56px] flex items-center ${
+                      item.glow 
+                        ? "text-[#bf5a36] sxsw-glow" 
+                        : "text-white/80 hover:text-white"
+                    }`}
                   >
                     {item.label}
                   </Link>
