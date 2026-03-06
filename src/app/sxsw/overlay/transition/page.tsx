@@ -1,11 +1,12 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { OverlayWrapper, AUSTIN_COLOR } from '../components';
 
 function TransitionContent() {
   const searchParams = useSearchParams();
+  const [ready, setReady] = useState(false);
   
   // URL Parameters for vMix control
   const line1 = searchParams.get('line1') || 'AI SHAPES';
@@ -14,9 +15,15 @@ function TransitionContent() {
   const tagline = searchParams.get('tagline') || 'Redefining what it means to be career ready in an AI driven world.';
   const slogan = searchParams.get('slogan') || 'HAIL TO THE INNOVATORS';
 
+  // Small delay before showing content to ensure smooth transition
+  useEffect(() => {
+    const timeout = setTimeout(() => setReady(true), 100);
+    return () => clearTimeout(timeout);
+  }, []);
+
   return (
     <OverlayWrapper>
-      <div className="relative h-full flex flex-col items-center justify-center text-center p-12">
+      <div className={`relative h-full flex flex-col items-center justify-center text-center p-12 transition-opacity duration-300 ${ready ? 'opacity-100' : 'opacity-0'}`}>
         {/* Animated line indicator */}
         <div className="absolute top-1/3 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
         

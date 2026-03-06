@@ -1,0 +1,85 @@
+# MediaMTX Configuration for ABG SXSW Livestream
+# RTMP ingest -> HLS output
+
+###############################################
+# General settings
+###############################################
+
+# Logging level (debug, info, warn, error)
+logLevel: info
+logDestinations: [stdout]
+
+# API for status checking (internal only)
+api: yes
+apiAddress: 127.0.0.1:9997
+
+###############################################
+# RTMP server (for vMix to push to)
+###############################################
+
+rtmp: yes
+rtmpAddress: :1935
+
+# Disable encryption for simplicity (vMix doesn't need it for local/direct push)
+rtmpEncryption: "no"
+
+###############################################
+# HLS output (for website to play)
+###############################################
+
+hls: yes
+hlsAddress: :8888
+
+# HLS settings - using standard HLS for better compatibility
+hlsVariant: mpegts
+hlsSegmentCount: 7
+hlsSegmentDuration: 2s
+hlsSegmentMaxSize: 50M
+
+# Allow all origins for CORS (our nginx will proxy this)
+hlsAllowOrigin: '*'
+
+# Always save to disk for nginx to serve
+hlsAlwaysRemux: yes
+
+# Directory for HLS segments (nginx will serve from here)
+hlsDirectory: /var/lib/mediamtx/hls
+
+###############################################
+# Disable protocols we don't need
+###############################################
+
+rtsp: no
+webrtc: no
+srt: no
+record: no
+
+###############################################
+# Path configuration
+###############################################
+
+# Default path settings
+pathDefaults:
+  # Source settings
+  source: publisher
+  
+  # Allow anyone to publish (you can add authentication later)
+  publishUser: ""
+  publishPass: ""
+  
+  # Allow anyone to read
+  readUser: ""
+  readPass: ""
+
+# Named paths for the stream
+paths:
+  # Main SXSW livestream path
+  # vMix publishes to: rtmp://abgumich.org:1935/live/sxsw
+  # Website plays: https://abgumich.org/hls/sxsw/index.m3u8
+  live/sxsw:
+    # Optional: require a stream key
+    # publishUser: abg
+    # publishPass: sxsw2026
+    
+  # Fallback catch-all for any stream name
+  all_others:

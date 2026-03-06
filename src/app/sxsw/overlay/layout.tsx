@@ -13,14 +13,20 @@ export default function OverlayLayout({ children }: { children: ReactNode }) {
   const isTransparent = transparentOverlays.some(overlay => pathname?.includes(overlay));
   
   return (
-    <div className="overlay-container" style={isTransparent ? { background: 'transparent' } : undefined}>
+    <div className="overlay-container" style={isTransparent ? { background: 'transparent' } : { background: '#0B1C2D' }}>
       <style jsx global>{`
         ${isTransparent ? `
           html, body {
             background: transparent !important;
             background-color: transparent !important;
           }
-        ` : ''}
+        ` : `
+          /* Solid background immediately - no flash during reload */
+          html, body {
+            background: #0B1C2D !important;
+            background-color: #0B1C2D !important;
+          }
+        `}
         body {
           margin: 0;
           padding: 0;
