@@ -164,21 +164,28 @@ export default function SXSWPromotion() {
             Join us in Austin for panels on AI & entrepreneurship, live demos, networking with founders and VCs, and innovation showcases.
           </motion.p>
 
-          {/* CTA Button */}
+          {/* CTA Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.6 }}
+            className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center"
           >
             <Link
-              href="/sxsw"
+              href="/sxsw/rsvp"
               className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 rounded-full font-semibold text-white bg-gradient-to-r from-[#bf5a36] to-[#d4764e] hover:from-[#d4764e] hover:to-[#bf5a36] transition-all duration-300 shadow-lg shadow-[#bf5a36]/30 hover:shadow-[#bf5a36]/50 min-h-[48px] sm:min-h-[56px] text-sm sm:text-base"
             >
-              Learn More & Watch Live
+              RSVP Now
               <svg className="w-4 h-4 sm:w-5 sm:h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
+            </Link>
+            <Link
+              href="/sxsw"
+              className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 rounded-full font-semibold text-white/80 bg-white/10 hover:bg-white/20 border border-white/20 transition-all duration-300 min-h-[48px] sm:min-h-[56px] text-sm sm:text-base"
+            >
+              Learn More
             </Link>
           </motion.div>
 
