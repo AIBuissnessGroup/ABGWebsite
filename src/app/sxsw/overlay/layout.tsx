@@ -8,8 +8,16 @@ export default function OverlayLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isControlPanel = pathname?.includes('/control');
   
-  // Check if this is a transparent overlay
-  const transparentOverlays = ['/lower-third', '/student-spotlight-video', '/workshop-live', '/transition'];
+  // Check if this is a transparent overlay (combined overlays handle their own intro backgrounds)
+  const transparentOverlays = [
+    '/lower-third', 
+    '/student-spotlight-video', 
+    '/workshop-live', 
+    '/transition',
+    '/student-spotlight-combined',
+    '/workshop-combined',
+    '/panel-combined'
+  ];
   const isTransparent = transparentOverlays.some(overlay => pathname?.includes(overlay));
   
   return (
