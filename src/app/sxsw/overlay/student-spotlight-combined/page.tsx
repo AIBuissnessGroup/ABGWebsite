@@ -150,19 +150,19 @@ function StudentSpotlightCombinedContent() {
     );
   }
 
-  // Video mode - transparent with lower-third
+  // Video mode - fully transparent with lower-third overlay only
   return (
     <div 
       className="w-screen h-screen overflow-hidden relative"
       style={{ background: 'transparent' }}
     >
-      {/* Lower third card - bottom left */}
+      {/* Lower third card - bottom left - semi-transparent for overlay */}
       <div 
         className={`absolute bottom-12 left-12 transition-all duration-500 ${
           isHidden ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
         }`}
       >
-        <div className="bg-[#0B1C2D]/90 rounded-xl p-5 border border-white/10 flex items-center gap-5 shadow-xl">
+        <div className="bg-[#0B1C2D]/80 backdrop-blur-sm rounded-xl p-5 border border-white/20 flex items-center gap-5 shadow-2xl">
           {/* Profile Image */}
           <div className="flex-shrink-0">
             <div className="w-16 h-16 rounded-full border-2 border-[#bf5a36] overflow-hidden bg-[#0B1C2D]">
@@ -197,14 +197,14 @@ function StudentSpotlightCombinedContent() {
         </div>
       </div>
       
-      {/* ABG branding - bottom right */}
+      {/* ABG branding - bottom right - semi-transparent for overlay */}
       <div 
         className={`absolute bottom-12 right-12 transition-all duration-500 ${
           isHidden ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
         }`}
       >
-        <div className="bg-white/10 rounded-lg px-4 py-2 border border-white/10">
-          <p className="text-white/60 text-xs uppercase tracking-wider">AI Business Group</p>
+        <div className="bg-[#0B1C2D]/70 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20 shadow-lg">
+          <p className="text-white/70 text-xs uppercase tracking-wider">AI Business Group</p>
           <p className="text-[#bf5a36] text-sm font-semibold">@ SXSW 2026</p>
         </div>
       </div>

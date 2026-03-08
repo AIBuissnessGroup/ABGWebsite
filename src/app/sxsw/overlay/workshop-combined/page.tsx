@@ -153,60 +153,29 @@ function WorkshopCombinedContent() {
     );
   }
 
-  // Live overlay mode - transparent
+  // Live overlay mode - fully transparent background with minimal overlay elements
   return (
     <div 
       className="w-screen h-screen overflow-hidden relative"
       style={{ background: 'transparent' }}
     >
-      {/* Subtle geometric shapes */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div 
-          className="absolute top-[15%] left-[25%] w-0 h-0 opacity-15"
-          style={{
-            borderLeft: '60px solid transparent',
-            borderRight: '60px solid transparent',
-            borderBottom: '100px solid #3a5a7c',
-          }}
-        />
-        <div className="absolute top-[22%] right-[8%] w-3 h-3 rounded-full bg-[#4a6a8c]/25" />
-        <div className="absolute top-[30%] right-[15%] w-6 h-6 border border-[#4a6a8c]/20 rotate-45" />
-        <div className="absolute bottom-[20%] right-[18%] w-8 h-8 border border-[#4a6a8c]/15 rounded-sm" />
-      </div>
-      
-      {/* Top Left - Workshop Title */}
+      {/* Top Left - Workshop Title Bar */}
       <div className="absolute top-6 left-6 flex items-start gap-3">
-        <div className="w-1 h-12 bg-[#00274c] rounded-full" />
-        <div>
-          <p className="text-[#00274c] text-sm font-semibold uppercase tracking-widest mb-1">Workshop</p>
-          <p className="text-white text-lg font-semibold max-w-md">{workshopTitle}</p>
+        <div className="bg-[#0B1C2D]/80 backdrop-blur-sm rounded-lg px-4 py-3 border border-white/20 shadow-lg flex items-center gap-3">
+          <div className="w-1 h-8 bg-[#bf5a36] rounded-full" />
+          <div>
+            <p className="text-[#bf5a36] text-xs font-semibold uppercase tracking-widest">Workshop</p>
+            <p className="text-white text-sm font-semibold max-w-md">{workshopTitle}</p>
+          </div>
         </div>
       </div>
       
-      {/* Center - Screen Share Placeholder */}
-      {showStatus && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-          <p className="text-white/40 text-base mb-3">(Screen Share View)</p>
-          <div className="bg-[#1a2a3a]/60 rounded-lg px-6 py-5 border border-white/10">
-            <p className="text-white/80 text-base font-medium mb-2">{toolName}</p>
-            <div className="flex flex-col gap-1.5 mb-3">
-              <div className="h-1 w-40 bg-gradient-to-r from-blue-400/50 to-blue-400/20 rounded-full" />
-              <div className="h-1 w-32 bg-gradient-to-r from-green-400/50 to-green-400/20 rounded-full" />
-              <div className="h-1 w-36 bg-gradient-to-r from-purple-400/50 to-purple-400/20 rounded-full" />
-            </div>
-          </div>
-          <p className="text-white/50 text-sm mt-4 italic">{statusText}</p>
-        </div>
-      )}
-      
-      {/* Bottom Left - Presenter */}
+      {/* Bottom Left - Presenter Info */}
       <div className="absolute bottom-6 left-6">
-        <div className="w-40 h-28 bg-[#1a2a3a]/50 rounded-lg border-2 border-[#bf5a36]/60 flex items-center justify-center mb-2">
-          <p className="text-white/30 text-xs">(Presenter Camera)</p>
-        </div>
-        <div>
+        <div className="bg-[#0B1C2D]/80 backdrop-blur-sm rounded-lg px-4 py-3 border border-white/20 shadow-lg">
+          <p className="text-[#bf5a36] text-xs font-semibold uppercase tracking-wider mb-1">Presenter</p>
           <p className="text-white text-sm font-semibold">{presenterName}</p>
-          <p className="text-white/60 text-xs">{presenterRole}</p>
+          <p className="text-white/70 text-xs">{presenterRole}</p>
         </div>
       </div>
       
