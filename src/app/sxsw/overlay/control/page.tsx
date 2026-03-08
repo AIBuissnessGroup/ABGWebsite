@@ -86,10 +86,10 @@ const overlays: OverlayConfig[] = [
     ]
   },
   {
-    id: 'student-spotlight',
-    name: 'Student Spotlight',
-    description: 'Student interview intro screen',
-    route: '/sxsw/overlay/student-spotlight',
+    id: 'student-spotlight-combined',
+    name: 'Student Spotlight Combined',
+    description: 'Intro + video overlay (lightweight)',
+    route: '/sxsw/overlay/student-spotlight-combined',
     params: [
       { key: 'name', label: 'Student Name', type: 'text', defaultValue: 'Alex Rodriguez' },
       { key: 'major', label: 'Major & Class', type: 'text', defaultValue: 'Computer Science, Class of 2027' },
@@ -97,59 +97,45 @@ const overlays: OverlayConfig[] = [
       { key: 'role', label: 'ABG Role', type: 'text', defaultValue: 'Project Lead, AI Business Group' },
       { key: 'image', label: 'Profile Image URL', type: 'text', defaultValue: '', placeholder: 'https://...' },
       { key: 'bio', label: 'Short Bio/Quote', type: 'text', defaultValue: 'Building the future of AI at SXSW 2026' },
+      { key: 'intro', label: 'Intro Duration (sec)', type: 'number', defaultValue: '6', placeholder: 'Seconds before video mode' },
+      { key: 'autoHide', label: 'Auto-hide Lower Third (sec)', type: 'number', defaultValue: '', placeholder: 'Leave empty to stay visible' },
     ]
   },
   {
-    id: 'student-spotlight-video',
-    name: 'Student Spotlight Video',
-    description: 'Lower-third overlay for student video',
-    route: '/sxsw/overlay/student-spotlight-video',
-    params: [
-      { key: 'name', label: 'Student Name', type: 'text', defaultValue: 'Alex Rodriguez' },
-      { key: 'major', label: 'Major & Class', type: 'text', defaultValue: 'Computer Science, Class of 2027' },
-      { key: 'school', label: 'School', type: 'text', defaultValue: 'University of Michigan' },
-      { key: 'role', label: 'ABG Role', type: 'text', defaultValue: 'Project Lead, AI Business Group' },
-      { key: 'image', label: 'Profile Image URL', type: 'text', defaultValue: '', placeholder: 'https://...' },
-      { key: 'autoHide', label: 'Auto-hide (seconds)', type: 'number', defaultValue: '', placeholder: 'Leave empty to stay visible' },
-    ]
-  },
-  {
-    id: 'workshop',
-    name: 'AI Workshop Intro',
-    description: 'Workshop introduction screen',
-    route: '/sxsw/overlay/workshop',
+    id: 'workshop-combined',
+    name: 'Workshop Combined',
+    description: 'Intro + live overlay (lightweight)',
+    route: '/sxsw/overlay/workshop-combined',
     params: [
       { key: 'title', label: 'Workshop Title', type: 'text', defaultValue: 'AI in Action Workshop' },
       { key: 'subtitle', label: 'Subtitle', type: 'text', defaultValue: 'Hands-on with cutting-edge AI tools' },
       { key: 'instructor', label: 'Instructor/Leader', type: 'text', defaultValue: 'ABG Tech Committee' },
       { key: 'time', label: 'Time Slot', type: 'text', defaultValue: '2:00 – 3:30 PM CT' },
       { key: 'topic', label: 'Topic Badge', type: 'text', defaultValue: 'Building with LLMs' },
-    ]
-  },
-  {
-    id: 'workshop-live',
-    name: 'Workshop Live Overlay',
-    description: 'Transparent overlay during workshop',
-    route: '/sxsw/overlay/workshop-live',
-    params: [
-      { key: 'title', label: 'Workshop Title', type: 'text', defaultValue: 'AI in Action: From Prompt to Prototype' },
-      { key: 'presenter', label: 'Presenter Name', type: 'text', defaultValue: 'Alex Chen' },
-      { key: 'role', label: 'Presenter Role', type: 'text', defaultValue: 'AI Developer, ABG' },
+      { key: 'presenter', label: 'Presenter Name (Live)', type: 'text', defaultValue: '', placeholder: 'Defaults to instructor' },
+      { key: 'role', label: 'Presenter Role (Live)', type: 'text', defaultValue: 'AI Developer, ABG' },
       { key: 'status', label: 'Status Text', type: 'text', defaultValue: 'Real-time AI build in progress...' },
       { key: 'tool', label: 'Tool Name', type: 'text', defaultValue: 'Code Editor / AI Tool' },
       { key: 'showStatus', label: 'Show Center Placeholder', type: 'text', defaultValue: 'true', placeholder: 'true or false' },
+      { key: 'intro', label: 'Intro Duration (sec)', type: 'number', defaultValue: '5', placeholder: 'Seconds before live mode' },
     ]
   },
   {
     id: 'transition',
-    name: 'Transition Bumper',
-    description: 'Brand transition screen',
+    name: 'Stinger Transition',
+    description: 'Horizontal slide in, vertical exit with floating shapes',
     route: '/sxsw/overlay/transition',
     params: [
-      { key: 'line1', label: 'Line 1', type: 'text', defaultValue: 'AI SHAPES' },
-      { key: 'line2', label: 'Line 2', type: 'text', defaultValue: 'BUSINESS.' },
-      { key: 'accent', label: 'Accent Line', type: 'text', defaultValue: 'WE BUILD AI SOLUTIONS' },
-      { key: 'slogan', label: 'Slogan', type: 'text', defaultValue: 'HAIL TO THE INNOVATORS' },
+      { key: 'hold', label: 'Hold Time (ms)', type: 'number', defaultValue: '2000', placeholder: 'Time to show logo (default 2000)' },
+    ]
+  },
+  {
+    id: 'transition-2',
+    name: 'Stinger Transition 2',
+    description: 'Circular burst with rotating orbital rings',
+    route: '/sxsw/overlay/transition-2',
+    params: [
+      { key: 'hold', label: 'Hold Time (ms)', type: 'number', defaultValue: '2000', placeholder: 'Time to show logo (default 2000)' },
     ]
   },
   {
