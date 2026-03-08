@@ -46,6 +46,10 @@ const overlays: OverlayConfig[] = [
       { key: 'e4_title', label: 'Event 4 Title', type: 'text', defaultValue: 'Lunch & Demos' },
       { key: 'e4_time', label: 'Event 4 Time', type: 'text', defaultValue: '1:00 PM' },
       { key: 'e4_desc', label: 'Event 4 Description', type: 'text', defaultValue: '', placeholder: 'Short description' },
+      { key: 'e1_speakers', label: 'Event 1 Speakers', type: 'text', defaultValue: '', placeholder: 'Name|Title|ImageURL,Name2|Title2|ImageURL2' },
+      { key: 'e2_speakers', label: 'Event 2 Speakers', type: 'text', defaultValue: '', placeholder: 'Name|Title|ImageURL,Name2|Title2|ImageURL2' },
+      { key: 'e3_speakers', label: 'Event 3 Speakers', type: 'text', defaultValue: '', placeholder: 'Name|Title|ImageURL,Name2|Title2|ImageURL2' },
+      { key: 'e4_speakers', label: 'Event 4 Speakers', type: 'text', defaultValue: '', placeholder: 'Name|Title|ImageURL,Name2|Title2|ImageURL2' },
     ]
   },
   {

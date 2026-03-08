@@ -5,12 +5,29 @@ import { useEffect, useState, Suspense } from 'react';
 import { OverlayWrapper, ABGLogoBox, AUSTIN_COLOR } from '../components';
 import { FaLinkedin, FaInstagram } from 'react-icons/fa';
 
+// Speaker type for headshots
+interface Speaker {
+  name: string;
+  title: string;
+  image?: string;
+}
+
 // Schedule item type
 interface ScheduleItem {
   title: string;
   time: string;
   description?: string;
+  speakers?: Speaker[];
   isUpNext?: boolean;
+}
+
+// Parse speakers from URL param format: "Name|Title|imageUrl,Name2|Title2|imageUrl2"
+function parseSpeakers(speakerParam: string | null): Speaker[] {
+  if (!speakerParam) return [];
+  return speakerParam.split(',').map(s => {
+    const [name, title, image] = s.split('|');
+    return { name: name?.trim() || '', title: title?.trim() || '', image: image?.trim() };
+  }).filter(s => s.name);
 }
 
 // Trivia Questions (UMich + ABG facts)
@@ -61,15 +78,19 @@ function SoftOpeningContent() {
   const e1Title = searchParams.get('e1_title') || 'Preshow & Networking';
   const e1Time = searchParams.get('e1_time') || '10:30 AM';
   const e1Desc = searchParams.get('e1_desc') || '';
+  const e1Speakers = parseSpeakers(searchParams.get('e1_speakers'));
   const e2Title = searchParams.get('e2_title') || 'Panel 1: AI Transformation';
   const e2Time = searchParams.get('e2_time') || '11:00 AM';
   const e2Desc = searchParams.get('e2_desc') || '';
+  const e2Speakers = parseSpeakers(searchParams.get('e2_speakers'));
   const e3Title = searchParams.get('e3_title') || 'Panel 2: Student Builders';
   const e3Time = searchParams.get('e3_time') || '12:00 PM';
   const e3Desc = searchParams.get('e3_desc') || '';
+  const e3Speakers = parseSpeakers(searchParams.get('e3_speakers'));
   const e4Title = searchParams.get('e4_title') || 'Lunch & Demos';
   const e4Time = searchParams.get('e4_time') || '1:00 PM';
   const e4Desc = searchParams.get('e4_desc') || '';
+  const e4Speakers = parseSpeakers(searchParams.get('e4_speakers'));
   
   // State for countdown
   const [timeLeft, setTimeLeft] = useState({ minutes: countdownMinutes, seconds: countdownSeconds });
@@ -82,10 +103,10 @@ function SoftOpeningContent() {
   
   // Build schedule from params
   const schedule: ScheduleItem[] = [
-    { title: e1Title, time: e1Time, description: e1Desc, isUpNext: upNextIndex === 0 },
-    { title: e2Title, time: e2Time, description: e2Desc, isUpNext: upNextIndex === 1 },
-    { title: e3Title, time: e3Time, description: e3Desc, isUpNext: upNextIndex === 2 },
-    { title: e4Title, time: e4Time, description: e4Desc, isUpNext: upNextIndex === 3 },
+    { title: e1Title, time: e1Time, description: e1Desc, speakers: e1Speakers, isUpNext: upNextIndex === 0 },
+    { title: e2Title, time: e2Time, description: e2Desc, speakers: e2Speakers, isUpNext: upNextIndex === 1 },
+    { title: e3Title, time: e3Time, description: e3Desc, speakers: e3Speakers, isUpNext: upNextIndex === 2 },
+    { title: e4Title, time: e4Time, description: e4Desc, speakers: e4Speakers, isUpNext: upNextIndex === 3 },
   ].filter(item => item.title); // Filter out empty items
   
   // Check if we're within 5 minutes
@@ -191,7 +212,7 @@ function SoftOpeningContent() {
         
         {/* Main Content - Schedule + Countdown side by side, vertically centered */}
         <div className="flex-1 flex items-center justify-center">
-          <div className="flex items-start gap-16">
+          <div className="flex items-center gap-16">
             {/* Left Column: Schedule */}
             <div className="space-y-3">
               <p className="text-white/50 text-lg uppercase tracking-wide mb-6">Today's Schedule</p>
@@ -219,28 +240,55 @@ function SoftOpeningContent() {
                     {item.title}
                   </p>
                   {item.description && (
-                    <p className="text-white/40 text-sm mt-1 break-words">{item.description}</p>
+                    <p className="text-white/25 text-sm mt-1 break-words leading-relaxed">{item.description}</p>
                   )}
                   <p className="text-white/50 text-base">{item.time}</p>
+                  
+                  {/* Speakers */}
+                  {item.speakers && item.speakers.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-3 mt-2 pt-2 border-t border-white/10">
+                      {item.speakers.map((speaker, sIndex) => (
+                        <div key={sIndex} className="flex items-center gap-2">
+                          {speaker.image ? (
+                            <img 
+                              src={speaker.image} 
+                              alt={speaker.name} 
+                              className="w-8 h-8 rounded-full object-cover border border-white/20"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/50 text-xs font-medium">
+                              {speaker.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                            </div>
+                          )}
+                          <div className="leading-tight">
+                            <p className="text-white/70 text-xs font-medium">{speaker.name}</p>
+                            {speaker.title && (
+                              <p className="text-white/40 text-[10px]">{speaker.title}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
             
             {/* Right Column: Countdown + Trivia */}
             <div className="flex flex-col items-center">
-              {/* Countdown */}
-              <div className={`text-center transition-all duration-700 ease-out ${showTrivia ? 'translate-y-0' : 'translate-y-48'}`}>
+              {/* Countdown - stays fixed in position */}
+              <div className="text-center">
                 <p className="text-white/40 text-xl uppercase tracking-wide mb-4">Starting in</p>
                 <p className="text-[8rem] font-bold text-white tabular-nums tracking-tight leading-none">
                   {formatTime(timeLeft.minutes, timeLeft.seconds)}
                 </p>
               </div>
               
-              {/* Trivia - Slides in below countdown */}
-              <div className={`transition-all duration-700 ease-out overflow-hidden ${
+              {/* Trivia - Drops down from under countdown */}
+              <div className={`transition-all duration-700 ease-out ${
                 showTrivia 
-                  ? 'max-h-[200px] opacity-100 mt-6' 
-                  : 'max-h-0 opacity-0 mt-0'
+                  ? 'opacity-100 translate-y-0 mt-6' 
+                  : 'opacity-0 -translate-y-4 mt-0 pointer-events-none'
               }`}>
                 <div className="bg-gradient-to-br from-[#0B1C2D] to-[#00274C]/80 rounded-xl px-6 py-4 border border-[#bf5a36]/50 w-[400px] shadow-lg">
                   {/* Header */}
@@ -289,9 +337,17 @@ function SoftOpeningContent() {
           </div>
         </div>
         
-        {/* Bottom Right - ABG Logo */}
-        <div className="absolute bottom-4 right-5">
+        {/* Bottom Right - ABG Logo + Partner Logo */}
+        <div className="absolute bottom-4 right-5 flex items-end gap-4">
           <ABGLogoBox size="large" />
+          {/* Partner Logo Box */}
+          <div className="bg-white rounded-lg px-3 py-2 shadow-lg">
+            <img 
+              src="/o142.png" 
+              alt="O1-42 Productions"
+              className="h-8 w-auto"
+            />
+          </div>
         </div>
       </div>
     </OverlayWrapper>
@@ -312,8 +368,15 @@ vMix URL Parameters:
 - subtitle: Event subtitle (default: "University of Michigan @ SXSW")
 - minutes: Countdown minutes (default: 14)
 - seconds: Countdown seconds (default: 32)
-- schedule: JSON array of schedule items
+- e1_title, e2_title, etc: Session titles
+- e1_time, e2_time, etc: Session times  
+- e1_desc, e2_desc, etc: Session descriptions
+- e1_speakers, e2_speakers, etc: Speakers in format "Name|Title|ImageURL,Name2|Title2|ImageURL2"
+- upnext: Index of current session (0-3)
 
-Example:
-/sxsw/overlay/soft-opening?title=HAIL%20TO%20THE%20INNOVATORS&minutes=30&seconds=0
+Speaker Example:
+e1_speakers=John+Doe|CEO+Acme|/images/john.jpg,Jane+Smith|CTO+Tech|/images/jane.jpg
+
+Full Example:
+/sxsw/overlay/soft-opening?title=HAIL%20TO%20THE%20INNOVATORS&minutes=30&seconds=0&e1_speakers=John|CEO|/img.jpg
 */
