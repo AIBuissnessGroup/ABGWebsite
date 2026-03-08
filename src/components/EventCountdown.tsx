@@ -441,14 +441,12 @@ export default function EventCountdown({
 
             {isSXSW && (
               <motion.a
-                href="https://lu.ma/asqx2mhv?pk=g-6jSNwYTA6ZC1ijS"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="https://abgumich.org/sxsw/rsvp"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-[#bf5a36] rounded px-3 py-2 text-[#ff7a56] text-xs sm:text-sm font-medium transition-all duration-300 text-center"
               >
-                Join the Waitlist →
+                RSVP Here →
               </motion.a>
             )}
 

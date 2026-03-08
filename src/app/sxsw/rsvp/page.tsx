@@ -9,6 +9,8 @@ interface Event {
   title: string;
   time: string;
   rsvpLink: string;
+  date?: string;
+  location?: string;
 }
 
 const events: Event[] = [
@@ -31,6 +33,13 @@ const events: Event[] = [
     title: 'AI In Action: Prompt to Prototype Workshop',
     time: '3:20 PM - 3:50 PM CST',
     rsvpLink: 'https://luma.com/wuyaqn3n',
+  },
+  {
+    title: 'Open Networking & Happy Hour',
+    date: 'Friday, March 13',
+    time: '5:00 PM - 7:00 PM CST',
+    location: '716 Congress Ave.',
+    rsvpLink: 'https://luma.com/ed6h2uwx',
   },
 ];
 
@@ -93,10 +102,16 @@ export default function SXSWRSVPPage() {
                       <h3 className="text-white font-semibold text-lg sm:text-xl mb-2 leading-tight">
                         {event.title}
                       </h3>
+                      {event.date && (
+                        <p className="text-white/80 text-sm mb-1">{event.date}</p>
+                      )}
                       <div className="flex items-center gap-2 text-white/60">
                         <ClockIcon className="w-4 h-4 flex-shrink-0" />
                         <span className="text-sm sm:text-base">{event.time}</span>
                       </div>
+                      {event.location && (
+                        <p className="text-white/60 text-sm mt-1">{event.location}</p>
+                      )}
                     </div>
                     <a
                       href={event.rsvpLink}
