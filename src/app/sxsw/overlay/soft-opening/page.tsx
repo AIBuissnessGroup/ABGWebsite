@@ -210,25 +210,46 @@ function SoftOpeningContent() {
     <OverlayWrapper>
       <div className="relative h-full flex flex-col p-6">
         
-        {/* Main Content - Schedule + Countdown side by side, vertically centered */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex items-center gap-16">
-            {/* Left Column: Schedule */}
-            <div className="space-y-3">
-              <p className="text-white/50 text-lg uppercase tracking-wide mb-6">Today's Schedule</p>
-              {schedule.map((item, index) => (
+        {/* Main Title - HAIL TO THE INNOVATORS - Front and Center */}
+        <div className="absolute top-16 left-0 right-0 text-center z-20">
+          <h1 
+            className="text-8xl font-bold tracking-tight"
+            style={{ 
+              background: 'linear-gradient(135deg, #ffffff 0%, #bf5a36 25%, #FFCB05 50%, #ffffff 75%, #bf5a36 100%)',
+              backgroundSize: '400% 400%',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              filter: 'drop-shadow(0 4px 20px rgba(0,0,0,0.5))',
+              animation: 'shimmer 12s ease infinite',
+            }}
+          >
+            {eventTitle}
+          </h1>
+          {/* Divider line - spans title width */}
+          <div className="flex justify-center mt-3">
+            <div className="w-[700px] h-[2px] rounded-full bg-white/40" />
+          </div>
+        </div>
+        
+        {/* Main Content - 4 Panel Grid */}
+        <div className="flex-1 flex items-center justify-center px-6">
+          <div className="grid grid-cols-2 gap-7 w-full max-w-[1450px]">
+            {schedule.map((item, index) => {
+              const isActive = item.isUpNext;
+              return (
                 <div 
                   key={index}
-                  className={`p-4 rounded-lg max-w-[700px] transition-all duration-500 ${
-                    item.isUpNext
+                  className={`p-7 rounded-xl transition-all duration-500 ${
+                    isActive
                       ? isHappeningSoon
-                        ? 'bg-[#bf5a36]/20 border border-[#bf5a36]/40'
-                        : 'bg-[#bf5a36]/10 border border-[#bf5a36]/30'
-                      : 'bg-white/5'
+                        ? 'bg-[#bf5a36]/20 border-2 border-[#bf5a36]/50 scale-[1.02]'
+                        : 'bg-[#bf5a36]/15 border-2 border-[#bf5a36]/40 scale-[1.02]'
+                      : 'bg-[#0B1C2D]/70 border border-white/10 opacity-50 scale-[0.98]'
                   }`}
                 >
-                  {item.isUpNext && (
-                    <p className={`text-sm font-semibold ${
+                  {isActive && (
+                    <p className={`text-lg font-semibold mb-1 ${
                       isHappeningSoon 
                         ? 'text-[#bf5a36] animate-pulse' 
                         : 'text-[#bf5a36]'
@@ -236,34 +257,31 @@ function SoftOpeningContent() {
                       {isHappeningSoon ? 'HAPPENING SOON' : 'UP NEXT'}
                     </p>
                   )}
-                  <p className={`${item.isUpNext ? 'text-white' : 'text-white/80'} text-xl font-medium`}>
+                  <p className={`${isActive ? 'text-white text-2xl' : 'text-white/80 text-xl'} font-bold`}>
                     {item.title}
                   </p>
-                  {item.description && (
-                    <p className="text-white/25 text-sm mt-1 break-words leading-relaxed">{item.description}</p>
-                  )}
-                  <p className="text-white/50 text-base">{item.time}</p>
+                  <p className={`${isActive ? 'text-white/60' : 'text-white/40'} text-lg mt-1`}>{item.time}</p>
                   
                   {/* Speakers */}
                   {item.speakers && item.speakers.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-3 mt-2 pt-2 border-t border-white/10">
+                    <div className={`flex flex-wrap items-center gap-4 mt-4 pt-3 border-t ${isActive ? 'border-white/15' : 'border-white/5'}`}>
                       {item.speakers.map((speaker, sIndex) => (
                         <div key={sIndex} className="flex items-center gap-2">
                           {speaker.image ? (
                             <img 
                               src={speaker.image} 
                               alt={speaker.name} 
-                              className="w-8 h-8 rounded-full object-cover border border-white/20"
+                              className={`rounded-full object-cover border ${isActive ? 'w-11 h-11 border-white/20' : 'w-8 h-8 border-white/10'}`}
                             />
                           ) : (
-                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/50 text-xs font-medium">
+                            <div className={`rounded-full bg-white/10 flex items-center justify-center font-medium ${isActive ? 'w-11 h-11 text-white/50 text-sm' : 'w-8 h-8 text-white/30 text-xs'}`}>
                               {speaker.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                             </div>
                           )}
                           <div className="leading-tight">
-                            <p className="text-white/70 text-xs font-medium">{speaker.name}</p>
+                            <p className={`font-semibold ${isActive ? 'text-white text-base' : 'text-white/60 text-sm'}`}>{speaker.name}</p>
                             {speaker.title && (
-                              <p className="text-white/40 text-[10px]">{speaker.title}</p>
+                              <p className={`${isActive ? 'text-white/50 text-sm' : 'text-white/30 text-xs'}`}>{speaker.title}</p>
                             )}
                           </div>
                         </div>
@@ -271,81 +289,81 @@ function SoftOpeningContent() {
                     </div>
                   )}
                 </div>
-              ))}
+              );
+            })}
+          </div>
+        </div>
+        
+        {/* Bottom Left - Countdown + Social Links + Trivia */}
+        <div className="absolute bottom-6 left-8 z-20">
+          {/* Countdown + Trivia row */}
+          <div className="flex items-end mb-3">
+            {/* Countdown */}
+            <div className="bg-[#0B1C2D]/90 backdrop-blur-sm rounded-xl px-5 py-3 border border-white/20 shadow-xl">
+              <p className="text-white/50 text-xs uppercase tracking-wide mb-1">Starting in</p>
+              <p className="text-4xl font-bold text-white tabular-nums tracking-tight leading-none">
+                {formatTime(timeLeft.minutes, timeLeft.seconds)}
+              </p>
             </div>
             
-            {/* Right Column: Countdown + Trivia */}
-            <div className="flex flex-col items-center">
-              {/* Countdown - stays fixed in position */}
-              <div className="text-center">
-                <p className="text-white/40 text-xl uppercase tracking-wide mb-4">Starting in</p>
-                <p className="text-[8rem] font-bold text-white tabular-nums tracking-tight leading-none">
-                  {formatTime(timeLeft.minutes, timeLeft.seconds)}
-                </p>
-              </div>
-              
-              {/* Trivia - Drops down from under countdown */}
-              <div className={`transition-all duration-700 ease-out ${
-                showTrivia 
-                  ? 'opacity-100 translate-y-0 mt-6' 
-                  : 'opacity-0 -translate-y-4 mt-0 pointer-events-none'
-              }`}>
-                <div className="bg-gradient-to-br from-[#0B1C2D] to-[#00274C]/80 rounded-xl px-6 py-4 border border-[#bf5a36]/50 w-[400px] shadow-lg">
-                  {/* Header */}
-                  <div className="mb-2">
-                    <p className="text-[#bf5a36] text-xs font-bold uppercase tracking-wider">Trivia</p>
-                  </div>
-                  
-                  {/* Question */}
-                  <p className="text-white text-base font-medium mb-3">{TRIVIA_QUESTIONS[currentTriviaIndex].question}</p>
-                  
-                  {/* Progress Bar */}
-                  <div className="relative h-1.5 bg-white/10 rounded-full overflow-hidden mb-2">
-                    <div 
-                      className={`absolute left-0 top-0 h-full rounded-full transition-all duration-100 ${
-                        triviaProgress > 30 ? 'bg-[#bf5a36]' : triviaProgress > 10 ? 'bg-orange-500' : 'bg-red-500'
-                      }`}
-                      style={{ width: `${triviaProgress}%` }}
-                    />
-                  </div>
-                  
-                  {/* Answer (revealed after timer) */}
-                  <div className={`overflow-hidden transition-all duration-500 ${showTriviaAnswer ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
-                    <div className="bg-[#bf5a36]/20 rounded-lg px-3 py-1.5 border border-[#bf5a36]/40">
-                      <p className="text-[#bf5a36] text-lg font-bold">{TRIVIA_QUESTIONS[currentTriviaIndex].answer}</p>
-                    </div>
+            {/* Trivia - Slides out from the right side of countdown */}
+            <div className={`transition-all duration-700 ease-out ${
+              showTrivia 
+                ? 'opacity-100 translate-x-0 ml-3' 
+                : 'opacity-0 -translate-x-8 ml-0 w-0 overflow-hidden pointer-events-none'
+            }`}>
+              <div className="bg-gradient-to-br from-[#0B1C2D] to-[#00274C]/80 rounded-lg px-4 py-3 border border-[#bf5a36]/50 w-[320px] shadow-lg">
+                {/* Header */}
+                <p className="text-[#bf5a36] text-[10px] font-bold uppercase tracking-wider mb-1">Trivia</p>
+                
+                {/* Question */}
+                <p className="text-white text-sm font-medium mb-2">{TRIVIA_QUESTIONS[currentTriviaIndex].question}</p>
+                
+                {/* Progress Bar */}
+                <div className="relative h-1 bg-white/10 rounded-full overflow-hidden mb-1.5">
+                  <div 
+                    className={`absolute left-0 top-0 h-full rounded-full transition-all duration-100 ${
+                      triviaProgress > 30 ? 'bg-[#bf5a36]' : triviaProgress > 10 ? 'bg-orange-500' : 'bg-red-500'
+                    }`}
+                    style={{ width: `${triviaProgress}%` }}
+                  />
+                </div>
+                
+                {/* Answer (revealed after timer) */}
+                <div className={`overflow-hidden transition-all duration-500 ${showTriviaAnswer ? 'max-h-12 opacity-100' : 'max-h-0 opacity-0'}`}>
+                  <div className="bg-[#bf5a36]/20 rounded px-2 py-1 border border-[#bf5a36]/40">
+                    <p className="text-[#bf5a36] text-base font-bold">{TRIVIA_QUESTIONS[currentTriviaIndex].answer}</p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        
-        {/* Bottom Left - Title + Social Links */}
-        <div className="absolute bottom-4 left-8">
-          <p className="text-white/70 text-lg font-medium tracking-wide">{eventTitle}</p>
-          <p className="text-white/40 text-sm mb-2">{eventSubtitle}</p>
-          <div className="flex items-center gap-3">
-            <a href="https://www.linkedin.com/company/abgumich/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-white/50 hover:text-white/80 transition-colors">
+          
+          {/* Social Links below countdown */}
+          <div className="flex items-center gap-4">
+            <a href="https://www.linkedin.com/company/abgumich/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white/50 hover:text-white/80 transition-colors">
               <FaLinkedin className="text-lg" />
               <span className="text-xs">@abgumich</span>
             </a>
-            <a href="https://www.instagram.com/umichaibusiness/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-white/50 hover:text-white/80 transition-colors">
+            <a href="https://www.instagram.com/umichaibusiness/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white/50 hover:text-white/80 transition-colors">
               <FaInstagram className="text-lg" />
               <span className="text-xs">@umichaibusiness</span>
             </a>
           </div>
+          
+          {/* AI Business Group @ SXSW 2026 */}
+          <p className="text-white/40 text-sm mt-2">{eventSubtitle}</p>
         </div>
         
         {/* Bottom Right - ABG Logo + Partner Logo */}
-        <div className="absolute bottom-4 right-5 flex items-end gap-4">
+        <div className="absolute bottom-6 right-6 flex items-end gap-4 z-20">
           <ABGLogoBox size="large" />
           {/* Partner Logo Box */}
           <div className="bg-white rounded-lg px-3 py-2 shadow-lg">
             <img 
               src="/o142.png" 
               alt="O1-42 Productions"
-              className="h-8 w-auto"
+              className="h-10 w-auto"
             />
           </div>
         </div>

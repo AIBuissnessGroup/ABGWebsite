@@ -142,7 +142,7 @@ function TransitionContent() {
       <div className="relative z-10 text-center">
         {/* Decorative circle behind text */}
         <div 
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 rounded-full border-2 border-[#bf5a36]/30"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-44 h-44 rounded-full border-2 border-[#bf5a36]/30"
           style={{
             opacity: textVisible ? 1 : 0,
             transform: `translate(-50%, -50%) scale(${textVisible ? 1 : 0.5})`,
@@ -150,21 +150,28 @@ function TransitionContent() {
           }}
         />
         
-        {/* Main title */}
+        {/* Main title - Hail to the Innovators with flowing gradient */}
         <h1 
-          className="text-4xl md:text-5xl font-bold text-white tracking-wide mb-3 relative"
+          className="text-5xl md:text-6xl font-bold tracking-tight mb-4 uppercase whitespace-nowrap"
           style={{
+            background: 'linear-gradient(135deg, #ffffff 0%, #bf5a36 25%, #FFCB05 50%, #ffffff 75%, #bf5a36 100%)',
+            backgroundSize: '400% 400%',
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            filter: 'drop-shadow(0 4px 20px rgba(0,0,0,0.5))',
+            animation: textVisible ? 'shimmer 12s ease infinite' : 'none',
             opacity: textVisible ? 1 : 0,
-            transform: textVisible ? 'scale(1)' : 'scale(0.8)',
-            transition: 'all 500ms cubic-bezier(0.34, 1.56, 0.64, 1)'
+            transform: textVisible ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.9)',
+            transition: 'opacity 400ms cubic-bezier(0.34, 1.56, 0.64, 1), transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1)'
           }}
         >
-          AI Business Group
+          Hail to the Innovators
         </h1>
         
         {/* Decorative line */}
         <div 
-          className="w-24 h-1 bg-gradient-to-r from-transparent via-[#bf5a36] to-transparent mx-auto mb-3"
+          className="w-36 h-[2px] bg-white/40 mx-auto mb-4"
           style={{
             opacity: textVisible ? 1 : 0,
             transform: textVisible ? 'scaleX(1)' : 'scaleX(0)',
@@ -172,16 +179,16 @@ function TransitionContent() {
           }}
         />
         
-        {/* Slogan */}
+        {/* Secondary - AI Business Group */}
         <p 
-          className="text-[#bf5a36] text-xl md:text-2xl font-semibold tracking-widest uppercase mb-2"
+          className="text-white text-2xl md:text-3xl font-semibold tracking-wide mb-2"
           style={{
             opacity: textVisible ? 1 : 0,
             transform: textVisible ? 'translateY(0)' : 'translateY(15px)',
             transition: 'all 400ms ease-out 150ms'
           }}
         >
-          Hail to the Innovators
+          AI Business Group
         </p>
         
         {/* Subtitle */}

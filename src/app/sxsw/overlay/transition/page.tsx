@@ -201,21 +201,28 @@ function TransitionContent() {
       <div 
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 text-center"
       >
-        {/* Main title */}
+        {/* Main title - Hail to the Innovators with flowing gradient */}
         <h1 
-          className="text-4xl md:text-5xl font-bold text-white tracking-wide mb-3"
+          className="text-8xl md:text-9xl font-bold tracking-tight mb-5 uppercase whitespace-nowrap"
           style={{
+            background: 'linear-gradient(135deg, #ffffff 0%, #bf5a36 25%, #FFCB05 50%, #ffffff 75%, #bf5a36 100%)',
+            backgroundSize: '400% 400%',
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            filter: 'drop-shadow(0 4px 30px rgba(0,0,0,0.6))',
+            animation: textVisible ? 'shimmer 12s ease infinite' : 'none',
             opacity: textVisible ? 1 : 0,
             transform: textVisible ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.9)',
-            transition: 'all 400ms cubic-bezier(0.34, 1.56, 0.64, 1)'
+            transition: 'opacity 400ms cubic-bezier(0.34, 1.56, 0.64, 1), transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1)'
           }}
         >
-          AI Business Group
+          Hail to the Innovators
         </h1>
         
         {/* Decorative line */}
         <div 
-          className="w-24 h-1 bg-gradient-to-r from-transparent via-[#bf5a36] to-transparent mx-auto mb-3"
+          className="w-48 h-[2px] bg-white/40 mx-auto mb-5"
           style={{
             opacity: textVisible ? 1 : 0,
             transform: textVisible ? 'scaleX(1)' : 'scaleX(0)',
@@ -223,21 +230,21 @@ function TransitionContent() {
           }}
         />
         
-        {/* Slogan */}
+        {/* Secondary - AI Business Group */}
         <p 
-          className="text-[#bf5a36] text-xl md:text-2xl font-semibold tracking-widest uppercase mb-2"
+          className="text-white text-2xl md:text-3xl font-semibold tracking-wide mb-2"
           style={{
             opacity: textVisible ? 1 : 0,
             transform: textVisible ? 'translateY(0)' : 'translateY(15px)',
             transition: 'all 400ms ease-out 150ms'
           }}
         >
-          Hail to the Innovators
+          AI Business Group
         </p>
         
         {/* Subtitle */}
         <p 
-          className="text-white/60 text-sm tracking-wider"
+          className="text-white/60 text-base tracking-wider"
           style={{
             opacity: textVisible ? 1 : 0,
             transform: textVisible ? 'translateY(0)' : 'translateY(10px)',
