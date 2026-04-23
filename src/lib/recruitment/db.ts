@@ -35,31 +35,7 @@ import type {
 // MongoDB Connection
 // ============================================================================
 
-// Check if connection string already has TLS/SSL settings
-const connectionString = process.env.DATABASE_URL || '';
-const hasTlsInConnectionString = /[?&](tls|ssl)=/.test(connectionString);
-const isProduction = process.env.NODE_ENV === 'production';
-
 // MongoDB connection options with connection pooling
-// - In production: use the CA certificate file for proper TLS verification
-// - In development with SSL in connection string: allow self-signed certs to avoid cert issues
-// - Otherwise: only enable TLS in production
-const mongoOptions: MongoClientOptions = {
-  ...(hasTlsInConnectionString
-    ? (isProduction 
-        ? { tlsCAFile: '/app/global-bundle.pem' }
-        : { tlsAllowInvalidCertificates: true })
-    : {
-        tls: isProduction,
-        tlsCAFile: isProduction ? '/app/global-bundle.pem' : undefined,
-      }),
-  // Connection pooling settings for better performance
-  maxPoolSize: 10,
-  minPoolSize: 2,
-  maxIdleTimeMS: 60000,
-  connectTimeoutMS: 10000,
-  serverSelectionTimeoutMS: 10000,
-};
 
 // ============================================================================
 // Connection Pooling (singleton pattern for serverless/Next.js)

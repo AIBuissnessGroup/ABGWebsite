@@ -1,7 +1,6 @@
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
+import { getDb } from './mongodb';
 import type { UserRole } from '@/types/next-auth';
-
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || '';
 
 export interface AuditLogEntry {
   _id?: string;
@@ -48,13 +47,7 @@ export async function logAuditEvent(
   }
 ): Promise<void> {
   try {
-    const client = new MongoClient(uri, {
-      tls: true,
-      tlsCAFile: "/app/global-bundle.pem",
-    });
-    await client.connect();
-    
-    const db = client.db();
+    const db = await getDb();
     const auditCollection = db.collection('AuditLog');
     
     const auditEntry = {
@@ -70,7 +63,6 @@ export async function logAuditEvent(
     };
     
     await auditCollection.insertOne(auditEntry);
-    await client.close();
     
     console.log('AUDIT LOGGED:', {
       action,
@@ -107,14 +99,8 @@ export async function getAuditLogs(options?: {
   page: number;
   totalPages: number;
 }> {
-  const client = new MongoClient(uri, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
-  
   try {
-    await client.connect();
-    const db = client.db();
+    const db = await getDb();
     const auditCollection = db.collection('AuditLog');
     
     const page = options?.page || 1;
@@ -157,8 +143,6 @@ export async function getAuditLogs(options?: {
       .limit(limit)
       .toArray();
     
-    await client.close();
-    
     return {
       logs: logs.map(log => ({
         _id: log._id?.toString(),
@@ -178,7 +162,6 @@ export async function getAuditLogs(options?: {
     };
     
   } catch (error) {
-    await client.close();
     console.error('Error fetching audit logs:', error);
     throw new Error('Failed to fetch audit logs');
   }
@@ -193,14 +176,8 @@ export async function getAuditStats(): Promise<{
   topActions: Array<{ action: string; count: number }>;
   topUsers: Array<{ userEmail: string; count: number }>;
 }> {
-  const client = new MongoClient(uri, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
-  
   try {
-    await client.connect();
-    const db = client.db();
+    const db = await getDb();
     const auditCollection = db.collection('AuditLog');
     
     const today = new Date();
@@ -230,8 +207,6 @@ export async function getAuditStats(): Promise<{
       ]).toArray()
     ]);
     
-    await client.close();
-    
     return {
       totalLogs,
       todayLogs,
@@ -240,7 +215,6 @@ export async function getAuditStats(): Promise<{
     };
     
   } catch (error) {
-    await client.close();
     console.error('Error fetching audit stats:', error);
     throw new Error('Failed to fetch audit statistics');
   }

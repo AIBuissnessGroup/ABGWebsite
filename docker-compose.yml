@@ -6,7 +6,6 @@ services:
     env_file:
       - .env.production
     volumes:
-      - ./global-bundle.pem:/app/global-bundle.pem:ro
       # Mount upload directories so files persist across container rebuilds
       - ./public/applicationUploads:/app/public/applicationUploads
       - ./public/emailUploads:/app/public/emailUploads

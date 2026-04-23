@@ -10,14 +10,7 @@ const { MongoClient, ObjectId } = require('mongodb');
 
 // Check if connection string has TLS in it
 const connectionString = process.env.DATABASE_URL || '';
-const hasTlsInConnectionString = /[?&](tls|ssl)=/.test(connectionString);
 
-const mongoOptions = hasTlsInConnectionString
-  ? { tlsAllowInvalidCertificates: true }
-  : { tls: true, tlsCAFile: './global-bundle.pem' };
-
-async function backfillEmails() {
-  const client = new MongoClient(process.env.DATABASE_URL, mongoOptions);
 
   try {
     await client.connect();

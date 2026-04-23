@@ -1,10 +1,11 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+
 
 // Check in an attendee (mark as attended)
 export async function POST(
@@ -25,17 +26,14 @@ export async function POST(
       return NextResponse.json({ error: 'Attendee ID required' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Verify event exists
     const event = await db.collection('Event').findOne({ id: eventId });
     if (!event) {
-      await client.close();
+      
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
@@ -53,7 +51,7 @@ export async function POST(
       }
     );
 
-    await client.close();
+    
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: 'Attendee not found' }, { status: 404 });
@@ -94,17 +92,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Attendee ID required' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Verify event exists
     const event = await db.collection('Event').findOne({ id: eventId });
     if (!event) {
-      await client.close();
+      
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
@@ -125,7 +120,7 @@ export async function DELETE(
       }
     );
 
-    await client.close();
+    
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: 'Attendee not found or not checked in' }, { status: 404 });

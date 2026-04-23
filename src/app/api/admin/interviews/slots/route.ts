@@ -1,12 +1,9 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { requireAdminSession } from '@/lib/server-admin';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 type InterviewSignup = {
   id: string;
@@ -39,8 +36,8 @@ export async function GET(request: NextRequest) {
     // Remove date filtering - show all slots in the database for admin view
     // const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Get ALL interview slots for admin view, sorted by date, room, and time
     const interviewSlots = await db.collection('InterviewSlot').find({}).sort({ date: 1, room: 1, startTime: 1 }).toArray();
@@ -67,7 +64,7 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching interview slots for admin:', error);
     return NextResponse.json({ error: 'Failed to fetch slots' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -86,8 +83,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields: date, rooms, times' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const slotsToCreate = [];
 
@@ -126,6 +123,6 @@ export async function POST(request: NextRequest) {
     console.error('Error creating interview slots:', error);
     return NextResponse.json({ error: 'Failed to create slots' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

@@ -1,14 +1,12 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { MongoClient } from 'mongodb';
+
 import { google } from 'googleapis';
 
-const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 /*
  * Google Forms API Integration
@@ -362,8 +360,8 @@ export async function POST(request: NextRequest) {
     const googleFormData = await parseGoogleForm(formUrl, accessToken);
 
     // Connect to database
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Get user info
     const user = await db.collection('User').findOne({ email: session.user.email });
@@ -491,6 +489,6 @@ export async function POST(request: NextRequest) {
       helpText: 'This endpoint uses the official Google Forms API. You need access to the form to import it.'
     }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

@@ -1,16 +1,16 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { NewsroomPost } from '@/types/newsroom';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+
 
 function createMongoClient() {
   return new MongoClient(uri, {
     tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
   });
 }
 
@@ -42,8 +42,8 @@ export async function GET(request: NextRequest) {
   const client = createMongoClient();
   
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const collection = db.collection('NewsroomPost');
     
     const { searchParams } = new URL(request.url);
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     const id = searchParams.get('id');
     if (id) {
       const post = await collection.findOne({ _id: new ObjectId(id) });
-      await client.close();
+      
       
       if (!post) {
         return NextResponse.json({ error: 'Post not found' }, { status: 404 });
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
     // Get available tags for filtering
     const availableTags = await collection.distinct('tags');
     
-    await client.close();
+    
     
     return NextResponse.json(safeJson({
       posts,
@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
     
   } catch (error) {
     console.error('Error fetching posts:', error);
-    await client.close();
+    
     return NextResponse.json({ error: 'Failed to fetch posts' }, { status: 500 });
   }
 }
@@ -160,8 +160,8 @@ export async function POST(request: NextRequest) {
   const client = createMongoClient();
   
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const collection = db.collection('NewsroomPost');
     
     const body = await request.json();
@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
     
     const result = await collection.insertOne(post);
     
-    await client.close();
+    
     
     return NextResponse.json(safeJson({ 
       _id: result.insertedId,
@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('Error creating post:', error);
-    await client.close();
+    
     return NextResponse.json({ error: 'Failed to create post' }, { status: 500 });
   }
 }
@@ -237,8 +237,8 @@ export async function PUT(request: NextRequest) {
   const client = createMongoClient();
   
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const collection = db.collection('NewsroomPost');
     
     const body = await request.json();
@@ -292,13 +292,13 @@ export async function PUT(request: NextRequest) {
     
     const updatedPost = await collection.findOne({ _id: new ObjectId(_id) });
     
-    await client.close();
+    
     
     return NextResponse.json(safeJson(updatedPost));
     
   } catch (error) {
     console.error('Error updating post:', error);
-    await client.close();
+    
     return NextResponse.json({ error: 'Failed to update post' }, { status: 500 });
   }
 }
@@ -314,8 +314,8 @@ export async function DELETE(request: NextRequest) {
   const client = createMongoClient();
   
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const collection = db.collection('NewsroomPost');
     
     const { searchParams } = new URL(request.url);
@@ -334,13 +334,13 @@ export async function DELETE(request: NextRequest) {
     // Also delete related analytics
     await db.collection('NewsroomAnalytics').deleteMany({ postId: id });
     
-    await client.close();
+    
     
     return NextResponse.json({ message: 'Post deleted successfully' });
     
   } catch (error) {
     console.error('Error deleting post:', error);
-    await client.close();
+    
     return NextResponse.json({ error: 'Failed to delete post' }, { status: 500 });
   }
 }

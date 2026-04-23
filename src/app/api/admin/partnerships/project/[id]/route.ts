@@ -1,6 +1,8 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
 import { requireAdminSession } from '@/lib/server-admin';
+
 
 export async function GET(
   request: NextRequest,
@@ -15,12 +17,9 @@ export async function GET(
     const { id } = await params;
     const projectId = id;
 
-    const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Get partnerships with company data
     const partnerships = await db.collection('ProjectPartnership').aggregate([
@@ -41,7 +40,7 @@ export async function GET(
       }
     ]).toArray();
 
-    await client.close();
+    
     return NextResponse.json(partnerships);
   } catch (error) {
     console.error('Error fetching project partnerships:', error);

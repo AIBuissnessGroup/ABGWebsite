@@ -1,9 +1,10 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { MongoClient } from 'mongodb';
 
-const uri = process.env.DATABASE_URL || process.env.MONGODB_URI || '';
+
+
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,16 +19,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     const user = await db.collection('users').findOne({ email: session.user.email });
     
-    await client.close();
+    
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -65,12 +63,9 @@ export async function PUT(request: NextRequest) {
 
     const { major, school, graduationYear, phone } = await request.json();
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     const result = await db.collection('users').updateOne(
       { email: session.user.email },
@@ -85,7 +80,7 @@ export async function PUT(request: NextRequest) {
       }
     );
 
-    await client.close();
+    
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });

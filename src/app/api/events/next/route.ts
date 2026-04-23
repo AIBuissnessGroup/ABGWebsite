@@ -1,11 +1,8 @@
+import { getDb } from '@/lib/mongodb';
 import { NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 // Safely serialize BigInt values
 function safeJson(obj: any) {
@@ -16,8 +13,8 @@ function safeJson(obj: any) {
 
 export async function GET() {
   try {
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     
     const now = new Date();
     
@@ -119,6 +116,6 @@ export async function GET() {
     console.error('Error fetching next event:', error);
     return NextResponse.json({ error: 'Failed to fetch next event' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

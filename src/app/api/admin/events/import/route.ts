@@ -1,14 +1,11 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
 import { parse } from 'csv-parse/sync';
 import crypto from 'crypto';
 import { requireAdminSession } from '@/lib/server-admin';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,8 +14,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     const usersCollection = db.collection('User');
     const eventsCollection = db.collection('Event');
 
@@ -104,6 +101,6 @@ export async function POST(request: NextRequest) {
       details: error.message
     }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 } 

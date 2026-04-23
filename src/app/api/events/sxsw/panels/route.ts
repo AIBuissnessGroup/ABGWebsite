@@ -1,6 +1,8 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
 import { SXSWPanel } from '@/types/events';
+
 
 // Helper function to handle CORS
 function corsResponse(response: NextResponse) {
@@ -32,10 +34,9 @@ export async function GET() {
 
     client = new MongoClient(uri, {
       tls: true,
-      tlsCAFile: "/app/global-bundle.pem",
     });
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const panels = await db.collection('SXSWPanel')
       .find({})
@@ -48,7 +49,7 @@ export async function GET() {
     return corsResponse(NextResponse.json({ error: 'Failed to fetch panels' }, { status: 500 }));
   } finally {
     if (client) {
-      await client.close();
+      
     }
   }
 }
@@ -67,10 +68,9 @@ export async function POST(request: NextRequest) {
     
     client = new MongoClient(uri, {
       tls: true,
-      tlsCAFile: "/app/global-bundle.pem",
     });
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Get current highest order
     const lastPanel = await db.collection('SXSWPanel').findOne({}, { sort: { order: -1 } });
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     return corsResponse(NextResponse.json({ error: 'Failed to create panel' }, { status: 500 }));
   } finally {
     if (client) {
-      await client.close();
+      
     }
   }
 }
@@ -120,10 +120,9 @@ export async function PUT(request: NextRequest) {
     
     client = new MongoClient(uri, {
       tls: true,
-      tlsCAFile: "/app/global-bundle.pem",
     });
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const result = await db.collection('SXSWPanel').updateOne(
       { id },
@@ -140,7 +139,7 @@ export async function PUT(request: NextRequest) {
     return corsResponse(NextResponse.json({ error: 'Failed to update panel' }, { status: 500 }));
   } finally {
     if (client) {
-      await client.close();
+      
     }
   }
 }
@@ -164,10 +163,9 @@ export async function DELETE(request: NextRequest) {
     
     client = new MongoClient(uri, {
       tls: true,
-      tlsCAFile: "/app/global-bundle.pem",
     });
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const result = await db.collection('SXSWPanel').deleteOne({ id });
 
@@ -181,7 +179,7 @@ export async function DELETE(request: NextRequest) {
     return corsResponse(NextResponse.json({ error: 'Failed to delete panel' }, { status: 500 }));
   } finally {
     if (client) {
-      await client.close();
+      
     }
   }
 }

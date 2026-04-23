@@ -1,12 +1,10 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 
-const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 // Helper function to handle BigInt serialization
 function safeJson(obj: any) {
@@ -24,8 +22,8 @@ function isTestingMode(request: NextRequest) {
 
 export async function GET() {
   try {
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     const companies = await db.collection('Company').find({}).sort({ name: 1 }).toArray();
 
     return NextResponse.json(safeJson(companies));
@@ -33,7 +31,7 @@ export async function GET() {
     console.error('Error fetching companies:', error);
     return NextResponse.json({ error: 'Failed to fetch companies' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -56,8 +54,8 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
     
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     
     const company = {
       id: `company-${Date.now()}`,
@@ -80,7 +78,7 @@ export async function POST(request: NextRequest) {
     console.error('Error creating company:', error);
     return NextResponse.json({ error: 'Failed to create company' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -111,8 +109,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Company ID is required' }, { status: 400 });
     }
     
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     
     const updateData = {
       name: data.name,
@@ -141,7 +139,7 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating company:', error);
     return NextResponse.json({ error: 'Failed to update company' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -169,8 +167,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company ID required' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
 
     // Check if company has partnerships before deleting
     const partnerships = await db.collection('ProjectPartnership').countDocuments({ companyId: id });
@@ -192,6 +190,6 @@ export async function DELETE(request: NextRequest) {
     console.error('Error deleting company:', error);
     return NextResponse.json({ error: 'Failed to delete company' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

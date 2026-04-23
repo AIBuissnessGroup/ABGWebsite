@@ -1,12 +1,9 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { requireAdminSession } from '@/lib/server-admin';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 export async function GET() {
   const session = await requireAdminSession();
@@ -15,8 +12,8 @@ export async function GET() {
   }
 
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const settings = await db.collection('SiteSettings').find({}).sort({ key: 1 }).toArray();
 
@@ -25,7 +22,7 @@ export async function GET() {
     console.error('Error fetching site settings:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -42,8 +39,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Key and value are required' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Check if setting exists
     const existingSetting = await db.collection('SiteSettings').findOne({ key });
@@ -74,6 +71,6 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating site setting:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 } 

@@ -1,3 +1,4 @@
+import { getDb } from '@/lib/mongodb';
 /**
  * Phase Configuration API
  * GET - Get phase configs for a cycle
@@ -23,27 +24,18 @@ import {
 import { logAuditEvent } from '@/lib/audit';
 import type { ReviewPhase, PhaseConfig, ScoringCategory, ApplicationTrack } from '@/types/recruitment';
 
+
 // MongoDB connection options
 const connectionString = process.env.DATABASE_URL || '';
-const hasTlsInConnectionString = /[?&](tls|ssl)=/.test(connectionString);
-const isProduction = process.env.NODE_ENV === 'production';
 
-const mongoOptions: MongoClientOptions = hasTlsInConnectionString
-  ? (isProduction 
-      ? { tlsCAFile: '/app/global-bundle.pem' }
-      : { tlsAllowInvalidCertificates: true })
-  : {
-      tls: isProduction,
-      tlsCAFile: isProduction ? '/app/global-bundle.pem' : undefined,
-    };
 
 // Helper to get all admin emails from the database
 async function getAllAdminEmails(): Promise<string[]> {
-  const client = new MongoClient(process.env.DATABASE_URL!, mongoOptions);
+  
   
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     // Get all users with ADMIN role
     const adminUsers = await db.collection('users').find({
@@ -52,7 +44,7 @@ async function getAllAdminEmails(): Promise<string[]> {
     
     return adminUsers.map(u => u.email).filter(Boolean);
   } finally {
-    await client.close();
+    
   }
 }
 

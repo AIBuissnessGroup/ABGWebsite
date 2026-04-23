@@ -18,32 +18,7 @@ const UPDATE_IMAGES = args.includes('--update-images');
 
 async function linkUsersToTeamMembers() {
   const client = new MongoClient(process.env.DATABASE_URL, {
-    tls: true,
-    tlsCAFile: process.env.NODE_ENV === 'production' ? '/app/global-bundle.pem' : undefined,
-    tlsAllowInvalidCertificates: process.env.NODE_ENV !== 'production'
-  });
-
-  try {
-    await client.connect();
-    console.log('Connected to database');
-    console.log(DRY_RUN ? '🔍 DRY RUN MODE - No changes will be made\n' : '');
-    console.log(UPDATE_IMAGES ? '📸 Will update team member images from Google profiles\n' : '');
-
-    const db = client.db();
-
-    // Get all users
-    const users = await db.collection('users').find({}).toArray();
-    console.log(`Found ${users.length} users in the database\n`);
-
-    // Get all team members
-    const teamMembers = await db.collection('TeamMember').find({}).toArray();
-    console.log(`Found ${teamMembers.length} team members in the database\n`);
-
-    // Create a map of team members by email (lowercase for case-insensitive matching)
-    const teamMembersByEmail = new Map();
-    for (const tm of teamMembers) {
-      if (tm.email) {
-        teamMembersByEmail.set(tm.email.toLowerCase(), tm);
+    tm);
       }
     }
 

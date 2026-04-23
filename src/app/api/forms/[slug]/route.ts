@@ -1,13 +1,10 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 const normalizeId = (value: any, fallback: string) => {
   if (typeof value === 'string' && value.trim()) return value;
@@ -121,8 +118,8 @@ export async function GET(
     const session = await getServerSession(authOptions);
     const userEmail = session?.user?.email || null;
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const form = await db.collection('Form').findOne({ slug });
 
@@ -188,6 +185,6 @@ export async function GET(
     console.error('Error fetching form:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 } 

@@ -1,10 +1,12 @@
+import { getDb } from '@/lib/mongodb';
 // API endpoint to backfill user info for existing applications
 // This runs within the app context where DB connections work
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { MongoClient, ObjectId } from "mongodb";
+import { ObjectId } from 'mongodb';
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,14 +22,11 @@ export async function POST(request: NextRequest) {
     const hasTlsInConnectionString = process.env.DATABASE_URL?.includes('tls=true') || 
                                      process.env.DATABASE_URL?.includes('ssl=true');
     
-    const mongoOptions: Record<string, unknown> = hasTlsInConnectionString
-      ? { tlsCAFile: "/app/global-bundle.pem" }
-      : { tlsAllowInvalidCertificates: true };
-
-    const client = new MongoClient(process.env.DATABASE_URL!, mongoOptions);
     
-    await client.connect();
-    const db = client.db();
+    
+    
+    
+    const db = await getDb();
     
     // Get all users with their emails
     const users = await db.collection("users").find({}).toArray();
@@ -128,7 +127,7 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    await client.close();
+    
     
     return NextResponse.json({
       success: true,
@@ -166,14 +165,11 @@ export async function GET(request: NextRequest) {
     const hasTlsInConnectionString = process.env.DATABASE_URL?.includes('tls=true') || 
                                      process.env.DATABASE_URL?.includes('ssl=true');
     
-    const mongoOptions: Record<string, unknown> = hasTlsInConnectionString
-      ? { tlsCAFile: "/app/global-bundle.pem" }
-      : { tlsAllowInvalidCertificates: true };
-
-    const client = new MongoClient(process.env.DATABASE_URL!, mongoOptions);
     
-    await client.connect();
-    const db = client.db();
+    
+    
+    
+    const db = await getDb();
     
     const users = await db.collection("users").find({}).toArray();
     const applications = await db.collection("applications").find({}).toArray();
@@ -203,7 +199,7 @@ export async function GET(request: NextRequest) {
         provider: a.provider
       }));
     
-    await client.close();
+    
     
     return NextResponse.json({
       stats: {

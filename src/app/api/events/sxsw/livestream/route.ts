@@ -1,6 +1,8 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
 import { SXSWLivestreamConfig } from '@/types/events';
+
 
 // Helper function to handle CORS
 function corsResponse(response: NextResponse) {
@@ -27,10 +29,9 @@ export async function GET() {
 
     client = new MongoClient(uri, {
       tls: true,
-      tlsCAFile: "/app/global-bundle.pem",
     });
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const sxswData = await db.collection('SXSWEvent').findOne({ id: 'sxsw-2026' });
 
@@ -48,7 +49,7 @@ export async function GET() {
     return corsResponse(NextResponse.json({ error: 'Failed to fetch livestream status' }, { status: 500 }));
   } finally {
     if (client) {
-      await client.close();
+      
     }
   }
 }
@@ -67,10 +68,9 @@ export async function PATCH(request: NextRequest) {
     
     client = new MongoClient(uri, {
       tls: true,
-      tlsCAFile: "/app/global-bundle.pem",
     });
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Build update object for livestream fields only
     const updateFields: Partial<SXSWLivestreamConfig> = {};
@@ -120,7 +120,7 @@ export async function PATCH(request: NextRequest) {
     return corsResponse(NextResponse.json({ error: 'Failed to update livestream status' }, { status: 500 }));
   } finally {
     if (client) {
-      await client.close();
+      
     }
   }
 }

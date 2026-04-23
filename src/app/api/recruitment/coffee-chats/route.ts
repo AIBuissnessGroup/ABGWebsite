@@ -1,19 +1,16 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 // Public GET with filtering support
 export async function GET(request: NextRequest) {
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const { searchParams } = new URL(request.url);
 
     // Build filter query
@@ -97,7 +94,7 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching coffee chat slots:', error);
     return NextResponse.json({ error: 'Failed to fetch slots' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -114,8 +111,8 @@ export async function POST(request: NextRequest) {
     if (!slotId) return NextResponse.json({ error: 'Missing slotId' }, { status: 400 });
     if (!phone || !phone.trim()) return NextResponse.json({ error: 'Phone number is required' }, { status: 400 });
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Check if user already has a signup for any coffee chat slot (single signup restriction)
     const existingSignups = await db.collection('CoffeeChat').find({
@@ -179,7 +176,7 @@ export async function POST(request: NextRequest) {
     console.error('Error signing up for coffee chat:', error);
     return NextResponse.json({ error: 'Failed to sign up' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -198,8 +195,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing slotId' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Check if slot exists
     let slot;
@@ -245,6 +242,6 @@ export async function DELETE(request: NextRequest) {
     console.error('Error removing signup from coffee chat:', error);
     return NextResponse.json({ error: 'Failed to remove signup' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

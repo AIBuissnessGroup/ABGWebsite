@@ -1,17 +1,14 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { notifyFormSubmission } from '@/lib/slack';
 import { sendFormReceiptEmail } from '@/lib/email';
+
 
 // Configure runtime for handling large requests
 export const maxDuration = 60; // seconds
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
 
 const normalizeId = (value: any, fallback: string) => {
   if (typeof value === 'string' && value.trim()) return value;
@@ -112,8 +109,8 @@ export async function POST(
     
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Find the form
     const form = await db.collection('Form').findOne({ slug });
@@ -411,6 +408,6 @@ export async function POST(
     console.error('Error submitting application:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 } 

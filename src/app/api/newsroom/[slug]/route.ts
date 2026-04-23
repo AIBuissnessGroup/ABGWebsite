@@ -1,12 +1,12 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+
 
 function createMongoClient() {
   return new MongoClient(uri, {
     tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
   });
 }
 
@@ -25,8 +25,8 @@ export async function GET(
   const client = createMongoClient();
   
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const collection = db.collection('NewsroomPost');
     
     const { slug } = await params;
@@ -40,13 +40,13 @@ export async function GET(
       return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
     
-    await client.close();
+    
     
     return NextResponse.json(safeJson(post));
     
   } catch (error) {
     console.error('Error fetching post:', error);
-    await client.close();
+    
     return NextResponse.json({ error: 'Failed to fetch post' }, { status: 500 });
   }
 }
@@ -59,8 +59,8 @@ export async function POST(
   const client = createMongoClient();
   
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const postsCollection = db.collection('NewsroomPost');
     const analyticsCollection = db.collection('NewsroomAnalytics');
     
@@ -112,13 +112,13 @@ export async function POST(
       }
     );
     
-    await client.close();
+    
     
     return NextResponse.json({ success: true });
     
   } catch (error) {
     console.error('Error tracking analytics:', error);
-    await client.close();
+    
     return NextResponse.json({ error: 'Failed to track analytics' }, { status: 500 });
   }
 }

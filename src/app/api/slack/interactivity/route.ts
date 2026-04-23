@@ -1,15 +1,12 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
 import { sendEmail } from '@/lib/email';
 import { sendSlackDM } from '@/lib/slack';
 
-const uri = process.env.MONGODB_URI!;
+
 
 // MongoDB connection options for AWS DocumentDB
-const mongoOptions = {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-};
 
 /**
  * Slack Interactivity Webhook Handler
@@ -83,11 +80,11 @@ export async function POST(req: NextRequest) {
       
       // Check if already processed (prevent duplicate clicks)
       const client = await MongoClient.connect(uri, mongoOptions);
-      const db = client.db('abg-website');
+      const db = await getDb('abg-website');
       const existingApproval = await db.collection('pendingApprovals').findOne({ approvalId });
       
       if (!existingApproval) {
-        await client.close();
+        
         return NextResponse.json({
           replace_original: true,
           text: '⚠️ Approval request not found.'
@@ -95,7 +92,7 @@ export async function POST(req: NextRequest) {
       }
       
       if (existingApproval.status !== 'pending') {
-        await client.close();
+        
         const alreadyProcessedMessage = existingApproval.status === 'approved' 
           ? '✅ This notification was already approved and sent.'
           : '❌ This notification was already denied.';
@@ -106,7 +103,7 @@ export async function POST(req: NextRequest) {
         });
       }
       
-      await client.close();
+      
       
       // Return immediate response with processing message
       const responseMessage = isApproval 
@@ -147,13 +144,13 @@ async function processApproval(approvalId: string, actionType: string, approverE
   console.log(`🔄 processApproval called: ${approvalId}, ${actionType}, ${approverEmail}`);
   try {
     const client = await MongoClient.connect(uri, mongoOptions);
-    const db = client.db('abg-website');
+    const db = await getDb('abg-website');
 
     // Find the approval request (double-check status)
     const approval = await db.collection('pendingApprovals').findOne({ approvalId, status: 'pending' });
     
     if (!approval) {
-      await client.close();
+      
       console.error('❌ Approval request not found or already processed');
       
       // Update the message to show it was already processed
@@ -192,7 +189,7 @@ async function processApproval(approvalId: string, actionType: string, approverE
     const userRoles = clickerUser?.roles?.map((r: string) => r.toLowerCase()) || [];
     if (!clickerUser || !clickerUser.roles || 
         (!userRoles.includes('admin') && !userRoles.includes('super-admin'))) {
-      await client.close();
+      
       console.error('❌ User not authorized');
       console.error('   User exists:', !!clickerUser);
       console.error('   Has roles:', !!clickerUser?.roles);
@@ -309,7 +306,7 @@ async function processApproval(approvalId: string, actionType: string, approverE
       }
     );
 
-    await client.close();
+    
     console.log('✅ Approval processing complete');
     
     // Update the Slack message with final confirmation (no buttons)

@@ -1,25 +1,14 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+
 
 // Create a singleton connection pool
 let client: MongoClient | null = null;
 let clientPromise: Promise<MongoClient> | null = null;
 
 // Connection pool configuration
-const mongoOptions = {
-  maxPoolSize: 50, // Maximum number of connections in the pool
-  minPoolSize: 5,  // Minimum number of connections in the pool
-  maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
-  serverSelectionTimeoutMS: 5000, // How long to try to connect before timing out
-  socketTimeoutMS: 45000, // How long a socket stays open before timing out
-  family: 4, // Use IPv4, skip trying IPv6
-  retryWrites: true,
-  w: 'majority',
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-};
 
 async function connectToDatabase(): Promise<MongoClient> {
   if (client && client.topology && client.topology.isConnected()) {
@@ -67,7 +56,7 @@ function checkRateLimit(ip: string): boolean {
 export async function GET(request: NextRequest) {
   try {
     const client = await connectToDatabase();
-    const db = client.db();
+    const db = await getDb();
     
     const subscriptions = await db.collection('NewsletterSubscriber')
       .find({ isActive: true })
@@ -117,7 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     const client = await connectToDatabase();
-    const db = client.db();
+    const db = await getDb();
 
     // Use a transaction for data consistency
     const session = client.startSession();
@@ -217,7 +206,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const client = await connectToDatabase();
-    const db = client.db();
+    const db = await getDb();
 
     // Simple unsubscribe - in production you'd want to verify the token
     const result = await db.collection('NewsletterSubscriber').updateOne(

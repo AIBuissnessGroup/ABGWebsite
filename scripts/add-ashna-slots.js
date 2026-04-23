@@ -11,8 +11,6 @@ const path = require('path');
 
 // TLS options for AWS DocumentDB
 const tlsOptions = {
-  tls: true,
-  tlsCAFile: path.join(__dirname, '..', 'global-bundle.pem'),
 };
 
 // Ashna's coffee chat data

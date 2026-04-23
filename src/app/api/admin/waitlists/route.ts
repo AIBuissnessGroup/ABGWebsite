@@ -1,10 +1,11 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { MongoClient } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+
+
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,12 +15,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Get all events that have waitlist enabled
     const events = await db.collection('Event').find({
@@ -89,7 +87,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    await client.close();
+    
 
     return NextResponse.json({
       totalWaitlisted,
@@ -120,12 +118,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Event ID and attendance ID required' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Get the event
     const event = await db.collection('Event').findOne({ 
@@ -134,7 +129,7 @@ export async function POST(request: NextRequest) {
     });
     
     if (!event) {
-      await client.close();
+      
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
@@ -146,7 +141,7 @@ export async function POST(request: NextRequest) {
       });
       
       if (confirmedCount >= event.capacity) {
-        await client.close();
+        
         return NextResponse.json({ error: 'Event is at capacity' }, { status: 400 });
       }
     }
@@ -159,7 +154,7 @@ export async function POST(request: NextRequest) {
     });
     
     if (!attendance) {
-      await client.close();
+      
       return NextResponse.json({ error: 'Person not found on waitlist' }, { status: 404 });
     }
 
@@ -192,7 +187,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await client.close();
+    
 
     return NextResponse.json({ success: true, message: 'Person promoted from waitlist' });
 

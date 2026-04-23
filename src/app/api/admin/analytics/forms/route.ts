@@ -1,12 +1,10 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient } from 'mongodb';
+
 import { isAdmin } from '@/lib/admin';
 
-const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 interface QuestionAnalytics {
   questionId: string;
@@ -50,8 +48,8 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Build date filter
     const dateFilter: any = {};
@@ -310,7 +308,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    await client.close();
+    
     return NextResponse.json(analytics);
 
   } catch (error) {

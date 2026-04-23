@@ -1,16 +1,13 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
-import { MongoClient } from 'mongodb';
 
-const uri = process.env.MONGODB_URI!;
+
+
 
 // MongoDB connection options for AWS DocumentDB
-const mongoOptions = {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-};
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,7 +22,7 @@ export async function GET(req: NextRequest) {
     }
 
     const client = await MongoClient.connect(uri, mongoOptions);
-    const db = client.db('abg-website');
+    const db = await getDb('abg-website');
     
     // Fetch pending approvals for this user
     const approvals = await db.collection('pendingApprovals')
@@ -39,7 +36,7 @@ export async function GET(req: NextRequest) {
       .sort({ createdAt: -1 })
       .toArray();
 
-    await client.close();
+    
 
     return NextResponse.json({ 
       success: true,
@@ -85,7 +82,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const client = await MongoClient.connect(uri, mongoOptions);
-    const db = client.db('abg-website');
+    const db = await getDb('abg-website');
     
     // Delete the pending approval
     const result = await db.collection('pendingApprovals').deleteOne({
@@ -94,7 +91,7 @@ export async function DELETE(req: NextRequest) {
       requesterEmail: session.user.email // Only allow requester to cancel their own approval
     });
 
-    await client.close();
+    
 
     if (result.deletedCount === 0) {
       return NextResponse.json({ 

@@ -1,10 +1,11 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { MongoClient } from 'mongodb';
 
-const uri = process.env.MONGODB_URI as string;
+
+
 
 export async function GET(
   request: NextRequest,
@@ -18,17 +19,14 @@ export async function GET(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Get event details
     const event = await db.collection('Event').findOne({ id: eventId });
 
-    await client.close();
+    
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });

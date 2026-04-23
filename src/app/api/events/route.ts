@@ -1,5 +1,7 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
+
 
 // Helper function to handle CORS
 function corsResponse(response: NextResponse) {
@@ -17,12 +19,9 @@ export async function OPTIONS() {
 export async function GET(request: NextRequest) {
   try {
     const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     const { searchParams } = new URL(request.url);
     const eventTypeFilter = searchParams.get('eventType');
@@ -134,7 +133,7 @@ export async function GET(request: NextRequest) {
     const events = await db.collection('Event').aggregate(pipeline).toArray();
     console.log('Events after aggregation:', events.length);
 
-    await client.close();
+    
     return corsResponse(NextResponse.json(events));
   } catch (error) {
     console.error('Error fetching events:', error);

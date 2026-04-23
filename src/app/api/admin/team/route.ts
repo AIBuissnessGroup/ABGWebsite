@@ -1,8 +1,10 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
+
 
 // Safely serialize BigInt values
 function safeJson(obj: any) {
@@ -11,11 +13,6 @@ function safeJson(obj: any) {
   ));
 }
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -24,8 +21,8 @@ export async function GET() {
   }
 
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     const teamMembers = await db.collection('TeamMember')
       .find({ active: true })
@@ -44,7 +41,7 @@ export async function GET() {
     console.error('Error fetching team members:', error);
     return NextResponse.json({ error: 'Failed to fetch team members' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -66,8 +63,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Get the highest sortOrder to add new member at the end
     const maxSortOrderDoc = await db.collection('TeamMember')
@@ -115,7 +112,7 @@ export async function POST(request: NextRequest) {
       details: error.message 
     }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -158,8 +155,8 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const updateData: any = {
       name: data.name.trim(),
@@ -212,7 +209,7 @@ export async function PUT(request: NextRequest) {
       details: error.message 
     }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -237,8 +234,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Team member ID required' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     const result = await db.collection('TeamMember').deleteOne({ _id: new ObjectId(id) });
     
@@ -259,6 +256,6 @@ export async function DELETE(request: NextRequest) {
       details: error.message 
     }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 } 

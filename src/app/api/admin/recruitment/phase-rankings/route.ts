@@ -1,3 +1,4 @@
+import { getDb } from '@/lib/mongodb';
 /**
  * Phase Rankings API
  * GET - Get rankings for a specific phase
@@ -18,27 +19,18 @@ import {
 } from '@/lib/recruitment/db';
 import type { ReviewPhase, ApplicationTrack } from '@/types/recruitment';
 
+
 // MongoDB connection options
 const connectionString = process.env.DATABASE_URL || '';
-const hasTlsInConnectionString = /[?&](tls|ssl)=/.test(connectionString);
-const isProduction = process.env.NODE_ENV === 'production';
 
-const mongoOptions: MongoClientOptions = hasTlsInConnectionString
-  ? (isProduction 
-      ? { tlsCAFile: '/app/global-bundle.pem' }
-      : { tlsAllowInvalidCertificates: true })
-  : {
-      tls: isProduction,
-      tlsCAFile: isProduction ? '/app/global-bundle.pem' : undefined,
-    };
 
 // Helper to get all admin emails from the database
 async function getAllAdminEmails(): Promise<string[]> {
-  const client = new MongoClient(process.env.DATABASE_URL!, mongoOptions);
+  
   
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     // Get all users with ADMIN role
     const adminUsers = await db.collection('users').find({
@@ -47,7 +39,7 @@ async function getAllAdminEmails(): Promise<string[]> {
     
     return adminUsers.map(u => u.email).filter(Boolean);
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -89,10 +81,10 @@ export async function GET(request: NextRequest) {
 
     // If mode is 'counts', return applicant counts for all phases (based on application stage)
     if (mode === 'counts') {
-      const client = new MongoClient(process.env.DATABASE_URL!, mongoOptions);
+      
       try {
-        await client.connect();
-        const applicationsCollection = client.db().collection('recruitment_applications');
+        
+        const applicationsCollection = await getDb().collection('recruitment_applications');
         
         // Build match filter including optional track filter
         const matchFilter: Record<string, unknown> = { cycleId };
@@ -120,7 +112,7 @@ export async function GET(request: NextRequest) {
         
         return corsResponse(NextResponse.json({ phaseCounts }));
       } finally {
-        await client.close();
+        
       }
     }
 

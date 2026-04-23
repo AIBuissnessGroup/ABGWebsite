@@ -1,10 +1,11 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { MongoClient } from 'mongodb';
 
-const uri = process.env.DATABASE_URL || process.env.MONGODB_URI!;
+
+
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,12 +15,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Get all events with their details
     const events = await db.collection('Event').find({}).toArray();
@@ -86,7 +84,7 @@ export async function GET(request: NextRequest) {
     // Recent registrations (last 10)
     const recentRegistrations = registrations.slice(0, 10);
 
-    await client.close();
+    
 
     return NextResponse.json({
       summary: {

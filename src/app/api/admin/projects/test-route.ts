@@ -1,12 +1,9 @@
+import { getDb } from '@/lib/mongodb';
 // Temporarily bypass authentication for testing
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 // Mock admin user for testing
 const mockAdminUser = {
@@ -16,8 +13,8 @@ const mockAdminUser = {
 
 export async function GET() {
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     // Get projects with published: true
     const projects = await db.collection('Project').find({ published: true }).toArray();
@@ -49,7 +46,7 @@ export async function GET() {
     console.error('Error fetching projects:', error);
     return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -58,8 +55,8 @@ export async function POST(request: NextRequest) {
     // Skip authentication for testing
     console.log('POST: Testing project creation');
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const data = await request.json();
     
@@ -107,7 +104,7 @@ export async function POST(request: NextRequest) {
     console.error('Error creating project:', error);
     return NextResponse.json({ error: 'Failed to create project' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -118,8 +115,8 @@ export async function PUT(request: NextRequest) {
 
     const data = await request.json();
     
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     const updateData = {
       title: data.title,
@@ -159,7 +156,7 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating project:', error);
     return NextResponse.json({ error: 'Failed to update project' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -176,8 +173,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Project ID or _id required' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Use _id if provided, otherwise use id field
     const query = _id ? { _id: new ObjectId(_id) } : { id: id };
@@ -193,6 +190,6 @@ export async function DELETE(request: NextRequest) {
     console.error('Error deleting project:', error);
     return NextResponse.json({ error: 'Failed to delete project' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

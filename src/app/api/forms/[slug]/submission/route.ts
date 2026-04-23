@@ -1,13 +1,10 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 function normalizeQuestionMap(form: any) {
   const map = new Map<string, any>();
@@ -80,10 +77,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+  
   try {
     const session = await getServerSession(authOptions);
 
@@ -96,8 +90,8 @@ export async function GET(
     const submissionId = searchParams.get('submissionId');
     const getAllSubmissions = searchParams.get('all') === 'true';
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const formsCollection = db.collection('Form');
     const applicationsCollection = db.collection('Application');
 
@@ -236,6 +230,6 @@ export async function GET(
     console.error('Error fetching submission summary:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

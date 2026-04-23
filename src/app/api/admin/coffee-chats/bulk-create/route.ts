@@ -1,13 +1,10 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
 import { requireAdminSession } from '@/lib/server-admin';
 import { easternInputToUtc, formatUtcDateInEastern } from '@/lib/timezone';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 export async function POST(request: NextRequest) {
   const session = await requireAdminSession();
@@ -47,8 +44,8 @@ export async function POST(request: NextRequest) {
       execMemberId,
     });
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     // Check for existing slots to avoid duplicates
     const existingSlots = await db
@@ -113,7 +110,7 @@ export async function POST(request: NextRequest) {
     console.error('Error bulk creating coffee chat slots:', error);
     return NextResponse.json({ error: 'Failed to bulk create slots' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 

@@ -1,18 +1,17 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+
 // Get takeover state - public endpoint for all devices to poll
 export async function GET() {
-  const client = new MongoClient(process.env.DATABASE_URL!, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
+  
 
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     const state = await db.collection('settings').findOne({ key: 'winter-takeover' });
     
@@ -25,7 +24,7 @@ export async function GET() {
     console.error('Error fetching takeover state:', error);
     return NextResponse.json({ triggered: false, triggeredAt: null, countdownDate: null });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -37,14 +36,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const client = new MongoClient(process.env.DATABASE_URL!, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
+  
 
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     const { action, countdownDate } = await request.json();
     
@@ -101,6 +97,6 @@ export async function POST(request: NextRequest) {
     console.error('Error updating takeover state:', error);
     return NextResponse.json({ error: 'Failed to update state' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

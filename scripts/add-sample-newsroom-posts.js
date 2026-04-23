@@ -4,9 +4,7 @@ const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8y
 
 async function addSamplePosts() {
   const client = new MongoClient(uri, {
-    tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
-  });
+    });
   
   try {
     await client.connect();

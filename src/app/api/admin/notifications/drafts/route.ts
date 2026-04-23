@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
-import { MongoClient } from 'mongodb';
+
 
 // Configure route to handle large payloads
 export const maxDuration = 60;
@@ -22,15 +22,10 @@ export async function OPTIONS(request: NextRequest) {
   });
 }
 
-const uri = process.env.MONGODB_URI || '';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
 
 async function getDb() {
-  await client.connect();
-  return client.db('abg-website');
+  
+  return await getDb('abg-website');
 }
 
 // GET - Retrieve all drafts

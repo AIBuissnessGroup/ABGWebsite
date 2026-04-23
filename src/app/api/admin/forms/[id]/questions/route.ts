@@ -1,13 +1,10 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
 import crypto from 'crypto';
 import { requireAdminSession } from '@/lib/server-admin';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 export async function GET(
   request: NextRequest,
@@ -20,8 +17,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     const collection = db.collection('FormQuestion');
 
     const questions = await collection.find({ formId: id }).sort({ order: 1 }).toArray();
@@ -31,7 +28,7 @@ export async function GET(
     console.error('Error fetching form questions:', error);
     return NextResponse.json({ error: 'Failed to fetch questions' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -48,8 +45,8 @@ export async function POST(
 
     const data = await request.json();
 
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     const collection = db.collection('FormQuestion');
 
     // Get the highest order number for this form
@@ -87,7 +84,7 @@ export async function POST(
     console.error('Error creating form question:', error);
     return NextResponse.json({ error: 'Failed to create question' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -104,8 +101,8 @@ export async function PUT(
 
     const data = await request.json();
 
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     const collection = db.collection('FormQuestion');
 
     const updateData = {
@@ -139,7 +136,7 @@ export async function PUT(
     console.error('Error updating form question:', error);
     return NextResponse.json({ error: 'Failed to update question' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -161,8 +158,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Question ID required' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     const collection = db.collection('FormQuestion');
 
     const result = await collection.deleteOne({ id: questionId, formId });
@@ -176,6 +173,6 @@ export async function DELETE(
     console.error('Error deleting form question:', error);
     return NextResponse.json({ error: 'Failed to delete question' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

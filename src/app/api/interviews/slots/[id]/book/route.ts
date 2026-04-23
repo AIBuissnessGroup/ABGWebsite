@@ -1,13 +1,10 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 // POST /api/interviews/slots/[id]/book - Book a specific slot
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -23,8 +20,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Missing slot ID' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Check if user's email is in the whitelist
     const whitelistEntry = await db.collection('InterviewWhitelist').findOne({ 
@@ -111,6 +108,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     console.error('Error booking interview slot:', error);
     return NextResponse.json({ error: 'Failed to book slot' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

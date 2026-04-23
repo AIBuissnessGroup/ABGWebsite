@@ -1,28 +1,8 @@
 import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import { MongoClient, MongoClientOptions } from 'mongodb';
+import { MongoClient } from 'mongodb';
 import { isAdminEmail } from './admin';
-
-const isProduction = process.env.NODE_ENV === 'production';
-
-// Check if connection string already has TLS/SSL settings
-const connectionString = process.env.DATABASE_URL || '';
-const hasTlsInConnectionString = /[?&](tls|ssl)=/.test(connectionString);
-
-// MongoDB connection options
-// - In production: use the CA certificate file for proper TLS verification
-// - In development with SSL in connection string: allow self-signed certs to avoid cert issues
-// - Otherwise: only enable TLS in production
-const mongoOptions: MongoClientOptions = hasTlsInConnectionString
-  ? (isProduction 
-      ? { tlsCAFile: '/app/global-bundle.pem' }
-      : { tlsAllowInvalidCertificates: true })
-  : {
-      tls: isProduction,
-      tlsCAFile: isProduction ? '/app/global-bundle.pem' : undefined,
-    };
-
-const client = new MongoClient(process.env.DATABASE_URL!, mongoOptions);
+import { getDb, getClient } from './mongodb';
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -50,7 +30,6 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       // Only allow UofM email addresses
       if (user.email && user.email.endsWith('@umich.edu')) {
-        let mongoClient;
         try {
           console.log('GOOGLE SIGN-IN ATTEMPT:', {
             email: user.email,
@@ -59,9 +38,7 @@ export const authOptions: NextAuthOptions = {
             timestamp: new Date().toISOString()
           });
 
-          mongoClient = new MongoClient(process.env.DATABASE_URL!, mongoOptions);
-          await mongoClient.connect();
-          const db = mongoClient.db();
+          const db = await getDb();
           const usersCollection = db.collection('users');
           
           // Check if user exists
@@ -255,9 +232,7 @@ export const authOptions: NextAuthOptions = {
           });
           return false;
         } finally {
-          if (mongoClient) {
-            await mongoClient.close();
-          }
+          // Connection cleanup handled by centralized mongodb.ts
         }
       } else {
         console.log('GOOGLE SIGN-IN REJECTED - Invalid email domain:', {
@@ -286,11 +261,8 @@ export const authOptions: NextAuthOptions = {
       
       // Always fetch the latest roles from database (both for new logins and existing tokens)
       if (token.email) {
-        let mongoClient;
         try {
-          mongoClient = new MongoClient(process.env.DATABASE_URL!, mongoOptions);
-          await mongoClient.connect();
-          const db = mongoClient.db();
+          const db = await getDb();
           const usersCollection = db.collection('users');
           const dbUser = await usersCollection.findOne({ email: token.email });
           
@@ -316,9 +288,7 @@ export const authOptions: NextAuthOptions = {
             token.roles = token.roles || ['USER'];
           }
         } finally {
-          if (mongoClient) {
-            await mongoClient.close();
-          }
+          // Connection cleanup handled by centralized mongodb.ts
         }
       }
       

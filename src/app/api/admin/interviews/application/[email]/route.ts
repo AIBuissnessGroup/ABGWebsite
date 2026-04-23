@@ -1,12 +1,9 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { requireAdminSession } from '@/lib/server-admin';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 export async function GET(
   request: NextRequest,
@@ -18,8 +15,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     const { email } = await params;
     const decodedEmail = decodeURIComponent(email);
     
@@ -116,6 +113,6 @@ export async function GET(
       { status: 500 }
     );
   } finally {
-    await client.close();
+    
   }
 }

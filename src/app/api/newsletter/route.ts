@@ -1,17 +1,14 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 // GET - Get all newsletter subscriptions (admin only)
 export async function GET(request: NextRequest) {
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     const subscriptions = await db.collection('NewsletterSubscriber')
       .find({ isActive: true })
@@ -23,7 +20,7 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching newsletter subscriptions:', error);
     return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -36,8 +33,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Check if email already exists
     const existingSubscription = await db.collection('NewsletterSubscriber').findOne({ email });
@@ -82,7 +79,7 @@ export async function POST(request: NextRequest) {
     console.error('Error subscribing to newsletter:', error);
     return NextResponse.json({ error: 'Failed to subscribe' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -95,8 +92,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const updateData = {
       isActive: false,
@@ -116,6 +113,6 @@ export async function DELETE(request: NextRequest) {
     console.error('Error unsubscribing from newsletter:', error);
     return NextResponse.json({ error: 'Failed to unsubscribe' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 } 

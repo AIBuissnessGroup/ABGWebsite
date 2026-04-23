@@ -1,15 +1,13 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient } from 'mongodb';
+
 import { isAdmin } from '@/lib/admin';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+
 
 export async function GET(request: NextRequest) {
-  const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+  
   try {
     const session = await getServerSession();
     
@@ -27,8 +25,8 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const includeArchived = searchParams.get('includeArchived') === 'true';
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const applicationsCollection = db.collection('Application');
     const formsCollection = db.collection('Form');
 
@@ -136,15 +134,12 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching applications:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
 export async function PUT(request: NextRequest) {
-  const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+  
   try {
     const session = await getServerSession();
     
@@ -157,8 +152,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const usersCollection = db.collection('User');
     const applicationsCollection = db.collection('Application');
 
@@ -199,6 +194,6 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating application:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 } 

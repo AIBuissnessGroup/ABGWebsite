@@ -1,16 +1,16 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
 import { logAuditEvent, getRequestMetadata } from '@/lib/audit';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || '';
+
 
 function createMongoClient() {
   return new MongoClient(uri, {
     tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
   });
 }
 
@@ -30,14 +30,14 @@ export async function PATCH(request: NextRequest) {
     }
 
     const client = createMongoClient();
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const usersCollection = db.collection('users');
 
     // Get the target user
     const targetUser = await usersCollection.findOne({ _id: new ObjectId(userId) });
     if (!targetUser) {
-      await client.close();
+      
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -67,7 +67,7 @@ export async function PATCH(request: NextRequest) {
       { $set: updateData }
     );
 
-    await client.close();
+    
 
     // Log this change
     const { ip, userAgent } = getRequestMetadata(request);

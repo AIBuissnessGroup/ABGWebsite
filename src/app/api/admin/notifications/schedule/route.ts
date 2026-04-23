@@ -1,18 +1,15 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
-import { MongoClient } from 'mongodb';
+
+
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const uri = process.env.MONGODB_URI!;
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,8 +38,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Scheduled time must be in the future' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const scheduledEmail = {
       recipients,

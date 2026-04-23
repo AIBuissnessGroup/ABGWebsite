@@ -1,17 +1,17 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { isAdmin, validateRoles, USER_ROLES } from '@/lib/roles';
 import { logAuditEvent, getRequestMetadata } from '@/lib/audit';
 import type { UserRole } from '@/types/next-auth';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || '';
+
 
 function createMongoClient() {
   return new MongoClient(uri, {
     tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
   });
 }
 
@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
     }
 
     const client = createMongoClient();
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const usersCollection = db.collection('users');
 
     // Get all target users
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const targetUsers = await usersCollection.find({ _id: { $in: objectIds } }).toArray();
 
     if (targetUsers.length === 0) {
-      await client.close();
+      
       return NextResponse.json({ error: 'No users found' }, { status: 404 });
     }
 
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await client.close();
+    
 
     // Log this bulk action
     const { ip, userAgent } = getRequestMetadata(request);

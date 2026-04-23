@@ -1,13 +1,11 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient } from 'mongodb';
+
 import { isAdmin } from '@/lib/admin';
 import * as XLSX from 'xlsx';
 
-const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,8 +24,8 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Build date filter
     const dateFilter: any = {};
@@ -232,7 +230,7 @@ export async function GET(request: NextRequest) {
     const timelineSheet = XLSX.utils.json_to_sheet(timelineData);
     XLSX.utils.book_append_sheet(workbook, timelineSheet, 'Response Timeline');
 
-    await client.close();
+    
 
     // Generate Excel buffer
     const excelBuffer = XLSX.write(workbook, { 

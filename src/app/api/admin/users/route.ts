@@ -1,17 +1,17 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { isAdmin, validateRoles, wouldRemoveLastAdmin, USER_ROLES } from '@/lib/roles';
 import { logAuditEvent, getRequestMetadata } from '@/lib/audit';
 import type { UserRole } from '@/types/next-auth';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || '';
+
 
 function createMongoClient() {
   return new MongoClient(uri, {
     tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
   });
 }
 
@@ -39,8 +39,8 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     const client = createMongoClient();
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const usersCollection = db.collection('users');
 
     // Build search filter
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    await client.close();
+    
 
     // Format user data for response
     const formattedUsers = users.map(user => ({
@@ -141,20 +141,20 @@ export async function PATCH(request: NextRequest) {
     }
 
     const client = createMongoClient();
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const usersCollection = db.collection('users');
 
     // Get the target user
     const targetUser = await usersCollection.findOne({ _id: new ObjectId(userId) });
     if (!targetUser) {
-      await client.close();
+      
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Safety check: prevent removing the last admin
     if (await wouldRemoveLastAdmin(targetUser.email, validatedRoles, db)) {
-      await client.close();
+      
       return NextResponse.json({ 
         error: 'Cannot remove admin role from the last remaining administrator' 
       }, { status: 400 });
@@ -171,7 +171,7 @@ export async function PATCH(request: NextRequest) {
       }
     );
 
-    await client.close();
+    
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });

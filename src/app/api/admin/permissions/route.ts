@@ -1,14 +1,11 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { MongoClient } from 'mongodb';
+
 import { hasRole } from '@/lib/roles';
 
-const uri = process.env.MONGODB_URI!;
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 export async function GET() {
   try {
@@ -23,8 +20,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Load permissions from database
     const config = await db.collection('Config').findOne({ key: 'rolePermissions' });
@@ -36,7 +33,7 @@ export async function GET() {
     console.error('Error fetching permissions:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -55,8 +52,8 @@ export async function PUT(request: NextRequest) {
 
     const { permissions } = await request.json();
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Save permissions to database
     await db.collection('Config').updateOne(
@@ -76,6 +73,6 @@ export async function PUT(request: NextRequest) {
     console.error('Error saving permissions:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

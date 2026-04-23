@@ -1,14 +1,11 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { isAdmin } from '@/lib/admin';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 const authOptions = {
   providers: [
@@ -57,8 +54,8 @@ function safeJson(obj: any) {
 
 export async function GET() {
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     // Fetch the latest join content from the database
     const joinContent = await db.collection('joinContent').findOne(
@@ -83,7 +80,7 @@ export async function GET() {
     console.error('Error fetching join content:', error);
     return NextResponse.json({ error: 'Failed to fetch join content' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -102,8 +99,8 @@ export async function PUT(request: NextRequest) {
 
     const data = await request.json();
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Update or create join content
     const updatedContent = {
@@ -134,6 +131,6 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating join content:', error);
     return NextResponse.json({ error: 'Failed to update join content', details: error.message }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 } 

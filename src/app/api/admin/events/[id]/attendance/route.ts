@@ -1,16 +1,16 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient } from 'mongodb';
+
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+
 
 // Create a new client for each request to avoid connection issues
 function createMongoClient() {
   return new MongoClient(uri, {
     tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
   });
 }
 
@@ -35,8 +35,8 @@ export async function GET(
     const format = searchParams.get('format');
     const countOnly = searchParams.get('countOnly') === '1';
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     console.log('🔍 Attendance API - Event ID:', id);
 
@@ -164,6 +164,6 @@ export async function GET(
     console.error('Error fetching attendance:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

@@ -1,10 +1,11 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-const uri = process.env.DATABASE_URL || process.env.MONGODB_URI!;
+
 
 export async function DELETE(
   request: NextRequest,
@@ -24,12 +25,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Attendance ID required' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Get the attendance record to remove
     const attendanceRecord = await db.collection('EventAttendance').findOne({
@@ -38,7 +36,7 @@ export async function DELETE(
     });
 
     if (!attendanceRecord) {
-      await client.close();
+      
       return NextResponse.json({ error: 'Attendance record not found' }, { status: 404 });
     }
 
@@ -118,7 +116,7 @@ export async function DELETE(
       }
     }
 
-    await client.close();
+    
 
     return NextResponse.json({ 
       success: true,
@@ -149,12 +147,9 @@ export async function POST(
       return NextResponse.json({ error: 'Action and attendance ID required' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     if (action === 'promote') {
       // Get the waitlisted person to promote
@@ -165,14 +160,14 @@ export async function POST(
       });
 
       if (!waitlistedPerson) {
-        await client.close();
+        
         return NextResponse.json({ error: 'Waitlisted person not found' }, { status: 404 });
       }
 
       // Check if there's space (get event capacity and current confirmed count)
       const event = await db.collection('Event').findOne({ id: eventId });
       if (!event) {
-        await client.close();
+        
         return NextResponse.json({ error: 'Event not found' }, { status: 404 });
       }
 
@@ -182,7 +177,7 @@ export async function POST(
       });
 
       if (event.capacity && confirmedCount >= event.capacity) {
-        await client.close();
+        
         return NextResponse.json({ error: 'Event is at capacity' }, { status: 400 });
       }
 
@@ -212,7 +207,7 @@ export async function POST(
         }
       );
 
-      await client.close();
+      
 
       return NextResponse.json({ 
         success: true,
@@ -220,7 +215,7 @@ export async function POST(
       });
 
     } else {
-      await client.close();
+      
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 

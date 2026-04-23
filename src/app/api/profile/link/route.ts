@@ -1,23 +1,13 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 
-const uri = process.env.DATABASE_URL!;
-const isProduction = process.env.NODE_ENV === 'production';
-const hasTlsInConnectionString = /[?&](tls|ssl)=/.test(uri);
 
-const mongoOptions: any = hasTlsInConnectionString
-  ? (isProduction 
-      ? { tlsCAFile: '/app/global-bundle.pem' }
-      : { tlsAllowInvalidCertificates: true })
-  : {
-      tls: isProduction,
-      tlsCAFile: isProduction ? '/app/global-bundle.pem' : undefined,
-    };
 
-const client = new MongoClient(uri, mongoOptions);
+
 
 /**
  * POST /api/profile/link - Link user account to team member
@@ -38,8 +28,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     // Verify team member exists
     const teamMember = await db.collection('TeamMember').findOne({ 
@@ -73,7 +63,7 @@ export async function POST(request: NextRequest) {
     console.error('Error linking profile:', error);
     return NextResponse.json({ error: 'Failed to link profile' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -97,8 +87,8 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     // Unlink user from team member
     const result = await db.collection('users').updateOne(
@@ -121,6 +111,6 @@ export async function DELETE(request: NextRequest) {
     console.error('Error unlinking profile:', error);
     return NextResponse.json({ error: 'Failed to unlink profile' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

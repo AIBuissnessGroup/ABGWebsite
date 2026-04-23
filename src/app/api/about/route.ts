@@ -1,11 +1,8 @@
+import { getDb } from '@/lib/mongodb';
 import { NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
+
 
 // Safely serialize BigInt values
 function safeJson(obj: any) {
@@ -16,8 +13,8 @@ function safeJson(obj: any) {
 
 export async function GET() {
   try {
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     
     // Fetch the latest about content from the database
     const aboutContent = await db.collection('AboutContent').findOne(
@@ -51,6 +48,6 @@ export async function GET() {
     };
     return NextResponse.json(safeJson(defaultContent));
   } finally {
-    await client.close();
+    
   }
 }

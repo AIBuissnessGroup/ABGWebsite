@@ -1,18 +1,18 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient } from 'mongodb';
+
 import { authOptions } from '@/lib/auth';
 import { canRegisterForEvent } from '@/lib/roles';
 import { logAuditEvent, getRequestMetadata } from '@/lib/audit';
 import type { UserRole } from '@/types/next-auth';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+
 
 // Create a new client for each request to avoid connection issues
 function createMongoClient() {
   return new MongoClient(uri, {
     tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
   });
 }
 
@@ -36,8 +36,8 @@ export async function GET(
     const format = searchParams.get('format');
     const countOnly = searchParams.get('countOnly') === '1';
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     console.log('🔍 Attendance API - Event Slug:', slug);
 
@@ -133,7 +133,7 @@ export async function GET(
     console.error('Error fetching attendance:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -165,8 +165,8 @@ export async function POST(
     console.log('🔍 Event registration - Event Slug:', eventSlug, 'Email:', attendeeData.umichEmail);
 
     const client = createMongoClient();
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Find event by slug - use the same logic as the event page
     let event = await db.collection('Event').findOne({ 
@@ -214,7 +214,7 @@ export async function POST(
           slug: e.slug,
           title: e.title
         })));
-        await client.close();
+        
         return NextResponse.json({ error: 'Event not found' }, { status: 404 });
       }
     }
@@ -252,7 +252,7 @@ export async function POST(
           }
         );
         
-        await client.close();
+        
         return NextResponse.json({ 
           error: 'You do not have the required permissions to register for this event. Please contact an administrator if you believe this is an error.',
           requiredRoles: event.registration.requiredRolesAny
@@ -272,7 +272,7 @@ export async function POST(
     });
 
     if (existingRegistration) {
-      await client.close();
+      
       return NextResponse.json({ 
         error: 'You are already registered for this event',
         status: existingRegistration.status
@@ -287,7 +287,7 @@ export async function POST(
         if (field.required) {
           const response = customFieldResponses[field.id];
           if (!response || (typeof response === 'string' && !response.trim())) {
-            await client.close();
+            
             return NextResponse.json({ 
               error: `${field.label} is required` 
             }, { status: 400 });
@@ -334,7 +334,7 @@ export async function POST(
     };
 
     await db.collection('EventAttendance').insertOne(registration);
-    await client.close();
+    
 
     return NextResponse.json({ 
       success: true,
@@ -378,8 +378,8 @@ export async function DELETE(
     console.log('🔍 Cancel attendance - Event Slug:', eventSlug, 'Email:', email);
 
     const client = createMongoClient();
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Get event details - use consistent logic with event page
     console.log('🔍 Looking for event with slug:', eventSlug);
@@ -440,7 +440,7 @@ export async function DELETE(
         title: e.title
       })));
       
-      await client.close();
+      
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
@@ -475,7 +475,7 @@ export async function DELETE(
         status: r.status
       })));
       
-      await client.close();
+      
       return NextResponse.json({ error: 'Registration not found for this email' }, { status: 404 });
     }
 
@@ -546,7 +546,7 @@ export async function DELETE(
       }
     }
 
-    await client.close();
+    
 
     return NextResponse.json({ 
       success: true,

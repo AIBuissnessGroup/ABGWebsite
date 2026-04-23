@@ -1,25 +1,12 @@
 import cron from 'node-cron';
-import { MongoClient } from 'mongodb';
+import { getDb } from './mongodb';
 import { sendEmail } from './email';
 
-const uri = process.env.MONGODB_URI!;
-let client: MongoClient;
 let isInitialized = false;
-
-async function getDb() {
-  if (!client) {
-    client = new MongoClient(uri, {
-      tls: true,
-      tlsCAFile: "/app/global-bundle.pem",
-    });
-    await client.connect();
-  }
-  return client.db('abg-website');
-}
 
 async function processScheduledEmails() {
   try {
-    const db = await getDb();
+    const db = await getDb('abg-website');
     const now = new Date();
 
     console.log('🔍 Checking for scheduled emails...');
@@ -107,9 +94,7 @@ export function startScheduledEmailsCron() {
   console.log('✅ Scheduled emails cron started (runs every minute)');
 }
 
-// Graceful shutdown
+// Graceful shutdown — no-op since we use the centralized pooled connection
 export async function stopScheduledEmailsCron() {
-  if (client) {
-    await client.close();
-  }
+  // Connection cleanup is handled by the centralized mongodb.ts client
 }

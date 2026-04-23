@@ -1,13 +1,10 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 type InterviewSignup = {
   id: string;
@@ -42,8 +39,8 @@ export async function GET(request: NextRequest) {
     // Remove date filtering - return all slots
     // const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Get all interview slots regardless of date
     const interviewSlots = await db.collection('InterviewSlot').find({}).toArray();
@@ -74,7 +71,7 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching interview slots:', error);
     return NextResponse.json({ error: 'Failed to fetch slots' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 

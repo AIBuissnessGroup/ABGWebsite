@@ -1,12 +1,9 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { requireAdminSession } from '@/lib/server-admin';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 // GET /api/admin/interviews/whitelist - Get approved emails
 export async function GET(request: NextRequest) {
@@ -16,8 +13,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const whitelistEntries = await db.collection('InterviewWhitelist').find({}).sort({ createdAt: -1 }).toArray();
 
@@ -33,7 +30,7 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching interview whitelist:', error);
     return NextResponse.json({ error: 'Failed to fetch whitelist' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -59,8 +56,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only @umich.edu emails are allowed' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Check if email already exists
     const existingEntry = await db.collection('InterviewWhitelist').findOne({ email: cleanEmail });
@@ -93,7 +90,7 @@ export async function POST(request: NextRequest) {
     console.error('Error adding to interview whitelist:', error);
     return NextResponse.json({ error: 'Failed to add email to whitelist' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -113,8 +110,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Email or entry ID is required' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     let result;
     if (entryId) {
@@ -142,6 +139,6 @@ export async function DELETE(request: NextRequest) {
     console.error('Error removing from interview whitelist:', error);
     return NextResponse.json({ error: 'Failed to remove email from whitelist' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

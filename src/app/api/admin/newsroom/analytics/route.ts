@@ -1,16 +1,16 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { MongoClient } from 'mongodb';
+
 import { NewsroomStats } from '@/types/newsroom';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+
 
 function createMongoClient() {
   return new MongoClient(uri, {
     tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
   });
 }
 
@@ -32,8 +32,8 @@ export async function GET(request: NextRequest) {
   const client = createMongoClient();
   
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const postsCollection = db.collection('NewsroomPost');
     const analyticsCollection = db.collection('NewsroomAnalytics');
     
@@ -146,13 +146,13 @@ export async function GET(request: NextRequest) {
       }))
     };
     
-    await client.close();
+    
     
     return NextResponse.json(safeJson(stats));
     
   } catch (error) {
     console.error('Error fetching analytics:', error);
-    await client.close();
+    
     return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
   }
 }

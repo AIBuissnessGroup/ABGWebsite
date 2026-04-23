@@ -1,8 +1,9 @@
+import { getDb } from '@/lib/mongodb';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { MongoClient } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://localhost:27017/abg-website';
+
+
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -43,15 +44,12 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    const client = new MongoClient(uri, {
-      tls: true,
-      tlsCAFile: "/app/global-bundle.pem",
-    });
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
     
     const maintenanceSetting = await db.collection('SiteSettings').findOne({ key: 'maintenance_mode' });
-    await client.close();
+    
     
     console.log('Middleware - maintenance check:', { 
       pathname, 

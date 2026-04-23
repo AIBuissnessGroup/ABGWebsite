@@ -1,12 +1,9 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
 import { requireAdminSession } from '@/lib/server-admin';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 export async function GET(request: NextRequest) {
   const session = await requireAdminSession();
@@ -24,8 +21,8 @@ export async function GET(request: NextRequest) {
   const location = searchParams.get('location');
 
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Build filter query
     const filter: any = {};
@@ -120,6 +117,6 @@ export async function GET(request: NextRequest) {
     console.error('Error exporting coffee chat data:', error);
     return NextResponse.json({ error: 'Failed to export data' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

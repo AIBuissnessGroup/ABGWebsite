@@ -1,12 +1,9 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
 import { requireAdminSession } from '@/lib/server-admin';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 export async function PUT(request: NextRequest) {
   try {
@@ -17,8 +14,8 @@ export async function PUT(request: NextRequest) {
 
     const { items } = await request.json();
     
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     const collection = db.collection('TeamMember');
     
     // Update sort order for all team members
@@ -36,6 +33,6 @@ export async function PUT(request: NextRequest) {
     console.error('Error reordering team members:', error);
     return NextResponse.json({ error: 'Failed to reorder team members' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 } 

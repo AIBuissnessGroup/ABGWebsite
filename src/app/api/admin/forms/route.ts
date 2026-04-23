@@ -1,15 +1,12 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import crypto from 'crypto';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 // Safely serialize BigInt values
 function safeJson(obj: any) {
@@ -268,8 +265,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const forms = await db.collection('Form').find({}).sort({ createdAt: -1 }).toArray();
     
@@ -283,7 +280,7 @@ export async function GET() {
     console.error('Error fetching forms:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -300,8 +297,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const user = await db.collection('User').findOne({ email: session.user.email });
 
@@ -370,7 +367,7 @@ export async function POST(request: NextRequest) {
     console.error('Error creating form:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -407,8 +404,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Form ID is required' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Get current form to check if title changed
     const currentForm = await db.collection('Form').findOne(
@@ -500,7 +497,7 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating form:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -524,8 +521,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Form ID is required' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     await db.collection('Form').deleteOne({ id });
 
@@ -534,6 +531,6 @@ export async function DELETE(request: NextRequest) {
     console.error('Error deleting form:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 } 

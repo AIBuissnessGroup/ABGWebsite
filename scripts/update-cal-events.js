@@ -11,8 +11,6 @@ const path = require('path');
 async function updateCalendarEvents() {
   // Setup MongoDB
   const client = new MongoClient(process.env.DATABASE_URL, {
-    tls: true,
-    tlsCAFile: path.join(__dirname, '..', 'global-bundle.pem'),
   });
   
   // Setup Google Calendar

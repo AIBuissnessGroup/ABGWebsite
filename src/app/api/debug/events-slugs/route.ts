@@ -1,7 +1,8 @@
+import { getDb } from '@/lib/mongodb';
 import { NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+
+
 
 function generateSlug(title: string): string {
   return title
@@ -12,18 +13,15 @@ function generateSlug(title: string): string {
 
 export async function GET() {
   try {
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
     
     const events = await db.collection('Event').find({ 
       published: true 
     }).toArray();
     
-    await client.close();
+    
     
     const eventData = events.map((event: any) => ({
       id: event.id,

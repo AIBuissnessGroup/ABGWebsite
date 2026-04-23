@@ -1,6 +1,8 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
 import { requireAdminSession } from '@/lib/server-admin';
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,12 +13,9 @@ export async function POST(request: NextRequest) {
 
     const { eventId, partnerships } = await request.json();
 
-    const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Delete existing partnerships for this event
     await db.collection('EventPartnership').deleteMany({
@@ -39,7 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await client.close();
+    
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error managing event partnerships:', error);

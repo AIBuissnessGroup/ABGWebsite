@@ -1,14 +1,9 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
-import { MongoClient, ObjectId } from 'mongodb';
-
-const uri = process.env.MONGODB_URI!;
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,8 +17,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
-    await client.connect();
-    const db = client.db();
+    const db = await getDb();
 
     const scheduledEmails = await db
       .collection('scheduledEmails')
@@ -66,8 +60,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    const db = await getDb();
 
     const result = await db
       .collection('scheduledEmails')
@@ -107,8 +100,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing email ID' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    const db = await getDb();
 
     const result = await db
       .collection('scheduledEmails')

@@ -1,14 +1,13 @@
+import { getDb } from '@/lib/mongodb';
 import { NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
+
 
 export async function GET() {
   try {
-    const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
     
     // Get projects with published: true
     const projects = await db.collection('Project').find({ published: true }).toArray();
@@ -35,7 +34,7 @@ export async function GET() {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
-    await client.close();
+    
     return NextResponse.json(projects);
   } catch (error) {
     console.error('Error fetching projects:', error);

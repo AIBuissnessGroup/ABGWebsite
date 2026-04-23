@@ -1,8 +1,10 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient } from 'mongodb';
+
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
+
 
 export async function GET(
   request: NextRequest,
@@ -18,12 +20,9 @@ export async function GET(
     const { id } = await params;
     const eventId = id;
 
-    const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Get partnerships with company data
     const partnerships = await db.collection('EventPartnership').aggregate([
@@ -44,7 +43,7 @@ export async function GET(
       }
     ]).toArray();
 
-    await client.close();
+    
     return NextResponse.json(partnerships);
   } catch (error) {
     console.error('Error fetching event partnerships:', error);

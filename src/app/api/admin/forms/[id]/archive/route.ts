@@ -1,13 +1,11 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { MongoClient } from 'mongodb';
 
-const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
+
 
 export async function POST(
   request: NextRequest,
@@ -31,8 +29,8 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid action. Must be "archive" or "unarchive"' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     const formsCollection = db.collection('Form');
 
     // Check if form exists
@@ -70,6 +68,6 @@ export async function POST(
     console.error('Error archiving/unarchiving form:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

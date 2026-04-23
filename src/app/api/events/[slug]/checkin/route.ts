@@ -1,9 +1,10 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { MongoClient } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+
+
 
 // Self check-in endpoint for QR code scanning
 export async function POST(
@@ -20,17 +21,14 @@ export async function POST(
 
     const { checkInCode, attendeeId, photo } = await request.json();
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Find event by slug to get the actual event ID
     const event = await db.collection('Event').findOne({ slug: eventSlug });
     if (!event) {
-      await client.close();
+      
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
@@ -80,7 +78,7 @@ export async function POST(
       
       // Check if event allows registration (either registration or attendance confirmation enabled)
       if (!event.registrationEnabled && !event.attendanceConfirmEnabled) {
-        await client.close();
+        
         return NextResponse.json({ 
           error: 'Registration is not enabled for this event.',
           registered: false
@@ -92,7 +90,7 @@ export async function POST(
       const eventEndTime = event.endDate ? new Date(event.endDate).getTime() : null;
       
       if (eventEndTime && now > eventEndTime) {
-        await client.close();
+        
         return NextResponse.json({ 
           error: 'Registration for this event has ended.',
           registered: false
@@ -147,7 +145,7 @@ export async function POST(
         }
       } catch (autoRegError) {
         console.error('Auto-registration failed:', autoRegError);
-        await client.close();
+        
         return NextResponse.json({ 
           error: 'Failed to register for event. Please try again.',
           registered: false
@@ -157,7 +155,7 @@ export async function POST(
 
     // Ensure attendee exists at this point (should always be true after auto-registration)
     if (!attendee) {
-      await client.close();
+      
       return NextResponse.json({ 
         error: 'Unexpected error: No attendee record found.',
         registered: false
@@ -168,7 +166,7 @@ export async function POST(
     if (checkInCode && attendeeId) {
       const attendeeEmail = attendee.attendee?.umichEmail || attendee.email;
       if (attendeeEmail !== session.user.email) {
-        await client.close();
+        
         return NextResponse.json({ 
           error: 'This check-in code belongs to a different user. Please sign in with the correct account.',
           emailMismatch: true
@@ -178,7 +176,7 @@ export async function POST(
 
     // Check if user is confirmed (not waitlisted)
     if (attendee.status === 'waitlisted') {
-      await client.close();
+      
       return NextResponse.json({ 
         error: 'You are on the waitlist for this event. Only confirmed attendees can check in.',
         waitlisted: true
@@ -187,7 +185,7 @@ export async function POST(
 
     // Check if already checked in
     if (attendee.status === 'attended') {
-      await client.close();
+      
       return NextResponse.json({ 
         success: true,
         message: 'You are already checked in!',
@@ -242,7 +240,7 @@ export async function POST(
       console.log('ERROR: Attendee record disappeared after update!');
     }
 
-    await client.close();
+    
 
     return NextResponse.json({ 
       success: true,
@@ -269,17 +267,14 @@ export async function GET(
     const checkInCode = searchParams.get('checkInCode');
     const attendeeId = searchParams.get('attendeeId');
 
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Find event by slug
     const event = await db.collection('Event').findOne({ slug: eventSlug });
     if (!event) {
-      await client.close();
+      
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
@@ -298,7 +293,7 @@ export async function GET(
         });
 
         if (userAttendee) {
-          await client.close();
+          
           return NextResponse.json({
             valid: true,
             eventTitle: event.title,
@@ -313,7 +308,7 @@ export async function GET(
         }
       }
 
-      await client.close();
+      
       return NextResponse.json({
         valid: true,
         eventTitle: event.title,
@@ -333,7 +328,7 @@ export async function GET(
 
     const attendee = await db.collection('EventAttendance').findOne(query);
 
-    await client.close();
+    
 
     if (!attendee) {
       return NextResponse.json({ 

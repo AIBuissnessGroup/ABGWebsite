@@ -1,12 +1,9 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { requireAdminSession } from '@/lib/server-admin';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 type Slot = {
   id: string;
@@ -36,8 +33,8 @@ export async function GET() {
   }
 
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const slots = await db.collection('CoffeeChat').find({}).sort({ startTime: 1 }).toArray();
     
@@ -82,7 +79,7 @@ export async function GET() {
     console.error('Error fetching coffee chat slots:', error);
     return NextResponse.json({ error: 'Failed to fetch slots' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -104,8 +101,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const newSlot = {
       id: `slot_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -150,7 +147,7 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ error: 'Failed to create slot', details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -167,8 +164,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Missing slot ID' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     const updateData: any = {
       updatedAt: new Date(),
@@ -237,7 +234,7 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating coffee chat slot:', error);
     return NextResponse.json({ error: 'Failed to update slot' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -252,8 +249,8 @@ export async function PATCH(request: NextRequest) {
     const { action, slotId, signupId } = body;
 
     if (action === 'removeHost' && slotId) {
-      await client.connect();
-      const db = client.db();
+      
+      const db = await getDb();
 
       // First find the slot
       let existingSlot;
@@ -326,8 +323,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (action === 'removeSignup' && slotId && signupId) {
-      await client.connect();
-      const db = client.db();
+      
+      const db = await getDb();
 
       // First find the slot
       let existingSlot;
@@ -396,7 +393,7 @@ export async function PATCH(request: NextRequest) {
     console.error('Error removing signup:', error);
     return NextResponse.json({ error: 'Failed to remove signup' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -411,8 +408,8 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     let result;
     if (ObjectId.isValid(id)) {
@@ -430,7 +427,7 @@ export async function DELETE(request: NextRequest) {
     console.error('Error deleting coffee chat slot:', error);
     return NextResponse.json({ error: 'Failed to delete slot' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 

@@ -1,15 +1,16 @@
+import { getDb } from '@/lib/mongodb';
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import EventDetailPage from "../../../components/events/EventDetailPage";
 import { Event, EventAttendance } from "../../../types/events";
-import { MongoClient } from "mongodb";
+
+
 
 // Force dynamic rendering to avoid static generation issues with auth
 export const dynamic = 'force-dynamic';
 
-const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://localhost:27017/abg-website';
 
 interface EventPageProps {
   params: Promise<{
@@ -20,12 +21,9 @@ interface EventPageProps {
 
 async function getEvent(slug: string): Promise<Event | null> {
   try {
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
     
     console.log('Looking for event with slug:', slug);
     
@@ -344,7 +342,7 @@ async function getEvent(slug: string): Promise<Event | null> {
       }
     }
     
-    await client.close();
+    
     
     if (event) {
       console.log('Found event:', event.title);
@@ -368,12 +366,9 @@ async function getUserRegistration(eventId: string, email?: string): Promise<Eve
   if (!email) return null;
   
   try {
-    const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
     
     // Check both possible email field patterns
     const registration = await db.collection('EventAttendance').findOne({
@@ -384,7 +379,7 @@ async function getUserRegistration(eventId: string, email?: string): Promise<Eve
       ]
     });
     
-    await client.close();
+    
     
     if (!registration) return null;
     

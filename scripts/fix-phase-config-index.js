@@ -16,8 +16,7 @@ async function fixIndex() {
   console.log('Connecting to database...');
   
   const client = new MongoClient(connString, {
-    tls: true,
-    tlsAllowInvalidCertificates: true, // For local dev
+    // For local dev
   });
   
   try {

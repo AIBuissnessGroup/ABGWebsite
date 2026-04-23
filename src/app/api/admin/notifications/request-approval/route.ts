@@ -1,17 +1,14 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { sendSlackDM } from '@/lib/slack';
 import { sendEmail } from '@/lib/email';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-const uri = process.env.MONGODB_URI!;
+
 
 // MongoDB connection options for AWS DocumentDB
-const mongoOptions = {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,7 +37,7 @@ export async function POST(req: NextRequest) {
 
     // Connect to MongoDB with TLS for DocumentDB
     const client = await MongoClient.connect(uri, mongoOptions);
-    const db = client.db('abg-website');
+    const db = await getDb('abg-website');
 
     // Get approver name from users collection
     const approverUser = await db.collection('users').findOne({ email: approverEmail });
@@ -76,7 +73,7 @@ export async function POST(req: NextRequest) {
       createdAt: new Date()
     });
 
-    await client.close();
+    
 
     // Format HTML for Slack (convert to plain text with structure)
     const tempDiv = htmlContent.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
@@ -198,7 +195,7 @@ export async function PUT(req: NextRequest) {
 
     // Connect to MongoDB with TLS for DocumentDB
     const client = await MongoClient.connect(uri, mongoOptions);
-    const db = client.db('abg-website');
+    const db = await getDb('abg-website');
 
     // Find the approval request
     const approval = await db.collection('pendingApprovals').findOne({ approvalId, status: 'pending' });
@@ -206,7 +203,7 @@ export async function PUT(req: NextRequest) {
     console.log('Found approval:', approval ? 'Yes' : 'No');
     
     if (!approval) {
-      await client.close();
+      
       console.error('Approval not found or already processed');
       return NextResponse.json({ error: 'Approval request not found or expired' }, { status: 404 });
     }
@@ -227,7 +224,7 @@ export async function PUT(req: NextRequest) {
     // Check if user is an admin
     if (!clickerUser || !clickerUser.roles || 
         (!clickerUser.roles.includes('admin') && !clickerUser.roles.includes('super-admin'))) {
-      await client.close();
+      
       console.error('User is not an admin');
       return NextResponse.json({ 
         error: 'Unauthorized - Only admins can approve notifications',
@@ -257,7 +254,7 @@ export async function PUT(req: NextRequest) {
           console.log(`✅ Approved email sent to ${approval.recipients.length} recipients`);
         } catch (error) {
           console.error('Failed to send approved email:', error);
-          await client.close();
+          
           throw new Error('Failed to send email');
         }
       } else if (approval.actionType === 'schedule') {
@@ -280,7 +277,7 @@ export async function PUT(req: NextRequest) {
           console.log(`✅ Email scheduled for ${scheduledFor.toISOString()}`);
         } catch (error) {
           console.error('Failed to schedule email:', error);
-          await client.close();
+          
           throw new Error('Failed to schedule email');
         }
       }
@@ -342,7 +339,7 @@ export async function PUT(req: NextRequest) {
       }
     );
 
-    await client.close();
+    
 
     return NextResponse.json({ success: true });
 

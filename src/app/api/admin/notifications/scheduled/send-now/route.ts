@@ -1,15 +1,12 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { sendEmail } from '@/lib/email';
 
-const uri = process.env.MONGODB_URI!;
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,8 +26,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing email ID' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Get the scheduled email
     const scheduledEmail = await db

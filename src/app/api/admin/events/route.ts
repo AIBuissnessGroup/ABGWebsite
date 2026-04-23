@@ -1,15 +1,12 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import crypto from 'crypto';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-const client = new MongoClient(uri, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+
 
 // Safely serialize BigInt values
 function safeJson(obj: any) {
@@ -33,8 +30,8 @@ export async function OPTIONS() {
 
 export async function GET() {
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     // For admin dashboard, show ALL events (both published and unpublished)
     // and both main events and subevents
@@ -48,7 +45,7 @@ export async function GET() {
     console.error('Error fetching events:', error);
     return corsResponse(NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 }));
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -68,8 +65,8 @@ export async function POST(request: NextRequest) {
       return corsResponse(NextResponse.json({ error: 'Forbidden' }, { status: 403 }));
     }
 
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     const usersCollection = db.collection('User');
     const eventsCollection = db.collection('Event');
 
@@ -171,7 +168,7 @@ export async function POST(request: NextRequest) {
     console.error('Error creating event:', error);
     return corsResponse(NextResponse.json({ error: 'Failed to create event' }, { status: 500 }));
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -210,8 +207,8 @@ export async function PUT(request: NextRequest) {
       return corsResponse(NextResponse.json({ error: 'Event date is required' }, { status: 400 }));
     }
 
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     const eventsCollection = db.collection('Event');
 
     // Check if event exists before updating
@@ -293,7 +290,7 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating event:', error);
     return corsResponse(NextResponse.json({ error: 'Failed to update event' }, { status: 500 }));
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -317,8 +314,8 @@ export async function DELETE(request: NextRequest) {
       return corsResponse(NextResponse.json({ error: 'Event ID required' }, { status: 400 }));
     }
 
-    await client.connect();
-    const db = client.db('abg-website');
+    
+    const db = await getDb('abg-website');
     const eventsCollection = db.collection('Event');
 
     const result = await eventsCollection.deleteOne({ id });
@@ -332,6 +329,6 @@ export async function DELETE(request: NextRequest) {
     console.error('Error deleting event:', error);
     return corsResponse(NextResponse.json({ error: 'Failed to delete event' }, { status: 500 }));
   } finally {
-    await client.close();
+    
   }
 } 

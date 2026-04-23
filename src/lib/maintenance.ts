@@ -1,14 +1,8 @@
-import { MongoClient } from 'mongodb';
-
-const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
+import { getDb } from './mongodb';
 
 export async function getMaintenanceStatus() {
   try {
-    await client.connect();
-    const db = client.db();
+    const db = await getDb();
     
     const maintenanceSetting = await db.collection('SiteSettings').findOne({ key: 'maintenance_mode' });
     const messageSetting = await db.collection('SiteSettings').findOne({ key: 'maintenance_message' });
@@ -26,7 +20,5 @@ export async function getMaintenanceStatus() {
       message: '',
       exemptPaths: ['/admin', '/api/admin', '/auth']
     };
-  } finally {
-    await client.close();
   }
 }

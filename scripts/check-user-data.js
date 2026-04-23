@@ -7,27 +7,7 @@ const { MongoClient } = require('mongodb');
 
 async function checkData() {
   const client = new MongoClient(process.env.DATABASE_URL, {
-    tls: true,
-    tlsCAFile: process.env.NODE_ENV === 'production' ? '/app/global-bundle.pem' : undefined,
-    tlsAllowInvalidCertificates: process.env.NODE_ENV !== 'production'
-  });
-
-  try {
-    await client.connect();
-    console.log('Connected to database');
-    const db = client.db();
-    
-    // Get a sample application
-    const apps = await db.collection('recruitment_applications')
-      .find({})
-      .limit(3)
-      .toArray();
-    
-    console.log('\n=== SAMPLE APPLICATIONS ===');
-    for (const app of apps) {
-      console.log({
-        _id: app._id.toString(),
-        userId: app.userId,
+    userId: app.userId,
         userEmail: app.userEmail,
         userName: app.userName,
         track: app.track,

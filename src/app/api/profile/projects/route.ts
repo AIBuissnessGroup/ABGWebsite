@@ -1,7 +1,9 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
+
 
 // Safely serialize BigInt values
 function safeJson(obj: any) {
@@ -10,20 +12,8 @@ function safeJson(obj: any) {
   ));
 }
 
-const uri = process.env.DATABASE_URL!;
-const isProduction = process.env.NODE_ENV === 'production';
-const hasTlsInConnectionString = /[?&](tls|ssl)=/.test(uri);
 
-const mongoOptions: any = hasTlsInConnectionString
-  ? (isProduction 
-      ? { tlsCAFile: '/app/global-bundle.pem' }
-      : { tlsAllowInvalidCertificates: true })
-  : {
-      tls: isProduction,
-      tlsCAFile: isProduction ? '/app/global-bundle.pem' : undefined,
-    };
 
-const client = new MongoClient(uri, mongoOptions);
 
 /**
  * GET /api/profile/projects - Get projects where user is a team member
@@ -35,8 +25,8 @@ export async function GET() {
   }
 
   try {
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     // Get user from database
     const user = await db.collection('users').findOne({ 
@@ -79,7 +69,7 @@ export async function GET() {
     console.error('Error fetching user projects:', error);
     return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }
 
@@ -101,8 +91,8 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
     
     // Get user from database
     const user = await db.collection('users').findOne({ 
@@ -146,6 +136,6 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating project contribution:', error);
     return NextResponse.json({ error: 'Failed to update contribution' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

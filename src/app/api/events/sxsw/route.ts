@@ -1,6 +1,8 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
 import { SXSWEventData } from '@/types/events';
+
 
 // Helper function to handle CORS
 function corsResponse(response: NextResponse) {
@@ -71,10 +73,9 @@ export async function GET() {
 
     client = new MongoClient(uri, {
       tls: true,
-      tlsCAFile: "/app/global-bundle.pem",
     });
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Get SXSW event data
     let sxswData: any = await db.collection('SXSWEvent').findOne({ id: 'sxsw-2026' });
@@ -112,7 +113,7 @@ export async function GET() {
     return corsResponse(NextResponse.json({ error: 'Failed to fetch SXSW data' }, { status: 500 }));
   } finally {
     if (client) {
-      await client.close();
+      
     }
   }
 }
@@ -131,10 +132,9 @@ export async function PUT(request: NextRequest) {
     
     client = new MongoClient(uri, {
       tls: true,
-      tlsCAFile: "/app/global-bundle.pem",
     });
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Update SXSW event data (excluding panels which are managed separately)
     const updateData = {
@@ -156,7 +156,7 @@ export async function PUT(request: NextRequest) {
     return corsResponse(NextResponse.json({ error: 'Failed to update SXSW data' }, { status: 500 }));
   } finally {
     if (client) {
-      await client.close();
+      
     }
   }
 }

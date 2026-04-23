@@ -1,14 +1,14 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { requireAdminSession } from '@/lib/server-admin';
 
-const uri = process.env.MONGODB_URI || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
+
 
 // Create a new client for each request to avoid connection issues
 function createMongoClient() {
   return new MongoClient(uri, {
     tls: true,
-    tlsCAFile: "/app/global-bundle.pem",
   });
 }
 
@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Slot ID and exec member ID are required' }, { status: 400 });
     }
 
-    await client.connect();
-    const db = client.db();
+    
+    const db = await getDb();
 
     // Update the slot with exec member info
     let updateQuery;
@@ -73,6 +73,6 @@ export async function POST(request: NextRequest) {
     console.error('Error assigning exec to slot:', error);
     return NextResponse.json({ error: 'Failed to assign exec member' }, { status: 500 });
   } finally {
-    await client.close();
+    
   }
 }

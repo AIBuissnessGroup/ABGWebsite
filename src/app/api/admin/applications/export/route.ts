@@ -1,8 +1,10 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { MongoClient } from 'mongodb';
+
 import { isAdmin } from '@/lib/admin';
 import * as XLSX from 'xlsx';
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,12 +21,9 @@ export async function POST(request: NextRequest) {
 
     const { category, status, reviewer, formId, exportType = 'summary' } = await request.json();
 
-    const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Build filter conditions for application aggregation
     const matchStage: any = {};
@@ -256,7 +255,7 @@ export async function POST(request: NextRequest) {
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Applications Summary');
     }
 
-    await client.close();
+    
 
     // Generate Excel buffer
     const excelBuffer = XLSX.write(workbook, { 

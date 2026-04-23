@@ -1,6 +1,8 @@
+import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+
 import { requireAdminSession } from '@/lib/server-admin';
+
 
 // Helper function to handle CORS
 function corsResponse(response: NextResponse) {
@@ -26,12 +28,9 @@ export async function GET(
     return corsResponse(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
   }
   try {
-    const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Get subevents with partnerships
     const subevents = await db.collection('Event').aggregate([
@@ -89,7 +88,7 @@ export async function GET(
       { $sort: { eventDate: 1 } }
     ]).toArray();
 
-    await client.close();
+    
     return corsResponse(NextResponse.json(subevents));
   } catch (error) {
     console.error('Error fetching subevents:', error);
@@ -110,12 +109,9 @@ export async function POST(
       return corsResponse(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
     }
 
-    const client = new MongoClient(process.env.DATABASE_URL!, {
-  tls: true,
-  tlsCAFile: "/app/global-bundle.pem",
-});
-    await client.connect();
-    const db = client.db();
+    
+    
+    const db = await getDb();
 
     // Find the user to get their ID
     let user = await db.collection('User').findOne({ email: session.user.email });
@@ -137,12 +133,12 @@ export async function POST(
     const parentEvent = await db.collection('Event').findOne({ id: id });
 
     if (!parentEvent) {
-      await client.close();
+      
       return corsResponse(NextResponse.json({ error: 'Parent event not found' }, { status: 404 }));
     }
 
     if (!parentEvent.isMainEvent) {
-      await client.close();
+      
       return corsResponse(NextResponse.json({ error: 'Cannot create subevent under another subevent' }, { status: 400 }));
     }
 
@@ -170,7 +166,7 @@ export async function POST(
     };
 
     await db.collection('Event').insertOne(subevent);
-    await client.close();
+    
 
     return corsResponse(NextResponse.json(subevent));
   } catch (error) {
