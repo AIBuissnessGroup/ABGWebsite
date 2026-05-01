@@ -30,7 +30,8 @@ export async function PUT(request: NextRequest) {
 
   try {
     const data = await request.json();
-    const heroContent = await upsertHeroContent(data);
+    const { _id, ...safeData } = data;
+    const heroContent = await upsertHeroContent(safeData);
     return NextResponse.json(heroContent);
   } catch (error) {
     console.error('Error updating hero content:', error);

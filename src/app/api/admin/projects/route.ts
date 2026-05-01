@@ -59,12 +59,8 @@ export async function POST(request: NextRequest) {
     
     const db = await getDb();
 
-    // Find the user to get their ID
+    // Find the user to get their ID, fall back to email if no User doc exists
     const user = await db.collection('User').findOne({ email: session.user.email });
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
 
     const data = await request.json();
     
@@ -90,7 +86,7 @@ export async function POST(request: NextRequest) {
       imageUrl: data.imageUrl || null,
       featured: data.featured || false,
       published: data.published !== undefined ? data.published : true,
-      createdBy: user._id.toString(),
+      createdBy: user ? user._id.toString() : session.user.email,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -118,16 +114,10 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await requireAdminSession();
     
-    if (!session?.user?.email) {
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const data = await request.json();
@@ -179,16 +169,10 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await requireAdminSession();
     
-    if (!session?.user?.email) {
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
-    if (!adminEmails.includes(session.user.email)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);

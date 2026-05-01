@@ -13,7 +13,7 @@ export async function GET() {
 
   try {
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
     
     // First try to find actual about content (not default)
     let aboutContent = await db.collection('AboutContent').findOne({ 
@@ -89,7 +89,7 @@ export async function PUT(request: NextRequest) {
     const data = await request.json();
     const { _id, ...safeData } = data;
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
     
     // First, find the existing about content (the one with actual content)
     let existingAbout = await db.collection('AboutContent').findOne({ 
