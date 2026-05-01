@@ -6,14 +6,6 @@ import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
 import { logAuditEvent, getRequestMetadata } from '@/lib/audit';
 
-
-
-function createMongoClient() {
-  return new MongoClient(uri, {
-    tls: true,
-  });
-}
-
 // PATCH - Update user profile and team member link (Admin only)
 export async function PATCH(request: NextRequest) {
   try {
@@ -29,8 +21,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
 
-    const client = createMongoClient();
-    
     const db = await getDb();
     const usersCollection = db.collection('users');
 

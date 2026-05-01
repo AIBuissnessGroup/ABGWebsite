@@ -6,14 +6,6 @@ import { isAdmin } from '@/lib/admin';
 import { ObjectId } from 'mongodb';
 import { NewsroomPost } from '@/types/newsroom';
 
-
-
-function createMongoClient() {
-  return new MongoClient(uri, {
-    tls: true,
-  });
-}
-
 // Generate slug from title
 function generateSlug(title: string): string {
   return title
@@ -38,8 +30,6 @@ export async function GET(request: NextRequest) {
   if (!session || !isAdmin(session.user)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  
-  const client = createMongoClient();
   
   try {
     
@@ -157,8 +147,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   
-  const client = createMongoClient();
-  
   try {
     
     const db = await getDb();
@@ -234,8 +222,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   
-  const client = createMongoClient();
-  
   try {
     
     const db = await getDb();
@@ -310,8 +296,6 @@ export async function DELETE(request: NextRequest) {
   if (!session || !isAdmin(session.user)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  
-  const client = createMongoClient();
   
   try {
     

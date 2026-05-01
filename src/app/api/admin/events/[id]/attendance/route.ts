@@ -5,20 +5,10 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 
-
-
-// Create a new client for each request to avoid connection issues
-function createMongoClient() {
-  return new MongoClient(uri, {
-    tls: true,
-  });
-}
-
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const client = createMongoClient();
   try {
     const { id } = await params; // Await params before accessing properties
     const session = await getServerSession(authOptions);

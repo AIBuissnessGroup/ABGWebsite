@@ -35,7 +35,7 @@ import type {
 // MongoDB Connection
 // ============================================================================
 
-// MongoDB connection options with connection pooling
+const mongoOptions: MongoClientOptions = {};
 
 // ============================================================================
 // Connection Pooling (singleton pattern for serverless/Next.js)

@@ -7,14 +7,6 @@ import { isAdmin, validateRoles, wouldRemoveLastAdmin, USER_ROLES } from '@/lib/
 import { logAuditEvent, getRequestMetadata } from '@/lib/audit';
 import type { UserRole } from '@/types/next-auth';
 
-
-
-function createMongoClient() {
-  return new MongoClient(uri, {
-    tls: true,
-  });
-}
-
 // Safely serialize MongoDB objects
 function safeJson(obj: any) {
   return JSON.parse(JSON.stringify(obj, (key, value) =>
@@ -38,8 +30,6 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const skip = (page - 1) * limit;
 
-    const client = createMongoClient();
-    
     const db = await getDb();
     const usersCollection = db.collection('users');
 
@@ -140,8 +130,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid roles provided' }, { status: 400 });
     }
 
-    const client = createMongoClient();
-    
     const db = await getDb();
     const usersCollection = db.collection('users');
 

@@ -87,7 +87,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const data = await request.json();
-    
+    const { _id, ...safeData } = data;
     
     const db = await getDb();
     
@@ -98,7 +98,7 @@ export async function PUT(request: NextRequest) {
     
     // Create or update the about content
     const updateData = {
-      ...data,
+      ...safeData,
       isActive: true,
       updatedAt: new Date()
     };

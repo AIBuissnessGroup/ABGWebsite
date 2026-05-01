@@ -21,7 +21,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
-    const client = await MongoClient.connect(uri, mongoOptions);
     const db = await getDb('abg-website');
     
     // Fetch pending approvals for this user
@@ -81,7 +80,6 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Approval ID required' }, { status: 400 });
     }
 
-    const client = await MongoClient.connect(uri, mongoOptions);
     const db = await getDb('abg-website');
     
     // Delete the pending approval

@@ -7,14 +7,6 @@ import { isAdmin, validateRoles, USER_ROLES } from '@/lib/roles';
 import { logAuditEvent, getRequestMetadata } from '@/lib/audit';
 import type { UserRole } from '@/types/next-auth';
 
-
-
-function createMongoClient() {
-  return new MongoClient(uri, {
-    tls: true,
-  });
-}
-
 // POST - Bulk update user roles (Admin only)
 export async function POST(request: NextRequest) {
   try {
@@ -38,8 +30,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 
-    const client = createMongoClient();
-    
     const db = await getDb();
     const usersCollection = db.collection('users');
 

@@ -98,6 +98,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const data = await request.json();
+    const { _id, ...safeData } = data;
 
     
     const db = await getDb();
@@ -105,7 +106,7 @@ export async function PUT(request: NextRequest) {
     // Update or create join content
     const updatedContent = {
       id: 'default',
-      ...data,
+      ...safeData,
       isActive: true,
       updatedAt: new Date()
     };

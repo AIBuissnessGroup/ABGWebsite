@@ -6,14 +6,6 @@ import { isAdmin } from '@/lib/admin';
 
 import { NewsroomStats } from '@/types/newsroom';
 
-
-
-function createMongoClient() {
-  return new MongoClient(uri, {
-    tls: true,
-  });
-}
-
 // Safely serialize MongoDB objects
 function safeJson(obj: any) {
   return JSON.parse(JSON.stringify(obj, (key, value) =>
@@ -28,8 +20,6 @@ export async function GET(request: NextRequest) {
   if (!session || !isAdmin(session.user)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  
-  const client = createMongoClient();
   
   try {
     

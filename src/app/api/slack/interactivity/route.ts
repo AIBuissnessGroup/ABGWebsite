@@ -79,7 +79,6 @@ export async function POST(req: NextRequest) {
       console.log(`Approver: ${approverEmail}, Action: ${actionType}, ApprovalId: ${approvalId}`);
       
       // Check if already processed (prevent duplicate clicks)
-      const client = await MongoClient.connect(uri, mongoOptions);
       const db = await getDb('abg-website');
       const existingApproval = await db.collection('pendingApprovals').findOne({ approvalId });
       
@@ -143,7 +142,6 @@ export async function POST(req: NextRequest) {
 async function processApproval(approvalId: string, actionType: string, approverEmail: string, isApproval: boolean, responseUrl: string) {
   console.log(`🔄 processApproval called: ${approvalId}, ${actionType}, ${approverEmail}`);
   try {
-    const client = await MongoClient.connect(uri, mongoOptions);
     const db = await getDb('abg-website');
 
     // Find the approval request (double-check status)

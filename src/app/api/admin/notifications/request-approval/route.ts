@@ -35,8 +35,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid approver selection' }, { status: 400 });
     }
 
-    // Connect to MongoDB with TLS for DocumentDB
-    const client = await MongoClient.connect(uri, mongoOptions);
     const db = await getDb('abg-website');
 
     // Get approver name from users collection
@@ -193,8 +191,6 @@ export async function PUT(req: NextRequest) {
 
     console.log(`Approval handler called: approvalId=${approvalId}, action=${action}, approverEmail=${approverEmail}`);
 
-    // Connect to MongoDB with TLS for DocumentDB
-    const client = await MongoClient.connect(uri, mongoOptions);
     const db = await getDb('abg-website');
 
     // Find the approval request
