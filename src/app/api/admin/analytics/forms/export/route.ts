@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 
 import { isAdmin } from '@/lib/admin';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 
 
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       .toArray();
 
     // Create workbook
-    const workbook = XLSX.utils.book_new();
+    const workbook = new ExcelJS.Workbook();
 
     // Summary sheet with overall metrics
     const summaryData = forms.map(form => {
@@ -95,8 +95,10 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Form Summary');
+    const summarySheet = workbook.addWorksheet('Form Summary');
+    const summaryKeys = Object.keys(summaryData[0] || {});
+    summarySheet.columns = summaryKeys.map(key => ({ header: key, key, width: 20 }));
+    summaryData.forEach(row => summarySheet.addRow(row));
 
     // Question analysis sheet
     const questionAnalysisData: any[] = [];
@@ -193,8 +195,10 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    const questionSheet = XLSX.utils.json_to_sheet(questionAnalysisData);
-    XLSX.utils.book_append_sheet(workbook, questionSheet, 'Question Analysis');
+    const questionSheet = workbook.addWorksheet('Question Analysis');
+    const questionKeys = Object.keys(questionAnalysisData[0] || {});
+    questionSheet.columns = questionKeys.map(key => ({ header: key, key, width: 20 }));
+    questionAnalysisData.forEach(row => questionSheet.addRow(row));
 
     // Response timeline sheet
     const timelineData: any[] = [];
@@ -227,16 +231,15 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    const timelineSheet = XLSX.utils.json_to_sheet(timelineData);
-    XLSX.utils.book_append_sheet(workbook, timelineSheet, 'Response Timeline');
+    const timelineSheet = workbook.addWorksheet('Response Timeline');
+    const timelineKeys = Object.keys(timelineData[0] || {});
+    timelineSheet.columns = timelineKeys.map(key => ({ header: key, key, width: 20 }));
+    timelineData.forEach(row => timelineSheet.addRow(row));
 
     
 
     // Generate Excel buffer
-    const excelBuffer = XLSX.write(workbook, { 
-      type: 'buffer', 
-      bookType: 'xlsx' 
-    });
+    const excelBuffer = await workbook.xlsx.writeBuffer();
 
     // Return Excel file
     return new NextResponse(excelBuffer, {

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 
 import { isAdmin } from '@/lib/admin';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 
 export async function POST(request: NextRequest) {
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Create workbook
-    const workbook = XLSX.utils.book_new();
+    const workbook = new ExcelJS.Workbook();
 
     if (exportType === 'detailed') {
       // Detailed export: One row per application with all responses as columns
@@ -186,20 +186,15 @@ export async function POST(request: NextRequest) {
           detailedData.push(row);
         });
 
-        const worksheet = XLSX.utils.json_to_sheet(detailedData);
-        
-        // Auto-size columns for the new horizontal format
-        const numCols = headers.length;
-        worksheet['!cols'] = Array(numCols).fill(0).map((_, index) => {
-          if (index < 7) {
-            return { wch: 20 }; // Fixed columns
-          } else {
-            return { wch: 30 }; // Question columns
-          }
-        });
-
         const sheetName = formTitle.substring(0, 31); // Excel sheet name limit
-        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+        const worksheet = workbook.addWorksheet(sheetName);
+        const keys = Object.keys(detailedData[0] || {});
+        worksheet.columns = keys.map((key, index) => ({
+          header: key,
+          key,
+          width: index < 7 ? 20 : 30
+        }));
+        detailedData.forEach(row => worksheet.addRow(row));
       });
 
     } else {
@@ -244,24 +239,20 @@ export async function POST(request: NextRequest) {
         return { ...baseData, ...responseData };
       });
 
-      const worksheet = XLSX.utils.json_to_sheet(summaryData);
-
-      // Auto-size columns for summary
-      const columnWidths = Object.keys(summaryData[0] || {}).map(key => ({
-        wch: Math.min(Math.max(key.length, 10), 50)
+      const worksheet = workbook.addWorksheet('Applications Summary');
+      const summaryKeys = Object.keys(summaryData[0] || {});
+      worksheet.columns = summaryKeys.map(key => ({
+        header: key,
+        key,
+        width: Math.min(Math.max(key.length, 10), 50)
       }));
-      worksheet['!cols'] = columnWidths;
-
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Applications Summary');
+      summaryData.forEach(row => worksheet.addRow(row));
     }
 
     
 
     // Generate Excel buffer
-    const excelBuffer = XLSX.write(workbook, { 
-      type: 'buffer', 
-      bookType: 'xlsx' 
-    });
+    const excelBuffer = await workbook.xlsx.writeBuffer();
 
     // Return Excel file
     return new NextResponse(excelBuffer, {
