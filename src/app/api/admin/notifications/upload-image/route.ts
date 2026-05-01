@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
-import { writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
 import path from 'path';
+import { uploadToGridFS } from '@/lib/gridfs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,21 +26,14 @@ export async function POST(request: NextRequest) {
     const randomStr = Math.random().toString(36).substring(7);
     const filename = `email-${timestamp}-${randomStr}${fileExt}`;
 
-    // Create directory if it doesn't exist
-    const uploadDir = path.join(process.cwd(), 'public', 'emailUploads');
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
-
-    // Convert file to buffer and save
+    // Convert file to buffer and upload to GridFS
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const filepath = path.join(uploadDir, filename);
     
-    await writeFile(filepath, buffer);
+    await uploadToGridFS(filename, buffer, 'emailUploads', { contentType: file.type });
 
-    // Return the URL
-    const url = `/emailUploads/${filename}`;
+    // Return the URL to our dynamic server route
+    const url = `/api/email-serve/${filename}`;
     
     console.log(`✅ Uploaded image: ${filename} (${(buffer.length / 1024).toFixed(2)} KB)`);
 

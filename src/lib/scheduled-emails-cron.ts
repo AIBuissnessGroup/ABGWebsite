@@ -29,7 +29,7 @@ async function processScheduledEmails() {
 
     for (const scheduledEmail of dueEmails) {
       console.log(`   Processing: "${scheduledEmail.subject}"`);
-      
+
       let sent = 0;
       let failed = 0;
 

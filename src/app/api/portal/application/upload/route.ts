@@ -6,9 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
 import path from 'path';
+import { uploadToGridFS } from '@/lib/gridfs';
 
 // Common file types for display purposes only (no validation)
 const COMMON_FILE_EXTENSIONS: Record<string, string[]> = {
@@ -64,18 +63,11 @@ export async function POST(request: NextRequest) {
     const safeKey = key.replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `${userId}_${safeKey}_${timestamp}${fileExt}`;
 
-    // Create directory if it doesn't exist
-    const uploadDir = path.join(process.cwd(), 'public', 'applicationUploads');
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
-
-    // Convert file to buffer and save
+    // Convert file to buffer and upload to GridFS
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const filepath = path.join(uploadDir, filename);
     
-    await writeFile(filepath, buffer);
+    await uploadToGridFS(filename, buffer, 'applicationUploads', { contentType: file.type });
 
     // Return the API URL for serving the file (Next.js doesn't serve dynamically uploaded files)
     const url = `/api/file-serve/${filename}`;

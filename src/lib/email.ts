@@ -63,6 +63,21 @@ async function getGmailClient() {
   }
 }
 
+export async function refreshGmailToken() {
+  console.log('🔄 Checking/refreshing Gmail token via cron...');
+  try {
+    const gmail = await getGmailClient();
+    if (gmail) {
+      console.log('✅ Gmail token is active and fresh.');
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('❌ Failed to refresh Gmail token in cron:', error);
+    return false;
+  }
+}
+
 async function getDriveClient() {
   if (cachedDriveClient) {
     return cachedDriveClient;

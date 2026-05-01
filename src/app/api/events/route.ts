@@ -18,16 +18,13 @@ export async function OPTIONS() {
 
 export async function GET(request: NextRequest) {
   try {
-    const uri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://abgdev:0C1dpfnsCs8ta1lCnT1Fx8ye%2Fz1mP2kMAcCENRQFDfU%3D@159.89.229.112:27017/abg-website';
-    
-    
     const db = await getDb();
 
     const { searchParams } = new URL(request.url);
     const eventTypeFilter = searchParams.get('eventType');
-    
+
     // Debug: Check what the match stage actually finds
-    const matchStage: any = { 
+    const matchStage: any = {
       $or: [
         { published: true },          // Boolean true
         { published: 1 }              // Number 1
@@ -47,13 +44,13 @@ export async function GET(request: NextRequest) {
     if (eventTypeFilter) {
       matchStage.eventType = eventTypeFilter;
     }
-    
+
     const matchCount = await db.collection('Event').countDocuments(matchStage);
     console.log('Events matching filter:', matchCount, 'eventType:', eventTypeFilter);
-    
+
     // Get all published main events with partnerships and subevents
     const pipeline = [
-      { 
+      {
         $match: matchStage
       },
       {
@@ -129,11 +126,11 @@ export async function GET(request: NextRequest) {
       { $project: { partnershipCompanies: 0 } },
       { $sort: { featured: -1, eventDate: 1 } }
     ];
-    
+
     const events = await db.collection('Event').aggregate(pipeline).toArray();
     console.log('Events after aggregation:', events.length);
 
-    
+
     return corsResponse(NextResponse.json(events));
   } catch (error) {
     console.error('Error fetching events:', error);

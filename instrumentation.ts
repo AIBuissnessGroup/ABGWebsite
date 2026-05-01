@@ -17,5 +17,12 @@ export async function register() {
     // Start scheduled emails cron job
     const { startScheduledEmailsCron } = await import('./src/lib/scheduled-emails-cron');
     startScheduledEmailsCron();
+
+    // Start Gmail token refresh cron job (runs every 12 hours)
+    const { refreshGmailToken } = await import('./src/lib/email');
+    refreshGmailToken(); // Initial check
+    setInterval(() => {
+      refreshGmailToken();
+    }, 12 * 60 * 60 * 1000);
   }
 }

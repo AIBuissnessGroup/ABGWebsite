@@ -7,9 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
 import path from 'path';
+import { uploadToGridFS } from '@/lib/gridfs';
 
 const MAX_AUDIO_SIZE = 500 * 1024 * 1024; // 500MB max for audio recordings (supports 1+ hour recordings)
 
@@ -67,18 +66,11 @@ export async function POST(request: NextRequest) {
     const ext = mimeToExt[file.type] || '.webm';
     const filename = `interview_${applicationId}_${phase}_${reviewerId}_${timestamp}${ext}`;
 
-    // Create directory if it doesn't exist
-    const uploadDir = path.join(process.cwd(), 'public', 'audioRecordings');
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
-
-    // Convert file to buffer and save
+    // Convert file to buffer and upload to GridFS
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const filepath = path.join(uploadDir, filename);
     
-    await writeFile(filepath, buffer);
+    await uploadToGridFS(filename, buffer, 'audioRecordings', { contentType: file.type });
 
     // Return the API URL for serving the audio file (Next.js doesn't serve dynamic files from public)
     const url = `/api/audio-serve/${filename}`;

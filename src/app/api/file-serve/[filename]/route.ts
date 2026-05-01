@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { readFile, stat } from 'fs/promises';
 import path from 'path';
+import { getStreamFromGridFSByFilename, nodeToWebStream } from '@/lib/gridfs';
 
 // Map file extensions to MIME types
 const MIME_TYPES: Record<string, string> = {
@@ -34,28 +34,21 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid filename' }, { status: 400 });
     }
 
-    const filePath = path.join(process.cwd(), 'public', 'applicationUploads', sanitizedFilename);
+    const file = await getStreamFromGridFSByFilename(sanitizedFilename, 'applicationUploads');
     
-    // Check if file exists
-    try {
-      await stat(filePath);
-    } catch {
+    if (!file) {
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
     }
 
-    // Read file
-    const fileBuffer = await readFile(filePath);
-    
-    // Determine content type
-    const ext = path.extname(filename).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const { stream, contentType, length } = file;
+    const webStream = nodeToWebStream(stream);
 
     // Return file with appropriate headers
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(webStream, {
       status: 200,
       headers: {
         'Content-Type': contentType,
-        'Content-Length': fileBuffer.length.toString(),
+        'Content-Length': length.toString(),
         'Cache-Control': 'public, max-age=31536000, immutable',
       },
     });

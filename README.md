@@ -16,42 +16,41 @@
 ## 🛠 Tech Stack Overview
 
 ### Core Technologies
-- **Framework**: Next.js 14+ (React-based)
+- **Framework**: Next.js 15+ (App Router)
 - **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Database**: MongoDB (hosted on Digital Ocean)
+- **Styling**: Tailwind CSS v4
+- **Database**: MongoDB (hosted on Railway) with GridFS for file storage
 - **Authentication**: NextAuth.js (Google OAuth)
-- **Deployment**: Digital Ocean Droplet with SystemD + Nginx
+- **Deployment**: Railway (Containerized Docker Environment)
 
 ### Scale
-- **216 files**
-- **~65,000 lines of code**
-- Production website: https://abgumich.org
+- **Production website**: https://abgumich.org
 
 ---
 
 ## 📁 Project Structure
 
-```
+```text
 ABGWebsite/
 ├── src/
-│   ├── app/          # Next.js App Router pages
+│   ├── app/          # Next.js App Router pages & API routes
 │   ├── components/   # Reusable React components
-│   ├── lib/          # Utilities and helpers
+│   ├── lib/          # Utilities, helpers, MongoDB and GridFS config
 │   ├── hooks/        # Custom React hooks
 │   └── types/        # TypeScript type definitions
-├── public/           # Static assets
+├── public/           # Static assets (images, icons)
 ├── scripts/          # Build and utility scripts
+├── instrumentation.ts# Background workers (Cron jobs for emails & token refresh)
 ├── middleware.ts     # Next.js middleware (auth/routing)
-└── Configuration files (next.config.js, tailwind.config.js, etc.)
+└── Configuration files (next.config.js, tailwind.config.js, Dockerfile, etc.)
 ```
 
 ---
 
 ## 🔑 Key Technologies Explained
 
-### Next.js App Router
-- **Server Components**: Faster page loads, better SEO
+### Next.js App Router (v15)
+- **Server Components**: Faster page loads, better SEO, zero client-side JavaScript by default
 - **API Routes**: Backend endpoints in `/src/app/api/`
 - **File-based Routing**: Each folder in `/src/app/` becomes a route
 
@@ -69,50 +68,36 @@ ABGWebsite/
 
 ## 🔐 Database & Authentication
 
-### MongoDB
-- Hosted on Digital Ocean (IP-restricted for security)
-- Collections likely include: users, events, applications, etc.
-- Connected via Mongoose or native MongoDB driver
-- Two instances: Production (port 27017) and Development (port 27018)
+### MongoDB & GridFS
+- **Hosting**: Hosted seamlessly on Railway
+- **Connection**: Accessed via `MONGODB_URI` environment variable
+- **File Storage**: Instead of local file storage, we use **MongoDB GridFS** (`src/lib/gridfs.ts`) to stream and store large files like resumes and audio recordings directly within the database. This ensures files survive container redeployments.
 
 ### NextAuth.js
 - Google OAuth integration for UMich emails
-- Session management
-- Protected routes via middleware
-- Admin role system (12 admin emails configured)
+- Session management and Protected routes via middleware
+- Admin role system based on configured admin emails
 
 ### Security Features
-- IP-restricted database access
-- Environment variables for sensitive data
+- Environment variables for sensitive data (OAuth, Slack, API keys)
 - Server-side authentication checks
-- Separate dev/prod credentials
+- Separate dev/prod credentials via `.env.local`
 
 ---
 
 ## 🚀 Deployment Architecture
 
-### Production Setup (Digital Ocean)
-```
-Internet → Nginx (Port 80/443) → Next.js App (Port 3001) → MongoDB (Port 27017)
-           (SSL/TLS)              (SystemD Service)          (Production DB)
+### Production Setup (Railway)
+The entire application is deployed continuously via **Railway**. We use a containerized approach defined by our `Dockerfile`.
+
+```text
+GitHub (main branch) → Railway Builder → Docker Container (Node.js) → MongoDB Plugin (GridFS)
 ```
 
 ### Components
-- **Nginx**: Handles SSL/TLS, serves static files, reverse proxy
-- **SystemD**: Manages Next.js process as a service (`abg-website.service`)
-- **Next.js**: Built for production (`npm run build`)
-- **MongoDB**: Database server (two instances: prod + dev)
-
-### Key Files
-- `nginx.conf` - Nginx configuration
-- `abg-website.service` - SystemD service file
-- `/etc/systemd/system/abg-website.service` - Service location on server
-
-### How SystemD Works
-- Automatically starts Next.js on server boot
-- Auto-restarts if the application crashes
-- Manages logs via `journalctl`
-- Runs as a background service
+- **Railway**: Handles SSL/TLS, custom domains, automated builds, and zero-downtime deployments.
+- **Docker**: The app is built into a standalone Next.js image to minimize runtime size.
+- **Background Jobs**: Processes like scheduled emails and Gmail OAuth token refreshing are handled directly inside the Next.js process via `instrumentation.ts`, completely eliminating the need for external tools like PM2 or SystemD.
 
 ---
 
@@ -130,84 +115,49 @@ Internet → Nginx (Port 80/443) → Next.js App (Port 3001) → MongoDB (Port 2
 2. Make changes locally
 3. Test thoroughly
 4. Commit and push to GitHub
-5. Create Pull Request
-6. After review: merge and deploy
+5. Create a Pull Request against `main`
+6. After review: merge PR
 
 ### Deployment Process
-- Code pushed to `main` branch
-- SSH into Digital Ocean server
-- Pull latest changes: `git pull origin main`
-- Install dependencies: `npm install`
-- Build for production: `npm run build`
-- Restart service: `sudo systemctl restart abg-website`
-- Verify: `sudo systemctl status abg-website`
+- Code merged to the `main` branch automatically triggers a new build on Railway.
+- **No SSH access required.** Railway handles the build, routing, and zero-downtime container swap automatically!
 
 ---
 
 ## 🎯 Key Features to Know
 
-### Current Functionality (Based on Structure)
+### Current Functionality
 - **User Authentication**: Google OAuth for UMich students
 - **Event Management**: Creating, viewing, and signing up for events
-- **Application System**: Recruitment and application forms
-- **Admin Dashboard**: Special access for leadership
+- **Application System**: Recruitment and application forms with resume uploads (GridFS)
+- **Admin Dashboard**: Special access for leadership with audio recording reviews (GridFS)
 - **Member Directory**: User profiles and information
-- **SMS Notifications**: Twilio integration for alerts
-- **Analytics**: Google Analytics tracking
+- **Automated Emails**: Integrated with Gmail API for automated receipt sending
 
-### Environment Integrations
-- Google Forms API
+### Integrations
+- Google Gmail API & OAuth
+- Slack Webhooks
 - Twilio SMS
-- Google OAuth
-- MongoDB
+- OpenAI
+- MongoDB GridFS
 
 ---
 
-## 🔧 System Management Commands
+## 🔧 System Management (For Lead Members)
 
-### Common Commands (Lead Members)
-```bash
-# Check service status
-sudo systemctl status abg-website
+Gone are the days of SSHing into Linux servers. All system management is done via the **Railway Dashboard**:
 
-# Restart the service
-sudo systemctl restart abg-website
-
-# View logs
-sudo journalctl -u abg-website -n 50
-
-# Follow logs in real-time
-sudo journalctl -u abg-website -f
-```
-
-### Development vs Production
-
-**Development Environment:**
-- Runs on your local machine (`localhost:3001`)
-- Uses development database (port 27018)
-- Hot reload (changes appear instantly)
-- Development credentials
-
-**Production Environment:**
-- Runs on Digital Ocean server
-- Uses production database (port 27017)
-- Managed by SystemD service
-- Production credentials (secure)
+- **View Live Logs**: Check the "Deployments" tab in Railway to see real-time container logs.
+- **Restart Services**: Use the "Restart" button on the Railway project dashboard.
+- **Environment Variables**: Managed securely in the Railway "Variables" tab.
+- **Database Management**: View and query the database using **MongoDB Compass** by connecting to the Railway external database URL.
 
 ---
 
 ## 📚 Resources for Contributors
 
-### Essential Links
-- **Repository**: AIBuissnessGroup/ABGWebsite
-- **Production Site**: https://abgumich.org
-- **Slack integration guide**: [docs/integrations/slack.md](./docs/integrations/slack.md)
-- **Next.js Docs**: https://nextjs.org/docs
-- **Tailwind Docs**: https://tailwindcss.com/docs
-- **TypeScript Docs**: https://www.typescriptlang.org/docs
-
 ### Recommended Learning Path
-1. React fundamentals (if new)
+1. React fundamentals
 2. Next.js App Router basics
 3. TypeScript basics
 4. Tailwind CSS utilities
@@ -216,9 +166,8 @@ sudo journalctl -u abg-website -f
 ### Tools You'll Use
 - **VS Code** - Code editor (recommended)
 - **Git** - Version control
-- **Node.js** - JavaScript runtime
 - **MongoDB Compass** - Database GUI (Lead Members)
-- **Postman/Insomnia** - API testing (Lead Members)
+- **Railway Dashboard** - Infrastructure monitoring (Lead Members)
 
 ---
 
@@ -227,79 +176,24 @@ sudo journalctl -u abg-website -f
 ### Focused Contributors (Option A):
 - Work on specific features locally
 - Push to GitHub for review
-- No server access needed
-- Use development database
+- Use local/development database
 - Focus on coding and learning
 
 ### Lead Members (Option B):
-- Full deployment access
-- Manage production server
+- Railway Dashboard access
+- Monitor production deployments and logs
 - Code reviews and mentorship
-- Database management
-- DevOps responsibilities
-- Strategic planning
-
----
-
-## 📊 Tech Committee Structure
-
-```
-VP of Technology
-    ↓
-Lead Tech Committee Members (2-3)
-    ↓
-Focused Contributors (5-10)
-```
-
-### Roles:
-- **VP Tech**: Overall strategy, infrastructure ownership
-- **Lead Members**: Subproject management, code review, deployments
-- **Contributors**: Feature development, bug fixes, learning
-
----
-
-## ❓ Questions?
-- Slack workspace for real-time communication
-- GitHub Issues for bug reports and feature requests
-- Weekly Tech Committee meetings
-- Office hours with Tech Leads
-
----
-
-## 🚀 Getting Started Checklist
-
-### Week 1: Setup
-- [ ] Install Node.js, Git, VS Code
-- [ ] Clone repository
-- [ ] Get `.env.local` file from Tech Lead
-- [ ] Run `npm install`
-- [ ] Run `npm run dev` successfully
-- [ ] Join Slack workspace
-
-### Week 2: First Contribution
-- [ ] Explore codebase
-- [ ] Pick first issue (assigned by Lead)
-- [ ] Create feature branch
-- [ ] Make changes
-- [ ] Create Pull Request
-- [ ] Address feedback
-
-### Week 3+: Active Development
-- [ ] Regular contributions (5-10 hrs/week)
-- [ ] Attend weekly meetings
-- [ ] Ask questions when stuck
-- [ ] Learn and grow!
+- Database management via MongoDB Compass
 
 ---
 
 ## 💡 Key Takeaways
 
-1. **SystemD manages production** - Not PM2, uses systemctl commands
-2. **Two environments** - Development (local) and Production (server)
-3. **Two databases** - Dev (port 27018) and Prod (port 27017)
-4. **AI-assisted development** - Use ChatGPT/Copilot to help code
-5. **You don't need to know everything** - Learn as you go!
-6. **Ask for help** - Tech Leads are here to support you
+1. **Railway manages production** - No more SystemD or SSH access. Commits to `main` auto-deploy.
+2. **GridFS manages files** - Because containers are ephemeral, all uploaded files are safely stored in MongoDB.
+3. **Background jobs are native** - Handled in `instrumentation.ts`.
+4. **AI-assisted development** - Use ChatGPT/Copilot to help code!
+5. **Ask for help** - Tech Leads are here to support you.
 
 ---
 
