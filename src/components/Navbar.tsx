@@ -8,6 +8,9 @@ import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { InstagramIcon, XIcon, LinkedInIcon } from "./SocialIcons";
 import { isAdmin } from "@/lib/roles";
 
+// Set to true to re-enable university affiliation logos in the navbar
+const SHOW_AFFILIATIONS = false;
+
 export default function Navbar() {
   const { data: session } = useSession();
   const pathname = usePathname();
@@ -79,6 +82,7 @@ export default function Navbar() {
               </div>
               
               {/* University Affiliations - Hidden on mobile, visible on lg+ */}
+              {SHOW_AFFILIATIONS && (
               <div className="hidden lg:flex items-center gap-3">
                 <span className="text-[#00274c] text-xs font-bold uppercase tracking-wider">
                   Proudly affiliated with
@@ -96,13 +100,16 @@ export default function Navbar() {
                   />
                 </div>
               </div>
+              )}
               
               {/* Mobile/Tablet simplified text */}
+              {SHOW_AFFILIATIONS && (
               <div className="hidden sm:block lg:hidden">
                 <span className="text-[#00274c] text-xs font-bold">
                   University of Michigan
                 </span>
               </div>
+              )}
             </div>
           </Link>
 
