@@ -77,6 +77,11 @@ export default function InternshipsPage() {
     published: true
   };
 
+  // Internship placements — add new entries here as members land roles
+  const internshipPlacements = [
+    // { name: 'Jane Smith', role: 'AI/ML Engineering Intern', company: 'Google', term: 'Summer 2025' },
+  ];
+
   // Get phase icon based on index
   const getPhaseIcon = (index: number) => {
     const icons = [AcademicCapIcon, BriefcaseIcon, UsersIcon];
@@ -118,6 +123,62 @@ export default function InternshipsPage() {
           </motion.div>
         </div>
       </section>
+
+      {/* WHERE WE'VE GONE */}
+      {internshipPlacements.length > 0 && (
+      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-12">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="heading-primary text-3xl sm:text-4xl lg:text-5xl text-white mb-4">
+              WHERE WE'VE GONE
+            </h2>
+            <motion.div
+              initial={{ width: 0 }}
+              whileInView={{ width: '120px' }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+              viewport={{ once: true }}
+              className="h-1 bg-gradient-to-r from-white to-gray-300 mx-auto mb-6"
+            />
+            <p className="body-text text-lg text-center max-w-3xl mx-auto leading-relaxed" style={{color: '#BBBBBB'}}>
+              ABG members have gone on to intern at some of the world's most innovative companies.
+            </p>
+          </motion.div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {internshipPlacements.map((placement, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: index * 0.08 }}
+                viewport={{ once: true }}
+                className="glass-card p-6 flex flex-col gap-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-base leading-snug">{placement.name}</p>
+                    <p className="text-sm mt-0.5" style={{color: '#BBBBBB'}}>{placement.role}</p>
+                  </div>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20">
+                    {placement.term}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 pt-1 border-t border-white/10">
+                  <BriefcaseIcon className="w-4 h-4 shrink-0" style={{color: '#BBBBBB'}} />
+                  <p className="text-sm font-semibold" style={{color: '#BBBBBB'}}>{placement.company}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+      )}
 
       {/* Program Overview */}
       <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-12">
