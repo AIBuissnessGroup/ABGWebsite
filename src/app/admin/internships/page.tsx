@@ -15,7 +15,7 @@ import {
 
 export default function InternshipsAdmin() {
   const { data: session, status } = useSession();
-  const [activeTab, setActiveTab] = useState<'companies' | 'projects' | 'content'>('companies');
+  const [activeTab, setActiveTab] = useState<'companies' | 'projects' | 'content' | 'placements'>('companies');
   const [loading, setLoading] = useState(true);
   
   // Companies state
@@ -30,6 +30,16 @@ export default function InternshipsAdmin() {
   
   // Forms for linking
   const [availableForms, setAvailableForms] = useState<any[]>([]);
+
+  // Placements state
+  const [placements, setPlacements] = useState<any[]>([]);
+  const [showPlacementForm, setShowPlacementForm] = useState(false);
+  const [editingPlacement, setEditingPlacement] = useState<any>(null);
+  const [placementForm, setPlacementForm] = useState({
+    name: '', company: '', industry: '', role: '', bio: '', linkedin: '',
+    memberImageUrl: '', companyLogoUrl: '', term: ''
+  });
+  const [savingPlacement, setSavingPlacement] = useState(false);
   
   // Page content state
   const [pageContent, setPageContent] = useState({
@@ -128,6 +138,7 @@ export default function InternshipsAdmin() {
       loadProjects();
       loadForms();
       loadPageContent();
+      loadPlacements();
     }
   }, [session]);
 
@@ -214,6 +225,62 @@ export default function InternshipsAdmin() {
     }
   };
 
+  const loadPlacements = async () => {
+    try {
+      const res = await fetch('/api/admin/internships/placements');
+      const data = await res.json();
+      if (data && !data.error) setPlacements(data);
+    } catch (error) {
+      console.error('Error loading member internships:', error);
+    }
+  };
+
+  const deletePlacement = async (id: string) => {
+    if (confirm('Are you sure you want to delete this placement?')) {
+      try {
+        const res = await fetch(`/api/admin/internships/placements?id=${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          loadPlacements();
+        } else {
+          const error = await res.json();
+          alert(error.error || 'Error deleting placement');
+        }
+      } catch (error) {
+        console.error('Error deleting placement:', error);
+        alert('Error deleting placement');
+      }
+    }
+  };
+
+  const savePlacement = async () => {
+    setSavingPlacement(true);
+    try {
+      const method = editingPlacement ? 'PUT' : 'POST';
+      const body = editingPlacement
+        ? { ...placementForm, _id: editingPlacement._id }
+        : placementForm;
+      const res = await fetch('/api/admin/internships/placements', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        loadPlacements();
+        setShowPlacementForm(false);
+        setEditingPlacement(null);
+        setPlacementForm({ name: '', company: '', industry: '', role: '', bio: '', linkedin: '', memberImageUrl: '', companyLogoUrl: '', term: '' });
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Error saving placement');
+      }
+    } catch (error) {
+      console.error('Error saving placement:', error);
+      alert('Error saving placement');
+    } finally {
+      setSavingPlacement(false);
+    }
+  };
+
   const deleteProject = async (id: string) => {
     if (confirm('Are you sure you want to delete this project?')) {
       try {
@@ -257,6 +324,7 @@ export default function InternshipsAdmin() {
           {[
             { id: 'companies', name: 'Companies', icon: BuildingOfficeIcon },
             { id: 'projects', name: 'Projects', icon: BriefcaseIcon },
+            { id: 'placements', name: 'Member Internships', icon: BriefcaseIcon },
             { id: 'content', name: 'Page Content', icon: DocumentTextIcon }
           ].map((tab) => (
             <button
@@ -572,6 +640,241 @@ export default function InternshipsAdmin() {
                 className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
               >
                 Add Project
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Member Internships Tab */}
+      {activeTab === 'placements' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-medium text-gray-900">Member Internship Placements</h3>
+            {!showPlacementForm && (
+              <button
+                onClick={() => {
+                  setEditingPlacement(null);
+                  setPlacementForm({ name: '', company: '', industry: '', role: '', bio: '', linkedin: '', memberImageUrl: '', companyLogoUrl: '', term: '' });
+                  setShowPlacementForm(true);
+                }}
+                className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366] admin-white-text"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Add Internship
+              </button>
+            )}
+          </div>
+
+          {/* Inline Placement Form */}
+          {showPlacementForm && (
+            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <h4 className="text-md font-semibold text-gray-900 mb-4">
+                {editingPlacement ? 'Edit Placement' : 'New Placement'}
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Member Name *</label>
+                  <input
+                    type="text"
+                    value={placementForm.name}
+                    onChange={(e) => setPlacementForm({ ...placementForm, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                    placeholder="e.g. Jane Doe"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Company *</label>
+                  <input
+                    type="text"
+                    value={placementForm.company}
+                    onChange={(e) => setPlacementForm({ ...placementForm, company: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                    placeholder="e.g. Google"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
+                  <input
+                    type="text"
+                    value={placementForm.role}
+                    onChange={(e) => setPlacementForm({ ...placementForm, role: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                    placeholder="e.g. AI/ML Intern"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Industry</label>
+                  <input
+                    type="text"
+                    value={placementForm.industry}
+                    onChange={(e) => setPlacementForm({ ...placementForm, industry: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                    placeholder="e.g. Technology"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Term</label>
+                  <input
+                    type="text"
+                    value={placementForm.term}
+                    onChange={(e) => setPlacementForm({ ...placementForm, term: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                    placeholder="e.g. Summer 2024"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn URL</label>
+                  <input
+                    type="url"
+                    value={placementForm.linkedin}
+                    onChange={(e) => setPlacementForm({ ...placementForm, linkedin: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                    placeholder="https://linkedin.com/in/..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Member Headshot URL</label>
+                  <input
+                    type="url"
+                    value={placementForm.memberImageUrl}
+                    onChange={(e) => setPlacementForm({ ...placementForm, memberImageUrl: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                    placeholder="https://..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Company Logo URL</label>
+                  <input
+                    type="url"
+                    value={placementForm.companyLogoUrl}
+                    onChange={(e) => setPlacementForm({ ...placementForm, companyLogoUrl: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                    placeholder="https://..."
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">How ABG Helped Me</label>
+                  <textarea
+                    value={placementForm.bio}
+                    onChange={(e) => setPlacementForm({ ...placementForm, bio: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00274c]"
+                    placeholder="Describe how ABG helped this member land their internship..."
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={savePlacement}
+                  disabled={savingPlacement || !placementForm.name || !placementForm.company || !placementForm.role}
+                  className="admin-save-btn bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] disabled:opacity-50 admin-white-text"
+                >
+                  {savingPlacement ? 'Saving...' : editingPlacement ? 'Save Changes' : 'Add Placement'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPlacementForm(false);
+                    setEditingPlacement(null);
+                    setPlacementForm({ name: '', company: '', industry: '', role: '', bio: '', linkedin: '', memberImageUrl: '', companyLogoUrl: '', term: '' });
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {placements.map((p: any) => (
+              <div key={p._id} className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm flex flex-col gap-3">
+                <div className="flex items-start gap-3">
+                  {p.memberImageUrl ? (
+                    <img
+                      src={p.memberImageUrl}
+                      alt={p.name}
+                      className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-[#00274c] flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                      {p.name?.charAt(0) || '?'}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">{p.name}</p>
+                    <p className="text-sm text-gray-600 truncate">{p.role} @ {p.company}</p>
+                    {p.industry && (
+                      <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">{p.industry}</span>
+                    )}
+                  </div>
+                  {p.companyLogoUrl && (
+                    <img
+                      src={p.companyLogoUrl}
+                      alt={p.company}
+                      className="w-8 h-8 object-contain flex-shrink-0"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  )}
+                </div>
+                {p.bio && (
+                  <p className="text-sm text-gray-600 line-clamp-2">{p.bio}</p>
+                )}
+                {p.term && (
+                  <p className="text-xs text-gray-400">{p.term}</p>
+                )}
+                <div className="flex items-center justify-between mt-auto">
+                  {p.linkedin ? (
+                    <a href={p.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs underline flex items-center gap-1">
+                      <LinkIcon className="w-3 h-3" /> LinkedIn
+                    </a>
+                  ) : <span />}
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        setEditingPlacement(p);
+                        setPlacementForm({
+                          name: p.name || '',
+                          company: p.company || '',
+                          industry: p.industry || '',
+                          role: p.role || '',
+                          bio: p.bio || '',
+                          linkedin: p.linkedin || '',
+                          memberImageUrl: p.memberImageUrl || '',
+                          companyLogoUrl: p.companyLogoUrl || '',
+                          term: p.term || '',
+                        });
+                        setShowPlacementForm(true);
+                      }}
+                      className="text-green-600 hover:text-green-900 p-1"
+                      disabled={showPlacementForm}
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => deletePlacement(p._id)}
+                      className="text-red-600 hover:text-red-900 p-1"
+                      disabled={showPlacementForm}
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {placements.length === 0 && !showPlacementForm && (
+            <div className="text-center py-12">
+              <BriefcaseIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No placements yet</h3>
+              <p className="text-gray-600 mb-4">Add your first member internship placement to populate the \"WHERE WE'VE GONE\" section.</p>
+              <button
+                onClick={() => setShowPlacementForm(true)}
+                className="bg-[#00274c] text-white px-4 py-2 rounded-lg hover:bg-[#003366] admin-white-text"
+              >
+                Add Internship
               </button>
             </div>
           )}

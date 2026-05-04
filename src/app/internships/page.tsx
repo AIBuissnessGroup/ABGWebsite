@@ -22,6 +22,7 @@ export default function InternshipsPage() {
   const [pageContent, setPageContent] = useState<any>(null);
   const [projects, setProjects] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
+  const [placements, setPlacements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,6 +51,13 @@ export default function InternshipsPage() {
       if (companiesData && !companiesData.error) {
         setCompanies(companiesData);
       }
+
+      // Load member internship placements
+      const placementsRes = await fetch('/api/public/internships/placements');
+      const placementsData = await placementsRes.json();
+      if (Array.isArray(placementsData)) {
+        setPlacements(placementsData);
+      }
     } catch (error) {
       console.error('Error loading content:', error);
     } finally {
@@ -76,11 +84,6 @@ export default function InternshipsPage() {
     ctaSubtitle: 'Get involved with AI Business Group projects to qualify for our internship program.',
     published: true
   };
-
-  // Internship placements — add new entries here as members land roles
-  const internshipPlacements = [
-    // { name: 'Jane Smith', role: 'AI/ML Engineering Intern', company: 'Google', term: 'Summer 2025' },
-  ];
 
   // Get phase icon based on index
   const getPhaseIcon = (index: number) => {
@@ -125,7 +128,7 @@ export default function InternshipsPage() {
       </section>
 
       {/* WHERE WE'VE GONE */}
-      {internshipPlacements.length > 0 && (
+      {placements.length > 0 && (
       <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-12">
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -151,27 +154,67 @@ export default function InternshipsPage() {
           </motion.div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {internshipPlacements.map((placement, index) => (
+            {placements.map((placement: any, index: number) => (
               <motion.div
-                key={index}
+                key={String(placement._id) || index}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: index * 0.08 }}
                 viewport={{ once: true }}
                 className="glass-card p-6 flex flex-col gap-3"
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  {placement.memberImageUrl ? (
+                    <img
+                      src={placement.memberImageUrl}
+                      alt={placement.name}
+                      className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                      {placement.name?.charAt(0) || '?'}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-semibold text-base leading-snug">{placement.name}</p>
-                    <p className="text-sm mt-0.5" style={{color: '#BBBBBB'}}>{placement.role}</p>
+                    <p className="text-sm mt-0.5" style={{color: '#BBBBBB'}}>{placement.role} @ {placement.company}</p>
+                    {placement.industry && (
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20">
+                        {placement.industry}
+                      </span>
+                    )}
                   </div>
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20">
-                    {placement.term}
-                  </span>
+                  {placement.companyLogoUrl && (
+                    <img
+                      src={placement.companyLogoUrl}
+                      alt={placement.company}
+                      className="w-8 h-8 object-contain flex-shrink-0"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  )}
                 </div>
-                <div className="flex items-center gap-2 pt-1 border-t border-white/10">
-                  <BriefcaseIcon className="w-4 h-4 shrink-0" style={{color: '#BBBBBB'}} />
-                  <p className="text-sm font-semibold" style={{color: '#BBBBBB'}}>{placement.company}</p>
+                {placement.bio && (
+                  <p className="text-sm line-clamp-2" style={{color: '#BBBBBB'}}>{placement.bio}</p>
+                )}
+                <div className="flex items-center justify-between pt-1 border-t border-white/10">
+                  <div className="flex items-center gap-2">
+                    <BriefcaseIcon className="w-4 h-4 shrink-0" style={{color: '#BBBBBB'}} />
+                    <p className="text-sm font-semibold" style={{color: '#BBBBBB'}}>{placement.company}</p>
+                    {placement.term && (
+                      <span className="text-xs" style={{color: '#888888'}}>· {placement.term}</span>
+                    )}
+                  </div>
+                  {placement.linkedin && (
+                    <a
+                      href={placement.linkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-300 hover:text-blue-200 underline"
+                    >
+                      LinkedIn
+                    </a>
+                  )}
                 </div>
               </motion.div>
             ))}
