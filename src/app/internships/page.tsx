@@ -189,13 +189,13 @@ export default function InternshipsPage() {
                     <img
                       src={placement.companyLogoUrl}
                       alt={placement.company}
-                      className="w-8 h-8 object-contain flex-shrink-0"
+                      className="w-14 h-14 object-contain flex-shrink-0"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                   )}
                 </div>
                 {placement.bio && (
-                  <p className="text-sm line-clamp-2" style={{color: '#BBBBBB'}}>{placement.bio}</p>
+                  <p className="text-sm" style={{color: '#BBBBBB'}}>{placement.bio}</p>
                 )}
                 <div className="flex items-center justify-between pt-1 border-t border-white/10">
                   <div className="flex items-center gap-2">

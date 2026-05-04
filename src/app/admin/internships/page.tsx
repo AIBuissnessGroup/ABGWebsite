@@ -813,13 +813,13 @@ export default function InternshipsAdmin() {
                     <img
                       src={p.companyLogoUrl}
                       alt={p.company}
-                      className="w-8 h-8 object-contain flex-shrink-0"
+                      className="w-14 h-14 object-contain flex-shrink-0"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                   )}
                 </div>
                 {p.bio && (
-                  <p className="text-sm text-gray-600 line-clamp-2">{p.bio}</p>
+                  <p className="text-sm text-gray-600">{p.bio}</p>
                 )}
                 {p.term && (
                   <p className="text-xs text-gray-400">{p.term}</p>
