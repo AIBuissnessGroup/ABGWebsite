@@ -33,8 +33,13 @@ export async function GET() {
         .find({ projectId: project.id }).toArray();
     }
     
-    // Sort by featured (desc) then createdAt (desc)
+    // Sort by displayOrder (asc) if set, then fall back to featured (desc) then createdAt (desc)
     projects.sort((a, b) => {
+      const aHasOrder = a.displayOrder !== undefined && a.displayOrder !== null;
+      const bHasOrder = b.displayOrder !== undefined && b.displayOrder !== null;
+      if (aHasOrder && bHasOrder) return a.displayOrder - b.displayOrder;
+      if (aHasOrder) return -1;
+      if (bHasOrder) return 1;
       if (a.featured && !b.featured) return -1;
       if (!a.featured && b.featured) return 1;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -46,6 +51,33 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 });
   } finally {
     
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await requireAdminSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { orderedIds } = await request.json();
+    if (!Array.isArray(orderedIds)) {
+      return NextResponse.json({ error: 'orderedIds must be an array' }, { status: 400 });
+    }
+
+    const db = await getDb();
+
+    await Promise.all(
+      orderedIds.map((id: string, index: number) =>
+        db.collection('Project').updateOne({ id }, { $set: { displayOrder: index } })
+      )
+    );
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error reordering projects:', error);
+    return NextResponse.json({ error: 'Failed to reorder projects' }, { status: 500 });
   }
 }
 

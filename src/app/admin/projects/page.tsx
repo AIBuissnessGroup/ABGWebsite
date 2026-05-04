@@ -7,7 +7,9 @@ import {
   PencilIcon, 
   TrashIcon, 
   EyeIcon,
-  RocketLaunchIcon
+  RocketLaunchIcon,
+  ChevronUpIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 
 export default function ProjectsAdmin() {
@@ -108,6 +110,28 @@ export default function ProjectsAdmin() {
       } catch (error) {
         console.error('Error deleting project:', error);
       }
+    }
+  };
+
+  const moveProject = async (id: string, direction: 'up' | 'down') => {
+    const index = projects.findIndex(p => p.id === id);
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === projects.length - 1) return;
+
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    const newOrder = [...projects];
+    [newOrder[index], newOrder[swapIndex]] = [newOrder[swapIndex], newOrder[index]];
+    setProjects(newOrder);
+
+    try {
+      await fetch('/api/admin/projects', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds: newOrder.map(p => p.id) })
+      });
+    } catch (error) {
+      console.error('Error saving project order:', error);
+      setProjects(projects);
     }
   };
 
@@ -246,6 +270,24 @@ export default function ProjectsAdmin() {
               </div>
               
               <div className="flex space-x-2 ml-4">
+                <div className="flex flex-col justify-center">
+                  <button
+                    onClick={() => moveProject(project.id, 'up')}
+                    className="text-gray-400 hover:text-gray-700 p-1 disabled:opacity-20"
+                    title="Move Up"
+                    disabled={showForm || projects.indexOf(project) === 0}
+                  >
+                    <ChevronUpIcon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => moveProject(project.id, 'down')}
+                    className="text-gray-400 hover:text-gray-700 p-1 disabled:opacity-20"
+                    title="Move Down"
+                    disabled={showForm || projects.indexOf(project) === projects.length - 1}
+                  >
+                    <ChevronDownIcon className="w-4 h-4" />
+                  </button>
+                </div>
                 <a
                   href={`/projects`}
                   target="_blank"

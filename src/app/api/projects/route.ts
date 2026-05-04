@@ -27,8 +27,13 @@ export async function GET() {
         .find({ projectId: project.id }).toArray();
     }
     
-    // Sort by featured (desc) then createdAt (desc)
+    // Sort by displayOrder (asc) if set, then fall back to featured (desc) then createdAt (desc)
     projects.sort((a, b) => {
+      const aHasOrder = a.displayOrder !== undefined && a.displayOrder !== null;
+      const bHasOrder = b.displayOrder !== undefined && b.displayOrder !== null;
+      if (aHasOrder && bHasOrder) return a.displayOrder - b.displayOrder;
+      if (aHasOrder) return -1;
+      if (bHasOrder) return 1;
       if (a.featured && !b.featured) return -1;
       if (!a.featured && b.featured) return 1;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
