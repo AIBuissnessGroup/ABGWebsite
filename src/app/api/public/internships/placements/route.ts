@@ -7,7 +7,7 @@ export async function GET() {
     const placements = await db
       .collection('MemberInternship')
       .find({})
-      .sort({ createdAt: -1 })
+      .sort({ displayOrder: 1, createdAt: -1 })
       .toArray();
     return NextResponse.json(placements);
   } catch (error) {

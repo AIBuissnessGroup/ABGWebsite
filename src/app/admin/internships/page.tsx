@@ -10,7 +10,9 @@ import {
   BriefcaseIcon,
   BuildingOfficeIcon,
   DocumentTextIcon,
-  LinkIcon
+  LinkIcon,
+  ChevronUpIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 
 export default function InternshipsAdmin() {
@@ -232,6 +234,28 @@ export default function InternshipsAdmin() {
       if (data && !data.error) setPlacements(data);
     } catch (error) {
       console.error('Error loading member internships:', error);
+    }
+  };
+
+  const movePlacement = async (id: string, direction: 'up' | 'down') => {
+    const index = placements.findIndex((p: any) => p._id === id);
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === placements.length - 1) return;
+
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    const newOrder = [...placements];
+    [newOrder[index], newOrder[swapIndex]] = [newOrder[swapIndex], newOrder[index]];
+    setPlacements(newOrder);
+
+    try {
+      await fetch('/api/admin/internships/placements', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds: newOrder.map((p: any) => p._id) })
+      });
+    } catch (error) {
+      console.error('Error saving placement order:', error);
+      setPlacements(placements);
     }
   };
 
@@ -830,7 +854,25 @@ export default function InternshipsAdmin() {
                       <LinkIcon className="w-3 h-3" /> LinkedIn
                     </a>
                   ) : <span />}
-                  <div className="flex gap-1">
+                  <div className="flex items-center gap-1">
+                    <div className="flex flex-col">
+                      <button
+                        onClick={() => movePlacement(p._id, 'up')}
+                        className="text-gray-400 hover:text-gray-700 p-0.5 disabled:opacity-20"
+                        title="Move Up"
+                        disabled={showPlacementForm || placements.indexOf(p) === 0}
+                      >
+                        <ChevronUpIcon className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => movePlacement(p._id, 'down')}
+                        className="text-gray-400 hover:text-gray-700 p-0.5 disabled:opacity-20"
+                        title="Move Down"
+                        disabled={showPlacementForm || placements.indexOf(p) === placements.length - 1}
+                      >
+                        <ChevronDownIcon className="w-3 h-3" />
+                      </button>
+                    </div>
                     <button
                       onClick={() => {
                         setEditingPlacement(p);

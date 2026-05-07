@@ -13,12 +13,43 @@ export async function GET() {
     const placements = await db
       .collection('MemberInternship')
       .find({})
-      .sort({ createdAt: -1 })
+      .sort({ displayOrder: 1, createdAt: -1 })
       .toArray();
     return NextResponse.json(placements);
   } catch (error) {
     console.error('Error fetching member internships:', error);
     return NextResponse.json({ error: 'Failed to fetch placements' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const session = await requireAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const { orderedIds } = await request.json();
+    if (!Array.isArray(orderedIds)) {
+      return NextResponse.json({ error: 'orderedIds must be an array' }, { status: 400 });
+    }
+
+    const db = await getDb('abg-website');
+    const { ObjectId } = await import('mongodb');
+
+    await Promise.all(
+      orderedIds.map((id: string, index: number) =>
+        db.collection('MemberInternship').updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { displayOrder: index } }
+        )
+      )
+    );
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error reordering member internships:', error);
+    return NextResponse.json({ error: 'Failed to reorder placements' }, { status: 500 });
   }
 }
 
