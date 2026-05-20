@@ -38,6 +38,16 @@ interface AboutContent {
 export default function About() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true });
+
+  const mapIconToEmoji = (icon: string) => {
+    const normalizedIcon = icon.trim().toLowerCase();
+
+    if (normalizedIcon === 'lightbulb') return '💡';
+    if (normalizedIcon === 'gear') return '⚙️';
+    if (normalizedIcon === 'users') return '👥';
+
+    return icon;
+  };
   
   const [content, setContent] = useState<AboutContent>({
     title: "WHO WE ARE",
@@ -84,17 +94,17 @@ export default function About() {
     {
       title: content.value1Title,
       description: content.value1Desc,
-      icon: content.value1Icon
+      icon: mapIconToEmoji(content.value1Icon)
     },
     {
       title: content.value2Title,
       description: content.value2Desc,
-      icon: content.value2Icon
+      icon: mapIconToEmoji(content.value2Icon)
     },
     {
       title: content.value3Title,
       description: content.value3Desc,
-      icon: content.value3Icon
+      icon: mapIconToEmoji(content.value3Icon)
     }
   ];
 

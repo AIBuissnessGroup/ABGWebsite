@@ -30,7 +30,6 @@ export default function Navbar() {
     glow?: boolean;
   }> = [
     { href: "/", label: "Home" },
-    { href: "/sxsw", label: "SXSW", glow: true },
     { href: "/projects", label: "Projects" },
     { href: "/events", label: "Events" },
     { href: "/portal", label: "Portal" },
