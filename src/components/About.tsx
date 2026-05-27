@@ -39,14 +39,15 @@ export default function About() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true });
 
-  const mapIconToEmoji = (icon: string) => {
-    const normalizedIcon = icon.trim().toLowerCase();
+  const mapIconToEmoji = (icon?: string | null) => {
+    const safeIcon = icon ?? '';
+    const normalizedIcon = safeIcon.trim().toLowerCase();
 
     if (normalizedIcon === 'lightbulb') return '💡';
     if (normalizedIcon === 'gear') return '⚙️';
     if (normalizedIcon === 'users') return '👥';
 
-    return icon;
+    return safeIcon;
   };
   
   const [content, setContent] = useState<AboutContent>({

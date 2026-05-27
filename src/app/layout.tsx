@@ -39,7 +39,7 @@ export default function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${roboto.variable} ${geistSans.variable} ${geistMono.variable} font-sans bg-[#00274c] text-white `}>
+      <body suppressHydrationWarning className={`${roboto.variable} ${geistSans.variable} ${geistMono.variable} font-sans bg-[#00274c] text-white `}>
         {/* Google Analytics */}
         {GA_MEASUREMENT_ID && (
           <>
