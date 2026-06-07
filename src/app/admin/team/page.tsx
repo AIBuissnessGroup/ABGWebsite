@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { 
@@ -127,7 +127,6 @@ function SortableTeamMemberCard({ member, onEdit, onDelete, onLink, showForm }: 
           onClick={() => onEdit(member)}
           className="text-green-600 hover:text-green-900 p-2"
           title="Edit Member"
-          disabled={showForm}
         >
           <PencilIcon className="w-4 h-4" />
         </button>
@@ -243,9 +242,14 @@ export default function TeamAdmin() {
   const [isSaving, setIsSaving] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false); // Link dialog state
   const [linkingMember, setLinkingMember] = useState<any>(null); // Member to link
+  const formRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -469,6 +473,7 @@ export default function TeamAdmin() {
             onClick={() => {
               setEditingMember(null);
               setShowForm(true);
+              setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
             }}
             className="bg-[#00274c] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#003366] admin-white-text"
           >
@@ -480,7 +485,7 @@ export default function TeamAdmin() {
 
       {/* Inline Form */}
       {showForm && (
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 mb-6">
+        <div ref={formRef} className="bg-white rounded-lg shadow-md border border-gray-200 mb-6">
           <TeamMemberForm
             member={editingMember}
             projects={projects}
@@ -517,6 +522,7 @@ export default function TeamAdmin() {
                   onEdit={(member: any) => {
                     setEditingMember(member);
                     setShowForm(true);
+                    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
                   }}
                   onDelete={deleteMember}
                   onLink={handleLinkUser}
