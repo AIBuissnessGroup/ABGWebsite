@@ -271,6 +271,7 @@ export default function ConnectsPage() {
                       width={64}
                       height={64}
                       className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                      unoptimized
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
                       }}
@@ -332,6 +333,7 @@ export default function ConnectsPage() {
                     width={64}
                     height={64}
                     className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md"
+                    unoptimized
                   />
                 ) : (
                   <div className="w-16 h-16 bg-gradient-to-br from-[#00274C] to-[#1e3a5f] rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">

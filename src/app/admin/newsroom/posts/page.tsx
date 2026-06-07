@@ -223,6 +223,7 @@ export default function NewsroomPostsPage() {
                             width={64}
                             height={48}
                             className="w-16 h-12 object-cover rounded"
+                            unoptimized
                           />
                         ) : (
                           <div className="w-16 h-12 bg-gray-200 rounded flex items-center justify-center">

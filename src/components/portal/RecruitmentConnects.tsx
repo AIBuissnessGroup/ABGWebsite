@@ -85,6 +85,7 @@ export default function RecruitmentConnects({ connects }: RecruitmentConnectsPro
                         width={48}
                         height={48}
                         className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0"
+                        unoptimized
                       />
                     ) : (
                       <div className="w-12 h-12 bg-gradient-to-br from-[#00274C] to-[#1e3a5f] rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm flex-shrink-0">
