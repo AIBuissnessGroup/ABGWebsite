@@ -222,15 +222,16 @@ export async function PUT(request: NextRequest) {
         }
       }
       
-      if (incompleteAdmins.length > 0) {
-        return corsResponse(
-          NextResponse.json({ 
-            error: 'Cannot finalize: Not all admins have reviewed all applicants',
-            incompleteAdmins,
-            message: `${incompleteAdmins.length} admin(s) have not completed their reviews. All ${allAdminEmails.length} admins must review all ${completeness.totalApplicants} applicants before finalizing.`,
-          }, { status: 400 })
-        );
-      }
+      // TEMPORARILY DISABLED: all-admins-must-review restriction
+      // if (incompleteAdmins.length > 0) {
+      //   return corsResponse(
+      //     NextResponse.json({ 
+      //       error: 'Cannot finalize: Not all admins have reviewed all applicants',
+      //       incompleteAdmins,
+      //       message: `${incompleteAdmins.length} admin(s) have not completed their reviews. All ${allAdminEmails.length} admins must review all ${completeness.totalApplicants} applicants before finalizing.`,
+      //     }, { status: 400 })
+      //   );
+      // }
       
       await finalizePhase(cycleId, phase, session.user.email);
       const updatedConfig = await getPhaseConfig(cycleId, phase);

@@ -193,15 +193,16 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      if (incompleteAdmins.length > 0 && !forceFinalize) {
-        return corsResponse(
-          NextResponse.json({ 
-            error: 'Cannot finalize: Not all admins have reviewed all applicants',
-            incompleteAdmins,
-            message: `${incompleteAdmins.length} admin(s) have not completed their reviews. All ${allAdminEmails.length} admins must review all ${completeness.totalApplicants} applicants before finalizing. Use forceFinalize to override.`,
-          }, { status: 400 })
-        );
-      }
+      // TEMPORARILY DISABLED: all-admins-must-review restriction
+      // if (incompleteAdmins.length > 0 && !forceFinalize) {
+      //   return corsResponse(
+      //     NextResponse.json({ 
+      //       error: 'Cannot finalize: Not all admins have reviewed all applicants',
+      //       incompleteAdmins,
+      //       message: `${incompleteAdmins.length} admin(s) have not completed their reviews. All ${allAdminEmails.length} admins must review all ${completeness.totalApplicants} applicants before finalizing. Use forceFinalize to override.`,
+      //     }, { status: 400 })
+      //   );
+      // }
       
       // Finalize only the track-specific config if track is specified
       await finalizePhase(cycleId, phase, adminEmail, track || undefined);
