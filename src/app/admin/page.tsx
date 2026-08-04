@@ -35,6 +35,9 @@ interface AuditLog {
 export default function AdminDashboard() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [themeF1Enabled, setThemeF1Enabled] = useState(false);
+  const [themeSaving, setThemeSaving] = useState(false);
+  const [themeMessage, setThemeMessage] = useState('');
 
   useEffect(() => {
     // Load audit logs
@@ -54,8 +57,47 @@ export default function AdminDashboard() {
       }
     };
 
+    // Load theme setting
+    const loadTheme = async () => {
+      try {
+        const res = await fetch('/api/theme');
+        if (res.ok) {
+          const data = await res.json();
+          setThemeF1Enabled(!!data.f1_2026_fall);
+        }
+      } catch (error) {
+        console.error('Failed to load theme setting:', error);
+      }
+    };
+
     loadAuditLogs();
+    loadTheme();
   }, []);
+
+  const handleThemeToggle = async (enabled: boolean) => {
+    setThemeF1Enabled(enabled);
+    setThemeSaving(true);
+    setThemeMessage('');
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'theme_f1_2026_fall', value: String(enabled) }),
+      });
+      if (res.ok) {
+        setThemeMessage(enabled ? '🏎️ F1 theme enabled!' : 'Theme disabled.');
+      } else {
+        setThemeMessage('Failed to save. Please try again.');
+        setThemeF1Enabled(!enabled); // revert
+      }
+    } catch (error) {
+      setThemeMessage('Failed to save. Please try again.');
+      setThemeF1Enabled(!enabled); // revert
+    } finally {
+      setThemeSaving(false);
+      setTimeout(() => setThemeMessage(''), 3000);
+    }
+  };
 
   const getActionColor = (action: string) => {
     switch (action) {
@@ -242,6 +284,46 @@ export default function AdminDashboard() {
               </a>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Website Theme */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Website Theme</h2>
+          <p className="text-sm text-gray-600 mt-1">Toggle seasonal themes for the public-facing website</p>
+        </div>
+        <div className="p-6">
+          <label className="flex items-center gap-4 cursor-pointer select-none group w-fit">
+            <div className="relative">
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={themeF1Enabled}
+                disabled={themeSaving}
+                onChange={(e) => handleThemeToggle(e.target.checked)}
+              />
+              <div className={`w-12 h-6 rounded-full transition-colors duration-200 ${
+                themeF1Enabled ? 'bg-red-600' : 'bg-gray-300'
+              } ${themeSaving ? 'opacity-60' : ''}`} />
+              <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                themeF1Enabled ? 'translate-x-6' : 'translate-x-0'
+              }`} />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900 group-hover:text-gray-700">
+                🏎️ 2026 Fall F1
+              </p>
+              <p className="text-sm text-gray-500">
+                Shows an animated F1 race track strip in the navbar
+              </p>
+            </div>
+          </label>
+          {themeMessage && (
+            <p className={`mt-4 text-sm font-medium ${
+              themeMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'
+            }`}>{themeMessage}</p>
+          )}
         </div>
       </div>
 

@@ -58,6 +58,116 @@ html {
   overflow: hidden;
 }
 
+/* ── F1 Race Track Animations ─────────────────────────────────────────────── */
+@keyframes f1CarDrive {
+  from { transform: translateX(-70px) translateY(-50%); }
+  to   { transform: translateX(100vw)  translateY(-50%); }
+}
+
+@keyframes f1DashScroll {
+  from { background-position: 0 0; }
+  to   { background-position: -60px 0; }
+}
+
+.f1-car-fast {
+  animation: f1CarDrive 5s linear infinite;
+}
+
+.f1-car-mid {
+  animation: f1CarDrive 7s linear infinite;
+  animation-delay: -3s;
+}
+
+.f1-car-slow {
+  animation: f1CarDrive 9s linear infinite;
+  animation-delay: -6s;
+}
+
+.f1-dash-line {
+  background: repeating-linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.35) 0px,
+    rgba(255, 255, 255, 0.35) 18px,
+    transparent 18px,
+    transparent 36px
+  );
+  background-size: 60px 100%;
+  animation: f1DashScroll 0.6s linear infinite;
+}
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+/* ── F1 Splash Screen ─────────────────────────────────────────────────────── */
+@keyframes f1Pop {
+  0%   { opacity: 0; transform: scale(0.4); }
+  60%  { transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes f1TrackScroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-80px); }
+}
+
+@keyframes f1BtnShimmer {
+  from { transform: translateX(-100%) skewX(-20deg); }
+  to   { transform: translateX(250%) skewX(-20deg); }
+}
+
+.animate-f1-pop {
+  animation: f1Pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.f1-splash-track-lines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 60px,
+    rgba(255, 255, 255, 0.03) 60px,
+    rgba(255, 255, 255, 0.03) 62px
+  ),
+  repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 60px,
+    rgba(255, 255, 255, 0.03) 60px,
+    rgba(255, 255, 255, 0.03) 62px
+  );
+  animation: f1TrackScroll 2s linear infinite;
+  background-size: 80px 80px;
+}
+
+.f1-checker-corner {
+  background-image: repeating-conic-gradient(
+    rgba(255, 255, 255, 0.06) 0% 25%,
+    transparent 0% 50%
+  );
+  background-size: 16px 16px;
+  opacity: 0.7;
+}
+
+.f1-btn-shimmer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.25),
+    transparent
+  );
+  animation: f1BtnShimmer 2s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+.duration-600 {
+  transition-duration: 600ms;
+}
+/* ──────────────────────────────────────────────────────────────────────────── */
+
 /* Extra small screen utilities (480px and up) */
 @media (min-width: 480px) {
   .xs\:block { display: block; }

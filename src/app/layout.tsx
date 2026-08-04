@@ -5,6 +5,7 @@ import { Roboto } from 'next/font/google';
 import Script from 'next/script';
 import Navbar from "../components/Navbar";
 import Providers from "@/components/Providers";
+import F1SplashScreen from "@/components/F1SplashScreen";
 
 // Import production logging configuration
 import "@/lib/production-logging";
@@ -62,6 +63,7 @@ export default function RootLayout({
         )}
 
         <Providers>
+          <F1SplashScreen />
           <Navbar />
           {children}
         </Providers>

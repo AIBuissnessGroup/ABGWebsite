@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -11,11 +11,62 @@ import { isAdmin } from "@/lib/roles";
 // Set to true to re-enable university affiliation logos in the navbar
 const SHOW_AFFILIATIONS = false;
 
+function F1CarSVG({ color, flip = false }: { color: string; flip?: boolean }) {
+  return (
+    <svg
+      width="52"
+      height="18"
+      viewBox="0 0 52 18"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={flip ? { transform: 'scaleX(-1)' } : undefined}
+    >
+      {/* Main body */}
+      <rect x="8" y="6" width="32" height="6" rx="3" fill={color} />
+      {/* Nose cone */}
+      <polygon points="40,7.5 52,9 40,10.5" fill={color} />
+      {/* Cockpit canopy */}
+      <rect x="19" y="3" width="11" height="6" rx="2.5" fill={color} opacity="0.9" />
+      {/* Front wing */}
+      <rect x="38" y="10" width="9" height="2" rx="1" fill={color} opacity="0.75" />
+      {/* Rear wing vertical */}
+      <rect x="6" y="2" width="3" height="14" rx="1" fill={color} opacity="0.75" />
+      {/* Rear wing horizontal */}
+      <rect x="2" y="2" width="8" height="2" rx="1" fill={color} opacity="0.75" />
+      {/* Front-left wheel */}
+      <circle cx="34" cy="14" r="3.5" fill="#222" stroke="#666" strokeWidth="1" />
+      <circle cx="34" cy="14" r="1.5" fill="#444" />
+      {/* Front-right wheel */}
+      <circle cx="34" cy="4" r="3.5" fill="#222" stroke="#666" strokeWidth="1" />
+      <circle cx="34" cy="4" r="1.5" fill="#444" />
+      {/* Rear-left wheel */}
+      <circle cx="14" cy="14" r="3.5" fill="#222" stroke="#666" strokeWidth="1" />
+      <circle cx="14" cy="14" r="1.5" fill="#444" />
+      {/* Rear-right wheel */}
+      <circle cx="14" cy="4" r="3.5" fill="#222" stroke="#666" strokeWidth="1" />
+      <circle cx="14" cy="4" r="1.5" fill="#444" />
+    </svg>
+  );
+}
+
 export default function Navbar() {
   const { data: session } = useSession();
   const pathname = usePathname();
   const userIsAdmin = isAdmin(session?.user?.roles || []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [f1ThemeEnabled, setF1ThemeEnabled] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/theme')
+      .then((r) => r.json())
+      .then((data) => {
+        // Only override the default if an explicit value is stored in the DB
+        if (data.f1_2026_fall !== null) {
+          setF1ThemeEnabled(!!data.f1_2026_fall);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Hide navbar on overlay routes (for vMix screens)
   if (pathname?.startsWith('/sxsw/overlay')) {
@@ -171,6 +222,34 @@ export default function Navbar() {
           </button>
         </div>
 
+      </div>
+
+      {/* F1 Race Track Strip — only shown when F1 theme is active */}
+      {f1ThemeEnabled && (
+        <div className="relative w-full h-8 overflow-hidden bg-gradient-to-b from-[#1c1c1c] to-[#2a2a2a] border-t border-[#ff1801]/30">
+        {/* Top red edge */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#ff1801] to-transparent opacity-70" />
+        {/* Bottom white edge */}
+        <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-white/10" />
+        {/* Scrolling dashed center line */}
+        <div className="f1-dash-line absolute top-1/2 -translate-y-1/2 w-full h-[2px]" />
+        {/* Car 1 — Ferrari red, faster */}
+        <div className="f1-car-fast absolute top-1/2">
+          <F1CarSVG color="#ff1801" />
+        </div>
+        {/* Car 2 — McLaren blue, slightly slower */}
+        <div className="f1-car-mid absolute top-1/2">
+          <F1CarSVG color="#00d2ff" />
+        </div>
+        {/* Car 3 — Mercedes silver, trailing */}
+        <div className="f1-car-slow absolute top-1/2">
+          <F1CarSVG color="#00d4b4" />
+        </div>
+      </div>
+      )}
+
+      {/* Mobile Navigation Menu — moved inside nav but after track */}
+      <div className="px-6 sm:px-8 lg:px-12">
         {/* Mobile Navigation Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden mt-6 pb-6 border-t border-white/10">
