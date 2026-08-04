@@ -40,8 +40,8 @@ export default function F1SplashScreen() {
     fetch('/api/theme')
       .then((r) => r.json())
       .then((data) => {
-        // Show if explicitly true OR if no DB record yet (null = default on)
-        if (data.f1_2026_fall !== false) {
+        // Only show if explicitly enabled in the DB
+        if (data.f1_2026_fall === true) {
           setShow(true);
 
           const schedule = (fn: () => void, ms: number) => {
