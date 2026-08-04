@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     // Send one email with all recipients in BCC
     try {
-      await sendEmail({
+      const sent = await sendEmail({
         to: session.user.email, // Send to yourself
         bcc: recipients, // All recipients in BCC
         subject,
@@ -58,6 +58,10 @@ export async function POST(request: NextRequest) {
         replyTo: 'ABGcontact@umich.edu',
         attachments: attachments || []
       });
+
+      if (!sent) {
+        throw new Error('Gmail API returned failure — check server logs for token or credential errors');
+      }
       
       console.log(`✅ Bulk email sent successfully via BCC to ${recipients.length} recipients`);
       

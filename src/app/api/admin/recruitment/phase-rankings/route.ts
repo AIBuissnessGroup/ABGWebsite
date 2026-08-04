@@ -84,7 +84,8 @@ export async function GET(request: NextRequest) {
       
       try {
         
-        const applicationsCollection = await getDb().collection('recruitment_applications');
+        const db = await getDb();
+        const applicationsCollection = db.collection('recruitment_applications');
         
         // Build match filter including optional track filter
         const matchFilter: Record<string, unknown> = { cycleId };
