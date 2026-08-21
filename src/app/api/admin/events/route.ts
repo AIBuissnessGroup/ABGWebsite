@@ -31,7 +31,7 @@ export async function OPTIONS() {
 export async function GET() {
   try {
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
     
     // For admin dashboard, show ALL events (both published and unpublished)
     // and both main events and subevents

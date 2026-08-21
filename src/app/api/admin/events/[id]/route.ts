@@ -21,7 +21,7 @@ export async function GET(
 
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     // Get event details
     const event = await db.collection('Event').findOne({ id: eventId });

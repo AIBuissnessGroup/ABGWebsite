@@ -30,7 +30,7 @@ export async function GET(
   try {
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     // Get subevents with partnerships
     const subevents = await db.collection('Event').aggregate([
@@ -111,7 +111,7 @@ export async function POST(
 
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     // Find the user to get their ID
     let user = await db.collection('User').findOne({ email: session.user.email });

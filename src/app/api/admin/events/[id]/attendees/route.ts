@@ -27,7 +27,7 @@ export async function DELETE(
 
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     // Get the attendance record to remove
     const attendanceRecord = await db.collection('EventAttendance').findOne({
@@ -149,7 +149,7 @@ export async function POST(
 
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     if (action === 'promote') {
       // Get the waitlisted person to promote

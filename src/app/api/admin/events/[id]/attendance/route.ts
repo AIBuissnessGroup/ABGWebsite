@@ -26,7 +26,7 @@ export async function GET(
     const countOnly = searchParams.get('countOnly') === '1';
 
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     console.log('🔍 Attendance API - Event ID:', id);
 

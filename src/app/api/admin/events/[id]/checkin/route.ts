@@ -28,7 +28,7 @@ export async function POST(
 
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     // Verify event exists
     const event = await db.collection('Event').findOne({ id: eventId });
@@ -94,7 +94,7 @@ export async function DELETE(
 
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     // Verify event exists
     const event = await db.collection('Event').findOne({ id: eventId });
