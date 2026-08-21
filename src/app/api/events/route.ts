@@ -18,7 +18,7 @@ export async function OPTIONS() {
 
 export async function GET(request: NextRequest) {
   try {
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     const { searchParams } = new URL(request.url);
     const eventTypeFilter = searchParams.get('eventType');

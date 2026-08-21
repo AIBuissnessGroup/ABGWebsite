@@ -15,7 +15,7 @@ export async function GET() {
   try {
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
     
     const events = await db.collection('Event').find({ 
       published: true 

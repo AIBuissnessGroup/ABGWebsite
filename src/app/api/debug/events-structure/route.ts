@@ -8,7 +8,7 @@ export async function GET() {
   try {
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
     
     // Get events collection structure
     const eventsCollection = db.collection('Event');

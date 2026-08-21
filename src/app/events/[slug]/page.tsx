@@ -23,7 +23,7 @@ async function getEvent(slug: string): Promise<Event | null> {
   try {
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
     
     console.log('Looking for event with slug:', slug);
     

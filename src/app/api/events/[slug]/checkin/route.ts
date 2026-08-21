@@ -23,7 +23,7 @@ export async function POST(
 
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     // Find event by slug to get the actual event ID
     const event = await db.collection('Event').findOne({ slug: eventSlug });
@@ -269,7 +269,7 @@ export async function GET(
 
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     // Find event by slug
     const event = await db.collection('Event').findOne({ slug: eventSlug });

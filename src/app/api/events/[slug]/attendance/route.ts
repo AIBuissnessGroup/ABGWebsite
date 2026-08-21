@@ -37,7 +37,7 @@ export async function GET(
     const countOnly = searchParams.get('countOnly') === '1';
 
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     console.log('🔍 Attendance API - Event Slug:', slug);
 
@@ -166,7 +166,7 @@ export async function POST(
 
     const client = createMongoClient();
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     // Find event by slug - use the same logic as the event page
     let event = await db.collection('Event').findOne({ 
@@ -379,7 +379,7 @@ export async function DELETE(
 
     const client = createMongoClient();
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     // Get event details - use consistent logic with event page
     console.log('🔍 Looking for event with slug:', eventSlug);
