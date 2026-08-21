@@ -193,13 +193,6 @@ function LogoMarqueeRow({ logos, direction }: { logos: Array<{ src: string; alt:
   );
 }
 
-function PlayIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-7 w-7 translate-x-[1px]">
-      <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.85l8.12-5.18a1 1 0 0 0 0-1.7L9.54 5.97A1 1 0 0 0 8 6.82Z" />
-    </svg>
-  );
-}
 
 const logoSizeOverrides: Record<string, string> = {
   dell: 'max-h-9 max-w-[64px]',
@@ -590,30 +583,14 @@ export default function Highlights() {
         <div className="space-y-10 sm:space-y-12">
           <motion.div id="sxsw-video" {...revealOnLoad} className="scroll-mt-28">
             <div className="glass-card overflow-hidden rounded-[1.85rem] border border-[#60a5fa]/30 bg-[#0b1d31]/78">
-              <div className="relative min-h-[22rem] overflow-hidden sm:min-h-[26rem]">
-                <Image
-                  src="/images/SXSW-ReCap/1773955624332.jpg"
-                  alt="Preview image for the ABG SXSW 2026 recap video."
-                  fill
-                  sizes="100vw"
-                  className="object-cover object-[center_35%]"
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  src="https://www.youtube.com/embed/rpT6s3C1zzY"
+                  title="Full SXSW 2026 Recap — AI Business Group"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  className="absolute inset-0 h-full w-full"
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-[#020d19]/10 via-[#020d19]/36 to-[#020d19]/88" />
-                <div className="absolute left-4 top-4 rounded-full border border-[#95d7ff]/45 bg-[#0a2138]/78 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#dff5ff] backdrop-blur-sm sm:left-5 sm:top-5">
-                  In Production
-                </div>
-                <div className="absolute inset-0 flex items-center justify-center px-6">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/18 bg-white/10 text-white shadow-[0_12px_35px_rgba(0,0,0,0.28)] backdrop-blur-sm">
-                    <PlayIcon />
-                  </div>
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-                  <p className="heading-secondary text-lg text-white sm:text-xl">Full SXSW Recap in Final Edit</p>
-                  <p className="mt-2 max-w-lg text-sm leading-relaxed text-[#dbe8f5] sm:text-base">
-                    We are finishing the highlight reel now. Until then, the story below previews the panels, workshop,
-                    and networking that defined ABG's week in Austin.
-                  </p>
-                </div>
               </div>
             </div>
           </motion.div>
