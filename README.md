@@ -200,3 +200,8 @@ Gone are the days of SSHing into Linux servers. All system management is done vi
 **Welcome to the ABG Tech Committee! 🎉**
 
 Questions? Reach out on Slack: #tech-committee
+
+---
+
+**Website architecture and development by Anthony Walker.**
+skywlkr@umich.edu
