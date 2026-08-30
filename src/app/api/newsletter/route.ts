@@ -8,7 +8,7 @@ import { ObjectId } from 'mongodb';
 export async function GET(request: NextRequest) {
   try {
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
     
     const subscriptions = await db.collection('NewsletterSubscriber')
       .find({ isActive: true })
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     // Check if email already exists
     const existingSubscription = await db.collection('NewsletterSubscriber').findOne({ email });
@@ -93,7 +93,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     const updateData = {
       isActive: false,
