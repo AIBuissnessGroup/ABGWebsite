@@ -107,7 +107,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/portal" className="flex items-center gap-3 group">
             <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              ABG
+              AIBG
             </span>
             <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
             <span className="text-sm font-medium text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
