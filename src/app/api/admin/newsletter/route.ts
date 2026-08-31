@@ -25,7 +25,9 @@ export async function GET() {
     const collection = db.collection('NewsletterSubscriber');
 
     // Get all subscriptions and stats
-    const subscriptions = await collection.find({}).sort({ createdAt: -1 }).toArray();
+    const raw = await collection.find({}).sort({ createdAt: -1 }).toArray();
+    // Expose _id as a plain string id so the frontend can use it for deletes
+    const subscriptions = raw.map(s => ({ ...s, id: s._id.toString() }));
     
     const totalCount = await collection.countDocuments();
     const activeCount = await collection.countDocuments({ isActive: true });
