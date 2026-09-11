@@ -9,18 +9,10 @@ import type { UserRole } from '@/types/next-auth';
 
 
 
-// Create a new client for each request to avoid connection issues
-function createMongoClient() {
-  return new MongoClient(uri, {
-    tls: true,
-  });
-}
-
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const client = createMongoClient();
   try {
     const { slug } = await params; // Await params before accessing properties
     const session = await getServerSession(authOptions);
@@ -153,19 +145,20 @@ export async function POST(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
+    const attendeeEmail = attendeeData.umichEmail?.trim().toLowerCase();
+    const sessionEmail = session.user.email?.trim().toLowerCase();
+
     // Verify the email matches the session
-    if (session.user.email !== attendeeData.umichEmail) {
+    if (sessionEmail !== attendeeEmail) {
       return NextResponse.json({ error: 'Email must match your authenticated account' }, { status: 403 });
     }
 
-    if (!attendeeData.umichEmail || !attendeeData.umichEmail.endsWith('@umich.edu')) {
+    if (!attendeeEmail || !attendeeEmail.endsWith('@umich.edu')) {
       return NextResponse.json({ error: 'Valid UMich email is required' }, { status: 400 });
     }
 
-    console.log('🔍 Event registration - Event Slug:', eventSlug, 'Email:', attendeeData.umichEmail);
+    console.log('🔍 Event registration - Event Slug:', eventSlug, 'Email:', attendeeEmail);
 
-    const client = createMongoClient();
-    
     const db = await getDb('abg-website');
 
     // Find event by slug - use the same logic as the event page
@@ -266,13 +259,14 @@ export async function POST(
     const existingRegistration = await db.collection('EventAttendance').findOne({
       eventId: event.id,
       $or: [
+        { email: attendeeEmail },
+        { 'attendee.umichEmail': attendeeEmail },
         { email: attendeeData.umichEmail },
         { 'attendee.umichEmail': attendeeData.umichEmail }
       ]
     });
 
-    if (existingRegistration) {
-      
+    if (existingRegistration && existingRegistration.status !== 'cancelled') {
       return NextResponse.json({ 
         error: 'You are already registered for this event',
         status: existingRegistration.status
@@ -303,10 +297,15 @@ export async function POST(
     if (event.capacity) {
       const confirmedCount = await db.collection('EventAttendance').countDocuments({
         eventId: event.id,
-        status: 'confirmed'
+        status: { $in: ['confirmed', 'attended'] }
       });
 
       if (confirmedCount >= event.capacity) {
+        if (!event.waitlist?.enabled && !event.waitlistEnabled) {
+          return NextResponse.json({
+            error: 'This event is at full capacity and waitlist is not enabled.'
+          }, { status: 400 });
+        }
         status = 'waitlisted';
         const waitlistCount = await db.collection('EventAttendance').countDocuments({
           eventId: event.id,
@@ -316,21 +315,33 @@ export async function POST(
       }
     }
 
+    const now = Date.now();
+    const attendeeName = (attendeeData.name || session.user.name || attendeeEmail.split('@')[0] || 'Attendee').trim();
+
     // Create registration
     const registration = {
-      id: `attendance_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `attendance_${now}_${Math.random().toString(36).substr(2, 9)}`,
       eventId: event.id,
       attendee: {
-        name: attendeeData.name,
-        umichEmail: attendeeData.umichEmail,
-        major: attendeeData.major,
-        gradeLevel: attendeeData.gradeLevel,
-        phone: attendeeData.phone
+        name: attendeeName,
+        umichEmail: attendeeEmail,
+        major: attendeeData.major || '',
+        gradeLevel: attendeeData.gradeLevel || '',
+        phone: attendeeData.phone || ''
       },
+      name: attendeeName,
+      email: attendeeEmail,
       customFieldResponses: attendeeData.customFields || {}, // Store custom field responses
       status: status,
-      registeredAt: Date.now(),
-      ...(waitlistPosition && { waitlistPosition })
+      registeredAt: now,
+      ...(status === 'confirmed' ? { confirmedAt: now } : {}),
+      source: 'website',
+      checkInCode: `checkin_${now}_${Math.random().toString(36).substr(2, 9)}`,
+      reminders: {
+        emailSent: false,
+        smsSent: false
+      },
+      ...(waitlistPosition ? { waitlistPosition } : {})
     };
 
     await db.collection('EventAttendance').insertOne(registration);
@@ -366,19 +377,20 @@ export async function DELETE(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
+    const searchEmail = email?.trim().toLowerCase() || '';
+    const sessionEmail = session.user.email?.trim().toLowerCase() || '';
+
     // Users can only cancel their own registration
-    if (session.user.email !== email) {
+    if (sessionEmail !== searchEmail) {
       return NextResponse.json({ error: 'You can only cancel your own registration' }, { status: 403 });
     }
 
-    if (!email || !email.endsWith('@umich.edu')) {
+    if (!searchEmail || !searchEmail.endsWith('@umich.edu')) {
       return NextResponse.json({ error: 'Valid UMich email is required' }, { status: 400 });
     }
 
-    console.log('🔍 Cancel attendance - Event Slug:', eventSlug, 'Email:', email);
+    console.log('🔍 Cancel attendance - Event Slug:', eventSlug, 'Email:', searchEmail);
 
-    const client = createMongoClient();
-    
     const db = await getDb('abg-website');
 
     // Get event details - use consistent logic with event page
@@ -450,6 +462,9 @@ export async function DELETE(
     const registration = await db.collection('EventAttendance').findOne({
       eventId: event.id, // Use the event.id from the found event
       $or: [
+        { email: searchEmail },
+        { 'attendee.umichEmail': searchEmail },
+        { 'attendee.email': searchEmail },
         { email: email },
         { 'attendee.umichEmail': email },
         { 'attendee.email': email }

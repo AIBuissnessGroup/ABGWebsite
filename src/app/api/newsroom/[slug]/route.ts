@@ -2,14 +2,6 @@ import { getDb } from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 
-
-
-function createMongoClient() {
-  return new MongoClient(uri, {
-    tls: true,
-  });
-}
-
 // Safely serialize MongoDB objects
 function safeJson(obj: any) {
   return JSON.parse(JSON.stringify(obj, (key, value) =>
@@ -22,8 +14,6 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const client = createMongoClient();
-  
   try {
     
     const db = await getDb();
@@ -56,8 +46,6 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const client = createMongoClient();
-  
   try {
     
     const db = await getDb();

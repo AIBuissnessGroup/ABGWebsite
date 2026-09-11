@@ -17,11 +17,16 @@ export async function GET(request: NextRequest) {
 
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
 
     // Get all events with their details
     const events = await db.collection('Event').find({}).toArray();
-    const eventsMap = new Map(events.map(event => [event.id, event]));
+    const eventsMap = new Map();
+    for (const event of events) {
+      if (event.id) eventsMap.set(event.id, event);
+      if (event._id) eventsMap.set(event._id.toString(), event);
+      if (event.slug) eventsMap.set(event.slug, event);
+    }
 
     // Get all attendance records with full details
     const attendanceRecords = await db.collection('EventAttendance')
@@ -33,22 +38,22 @@ export async function GET(request: NextRequest) {
     const registrations = attendanceRecords.map(record => {
       const event = eventsMap.get(record.eventId);
       return {
-        id: record._id,
+        id: record._id ? record._id.toString() : record.id,
         attendanceId: record.id,
         eventId: record.eventId,
         eventTitle: event?.title || 'Unknown Event',
         eventDate: event?.eventDate || null,
         eventType: event?.eventType || 'Unknown',
         attendee: {
-          name: record.attendee?.name || 'No name',
-          email: record.attendee?.umichEmail || record.email || 'No email',
-          major: record.attendee?.major || 'Not specified',
-          gradeLevel: record.attendee?.gradeLevel || 'Not specified',
-          phone: record.attendee?.phone || 'Not provided'
+          name: record.attendee?.name || record.name || 'No name',
+          email: record.attendee?.umichEmail || record.attendee?.email || record.email || 'No email',
+          major: record.attendee?.major || record.major || 'Not specified',
+          gradeLevel: record.attendee?.gradeLevel || record.gradeLevel || 'Not specified',
+          phone: record.attendee?.phone || record.phone || 'Not provided'
         },
-        status: record.status,
+        status: record.status || 'confirmed',
         waitlistPosition: record.waitlistPosition || null,
-        registeredAt: record.registeredAt,
+        registeredAt: record.registeredAt || record.confirmedAt || Date.now(),
         confirmedAt: record.confirmedAt || null,
         source: record.source || 'website',
         checkInCode: record.checkInCode || null
@@ -57,9 +62,11 @@ export async function GET(request: NextRequest) {
 
     // Calculate summary statistics
     const totalRegistrations = registrations.length;
-    const confirmedRegistrations = registrations.filter(r => r.status === 'confirmed').length;
+    const confirmedRegistrations = registrations.filter(r => r.status === 'confirmed' || r.status === 'attended').length;
     const waitlistedRegistrations = registrations.filter(r => r.status === 'waitlisted').length;
-    const uniqueAttendees = new Set(registrations.map(r => r.attendee.email)).size;
+    const uniqueAttendees = new Set(
+      registrations.map(r => r.attendee.email).filter(e => e && e !== 'No email')
+    ).size;
     
     // Group by event type
     const registrationsByType: Record<string, number> = {};

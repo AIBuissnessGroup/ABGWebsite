@@ -5,11 +5,6 @@ import { NewsroomPost, NewsroomFilter } from '@/types/newsroom';
 
 
 
-function createMongoClient() {
-  return new MongoClient(uri, {
-    tls: true,
-  });
-}
 
 // Generate slug from title
 function generateSlug(title: string): string {
@@ -30,8 +25,6 @@ function safeJson(obj: any) {
 
 // GET - Fetch all posts with filtering and pagination
 export async function GET(request: NextRequest) {
-  const client = createMongoClient();
-  
   try {
     
     const db = await getDb();

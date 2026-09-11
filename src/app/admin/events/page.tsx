@@ -530,7 +530,10 @@ function EventsAdmin() {
               Waitlists
             </button>
             <button
-              onClick={() => setActiveTab('registrations')}
+              onClick={() => {
+                setActiveTab('registrations');
+                loadRegistrationsData();
+              }}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'registrations'
                   ? 'border-[#00274c] text-[#00274c]'
@@ -1392,7 +1395,17 @@ function EventsAdmin() {
 
           {/* All Registrations Table */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">All Registrations</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">All Registrations</h2>
+              <button
+                onClick={() => loadRegistrationsData()}
+                disabled={loadingRegistrations}
+                className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                <span>🔄</span>
+                <span>Refresh</span>
+              </button>
+            </div>
             
             {loadingRegistrations ? (
               <div className="flex items-center justify-center py-8">
@@ -1428,47 +1441,56 @@ function EventsAdmin() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {registrationsData.allRegistrations.map((registration: any) => (
-                      <tr key={registration.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {registration.attendee.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {registration.attendee.email}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {registration.eventTitle}
+                    {registrationsData.allRegistrations.map((registration: any) => {
+                      const regDate = registration.registeredAt ? new Date(registration.registeredAt) : null;
+                      const formattedDate = regDate && !isNaN(regDate.getTime())
+                        ? convertUtcToEst(regDate).toLocaleDateString('en-US', { timeZone: 'America/New_York' })
+                        : 'N/A';
+
+                      return (
+                        <tr key={registration.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {registration.attendee?.name || 'No name'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {registration.attendee?.email || 'No email'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {registration.eventTitle || 'Unknown Event'}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {registration.eventType || 'Unknown'}
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-500">
-                              {registration.eventType}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            registration.status === 'confirmed' 
-                              ? 'bg-green-100 text-green-800'
-                              : registration.status === 'waitlisted'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {registration.status}
-                            {registration.waitlistPosition && ` (#${registration.waitlistPosition})`}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {registration.attendee.major}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {registration.attendee.gradeLevel}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {convertUtcToEst(new Date(registration.registeredAt)).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              registration.status === 'confirmed' 
+                                ? 'bg-green-100 text-green-800'
+                                : registration.status === 'attended'
+                                ? 'bg-blue-100 text-blue-800'
+                                : registration.status === 'waitlisted'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {registration.status}
+                              {registration.waitlistPosition && ` (#${registration.waitlistPosition})`}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {registration.attendee?.major || 'Not specified'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {registration.attendee?.gradeLevel || 'Not specified'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {formattedDate}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

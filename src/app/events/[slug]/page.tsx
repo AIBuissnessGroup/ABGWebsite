@@ -368,12 +368,15 @@ async function getUserRegistration(eventId: string, email?: string): Promise<Eve
   try {
     
     
-    const db = await getDb();
+    const db = await getDb('abg-website');
     
-    // Check both possible email field patterns
+    const searchEmail = email.trim().toLowerCase();
+    // Check both possible email field patterns with normalized email
     const registration = await db.collection('EventAttendance').findOne({
       eventId: eventId,
       $or: [
+        { email: searchEmail },
+        { 'attendee.umichEmail': searchEmail },
         { email: email },
         { 'attendee.umichEmail': email }
       ]

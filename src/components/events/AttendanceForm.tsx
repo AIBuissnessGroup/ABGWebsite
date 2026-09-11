@@ -129,7 +129,8 @@ export default function AttendanceForm({ event, initialEmail = '', onSuccess, on
     }
 
     try {
-      const response = await fetch(`/api/events/${event.id}/attendance`, {
+      const eventIdentifier = event.slug || event.id;
+      const response = await fetch(`/api/events/${eventIdentifier}/attendance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
