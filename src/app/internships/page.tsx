@@ -3,15 +3,9 @@ import { motion } from 'framer-motion';
 import { useRef, useState, useEffect } from 'react';
 import { useInView } from 'framer-motion';
 import FloatingShapes from '@/components/FloatingShapes';
-import { 
-  AcademicCapIcon, 
-  BriefcaseIcon, 
-  ClockIcon, 
-  UsersIcon,
-  ChartBarIcon,
+import {
+  BriefcaseIcon,
   SparklesIcon,
-  ArrowRightIcon,
-  CheckCircleIcon
 } from '@heroicons/react/24/outline';
 
 export default function InternshipsPage() {
@@ -68,27 +62,11 @@ export default function InternshipsPage() {
   // Always use fallback content to ensure something renders
   const content = pageContent || {
     badgeText: 'AI Business Group Applied AI Internship Program',
-    heroTitle: 'Launch Your AI Career',
-    heroSubtitle: 'High-impact, real-world AI internship opportunities through Michigan Ross/COE recruitment pipelines and industry partnerships',
-    missionTitle: 'Program Mission',
-    missionText: 'To provide high-impact, real-world AI internship opportunities to ABG students by partnering with Michigan Ross/COE recruitment pipelines and company demand for applied AI talent.',
-    phases: [],
-    timelineTitle: 'Program Timeline',
-    timelineSubtitle: 'Typical UMich semester spans ~15 weeks with 1 finals week',
-    timeline: [],
-    benefitsTitle: 'Benefits for All Stakeholders',
-    benefits: { students: [], companies: [], university: [] },
     opportunitiesTitle: 'Current Opportunities',
     opportunitiesSubtitle: 'Explore available internship positions with our partner companies',
     ctaTitle: 'Ready to Join the Program?',
     ctaSubtitle: 'Get involved with AI Business Group projects to qualify for our internship program.',
     published: true
-  };
-
-  // Get phase icon based on index
-  const getPhaseIcon = (index: number) => {
-    const icons = [AcademicCapIcon, BriefcaseIcon, UsersIcon];
-    return icons[index] || AcademicCapIcon;
   };
 
   return (
@@ -110,18 +88,18 @@ export default function InternshipsPage() {
             </div>
             
             <h1 className="heading-primary text-4xl sm:text-5xl lg:text-6xl xl:text-7xl mb-6" style={{color: 'white'}}>
-              {content.heroTitle}
+              WHERE WE'VE GONE
             </h1>
-            
+
             <motion.div
               initial={{ width: 0 }}
               animate={isInView ? { width: "200px" } : {}}
               transition={{ duration: 0.8, delay: 0.3 }}
               className="h-1 bg-gradient-to-r from-white to-gray-300 mx-auto mb-8"
             />
-            
+
             <p className="body-text text-lg sm:text-xl lg:text-2xl max-w-4xl mx-auto leading-relaxed" style={{color: 'white'}}>
-              {content.heroSubtitle}
+              ABG members have gone on to intern at some of the world's most innovative companies.
             </p>
           </motion.div>
         </div>
@@ -131,28 +109,6 @@ export default function InternshipsPage() {
       {placements.length > 0 && (
       <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-12">
         <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="heading-primary text-3xl sm:text-4xl lg:text-5xl text-white mb-4">
-              WHERE WE'VE GONE
-            </h2>
-            <motion.div
-              initial={{ width: 0 }}
-              whileInView={{ width: '120px' }}
-              transition={{ duration: 0.8, delay: 0.3 }}
-              viewport={{ once: true }}
-              className="h-1 bg-gradient-to-r from-white to-gray-300 mx-auto mb-6"
-            />
-            <p className="body-text text-lg text-center max-w-3xl mx-auto leading-relaxed" style={{color: '#BBBBBB'}}>
-              ABG members have gone on to intern at some of the world's most innovative companies.
-            </p>
-          </motion.div>
-
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {placements.map((placement: any, index: number) => (
               <motion.div
@@ -222,187 +178,6 @@ export default function InternshipsPage() {
         </div>
       </section>
       )}
-
-      {/* Program Overview */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-12">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="glass-card p-8 mb-16"
-          >
-            <h2 className="heading-secondary text-2xl sm:text-3xl lg:text-4xl mb-6 text-center" style={{color: 'white'}}>
-              {content.missionTitle}
-            </h2>
-            <p className="body-text text-lg text-center max-w-4xl mx-auto leading-relaxed" style={{color: '#BBBBBB'}}>
-              {content.missionText}
-            </p>
-          </motion.div>
-
-          {/* Three Phase Structure */}
-          <div className="grid lg:grid-cols-3 gap-8 mb-16">
-            {content.phases.map((phase: any, index: number) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: index * 0.2 }}
-                viewport={{ once: true }}
-                className="glass-card p-6 h-full"
-              >
-                <div className="text-center mb-6">
-                  <div className="w-16 h-16 mx-auto bg-gradient-to-br from-white/30 to-white/10 rounded-full flex items-center justify-center mb-4">
-                    {(() => {
-                      const IconComponent = getPhaseIcon(index);
-                      return <IconComponent className="w-8 h-8" style={{color: 'white'}} />;
-                    })()}
-                  </div>
-                  <h3 className="heading-secondary text-xl mb-2" style={{color: 'white'}}>{phase.title}</h3>
-                  <div className="flex items-center justify-center gap-2 text-sm mb-4" style={{color: '#BBBBBB'}}>
-                    <ClockIcon className="w-4 h-4" />
-                    <span>{phase.duration}</span>
-                  </div>
-                  <p className="body-text text-sm leading-relaxed mb-6" style={{color: '#BBBBBB'}}>
-                    {phase.description}
-                  </p>
-                </div>
-                
-                <ul className="space-y-3">
-                  {phase.details.map((detail: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-3">
-                      <CheckCircleIcon className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm leading-relaxed" style={{color: '#BBBBBB'}}>{detail}</span>
-                    </li>
-                  ))}
-                </ul>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Timeline */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-12 bg-black/20">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="heading-secondary text-2xl sm:text-3xl lg:text-4xl mb-6" style={{color: 'white'}}>
-              {content.timelineTitle}
-            </h2>
-            <p className="body-text text-lg max-w-3xl mx-auto" style={{color: '#BBBBBB'}}>
-              {content.timelineSubtitle}
-            </p>
-          </motion.div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {content.timeline.map((item: any, index: number) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className="glass-card p-6 text-center"
-              >
-                <div className="w-8 h-8 mx-auto bg-white/20 rounded-full flex items-center justify-center font-bold text-sm mb-4" style={{color: 'white'}}>
-                  {index + 1}
-                </div>
-                <h3 className="font-semibold mb-2 text-sm" style={{color: 'white'}}>{item.phase}</h3>
-                <p className="text-xs" style={{color: '#BBBBBB'}}>{item.timing}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-12">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="heading-secondary text-2xl sm:text-3xl lg:text-4xl mb-6" style={{color: 'white'}}>
-              {content.benefitsTitle}
-            </h2>
-          </motion.div>
-
-          <div className="grid lg:grid-cols-3 gap-8">
-            <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
-              className="glass-card p-6"
-            >
-              <h3 className="font-bold text-lg mb-4 flex items-center gap-3" style={{color: 'white'}}>
-                <AcademicCapIcon className="w-6 h-6" />
-                For Students
-              </h3>
-              <ul className="space-y-3">
-                {content.benefits.students.map((benefit: string, index: number) => (
-                  <li key={index} className="flex items-start gap-3">
-                    <ArrowRightIcon className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm" style={{color: '#BBBBBB'}}>{benefit}</span>
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              viewport={{ once: true }}
-              className="glass-card p-6"
-            >
-              <h3 className="font-bold text-lg mb-4 flex items-center gap-3" style={{color: 'white'}}>
-                <BriefcaseIcon className="w-6 h-6" />
-                For Companies
-              </h3>
-              <ul className="space-y-3">
-                {content.benefits.companies.map((benefit: string, index: number) => (
-                  <li key={index} className="flex items-start gap-3">
-                    <ArrowRightIcon className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm" style={{color: '#BBBBBB'}}>{benefit}</span>
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              viewport={{ once: true }}
-              className="glass-card p-6"
-            >
-              <h3 className="font-bold text-lg mb-4 flex items-center gap-3" style={{color: 'white'}}>
-                <ChartBarIcon className="w-6 h-6" />
-                For Ross/COE
-              </h3>
-              <ul className="space-y-3">
-                {content.benefits.university.map((benefit: string, index: number) => (
-                  <li key={index} className="flex items-start gap-3">
-                    <ArrowRightIcon className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm" style={{color: '#BBBBBB'}}>{benefit}</span>
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          </div>
-        </div>
-      </section>
 
       {/* Available Opportunities */}
       <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-12 bg-black/20">

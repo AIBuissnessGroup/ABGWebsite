@@ -9,7 +9,7 @@ import { InstagramIcon, XIcon, LinkedInIcon } from "./SocialIcons";
 import { isAdmin } from "@/lib/roles";
 
 // Set to true to re-enable university affiliation logos in the navbar
-const SHOW_AFFILIATIONS = false;
+const SHOW_AFFILIATIONS = true;
 
 function F1CarSVG({ color, flip = false }: { color: string; flip?: boolean }) {
   return (
@@ -81,11 +81,11 @@ export default function Navbar() {
     glow?: boolean;
   }> = [
     { href: "/", label: "Home" },
-    { href: "/projects", label: "Projects" },
-    { href: "/events", label: "Events" },
-    { href: "/highlights", label: "Highlights" },
-    { href: "/portal", label: "Portal" },
     { href: "/internships", label: "Internships" },
+    { href: "/projects", label: "Projects" },
+    { href: "/highlights", label: "Highlights" },
+    { href: "/events", label: "Events" },
+    { href: "/portal", label: "Portal" },
     { href: "/team", label: "Team" },
   //{ href: "/fluently", label: "Fluently" },
     { 
