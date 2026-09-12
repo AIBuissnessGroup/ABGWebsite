@@ -72,15 +72,15 @@ export default function InternshipsPage() {
   return (
     <div className="main-page min-h-screen bg-gradient-to-br from-[#1a2c45] via-[#00274c] to-[#0d1d35]">
       {/* Hero Section */}
-      <section ref={ref} className="relative py-16 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-12 overflow-hidden">
+      <section ref={ref} className="relative pt-16 sm:pt-20 lg:pt-24 pb-6 px-4 sm:px-6 lg:px-12 overflow-hidden">
         <FloatingShapes variant="dense" opacity={0.05} />
-        
+
         <div className="max-w-7xl mx-auto relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="text-center"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-sm mb-6" style={{color: 'white'}}>
               <SparklesIcon className="w-4 h-4" style={{color: 'white'}} />
@@ -107,7 +107,7 @@ export default function InternshipsPage() {
 
       {/* WHERE WE'VE GONE */}
       {placements.length > 0 && (
-      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-12">
+      <section className="pt-0 pb-16 sm:pb-20 px-4 sm:px-6 lg:px-12">
         <div className="max-w-7xl mx-auto">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {placements.map((placement: any, index: number) => (
