@@ -66,6 +66,26 @@ export default function TermsPage() {
 
         <section className="glass-card p-6 sm:p-8 mb-6">
           <h2 className="heading-secondary text-xl sm:text-2xl mb-3" style={{ color: 'white' }}>
+            Conference Ticketing, Payments & Refund Policy
+          </h2>
+          <div className="space-y-3 body-text" style={{ color: '#BBBBBB' }}>
+            <p>
+              <strong className="text-white">Pricing & Payment:</strong> Conference passes for the Michigan AI Business Conference 2026 are processed in USD ($13.00 Early Bird / $17.00 General Admission) securely via Stripe.
+            </p>
+            <p>
+              <strong className="text-white">Instant Digital Delivery:</strong> All conference passes are delivered electronically immediately upon successful checkout. An email containing your receipt, digital badge, and unique check-in QR code is dispatched automatically.
+            </p>
+            <p>
+              <strong className="text-white">Refund & Transfer Policy:</strong> All conference ticket sales are final and non-refundable. Registrations may be transferred to another individual up to 48 hours prior to the conference by contacting <a href="mailto:contact@umichaibusiness.com" className="underline text-white">contact@umichaibusiness.com</a>.
+            </p>
+            <p>
+              <strong className="text-white">Merchant & Venue Details:</strong> Organized by the AI Business Group, University of Michigan. Venue: Stephen M. Ross School of Business, 701 Tappan Ave, Ann Arbor, MI 48109. Support contact: <a href="mailto:contact@umichaibusiness.com" className="underline text-white">contact@umichaibusiness.com</a>.
+            </p>
+          </div>
+        </section>
+
+        <section className="glass-card p-6 sm:p-8 mb-6">
+          <h2 className="heading-secondary text-xl sm:text-2xl mb-3" style={{ color: 'white' }}>
             Changes to These Terms
           </h2>
           <p className="body-text" style={{ color: '#BBBBBB' }}>

@@ -25,13 +25,14 @@ import {
 import { ConferenceData, ConferenceSpeaker, ConferenceScheduleItem, ConferenceSponsor } from '@/types/conference';
 import { DEFAULT_CONFERENCE_DATA } from '@/lib/conference-defaults';
 import { isAdmin } from '@/lib/roles';
+import AdminConferenceTicketsTab from '@/components/admin/AdminConferenceTicketsTab';
 
 export default function AdminConferencePage() {
   const { data: session, status } = useSession();
   const [data, setData] = useState<ConferenceData>(DEFAULT_CONFERENCE_DATA);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'visibility' | 'content' | 'speakers' | 'schedule' | 'sponsors'>('visibility');
+  const [activeTab, setActiveTab] = useState<'visibility' | 'content' | 'speakers' | 'schedule' | 'sponsors' | 'tickets'>('visibility');
 
   // Speaker Modal State
   const [editingSpeaker, setEditingSpeaker] = useState<ConferenceSpeaker | null>(null);
@@ -334,6 +335,18 @@ export default function AdminConferencePage() {
         >
           <BuildingOffice2Icon className="w-4 h-4" />
           <span>Sponsors ({data.sponsors?.length || 0})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('tickets')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${
+            activeTab === 'tickets'
+              ? 'bg-[#FF6700] text-white shadow-md shadow-orange-500/20'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          <TicketIcon className="w-4 h-4" />
+          <span>Tickets & Roster</span>
         </button>
       </div>
 
@@ -931,6 +944,11 @@ export default function AdminConferencePage() {
           </div>
         </div>
       )}
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          TAB 6: TICKETS & ROSTER MANAGEMENT
+      ────────────────────────────────────────────────────────────────────────────── */}
+      {activeTab === 'tickets' && <AdminConferenceTicketsTab />}
 
       {/* ─────────────────────────────────────────────────────────────────────────────
           MODAL: EDIT / ADD SPEAKER

@@ -26,6 +26,7 @@ import Footer from '@/components/Footer';
 import { ConferenceData, ConferenceSpeaker, ConferenceScheduleItem, ConferenceSponsor } from '@/types/conference';
 import { DEFAULT_CONFERENCE_DATA } from '@/lib/conference-defaults';
 import { isAdmin } from '@/lib/roles';
+import ConferenceTicketSection from '@/components/conference/ConferenceTicketSection';
 
 export default function ConferencePageClient() {
   const { data: session } = useSession();
@@ -159,14 +160,12 @@ export default function ConferencePageClient() {
             className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto"
           >
             <a
-              href={data.ticketButtonUrl || "#tickets"}
-              target={data.ticketButtonUrl?.startsWith('http') ? '_blank' : '_self'}
-              rel="noopener noreferrer"
+              href="#tickets"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl bg-gradient-to-r from-[#FF6700] to-[#FF5500] hover:from-[#ff7a1a] hover:to-[#ff6700] text-white font-extrabold text-base sm:text-lg shadow-xl shadow-orange-600/30 hover:shadow-orange-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border border-orange-400/40"
             >
               <TicketIcon className="w-5 h-5" />
               <span>{data.ticketButtonText || "Buy Tickets"}</span>
-              <ArrowTopRightOnSquareIcon className="w-4 h-4 opacity-80" />
+              <ChevronDownIcon className="w-4 h-4 opacity-80" />
             </a>
 
             <a
@@ -276,6 +275,11 @@ export default function ConferencePageClient() {
           </motion.div>
         </div>
       </section>
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          2.5. TICKETS & PASSES SECTION
+      ────────────────────────────────────────────────────────────────────────────── */}
+      <ConferenceTicketSection />
 
       {/* ─────────────────────────────────────────────────────────────────────────────
           3. SPEAKERS SECTION (5 cards in a row on standard laptop screen)
