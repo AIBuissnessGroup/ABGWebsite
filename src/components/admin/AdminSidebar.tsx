@@ -38,6 +38,7 @@ const navigationSections = [
     name: '🔝 Priority',
     key: 'priority',
     items: [
+      { name: '⚡ AI Conference', href: '/admin/conference', icon: SparklesIcon },
       { name: '❄️ Winter Takeover', href: '/admin/winter-takeover', icon: SnowflakeIconCustom, anthonyOnly: true },
       { name: 'Recruitment Portal', href: '/admin/recruitment-portal', icon: AcademicCapIcon },
       { name: 'Events', href: '/admin/events', icon: CalendarIcon },

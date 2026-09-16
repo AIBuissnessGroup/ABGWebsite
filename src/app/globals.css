@@ -553,15 +553,16 @@ body.profile-page .text-white {
   box-shadow: 0 0 30px rgba(187, 187, 187, 0.3);
 }
 
-/* SXSW Navbar Glow Effect */
+/* Special Event Navbar Glow Effect */
 .sxsw-glow {
-  text-shadow: 0 0 10px rgba(191, 90, 54, 0.8), 0 0 20px rgba(191, 90, 54, 0.5), 0 0 30px rgba(191, 90, 54, 0.3);
+  color: #FF6700 !important;
+  text-shadow: 0 0 10px rgba(255, 103, 0, 0.8), 0 0 20px rgba(255, 103, 0, 0.5), 0 0 30px rgba(255, 103, 0, 0.3);
   transition: text-shadow 0.3s ease, color 0.3s ease;
 }
 
 .sxsw-glow:hover {
-  color: #ffaa77 !important;
-  text-shadow: 0 0 20px rgba(255, 170, 119, 1), 0 0 40px rgba(255, 170, 119, 0.9), 0 0 60px rgba(255, 170, 119, 0.7), 0 0 80px rgba(255, 170, 119, 0.5), 0 0 100px rgba(255, 170, 119, 0.3);
+  color: #FFA04D !important;
+  text-shadow: 0 0 20px rgba(255, 160, 77, 1), 0 0 40px rgba(255, 160, 77, 0.9), 0 0 60px rgba(255, 160, 77, 0.7), 0 0 80px rgba(255, 160, 77, 0.5), 0 0 100px rgba(255, 160, 77, 0.3);
 }
 
 /* SXSW Event Card Special Styling */

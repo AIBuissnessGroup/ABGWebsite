@@ -40,7 +40,7 @@ export default function Footer() {
             {/* Social Media Icons */}
             <div className="flex items-center gap-3 ml-2">
               <a 
-                href="https://www.linkedin.com/company/abg-umich" 
+                href="https://www.linkedin.com/company/abgumich/" 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="text-[#BBBBBB] hover:text-white transition-all duration-300 hover:scale-110 p-1 rounded"
@@ -49,7 +49,7 @@ export default function Footer() {
                 <LinkedInIcon className="w-5 h-5" />
               </a>
               <a 
-                href="https://www.instagram.com/umichaibusiness/" 
+                href="https://www.instagram.com/aibusinessgroup_" 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="text-[#BBBBBB] hover:text-white transition-all duration-300 hover:scale-110 p-1 rounded"
@@ -58,7 +58,7 @@ export default function Footer() {
                 <InstagramIcon className="w-5 h-5" />
               </a>
               <a 
-                href="https://x.com/AiBusinessUmich" 
+                href="https://x.com/umichaibusiness" 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="text-[#BBBBBB] hover:text-white transition-all duration-300 hover:scale-110 p-1 rounded"

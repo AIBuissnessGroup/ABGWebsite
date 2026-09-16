@@ -52,19 +52,19 @@ export default function LinkBioPage() {
   const socialLinks = [
     {
       name: 'Instagram',
-      href: 'https://www.instagram.com/umichaibusiness/',
+      href: 'https://www.instagram.com/aibusinessgroup_',
       icon: InstagramIcon,
       color: 'from-pink-500 to-purple-600'
     },
     {
       name: 'LinkedIn',
-      href: 'https://www.linkedin.com/company/michigan-ai-business-group',
+      href: 'https://www.linkedin.com/company/abgumich/',
       icon: LinkedInIcon,
       color: 'from-blue-600 to-blue-700'
     },
     {
       name: 'X (Twitter)',
-      href: 'https://x.com/AiBusinessUmich',
+      href: 'https://x.com/umichaibusiness',
       icon: XIcon,
       color: 'from-gray-800 to-black'
     },

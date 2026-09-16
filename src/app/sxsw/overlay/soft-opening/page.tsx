@@ -59,7 +59,7 @@ const TRIVIA_QUESTIONS = [
   { question: "How many industry partners does ABG have?", answer: "20+" },
   { question: "What does ABG stand for?", answer: "AI Business Group" },
   { question: "Which schools at UMich is ABG affiliated with?", answer: "College of Engineering, School of Information & Ross" },
-  { question: "What is ABG's Instagram handle?", answer: "@umichaibusiness" },
+  { question: "What is ABG's Instagram handle?", answer: "@aibusinessgroup_" },
   { question: "What city is ABG presenting in at SXSW 2026?", answer: "Austin, Texas" },
   { question: "What is the name of ABG's signature event?", answer: "Hail to the Innovators" },
 ];
@@ -345,9 +345,9 @@ function SoftOpeningContent() {
               <FaLinkedin className="text-lg" />
               <span className="text-xs">@abgumich</span>
             </a>
-            <a href="https://www.instagram.com/umichaibusiness/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white/50 hover:text-white/80 transition-colors">
+            <a href="https://www.instagram.com/aibusinessgroup_" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white/50 hover:text-white/80 transition-colors">
               <FaInstagram className="text-lg" />
-              <span className="text-xs">@umichaibusiness</span>
+              <span className="text-xs">@aibusinessgroup_</span>
             </a>
           </div>
           

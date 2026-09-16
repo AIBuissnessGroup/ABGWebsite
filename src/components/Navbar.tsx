@@ -55,6 +55,7 @@ export default function Navbar() {
   const userIsAdmin = isAdmin(session?.user?.roles || []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [f1ThemeEnabled, setF1ThemeEnabled] = useState(false);
+  const [conferenceVisible, setConferenceVisible] = useState(true);
 
   useEffect(() => {
     fetch('/api/theme')
@@ -66,12 +67,24 @@ export default function Navbar() {
         }
       })
       .catch(() => {});
+
+    // Fetch conference visibility
+    fetch('/api/conference')
+      .then((r) => r.json())
+      .then((data) => {
+        if (typeof data.isVisible === 'boolean') {
+          setConferenceVisible(data.isVisible);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Hide navbar on overlay routes (for vMix screens)
   if (pathname?.startsWith('/sxsw/overlay')) {
     return null;
   }
+
+  const isConferenceActive = pathname === '/conference';
 
   const navigationItems: Array<{
     href: string;
@@ -87,20 +100,31 @@ export default function Navbar() {
     { href: "/events", label: "Events" },
     { href: "/portal", label: "Portal" },
     { href: "/team", label: "Team" },
-  //{ href: "/fluently", label: "Fluently" },
+  ];
+
+  // Listed after Team, matching how SXSW was listed with glow: true
+  if (conferenceVisible || userIsAdmin) {
+    navigationItems.push({
+      href: "/conference",
+      label: "AI Conference",
+      glow: true,
+    });
+  }
+
+  navigationItems.push(
     { 
-      href: "https://www.instagram.com/umichaibusiness/", 
+      href: "https://www.instagram.com/aibusinessgroup_", 
       label: "Instagram", 
       external: true,
       icon: <InstagramIcon className="w-5 h-5" />
     },
     { 
-      href: "https://www.linkedin.com/company/michigan-ai-business-group", 
+      href: "https://www.linkedin.com/company/abgumich/", 
       label: "LinkedIn", 
       external: true,
       icon: <LinkedInIcon className="w-5 h-5" />
     },
-  ];
+  );
 
   // Add profile link for logged in users
   // if (session?.user) {
@@ -115,7 +139,11 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-[#00274c]/95 backdrop-blur-md border-b border-white/10 shadow-lg">
+    <nav className={`sticky top-0 z-50 bg-[#00274c]/95 backdrop-blur-md transition-all duration-300 shadow-lg ${
+      isConferenceActive 
+        ? 'border-b-2 border-[#FF6700] shadow-[0_4px_25px_rgba(255,103,0,0.25)]' 
+        : 'border-b border-white/10'
+    }`}>
       <div className="px-6 sm:px-8 lg:px-12 py-4 sm:py-3">
         <div className="flex items-center justify-between">
           {/* Logo Section */}
@@ -178,7 +206,7 @@ export default function Navbar() {
                       item.label === "Admin" 
                         ? "text-yellow-300 hover:text-yellow-100 hover:border-yellow-300/60" 
                         : item.glow
-                        ? "text-[#bf5a36] hover:text-[#ff7a56] hover:border-[#bf5a36]/60 relative sxsw-glow"
+                        ? "text-[#FF6700] hover:text-[#FFA04D] hover:border-[#FF6700]/60 relative sxsw-glow"
                         : "text-white/80 hover:text-white"
                     }`}
                   >
@@ -286,7 +314,7 @@ export default function Navbar() {
                     onClick={() => setMobileMenuOpen(false)}
                     className={`hover:bg-white/10 transition-all duration-200 py-4 px-2 font-bold text-base rounded-lg min-h-[56px] flex items-center ${
                       item.glow 
-                        ? "text-[#bf5a36] sxsw-glow" 
+                        ? "text-[#FF6700] sxsw-glow" 
                         : "text-white/80 hover:text-white"
                     }`}
                   >
