@@ -160,12 +160,49 @@ export default function ConferencePageClient() {
             </div>
           </motion.div>
 
+          {/* Featured Participating Companies: Bank of America, JP Morgan, Microsoft */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.35 }}
+            className="mt-6 flex flex-col items-center justify-center gap-2.5"
+          >
+            <span className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-white/70">
+              Featuring Speakers & Representation From
+            </span>
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+              <div className="h-11 sm:h-12 px-4 sm:px-5 py-2 rounded-xl bg-white/95 hover:bg-white backdrop-blur-md border border-white/30 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center justify-center">
+                <img
+                  src="/images/conference/logos/bank-of-america.svg"
+                  alt="Bank of America"
+                  className="h-4 sm:h-5 w-auto object-contain"
+                />
+              </div>
+
+              <div className="h-11 sm:h-12 px-4 sm:px-5 py-2 rounded-xl bg-white/95 hover:bg-white backdrop-blur-md border border-white/30 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center justify-center">
+                <img
+                  src="/images/conference/logos/jpmorgan.svg"
+                  alt="JP Morgan"
+                  className="h-4 sm:h-5 w-auto object-contain"
+                />
+              </div>
+
+              <div className="h-11 sm:h-12 px-4 sm:px-5 py-2 rounded-xl bg-white/95 hover:bg-white backdrop-blur-md border border-white/30 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center justify-center">
+                <img
+                  src="/images/conference/logos/microsoft.svg"
+                  alt="Microsoft"
+                  className="h-4 sm:h-5 w-auto object-contain"
+                />
+              </div>
+            </div>
+          </motion.div>
+
           {/* Action Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.4 }}
-            className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto"
+            className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto"
           >
             <a
               href="#tickets"
