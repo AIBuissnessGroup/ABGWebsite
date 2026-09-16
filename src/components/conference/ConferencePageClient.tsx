@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -33,6 +33,14 @@ export default function ConferencePageClient() {
   const [data, setData] = useState<ConferenceData>(DEFAULT_CONFERENCE_DATA);
   const [loading, setLoading] = useState(true);
   const userIsAdmin = isAdmin(session?.user?.roles || []);
+
+  // Pre-expand sponsor list so the moving track has ample cards to span wide viewports
+  const sponsorSingleSet = useMemo(() => {
+    const rawSponsors = data.sponsors || [];
+    if (rawSponsors.length === 0) return [];
+    const repeatCount = Math.max(1, Math.ceil(8 / rawSponsors.length));
+    return Array.from({ length: repeatCount }, () => rawSponsors).flat();
+  }, [data.sponsors]);
 
   useEffect(() => {
     fetch('/api/conference')
@@ -450,9 +458,9 @@ export default function ConferencePageClient() {
       {/* ─────────────────────────────────────────────────────────────────────────────
           5. SPONSORS SECTION & BECOME A SPONSOR
       ────────────────────────────────────────────────────────────────────────────── */}
-      <section id="sponsors" className="py-20 bg-[#00172e] border-t border-white/10">
+      <section id="sponsors" className="py-20 bg-[#00172e] border-t border-white/10 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
+          <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-[#FF6700] text-xs font-extrabold uppercase tracking-wider mb-4">
               <BuildingOffice2Icon className="w-4 h-4" />
               <span>Partnership & Support</span>
@@ -464,61 +472,119 @@ export default function ConferencePageClient() {
               {data.sponsorsDescription || "Generously supported by prominent organizations advancing AI research, innovation, and leadership."}
             </p>
           </div>
+        </div>
 
-          {/* Sponsors Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-4xl mx-auto mb-16">
-            {data.sponsors && data.sponsors.length > 0 ? (
-              data.sponsors.map((sponsor, idx) => (
-                <motion.div
-                  key={sponsor.id || idx}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: idx * 0.1 }}
-                  className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 backdrop-blur-sm flex flex-col items-center justify-center text-center group transition-all duration-300"
-                >
-                  <div className="h-20 w-full flex items-center justify-center mb-4 px-4">
-                    {sponsor.logoUrl ? (
-                      <img
-                        src={sponsor.logoUrl}
-                        alt={sponsor.name}
-                        className="max-h-16 max-w-full object-contain filter brightness-95 group-hover:brightness-110 transition-all duration-300"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const fb = target.parentElement?.querySelector('.sponsor-fallback');
-                          if (fb) fb.classList.remove('hidden');
-                        }}
-                      />
-                    ) : null}
-                    <div className={`sponsor-fallback text-lg font-bold text-white/80 ${sponsor.logoUrl ? 'hidden' : ''}`}>
-                      {sponsor.name}
+        {/* Animated Sponsor Cards Line (Moving Left to Right) */}
+        {sponsorSingleSet.length > 0 ? (
+          <div className="relative w-full overflow-hidden mb-16 py-4">
+            {/* Left gradient fade mask */}
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-20 sm:w-40 bg-gradient-to-r from-[#00172e] via-[#00172e]/90 to-transparent z-10" />
+
+            {/* Right gradient fade mask */}
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-20 sm:w-40 bg-gradient-to-l from-[#00172e] via-[#00172e]/90 to-transparent z-10" />
+
+            {/* Infinite Marquee Track: Translates from -50% to 0% continuously to move left-to-right */}
+            <div className="animate-marquee-ltr py-2 flex w-max">
+              {/* Set A */}
+              <div className="flex gap-6 pr-6 flex-shrink-0">
+                {sponsorSingleSet.map((sponsor, idx) => (
+                  <div
+                    key={`sponsor-a-${sponsor.id || idx}-${idx}`}
+                    className="w-72 sm:w-80 flex-shrink-0 p-6 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-orange-500/40 hover:bg-white/[0.08] backdrop-blur-sm flex flex-col items-center justify-center text-center group transition-all duration-300 shadow-lg hover:shadow-orange-500/10 select-none"
+                  >
+                    <div className="h-20 w-full flex items-center justify-center mb-4 px-4">
+                      {sponsor.logoUrl ? (
+                        <img
+                          src={sponsor.logoUrl}
+                          alt={sponsor.name}
+                          className="max-h-16 max-w-full object-contain filter brightness-95 group-hover:brightness-110 group-hover:scale-105 transition-all duration-300 pointer-events-none"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const fb = target.parentElement?.querySelector('.sponsor-fallback');
+                            if (fb) fb.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <div className={`sponsor-fallback text-lg font-bold text-white/80 ${sponsor.logoUrl ? 'hidden' : ''}`}>
+                        {sponsor.name}
+                      </div>
                     </div>
+
+                    <h3 className="font-bold text-white text-sm sm:text-base line-clamp-1 group-hover:text-[#FF6700] transition-colors">
+                      {sponsor.name}
+                    </h3>
+                    <span className="mt-1 text-[11px] font-extrabold uppercase tracking-widest text-[#FF6700]">
+                      {sponsor.tier} Partner
+                    </span>
+
+                    {sponsor.websiteUrl && (
+                      <a
+                        href={sponsor.websiteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 text-xs text-white/50 hover:text-white flex items-center gap-1 transition-colors group-hover:text-white/80"
+                      >
+                        <span>Visit Site</span>
+                        <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                      </a>
+                    )}
                   </div>
+                ))}
+              </div>
 
-                  <h3 className="font-bold text-white text-sm sm:text-base">
-                    {sponsor.name}
-                  </h3>
-                  <span className="mt-1 text-[11px] font-extrabold uppercase tracking-widest text-[#FF6700]">
-                    {sponsor.tier} Partner
-                  </span>
+              {/* Set B (Identical duplicate for seamless infinite looping) */}
+              <div className="flex gap-6 pr-6 flex-shrink-0" aria-hidden="true">
+                {sponsorSingleSet.map((sponsor, idx) => (
+                  <div
+                    key={`sponsor-b-${sponsor.id || idx}-${idx}`}
+                    className="w-72 sm:w-80 flex-shrink-0 p-6 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-orange-500/40 hover:bg-white/[0.08] backdrop-blur-sm flex flex-col items-center justify-center text-center group transition-all duration-300 shadow-lg hover:shadow-orange-500/10 select-none"
+                  >
+                    <div className="h-20 w-full flex items-center justify-center mb-4 px-4">
+                      {sponsor.logoUrl ? (
+                        <img
+                          src={sponsor.logoUrl}
+                          alt={sponsor.name}
+                          className="max-h-16 max-w-full object-contain filter brightness-95 group-hover:brightness-110 group-hover:scale-105 transition-all duration-300 pointer-events-none"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const fb = target.parentElement?.querySelector('.sponsor-fallback');
+                            if (fb) fb.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <div className={`sponsor-fallback text-lg font-bold text-white/80 ${sponsor.logoUrl ? 'hidden' : ''}`}>
+                        {sponsor.name}
+                      </div>
+                    </div>
 
-                  {sponsor.websiteUrl && (
-                    <a
-                      href={sponsor.websiteUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 text-xs text-white/50 hover:text-white flex items-center gap-1"
-                    >
-                      <span>Visit Site</span>
-                      <ArrowTopRightOnSquareIcon className="w-3 h-3" />
-                    </a>
-                  )}
-                </motion.div>
-              ))
-            ) : null}
+                    <h3 className="font-bold text-white text-sm sm:text-base line-clamp-1 group-hover:text-[#FF6700] transition-colors">
+                      {sponsor.name}
+                    </h3>
+                    <span className="mt-1 text-[11px] font-extrabold uppercase tracking-widest text-[#FF6700]">
+                      {sponsor.tier} Partner
+                    </span>
+
+                    {sponsor.websiteUrl && (
+                      <a
+                        href={sponsor.websiteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 text-xs text-white/50 hover:text-white flex items-center gap-1 transition-colors group-hover:text-white/80"
+                      >
+                        <span>Visit Site</span>
+                        <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
+        ) : null}
 
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Become a Sponsor Callout Box */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}

@@ -1476,3 +1476,30 @@ body.profile-page .text-white {
     overflow-y: visible;
   }
 }
+
+/* ── Conference Sponsors Infinite Animated Line (Left-to-Right) ───────────── */
+@keyframes marquee-ltr {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.animate-marquee-ltr {
+  display: flex;
+  width: max-content;
+  animation: marquee-ltr 38s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-ltr:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee-ltr {
+    animation-play-state: paused;
+  }
+}
