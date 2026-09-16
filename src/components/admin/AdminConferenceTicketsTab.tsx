@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 import {
   TicketIcon,
   CurrencyDollarIcon,
-  UserCheckIcon,
+  CheckIcon,
   ArrowDownTrayIcon,
   MagnifyingGlassIcon,
   ArrowPathIcon,
@@ -187,7 +187,7 @@ export default function AdminConferenceTicketsTab() {
 
         <div className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm">
           <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
-            <UserCheckIcon className="w-5 h-5" />
+            <CheckCircleIcon className="w-5 h-5" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-gray-900">
             {stats.checkedInCount} <span className="text-sm font-normal text-gray-400">/ {stats.totalTickets}</span>
@@ -319,7 +319,7 @@ export default function AdminConferenceTicketsTab() {
                           </>
                         ) : (
                           <>
-                            <UserCheckIcon className="w-4 h-4 text-gray-400" />
+                            <CheckIcon className="w-4 h-4 text-gray-400" />
                             <span>Mark In</span>
                           </>
                         )}

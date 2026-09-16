@@ -15,7 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 import FloatingShapes from '@/components/FloatingShapes';
 import { ConferenceTicket } from '@/types/conference-ticket';
-import { getGoogleCalendarUrl } from '@/lib/conference-email';
+import { getGoogleCalendarUrl } from '@/lib/conference-calendar';
 
 function ConferenceSuccessContent() {
   const searchParams = useSearchParams();
