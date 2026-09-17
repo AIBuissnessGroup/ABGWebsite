@@ -138,6 +138,10 @@ export default function Navbar() {
     navigationItems.push({ href: "/admin", label: "Admin" });
   }
 
+  if (pathname === '/splash-pad' || pathname === '/splash') {
+    return null;
+  }
+
   return (
     <nav className={`sticky top-0 z-50 bg-[#00274c]/95 backdrop-blur-md transition-all duration-300 shadow-lg ${
       isConferenceActive 
