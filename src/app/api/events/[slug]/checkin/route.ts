@@ -6,6 +6,49 @@ import { authOptions } from '@/lib/auth';
 
 
 
+function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+async function findEvent(db: any, eventSlug: string) {
+  const decoded = decodeURIComponent(eventSlug).trim();
+  const normalized = decoded.toLowerCase();
+
+  // 1. Direct query by slug or id
+  let event = await db.collection('Event').findOne({
+    $or: [
+      { slug: decoded },
+      { id: decoded },
+      { slug: normalized },
+      { id: normalized }
+    ]
+  });
+
+  if (event) return event;
+
+  // 2. Flexible search by title-generated slug or normalized properties
+  const allEvents = await db.collection('Event').find({}).toArray();
+  for (const e of allEvents) {
+    if (e.slug && e.slug.toLowerCase() === normalized) {
+      return e;
+    }
+    if (e.id && e.id.toLowerCase() === normalized) {
+      return e;
+    }
+    if (e.title) {
+      const generated = generateSlug(e.title);
+      if (generated === normalized) {
+        return e;
+      }
+    }
+  }
+
+  return null;
+}
+
 // Self check-in endpoint for QR code scanning
 export async function POST(
   request: NextRequest,
@@ -21,14 +64,11 @@ export async function POST(
 
     const { checkInCode, attendeeId, photo } = await request.json();
 
-    
-    
     const db = await getDb('abg-website');
 
-    // Find event by slug to get the actual event ID
-    const event = await db.collection('Event').findOne({ slug: eventSlug });
+    // Find event by slug or ID with flexible title matching fallback
+    const event = await findEvent(db, eventSlug);
     if (!event) {
-      
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
@@ -271,10 +311,9 @@ export async function GET(
     
     const db = await getDb('abg-website');
 
-    // Find event by slug
-    const event = await db.collection('Event').findOne({ slug: eventSlug });
+    // Find event by slug or ID with flexible title matching fallback
+    const event = await findEvent(db, eventSlug);
     if (!event) {
-      
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
