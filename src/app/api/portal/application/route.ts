@@ -15,6 +15,7 @@ import {
   getQuestionsByCycle,
 } from '@/lib/recruitment/db';
 import type { ApplicationTrack } from '@/types/recruitment';
+import { AVAILABLE_TRACKS } from '@/lib/tracks';
 
 // CORS helper
 function corsResponse(response: NextResponse) {
@@ -108,8 +109,8 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
 
-    // Validate track
-    const validTracks: ApplicationTrack[] = ['business', 'engineering', 'ai_investment_fund', 'ai_energy_efficiency'];
+    // Validate track (only tracks offered this semester)
+    const validTracks: ApplicationTrack[] = AVAILABLE_TRACKS.map(t => t.value);
     if (!data.track || !validTracks.includes(data.track)) {
       return corsResponse(
         NextResponse.json({ error: 'Valid track is required' }, { status: 400 })

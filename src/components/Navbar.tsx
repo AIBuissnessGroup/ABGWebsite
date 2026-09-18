@@ -98,7 +98,7 @@ export default function Navbar() {
     { href: "/projects", label: "Projects" },
     { href: "/highlights", label: "Highlights" },
     { href: "/events", label: "Events" },
-    { href: "/portal", label: "Portal" },
+    { href: "/portal", label: "Apply" },
     { href: "/team", label: "Team" },
   ];
 

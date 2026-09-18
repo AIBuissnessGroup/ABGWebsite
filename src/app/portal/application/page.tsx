@@ -11,7 +11,7 @@ import {
   PaperAirplaneIcon,
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
-import { TRACKS, getTrackLabel } from '@/lib/tracks';
+import { TRACKS, AVAILABLE_TRACKS, getTrackLabel } from '@/lib/tracks';
 import { compressImage, formatFileSize } from '@/lib/client-compression';
 import type { 
   Application, 
@@ -552,20 +552,22 @@ export default function ApplicationPage() {
     return (
       <div className="max-w-3xl mx-auto" style={{ color: '#111827' }}>
         <h1 className="text-2xl font-bold mb-6" style={{ color: '#111827' }}>Choose Your Track</h1>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {TRACKS.map((t) => (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {AVAILABLE_TRACKS.map((t) => (
             <button
               key={t.value}
               onClick={() => handleTrackSelect(t.value)}
-              className={`bg-white rounded-xl border border-gray-200 shadow-md p-6 text-left ${t.accentColor} hover:shadow-lg transition-all`}
+              className={`bg-white rounded-xl border border-gray-200 shadow-md p-6 text-left ${t.accentColor} hover:shadow-lg transition-all flex flex-col justify-between`}
             >
-              <div className={`w-12 h-12 ${t.color} rounded-lg flex items-center justify-center mb-4`}>
-                <span className="text-2xl">{t.icon}</span>
+              <div>
+                <div className={`w-12 h-12 ${t.color} rounded-lg flex items-center justify-center mb-4`}>
+                  <span className="text-2xl">{t.icon}</span>
+                </div>
+                <h3 className="text-lg font-semibold mb-2" style={{ color: '#111827' }}>{t.label}</h3>
+                <p className="text-sm text-gray-600">
+                  {t.description}
+                </p>
               </div>
-              <h3 className="text-lg font-semibold mb-2" style={{ color: '#111827' }}>{t.label}</h3>
-              <p className="text-sm text-gray-600">
-                {t.description}
-              </p>
             </button>
           ))}
         </div>

@@ -15,6 +15,7 @@ export interface TrackConfig {
   icon: string;
   color: string;        // Tailwind bg/text color class for selection
   accentColor: string;  // Tailwind border hover color
+  hidden?: boolean;     // Set to true to hide from applicant portal selection
 }
 
 /**
@@ -60,8 +61,14 @@ export const TRACKS: TrackConfig[] = [
     icon: '⚡',
     color: 'bg-amber-100',
     accentColor: 'hover:border-amber-500',
+    hidden: true, // Not offered this semester
   },
 ];
+
+/**
+ * Tracks currently open and visible to applicants in the portal
+ */
+export const AVAILABLE_TRACKS = TRACKS.filter(t => !t.hidden);
 
 /**
  * Get track config by value
