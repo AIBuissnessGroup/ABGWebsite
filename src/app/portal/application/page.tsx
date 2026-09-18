@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
   CloudArrowUpIcon,
@@ -580,14 +581,12 @@ export default function ApplicationPage() {
         </div>
 
         {/* General Membership Option */}
-        <a
-          href="https://www.venmo.com/u/ABG-UM"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 shadow-md p-6 text-left hover:border-blue-400 hover:shadow-lg transition-all"
+        <Link
+          href="/general-membership"
+          className="block bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 shadow-md p-6 text-left hover:border-blue-400 hover:shadow-lg transition-all group"
         >
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
               <span className="text-2xl">🤝</span>
             </div>
             <div className="flex-1">
@@ -596,15 +595,15 @@ export default function ApplicationPage() {
                 Not ready to apply for a track? Join ABG as a General Member to access our events, 
                 networking opportunities, and be part of our community. No application required!
               </p>
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm">
-                Pay Dues via Venmo
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm group-hover:bg-blue-700 transition-colors">
+                Learn More
+                <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                 </svg>
               </div>
             </div>
           </div>
-        </a>
+        </Link>
       </div>
     );
   }

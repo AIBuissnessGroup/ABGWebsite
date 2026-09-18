@@ -510,16 +510,13 @@ export default function PortalDashboardPage() {
                 and networking opportunities.
               </p>
               <div className="flex items-center gap-4">
-                <a 
-                  href="https://www.venmo.com/u/ABG-UM" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
+                <Link 
+                  href="/general-membership" 
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors font-medium !text-white"
                 >
-                  <span style={{ color: '#ffffff' }}>Pay Dues & Join</span>
+                  <span style={{ color: '#ffffff' }}>Learn More</span>
                   <ArrowRightIcon className="w-4 h-4" style={{ color: '#ffffff' }} />
-                </a>
-                <span className="text-blue-600 text-sm">via Venmo</span>
+                </Link>
               </div>
             </div>
           </div>
