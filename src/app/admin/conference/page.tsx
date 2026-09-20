@@ -18,9 +18,13 @@ import {
   PencilSquareIcon,
   ArrowUpIcon,
   ArrowDownIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ArrowsUpDownIcon,
   ArrowTopRightOnSquareIcon,
   CheckCircleIcon,
-  TicketIcon
+  TicketIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { ConferenceData, ConferenceSpeaker, ConferenceScheduleItem, ConferenceSponsor } from '@/types/conference';
 import { DEFAULT_CONFERENCE_DATA } from '@/lib/conference-defaults';
@@ -37,6 +41,11 @@ export default function AdminConferencePage() {
   // Speaker Modal State
   const [editingSpeaker, setEditingSpeaker] = useState<ConferenceSpeaker | null>(null);
   const [isNewSpeaker, setIsNewSpeaker] = useState(false);
+  const [modalPreviewFlipped, setModalPreviewFlipped] = useState(false);
+
+  // Reorder Speakers Modal State
+  const [isReorderingModalOpen, setIsReorderingModalOpen] = useState(false);
+  const [reorderList, setReorderList] = useState<ConferenceSpeaker[]>([]);
 
   // Schedule Modal State
   const [editingSchedule, setEditingSchedule] = useState<ConferenceScheduleItem | null>(null);
@@ -111,45 +120,81 @@ export default function AdminConferencePage() {
   };
 
   // --- Speaker Handlers ---
-  const handleSaveSpeaker = () => {
+  const handleSaveSpeaker = async () => {
     if (!editingSpeaker) return;
     if (!editingSpeaker.name.trim()) {
       toast.error('Speaker name is required');
       return;
     }
 
-    let updatedSpeakers = [...data.speakers];
+    let updatedSpeakers = [...(data.speakers || [])];
+    const totalCount = isNewSpeaker ? updatedSpeakers.length + 1 : updatedSpeakers.length;
+    const targetOrder = Math.max(1, Math.min(editingSpeaker.order || (isNewSpeaker ? totalCount : 1), totalCount));
+
     if (isNewSpeaker) {
       const newEntry = {
         ...editingSpeaker,
         id: `speaker-${Date.now()}`,
-        order: updatedSpeakers.length + 1,
+        order: targetOrder,
       };
-      updatedSpeakers.push(newEntry);
+      updatedSpeakers.splice(targetOrder - 1, 0, newEntry);
     } else {
-      updatedSpeakers = updatedSpeakers.map((s) => (s.id === editingSpeaker.id ? editingSpeaker : s));
+      const oldIdx = updatedSpeakers.findIndex((s) => s.id === editingSpeaker.id);
+      if (oldIdx !== -1) {
+        updatedSpeakers.splice(oldIdx, 1);
+      }
+      updatedSpeakers.splice(targetOrder - 1, 0, { ...editingSpeaker, order: targetOrder });
     }
 
-    setData((prev) => ({ ...prev, speakers: updatedSpeakers }));
+    // Normalize all order numbers: 1..N
+    const normalized = updatedSpeakers.map((s, idx) => ({ ...s, order: idx + 1 }));
+
+    setData((prev) => ({ ...prev, speakers: normalized }));
     setEditingSpeaker(null);
-    toast.success(isNewSpeaker ? 'Speaker added (Click Save Changes to persist)' : 'Speaker updated');
+    await handleSave({ speakers: normalized });
+    toast.success(isNewSpeaker ? 'Speaker added to lineup' : 'Speaker updated and saved');
   };
 
-  const handleDeleteSpeaker = (id: string) => {
+  const handleDeleteSpeaker = async (id: string) => {
     if (confirm('Are you sure you want to remove this speaker?')) {
-      const updated = data.speakers.filter((s) => s.id !== id);
-      setData((prev) => ({ ...prev, speakers: updated }));
+      const remaining = (data.speakers || []).filter((s) => s.id !== id);
+      const normalized = remaining.map((s, idx) => ({ ...s, order: idx + 1 }));
+      setData((prev) => ({ ...prev, speakers: normalized }));
+      await handleSave({ speakers: normalized });
       toast.success('Speaker removed');
     }
   };
 
-  const handleMoveSpeaker = (index: number, direction: 'up' | 'down') => {
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= data.speakers.length) return;
-    const updated = [...data.speakers];
+  const handleMoveSpeaker = async (index: number, direction: 'left' | 'right' | 'up' | 'down') => {
+    const targetIndex = (direction === 'up' || direction === 'left') ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= (data.speakers?.length || 0)) return;
+    const updated = [...(data.speakers || [])];
     const [moved] = updated.splice(index, 1);
     updated.splice(targetIndex, 0, moved);
-    setData((prev) => ({ ...prev, speakers: updated }));
+    const normalized = updated.map((s, idx) => ({ ...s, order: idx + 1 }));
+    setData((prev) => ({ ...prev, speakers: normalized }));
+    await handleSave({ speakers: normalized });
+    toast.success(`Moved ${moved.name || 'speaker'} to slot #${targetIndex + 1}`);
+  };
+
+  const handleSetSpeakerOrder = async (fromIndex: number, toPosition: number) => {
+    const targetIndex = toPosition - 1;
+    if (targetIndex < 0 || targetIndex >= (data.speakers?.length || 0) || targetIndex === fromIndex) return;
+    const updated = [...(data.speakers || [])];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(targetIndex, 0, moved);
+    const normalized = updated.map((s, idx) => ({ ...s, order: idx + 1 }));
+    setData((prev) => ({ ...prev, speakers: normalized }));
+    await handleSave({ speakers: normalized });
+    toast.success(`Moved ${moved.name || 'speaker'} to slot #${toPosition}`);
+  };
+
+  const handleSaveBulkReorder = async () => {
+    const normalized = reorderList.map((s, idx) => ({ ...s, order: idx + 1 }));
+    setData((prev) => ({ ...prev, speakers: normalized }));
+    setIsReorderingModalOpen(false);
+    await handleSave({ speakers: normalized });
+    toast.success('Speaker lineup order saved successfully!');
   };
 
   // --- Schedule Handlers ---
@@ -662,29 +707,45 @@ export default function AdminConferencePage() {
             <div>
               <h3 className="text-lg font-bold text-gray-900">Speaker Cards Manager</h3>
               <p className="text-sm text-gray-500">
-                These cards render exactly <strong>5 in a row</strong> on a standard laptop screen. Add, reorder, or edit profile pictures and details.
+                These cards render exactly <strong>5 in a row</strong> on a standard laptop screen. Add, reorder, or edit profile pictures, bios, and lineup order.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingSpeaker({
-                  id: '',
-                  name: '',
-                  role: '',
-                  company: '',
-                  photoUrl: '',
-                  bio: '',
-                  linkedinUrl: '',
-                  order: (data.speakers?.length || 0) + 1,
-                });
-                setIsNewSpeaker(true);
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#FF6700] hover:bg-[#FF7700] text-white text-sm font-bold shadow transition-all"
-            >
-              <PlusIcon className="w-4 h-4" />
-              <span>Add New Speaker</span>
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setReorderList([...(data.speakers || [])]);
+                  setIsReorderingModalOpen(true);
+                }}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm font-bold border border-gray-300 shadow-xs transition-all"
+                title="Open lineup reorder tool"
+              >
+                <ArrowsUpDownIcon className="w-4 h-4 text-[#FF6700]" />
+                <span>Reorder Lineup</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingSpeaker({
+                    id: '',
+                    name: '',
+                    role: '',
+                    company: '',
+                    photoUrl: '',
+                    bio: '',
+                    linkedinUrl: '',
+                    order: (data.speakers?.length || 0) + 1,
+                  });
+                  setIsNewSpeaker(true);
+                  setModalPreviewFlipped(false);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#FF6700] hover:bg-[#FF7700] text-white text-sm font-bold shadow transition-all"
+              >
+                <PlusIcon className="w-4 h-4" />
+                <span>Add New Speaker</span>
+              </button>
+            </div>
           </div>
 
           {/* Speakers List */}
@@ -696,6 +757,48 @@ export default function AdminConferencePage() {
                   className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex flex-col justify-between hover:border-[#FF6700] transition-colors"
                 >
                   <div>
+                    {/* Position & Move Order Toolbar */}
+                    <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-2 py-1.5 mb-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
+                          Slot:
+                        </span>
+                        <select
+                          value={index + 1}
+                          onChange={(e) => handleSetSpeakerOrder(index, Number(e.target.value))}
+                          className="text-xs font-bold bg-white text-gray-900 border border-gray-300 rounded-lg px-2 py-0.5 focus:ring-2 focus:ring-[#FF6700] cursor-pointer shadow-xs"
+                          title="Change display slot position"
+                        >
+                          {data.speakers.map((_, slotIdx) => (
+                            <option key={slotIdx + 1} value={slotIdx + 1}>
+                              #{slotIdx + 1} {slotIdx === 0 ? '(1st)' : slotIdx === data.speakers.length - 1 ? '(End)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleMoveSpeaker(index, 'left')}
+                          disabled={index === 0}
+                          className="p-1 rounded-lg bg-white border border-gray-300 text-gray-600 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-25 shadow-xs transition-colors"
+                          title={index === 0 ? 'First in lineup' : `Move left to #${index}`}
+                        >
+                          <ArrowLeftIcon className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMoveSpeaker(index, 'right')}
+                          disabled={index === data.speakers.length - 1}
+                          className="p-1 rounded-lg bg-white border border-gray-300 text-gray-600 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-25 shadow-xs transition-colors"
+                          title={index === data.speakers.length - 1 ? 'Last in lineup' : `Move right to #${index + 2}`}
+                        >
+                          <ArrowRightIcon className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Picture Preview */}
                     <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-gray-100 mb-3 border border-gray-200 flex items-center justify-center">
                       {speaker.photoUrl ? (
@@ -709,7 +812,7 @@ export default function AdminConferencePage() {
                           {speaker.name ? speaker.name.charAt(0) : '?'}
                         </div>
                       )}
-                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/60 text-white text-[10px] font-bold">
+                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/60 text-white text-[10px] font-bold shadow-xs">
                         #{index + 1}
                       </span>
                     </div>
@@ -717,30 +820,34 @@ export default function AdminConferencePage() {
                     <h4 className="font-bold text-gray-900 text-sm line-clamp-1">{speaker.name || 'Untitled Speaker'}</h4>
                     <p className="text-xs font-semibold text-[#FF6700] line-clamp-1 mt-0.5">{speaker.role || 'Role'}</p>
                     <p className="text-xs text-gray-500 font-medium line-clamp-1">{speaker.company || 'Company'}</p>
+
+                    {/* Bio Preview Snippet */}
+                    <div className="mt-2.5 pt-2 border-t border-gray-100 text-left">
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider mb-1">
+                        <span className="text-gray-500 flex items-center gap-1">
+                          <SparklesIcon className="w-3 h-3 text-[#FF6700]" /> Hover Bio
+                        </span>
+                        {speaker.bio ? (
+                          <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                            Missing
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-600 line-clamp-2 italic leading-relaxed">
+                        {speaker.bio || 'No bio written yet. Click edit to add.'}
+                      </p>
+                    </div>
                   </div>
 
                   {/* Actions */}
                   <div className="flex items-center justify-between border-t border-gray-100 pt-3 mt-3">
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleMoveSpeaker(index, 'up')}
-                        disabled={index === 0}
-                        className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                        title="Move left"
-                      >
-                        <ArrowUpIcon className="w-3.5 h-3.5 transform -rotate-90" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMoveSpeaker(index, 'down')}
-                        disabled={index === data.speakers.length - 1}
-                        className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                        title="Move right"
-                      >
-                        <ArrowDownIcon className="w-3.5 h-3.5 transform -rotate-90" />
-                      </button>
-                    </div>
+                    <span className="text-[11px] font-semibold text-gray-400">
+                      Slot #{index + 1} of {data.speakers.length}
+                    </span>
 
                     <div className="flex items-center gap-1">
                       <button
@@ -748,9 +855,10 @@ export default function AdminConferencePage() {
                         onClick={() => {
                           setEditingSpeaker({ ...speaker });
                           setIsNewSpeaker(false);
+                          setModalPreviewFlipped(false);
                         }}
                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
-                        title="Edit Speaker"
+                        title="Edit Speaker & Bio"
                       >
                         <PencilSquareIcon className="w-4 h-4" />
                       </button>
@@ -955,76 +1063,202 @@ export default function AdminConferencePage() {
       ────────────────────────────────────────────────────────────────────────────── */}
       {editingSpeaker && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 my-8">
-            <h3 className="text-lg font-bold text-gray-900">
-              {isNewSpeaker ? 'Add Speaker Card' : 'Edit Speaker Card'}
-            </h3>
-
-            <div className="space-y-3 text-sm">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 my-8">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Speaker Name *</label>
-                <input
-                  type="text"
-                  value={editingSpeaker.name}
-                  onChange={(e) => setEditingSpeaker({ ...editingSpeaker, name: e.target.value })}
-                  placeholder="e.g. Marcus Chen"
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 text-gray-900"
-                />
+                <h3 className="text-xl font-bold text-gray-900">
+                  {isNewSpeaker ? 'Add Speaker Card' : 'Edit Speaker Details & Bio'}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Update speaker info and the bio revealed when attendees hover over the card.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingSpeaker(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Left Column: Speaker Info Fields */}
+              <div className="space-y-3.5 text-sm">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Speaker Name *</label>
+                  <input
+                    type="text"
+                    value={editingSpeaker.name}
+                    onChange={(e) => setEditingSpeaker({ ...editingSpeaker, name: e.target.value })}
+                    placeholder="e.g. Elena Rostova"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-gray-900 focus:ring-2 focus:ring-[#FF6700] text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Role / Title *</label>
+                  <input
+                    type="text"
+                    value={editingSpeaker.role}
+                    onChange={(e) => setEditingSpeaker({ ...editingSpeaker, role: e.target.value })}
+                    placeholder="e.g. Managing Director, Applied AI"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-gray-900 focus:ring-2 focus:ring-[#FF6700] text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Company / Organization *</label>
+                  <input
+                    type="text"
+                    value={editingSpeaker.company}
+                    onChange={(e) => setEditingSpeaker({ ...editingSpeaker, company: e.target.value })}
+                    placeholder="e.g. JP Morgan Chase"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-gray-900 focus:ring-2 focus:ring-[#FF6700] text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Profile Picture URL</label>
+                  <input
+                    type="url"
+                    value={editingSpeaker.photoUrl}
+                    onChange={(e) => setEditingSpeaker({ ...editingSpeaker, photoUrl: e.target.value })}
+                    placeholder="https://images.unsplash.com/... or image URL"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-gray-900 focus:ring-2 focus:ring-[#FF6700] text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">LinkedIn URL</label>
+                  <input
+                    type="url"
+                    value={editingSpeaker.linkedinUrl || ''}
+                    onChange={(e) => setEditingSpeaker({ ...editingSpeaker, linkedinUrl: e.target.value })}
+                    placeholder="https://linkedin.com/in/..."
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-gray-900 focus:ring-2 focus:ring-[#FF6700] text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    Lineup Slot Position
+                  </label>
+                  <select
+                    value={editingSpeaker.order || (isNewSpeaker ? (data.speakers?.length || 0) + 1 : 1)}
+                    onChange={(e) => setEditingSpeaker({ ...editingSpeaker, order: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-gray-900 focus:ring-2 focus:ring-[#FF6700] text-sm bg-white"
+                  >
+                    {Array.from(
+                      { length: isNewSpeaker ? (data.speakers?.length || 0) + 1 : Math.max(data.speakers?.length || 1, 1) },
+                      (_, i) => (
+                        <option key={i + 1} value={i + 1}>
+                          Slot #{i + 1} {i === 0 ? '(1st - Leftmost)' : i === (isNewSpeaker ? (data.speakers?.length || 0) : (data.speakers?.length || 1) - 1) ? '(Last - Rightmost)' : ''}
+                        </option>
+                      )
+                    )}
+                  </select>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Display position from left to right on the conference page.
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Role / Title *</label>
-                <input
-                  type="text"
-                  value={editingSpeaker.role}
-                  onChange={(e) => setEditingSpeaker({ ...editingSpeaker, role: e.target.value })}
-                  placeholder="e.g. Managing Director, Applied AI"
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 text-gray-900"
-                />
-              </div>
+              {/* Right Column: Bio Writer & Live Flip Preview */}
+              <div className="flex flex-col justify-between space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-gray-700 uppercase">
+                      Speaker Bio (Hover Flip Card Text)
+                    </label>
+                    <span className="text-[11px] text-gray-400">
+                      {(editingSpeaker.bio || '').length} chars
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Revealed when visitors hover over the speaker&apos;s card on the conference page.
+                  </p>
+                  <textarea
+                    rows={4}
+                    value={editingSpeaker.bio || ''}
+                    onChange={(e) => setEditingSpeaker({ ...editingSpeaker, bio: e.target.value })}
+                    placeholder="Brief background, achievements, and topic at the conference..."
+                    className="w-full p-3 rounded-xl border border-gray-300 text-gray-900 text-sm focus:ring-2 focus:ring-[#FF6700] leading-relaxed"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Recommended: 80–250 characters for clean presentation on card back.
+                  </p>
+                </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Company / Organization *</label>
-                <input
-                  type="text"
-                  value={editingSpeaker.company}
-                  onChange={(e) => setEditingSpeaker({ ...editingSpeaker, company: e.target.value })}
-                  placeholder="e.g. JP Morgan Chase or Goldman Sachs"
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 text-gray-900"
-                />
-              </div>
+                {/* Live Flip Card Mini Preview */}
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-600 flex items-center gap-1">
+                      <SparklesIcon className="w-3.5 h-3.5 text-[#FF6700]" /> Live Card Preview
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setModalPreviewFlipped(!modalPreviewFlipped)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-gray-300 text-gray-700 text-xs font-semibold hover:bg-gray-100 shadow-sm"
+                    >
+                      <ArrowPathIcon className="w-3.5 h-3.5 text-[#FF6700]" />
+                      <span>{modalPreviewFlipped ? 'Show Front' : 'Flip to Bio'}</span>
+                    </button>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Profile Picture URL</label>
-                <input
-                  type="url"
-                  value={editingSpeaker.photoUrl}
-                  onChange={(e) => setEditingSpeaker({ ...editingSpeaker, photoUrl: e.target.value })}
-                  placeholder="https://images.unsplash.com/... or image URL"
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 text-gray-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">LinkedIn URL</label>
-                <input
-                  type="url"
-                  value={editingSpeaker.linkedinUrl || ''}
-                  onChange={(e) => setEditingSpeaker({ ...editingSpeaker, linkedinUrl: e.target.value })}
-                  placeholder="https://linkedin.com/in/..."
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 text-gray-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Bio (Short)</label>
-                <textarea
-                  rows={3}
-                  value={editingSpeaker.bio || ''}
-                  onChange={(e) => setEditingSpeaker({ ...editingSpeaker, bio: e.target.value })}
-                  placeholder="Brief background and conference topic..."
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 text-gray-900"
-                />
+                  {/* Preview Box */}
+                  <div className="relative w-full h-44 rounded-xl overflow-hidden shadow-inner text-white">
+                    {!modalPreviewFlipped ? (
+                      /* Front Preview */
+                      <div className="w-full h-full bg-gradient-to-b from-[#00274c] to-[#00172e] p-3 flex flex-col justify-between items-center text-center">
+                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-white/10 border border-white/20 mt-1 flex items-center justify-center">
+                          {editingSpeaker.photoUrl ? (
+                            <img src={editingSpeaker.photoUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xl font-black">{editingSpeaker.name ? editingSpeaker.name.charAt(0) : '?'}</span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-extrabold text-sm text-white truncate max-w-[200px]">{editingSpeaker.name || 'Speaker Name'}</p>
+                          <p className="text-[11px] text-[#FF6700] truncate max-w-[200px]">{editingSpeaker.role || 'Role'}</p>
+                          <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-white/10 text-[10px] text-white/80">{editingSpeaker.company || 'Company'}</span>
+                        </div>
+                        <span className="text-[10px] text-white/50 flex items-center gap-1">
+                          <ArrowPathIcon className="w-2.5 h-2.5 text-orange-400" />
+                          Hover to view bio
+                        </span>
+                      </div>
+                    ) : (
+                      /* Back Preview (Bio) */
+                      <div className="w-full h-full bg-gradient-to-b from-[#002855] via-[#001c38] to-[#001026] border border-orange-500/50 p-3 flex flex-col justify-between text-left">
+                        <div className="flex items-center gap-2 border-b border-white/10 pb-1.5">
+                          <div className="w-7 h-7 rounded-lg overflow-hidden bg-white/10 border border-orange-500/40 flex items-center justify-center flex-shrink-0">
+                            {editingSpeaker.photoUrl ? (
+                              <img src={editingSpeaker.photoUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-xs font-bold">{editingSpeaker.name ? editingSpeaker.name.charAt(0) : 'S'}</span>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-xs text-white truncate">{editingSpeaker.name || 'Speaker'}</p>
+                            <p className="text-[10px] text-[#FF6700] truncate">{editingSpeaker.role || 'Role'}</p>
+                          </div>
+                        </div>
+                        <div className="my-auto overflow-y-auto max-h-20 text-[11px] text-white/90 leading-relaxed pr-1">
+                          {editingSpeaker.bio || (
+                            <span className="text-white/40 italic">No bio written yet. Type above to preview.</span>
+                          )}
+                        </div>
+                        <div className="pt-1 border-t border-white/10 flex items-center justify-between text-[10px] text-white/60">
+                          <span className="truncate max-w-[140px]">{editingSpeaker.company || 'Company'}</span>
+                          {editingSpeaker.linkedinUrl && (
+                            <span className="text-blue-300 font-semibold flex items-center gap-0.5">LinkedIn ✓</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1032,17 +1266,141 @@ export default function AdminConferencePage() {
               <button
                 type="button"
                 onClick={() => setEditingSpeaker(null)}
-                className="px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-100 text-sm font-semibold"
+                className="px-4 py-2.5 rounded-xl text-gray-600 hover:bg-gray-100 text-sm font-semibold"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSaveSpeaker}
-                className="px-5 py-2 rounded-xl bg-[#FF6700] hover:bg-[#FF7700] text-white text-sm font-bold shadow"
+                className="px-6 py-2.5 rounded-xl bg-[#FF6700] hover:bg-[#FF7700] text-white text-sm font-bold shadow-md shadow-orange-500/20 transition-all"
               >
-                Done
+                Save Speaker & Bio
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          MODAL: BULK REORDER SPEAKERS LINEUP
+      ────────────────────────────────────────────────────────────────────────────── */}
+      {isReorderingModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 my-8">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-orange-100 text-[#FF6700] flex items-center justify-center shadow-xs">
+                  <ArrowsUpDownIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Reorder Speaker Lineup</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Adjust the horizontal 1st to last order of speaker cards on the conference page.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsReorderingModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Reorder List */}
+            <div className="space-y-2.5 max-h-[60vh] overflow-y-auto pr-1">
+              {reorderList && reorderList.length > 0 ? (
+                reorderList.map((speaker, idx) => (
+                  <div
+                    key={speaker.id || idx}
+                    className="flex items-center justify-between p-3 rounded-xl border border-gray-200 bg-white hover:border-[#FF6700]/50 hover:shadow-xs transition-all"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Position Number Pill */}
+                      <span className="w-8 h-8 rounded-lg bg-[#00274c] text-white flex items-center justify-center text-xs font-black flex-shrink-0 shadow-xs">
+                        #{idx + 1}
+                      </span>
+
+                      {/* Photo thumbnail */}
+                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 flex items-center justify-center">
+                        {speaker.photoUrl ? (
+                          <img src={speaker.photoUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xs font-bold text-gray-400">{speaker.name ? speaker.name.charAt(0) : '?'}</span>
+                        )}
+                      </div>
+
+                      {/* Speaker Info */}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-sm text-gray-900 truncate leading-tight">
+                          {speaker.name || 'Untitled'}
+                        </p>
+                        <p className="text-xs text-[#FF6700] font-medium truncate mt-0.5">
+                          {speaker.role || 'Role'} • <span className="text-gray-500">{speaker.company}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Move Up / Down Buttons */}
+                    <div className="flex items-center gap-1.5 flex-shrink-0 pl-2">
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => {
+                          const next = [...reorderList];
+                          const [item] = next.splice(idx, 1);
+                          next.splice(idx - 1, 0, item);
+                          setReorderList(next);
+                        }}
+                        className="p-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-25 transition-colors shadow-2xs"
+                        title="Move up (earlier in lineup)"
+                      >
+                        <ArrowUpIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === reorderList.length - 1}
+                        onClick={() => {
+                          const next = [...reorderList];
+                          const [item] = next.splice(idx, 1);
+                          next.splice(idx + 1, 0, item);
+                          setReorderList(next);
+                        }}
+                        className="p-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-25 transition-colors shadow-2xs"
+                        title="Move down (later in lineup)"
+                      >
+                        <ArrowDownIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-6">No speakers in lineup.</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+              <span className="text-xs text-gray-500">
+                Left-to-right order: Slot 1 to Slot {reorderList.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsReorderingModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-100 text-sm font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveBulkReorder}
+                  className="px-5 py-2 rounded-xl bg-[#00274c] hover:bg-[#0e3b6e] text-white text-sm font-bold shadow-md transition-all"
+                >
+                  Save Lineup Order
+                </button>
+              </div>
             </div>
           </div>
         </div>

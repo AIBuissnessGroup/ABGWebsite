@@ -58,6 +58,28 @@ html {
   overflow: hidden;
 }
 
+/* ── 3D Card Flip Utilities ────────────────────────────────────────────────── */
+.perspective-1000 {
+  perspective: 1000px;
+  -webkit-perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg);
+}
+
+
 /* ── F1 Race Track Animations ─────────────────────────────────────────────── */
 @keyframes f1CarDrive {
   from { transform: translateX(-70px) translateY(-50%); }

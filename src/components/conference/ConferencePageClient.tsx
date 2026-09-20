@@ -18,7 +18,8 @@ import {
   EyeSlashIcon,
   ShieldCheckIcon,
   EnvelopeIcon,
-  BriefcaseIcon
+  BriefcaseIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { FaLinkedin } from 'react-icons/fa';
 import FloatingShapes from '@/components/FloatingShapes';
@@ -27,6 +28,186 @@ import { ConferenceData, ConferenceSpeaker, ConferenceScheduleItem, ConferenceSp
 import { DEFAULT_CONFERENCE_DATA } from '@/lib/conference-defaults';
 import { isAdmin } from '@/lib/roles';
 import ConferenceTicketSection from '@/components/conference/ConferenceTicketSection';
+
+/**
+ * 3D Interactive Speaker Card with Flip Effect on Hover & Touch
+ */
+function ConferenceSpeakerCard({ speaker, index }: { speaker: ConferenceSpeaker; index: number }) {
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 25 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5, delay: index * 0.08 }}
+      className="group relative w-full h-[410px] perspective-1000 cursor-pointer select-none"
+      onClick={() => setIsFlipped((prev) => !prev)}
+      onMouseEnter={() => setIsFlipped(true)}
+      onMouseLeave={() => setIsFlipped(false)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          setIsFlipped((prev) => !prev);
+        }
+      }}
+      tabIndex={0}
+      role="button"
+      aria-label={`Speaker card for ${speaker.name}. Hover or tap to view bio.`}
+    >
+      <div
+        className={`relative w-full h-full preserve-3d transition-transform duration-700 ease-out ${
+          isFlipped ? 'rotate-y-180' : ''
+        }`}
+      >
+        {/* ── FRONT FACE ──────────────────────────────────────────────────────── */}
+        <div className="absolute inset-0 w-full h-full backface-hidden flex flex-col justify-between bg-gradient-to-b from-white/10 to-white/[0.03] border border-white/15 group-hover:border-orange-500/50 rounded-2xl p-5 backdrop-blur-md transition-all duration-300 shadow-xl group-hover:shadow-2xl group-hover:shadow-orange-950/30">
+          <div>
+            {/* Photo Container */}
+            <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-3.5 bg-gradient-to-br from-[#00274c] to-[#00172e] border border-white/20 shadow-inner flex items-center justify-center">
+              {speaker.photoUrl ? (
+                <img
+                  src={speaker.photoUrl}
+                  alt={speaker.name}
+                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const fallback = target.parentElement?.querySelector('.avatar-fallback');
+                    if (fallback) fallback.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+
+              {/* Initials Fallback */}
+              <div
+                className={`avatar-fallback w-full h-full flex items-center justify-center text-white/80 font-black text-2xl ${
+                  speaker.photoUrl ? 'hidden' : ''
+                }`}
+              >
+                {speaker.name
+                  ? speaker.name
+                      .split(' ')
+                      .map((n) => n[0])
+                      .slice(0, 2)
+                      .join('')
+                  : 'AI'}
+              </div>
+
+              {/* Speaker Index Badge */}
+              <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-white/90 text-[10px] font-bold border border-white/10">
+                #{index + 1}
+              </span>
+
+              {/* LinkedIn badge on front */}
+              {speaker.linkedinUrl && (
+                <a
+                  href={speaker.linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-[#0077b5] text-white/90 hover:text-white backdrop-blur-sm transition-colors duration-200 shadow-md"
+                  title="LinkedIn Profile"
+                >
+                  <FaLinkedin className="w-3.5 h-3.5" />
+                </a>
+              )}
+            </div>
+
+            {/* Speaker Info */}
+            <div className="text-center">
+              <h3 className="font-extrabold text-base lg:text-lg text-white group-hover:text-orange-300 transition-colors duration-200 line-clamp-1">
+                {speaker.name}
+              </h3>
+              <p className="text-xs font-semibold text-[#FF6700] mt-1 line-clamp-1">
+                {speaker.role}
+              </p>
+              <div className="inline-block mt-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-white/80 text-[11px] font-bold border border-white/10 line-clamp-1">
+                {speaker.company}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Flip Cue */}
+          <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-center gap-1.5 text-[11px] font-medium text-white/60 group-hover:text-orange-400 transition-colors">
+            <ArrowPathIcon className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-500" />
+            <span>Hover for Bio</span>
+          </div>
+        </div>
+
+        {/* ── BACK FACE (FLIPPED REVEALING BIO) ────────────────────────────────── */}
+        <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180 rounded-2xl p-5 bg-gradient-to-b from-[#002855] via-[#001c38] to-[#001026] border-2 border-orange-500/60 backdrop-blur-xl shadow-2xl shadow-orange-950/50 flex flex-col justify-between overflow-hidden text-left">
+          {/* Top Speaker Details */}
+          <div>
+            <div className="flex items-center gap-2.5 mb-2.5">
+              <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#00172e] border border-orange-500/40 flex-shrink-0 flex items-center justify-center shadow-inner">
+                {speaker.photoUrl ? (
+                  <img src={speaker.photoUrl} alt={speaker.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-white text-xs font-black">
+                    {speaker.name ? speaker.name.charAt(0) : 'S'}
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="font-extrabold text-sm text-white truncate leading-tight">
+                  {speaker.name}
+                </h4>
+                <p className="text-[11px] text-[#FF6700] font-semibold truncate mt-0.5">
+                  {speaker.role}
+                </p>
+                <p className="text-[10px] text-white/60 truncate font-medium">
+                  {speaker.company}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-orange-400/90 py-1 border-y border-white/10">
+              <SparklesIcon className="w-3 h-3 text-[#FF6700]" />
+              <span>Speaker Bio</span>
+            </div>
+          </div>
+
+          {/* Middle Bio Section with Smooth Scroll */}
+          <div className="my-auto py-2.5 overflow-y-auto max-h-[175px] pr-1.5 text-xs text-white/90 leading-relaxed font-normal">
+            {speaker.bio ? (
+              <p className="whitespace-pre-line">{speaker.bio}</p>
+            ) : (
+              <p className="text-white/50 italic">
+                Speaker bio to be announced soon. Check back closer to the conference.
+              </p>
+            )}
+          </div>
+
+          {/* Bottom Footer / LinkedIn Button */}
+          <div className="pt-2 border-t border-white/10 space-y-1.5">
+            {speaker.linkedinUrl ? (
+              <a
+                href={speaker.linkedinUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="w-full py-2 px-3 rounded-xl bg-[#0077b5]/30 hover:bg-[#0077b5] text-white border border-[#0077b5]/50 flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-200 shadow-sm"
+              >
+                <FaLinkedin className="w-3.5 h-3.5" />
+                <span>LinkedIn Profile</span>
+                <ArrowTopRightOnSquareIcon className="w-3 h-3 opacity-80" />
+              </a>
+            ) : (
+              <div className="text-center text-[11px] font-medium text-white/70 py-1">
+                {speaker.company}
+              </div>
+            )}
+            <div className="text-center text-[10px] text-white/40 flex items-center justify-center gap-1">
+              <ArrowPathIcon className="w-2.5 h-2.5 opacity-60" />
+              <span>Hover off to flip</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 export default function ConferencePageClient() {
   const { data: session } = useSession();
@@ -41,6 +222,11 @@ export default function ConferencePageClient() {
     const repeatCount = Math.max(1, Math.ceil(8 / rawSponsors.length));
     return Array.from({ length: repeatCount }, () => rawSponsors).flat();
   }, [data.sponsors]);
+
+  // Sort speakers strictly by their order property
+  const sortedSpeakers = useMemo(() => {
+    return [...(data.speakers || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }, [data.speakers]);
 
   useEffect(() => {
     fetch('/api/conference')
@@ -346,78 +532,9 @@ export default function ConferencePageClient() {
 
           {/* 5 cards in a row on laptop/desktop: lg:grid-cols-5 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-5">
-            {data.speakers && data.speakers.length > 0 ? (
-              data.speakers.map((speaker, index) => (
-                <motion.div
-                  key={speaker.id || index}
-                  initial={{ opacity: 0, y: 25 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: index * 0.08 }}
-                  className="group relative flex flex-col h-full bg-gradient-to-b from-white/10 to-white/[0.03] border border-white/15 hover:border-orange-500/50 rounded-2xl p-5 backdrop-blur-md transition-all duration-300 hover:shadow-xl hover:shadow-orange-950/30 hover:-translate-y-1.5"
-                >
-                  {/* Photo Container */}
-                  <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-4 bg-gradient-to-br from-[#00274c] to-[#00172e] border border-white/20 shadow-inner flex items-center justify-center">
-                    {speaker.photoUrl ? (
-                      <img
-                        src={speaker.photoUrl}
-                        alt={speaker.name}
-                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const fallback = target.parentElement?.querySelector('.avatar-fallback');
-                          if (fallback) fallback.classList.remove('hidden');
-                        }}
-                      />
-                    ) : null}
-                    
-                    {/* Initials Fallback */}
-                    <div className={`avatar-fallback w-full h-full flex items-center justify-center text-white/80 font-black text-2xl ${speaker.photoUrl ? 'hidden' : ''}`}>
-                      {speaker.name
-                        ? speaker.name
-                            .split(' ')
-                            .map((n) => n[0])
-                            .slice(0, 2)
-                            .join('')
-                        : 'AI'}
-                    </div>
-
-                    {/* LinkedIn badge if link present */}
-                    {speaker.linkedinUrl && (
-                      <a
-                        href={speaker.linkedinUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-[#0077b5] text-white/90 hover:text-white backdrop-blur-sm transition-colors duration-200"
-                        title="LinkedIn Profile"
-                      >
-                        <FaLinkedin className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                  </div>
-
-                  {/* Speaker Details */}
-                  <div className="flex-1 flex flex-col justify-between text-center">
-                    <div>
-                      <h3 className="font-extrabold text-base lg:text-lg text-white group-hover:text-orange-300 transition-colors duration-200 line-clamp-1">
-                        {speaker.name}
-                      </h3>
-                      <p className="text-xs font-semibold text-[#FF6700] mt-1 line-clamp-1">
-                        {speaker.role}
-                      </p>
-                      <div className="inline-block mt-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-white/80 text-[11px] font-bold border border-white/10 line-clamp-1">
-                        {speaker.company}
-                      </div>
-                    </div>
-
-                    {speaker.bio && (
-                      <p className="mt-3 text-[11px] text-white/60 leading-normal line-clamp-3 text-left border-t border-white/10 pt-2.5">
-                        {speaker.bio}
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
+            {sortedSpeakers && sortedSpeakers.length > 0 ? (
+              sortedSpeakers.map((speaker, index) => (
+                <ConferenceSpeakerCard key={speaker.id || index} speaker={speaker} index={index} />
               ))
             ) : (
               <div className="col-span-full py-12 text-center text-white/60">
