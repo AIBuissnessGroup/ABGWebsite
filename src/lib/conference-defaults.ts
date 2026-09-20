@@ -15,7 +15,7 @@ export const DEFAULT_CONFERENCE_DATA: ConferenceData = {
   learnMoreButtonText: 'Learn More',
   learnMoreButtonUrl: '#about',
   sponsorButtonText: 'Become a Sponsor',
-  sponsorButtonUrl: 'mailto:contact@umichaibusiness.com?subject=Michigan%20AI%20Business%20Conference%20Sponsorship',
+  sponsorButtonUrl: 'mailto:ABGContact@umich.edu?subject=Michigan%20AI%20Business%20Conference%20Sponsorship',
 
   speakersTitle: 'Featured Speakers & Panelists',
   speakersDescription: 'Learn from pioneering executives, venture capitalists, and technologists shaping the future of AI and business.',
@@ -156,7 +156,7 @@ export const DEFAULT_CONFERENCE_DATA: ConferenceData = {
       id: 'sponsor-3',
       name: 'AI Business Group Alumni Network',
       logoUrl: '/circleLogo.png',
-      websiteUrl: 'https://umichaibusiness.com',
+      websiteUrl: 'https://abgumich.org',
       tier: 'Gold',
       order: 3,
     },

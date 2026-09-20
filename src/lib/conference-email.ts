@@ -11,7 +11,7 @@ export { getGoogleCalendarUrl };
  */
 export async function sendConferenceTicketEmail(
   ticket: ConferenceTicket,
-  siteUrl: string = process.env.NEXTAUTH_URL || 'https://umichaibusiness.com'
+  siteUrl: string = process.env.NEXTAUTH_URL || 'https://abgumich.org'
 ): Promise<boolean> {
   try {
     // Generate high-resolution QR code (Michigan Blue on White)
@@ -161,7 +161,7 @@ export async function sendConferenceTicketEmail(
               </table>
 
               <p style="font-size: 12px; color: rgba(255,255,255,0.5); text-align: center; margin: 0; line-height: 1.5;">
-                If you have questions or need to transfer your registration, reply directly to this email or contact <a href="mailto:contact@umichaibusiness.com" style="color: #FF6700;">contact@umichaibusiness.com</a>.
+                If you have questions or need to transfer your registration, reply directly to this email or contact <a href="mailto:ABGContact@umich.edu" style="color: #FF6700;">ABGContact@umich.edu</a>.
               </p>
             </td>
           </tr>

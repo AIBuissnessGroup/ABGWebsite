@@ -358,8 +358,8 @@ export default function ConferenceTicketSection() {
             <div className="text-[11px] text-white/60 leading-relaxed max-w-lg mx-auto space-y-1">
               <p>
                 <strong className="text-white/80">Refund Policy:</strong> All pass sales are final and non-refundable. Registrations may be transferred to another attendee up to 48 hours before the event by contacting{' '}
-                <a href="mailto:contact@umichaibusiness.com" className="text-[#FF6700] underline">
-                  contact@umichaibusiness.com
+                <a href="mailto:ABGContact@umich.edu" className="text-[#FF6700] underline">
+                  ABGContact@umich.edu
                 </a>.
               </p>
               <p>
@@ -380,7 +380,7 @@ export default function ConferenceTicketSection() {
                 Privacy Policy
               </a>
               <span>•</span>
-              <a href="mailto:contact@umichaibusiness.com" className="hover:text-white underline">
+              <a href="mailto:ABGContact@umich.edu" className="hover:text-white underline">
                 Contact Support
               </a>
             </div>

@@ -110,7 +110,7 @@ export async function POST(req: Request) {
       console.log(`✅ Saved conference ticket ${ticketDoc.ticketCode} for ${ticketDoc.attendeeEmail}`);
 
       // Dispatch confirmation email with QR code
-      const origin = process.env.NEXTAUTH_URL || 'https://umichaibusiness.com';
+      const origin = process.env.NEXTAUTH_URL || 'https://abgumich.org';
       await sendConferenceTicketEmail(ticketDoc, origin).catch((emailErr) => {
         console.error('Failed to send ticket email:', emailErr);
       });

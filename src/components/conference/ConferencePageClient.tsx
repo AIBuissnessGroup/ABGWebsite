@@ -757,7 +757,7 @@ export default function ConferencePageClient() {
               </p>
               <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
                 <a
-                  href={data.sponsorButtonUrl || "mailto:contact@umichaibusiness.com?subject=Michigan%20AI%20Business%20Conference%20Sponsorship"}
+                  href={data.sponsorButtonUrl || "mailto:ABGContact@umich.edu?subject=Michigan%20AI%20Business%20Conference%20Sponsorship"}
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-[#FF6700] hover:bg-[#FF7700] text-white font-extrabold text-base sm:text-lg shadow-lg shadow-orange-600/30 hover:shadow-orange-500/50 hover:scale-[1.02] transition-all duration-300 border border-orange-400/30"
                 >
                   <EnvelopeIcon className="w-5 h-5" />

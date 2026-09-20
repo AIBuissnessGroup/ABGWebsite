@@ -121,7 +121,7 @@ export async function GET(req: Request) {
             ticket = newTicket;
 
             // Dispatch confirmation email
-            const origin = process.env.NEXTAUTH_URL || 'https://umichaibusiness.com';
+            const origin = process.env.NEXTAUTH_URL || 'https://abgumich.org';
             sendConferenceTicketEmail(newTicket, origin).catch((e) => console.error(e));
           }
         } catch (stripeErr) {

@@ -76,10 +76,10 @@ export default function TermsPage() {
               <strong className="text-white">Instant Digital Delivery:</strong> All conference passes are delivered electronically immediately upon successful checkout. An email containing your receipt, digital badge, and unique check-in QR code is dispatched automatically.
             </p>
             <p>
-              <strong className="text-white">Refund & Transfer Policy:</strong> All conference ticket sales are final and non-refundable. Registrations may be transferred to another individual up to 48 hours prior to the conference by contacting <a href="mailto:contact@umichaibusiness.com" className="underline text-white">contact@umichaibusiness.com</a>.
+              <strong className="text-white">Refund & Transfer Policy:</strong> All conference ticket sales are final and non-refundable. Registrations may be transferred to another individual up to 48 hours prior to the conference by contacting <a href="mailto:ABGContact@umich.edu" className="underline text-white">ABGContact@umich.edu</a>.
             </p>
             <p>
-              <strong className="text-white">Merchant & Venue Details:</strong> Organized by the AI Business Group, University of Michigan. Venue: Stephen M. Ross School of Business, 701 Tappan Ave, Ann Arbor, MI 48109. Support contact: <a href="mailto:contact@umichaibusiness.com" className="underline text-white">contact@umichaibusiness.com</a>.
+              <strong className="text-white">Merchant & Venue Details:</strong> Organized by the AI Business Group, University of Michigan. Venue: Stephen M. Ross School of Business, 701 Tappan Ave, Ann Arbor, MI 48109. Support contact: <a href="mailto:ABGContact@umich.edu" className="underline text-white">ABGContact@umich.edu</a>.
             </p>
           </div>
         </section>

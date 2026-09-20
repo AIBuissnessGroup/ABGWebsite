@@ -673,7 +673,7 @@ export default function AdminConferencePage() {
                       type="text"
                       value={data.sponsorButtonUrl}
                       onChange={(e) => setData({ ...data, sponsorButtonUrl: e.target.value })}
-                      placeholder="mailto:contact@umichaibusiness.com?subject=Conference%20Sponsorship"
+                      placeholder="mailto:ABGContact@umich.edu?subject=Conference%20Sponsorship"
                       className="w-full px-3.5 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 text-gray-900"
                     />
                   </div>
