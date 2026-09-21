@@ -65,7 +65,7 @@ export function getConferenceTicketStatus(nowMs: number = Date.now()): TicketPri
     deadlineLabel: 'Sales close Thu, Oct 22, 2026 at 8:00 AM EDT',
     deadlineTimestamp: SALES_CLOSE_TIMESTAMP,
     salesCloseTimestamp: SALES_CLOSE_TIMESTAMP,
-    message: 'Full day access to keynotes, workshops, catered lunch, and networking reception.',
+    message: 'Full day access to keynotes, workshops, and networking reception.',
   };
 }
 

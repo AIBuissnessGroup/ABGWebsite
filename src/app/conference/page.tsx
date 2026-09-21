@@ -3,7 +3,7 @@ import ConferencePageClient from '@/components/conference/ConferencePageClient';
 
 export const metadata: Metadata = {
   title: 'Michigan AI Business Conference 2026 | University of Michigan',
-  description: "The Michigan AI Business Conference, hosted by the University of Michigan's AI Business Group, is a full-day event bringing together students, faculty, and industry leaders to explore AI's impact across finance, venture capital, and business strategy on Friday, October 23, 2026 at the Stephen M. Ross School of Business.",
+  description: "The Michigan AI Business Conference, hosted by the University of Michigan's AI Business Group, is a full-day event bringing together students, faculty, and industry leaders to explore AI's impact across finance and venture capital on Friday, October 23, 2026 at the Stephen M. Ross School of Business.",
   keywords: [
     'Michigan AI Business Conference',
     'University of Michigan',
@@ -11,13 +11,12 @@ export const metadata: Metadata = {
     'Ross School of Business',
     'AI Finance',
     'Venture Capital',
-    'Business Strategy',
     'Ann Arbor AI Event',
     'Artificial Intelligence Conference',
   ],
   openGraph: {
     title: 'Michigan AI Business Conference 2026',
-    description: "Full-day conference exploring AI's impact across finance, venture capital, and business strategy at the Stephen M. Ross School of Business.",
+    description: "Full-day conference exploring AI's impact across finance and venture capital at the Stephen M. Ross School of Business.",
     type: 'website',
     locale: 'en_US',
     images: [

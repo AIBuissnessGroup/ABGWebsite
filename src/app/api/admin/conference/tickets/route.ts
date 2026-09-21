@@ -31,6 +31,8 @@ export async function GET(req: Request) {
           { attendeeName: { $regex: escaped, $options: 'i' } },
           { attendeeEmail: { $regex: escaped, $options: 'i' } },
           { ticketCode: { $regex: escaped, $options: 'i' } },
+          { id: { $regex: escaped, $options: 'i' } },
+          { checkInToken: escaped },
           { tier: { $regex: escaped, $options: 'i' } },
         ],
       };

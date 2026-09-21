@@ -112,7 +112,7 @@ export async function POST(req: Request) {
             unit_amount: priceInCents,
             product_data: {
               name: `Michigan AI Business Conference 2026 - ${tierName}`,
-              description: 'Full-day access to keynote speakers, expert panels, case workshops, catered lunch, and networking reception at Stephen M. Ross School of Business on Friday, October 23, 2026.',
+              description: 'Full-day access to keynote speakers, expert panels, case workshops, and networking reception at Stephen M. Ross School of Business on Friday, October 23, 2026.',
               images: [
                 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?q=80&w=1200&auto=format&fit=crop'
               ],

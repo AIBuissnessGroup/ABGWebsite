@@ -3,11 +3,11 @@ import { ConferenceData } from '@/types/conference';
 export const DEFAULT_CONFERENCE_DATA: ConferenceData = {
   id: 'michigan-ai-conference-2026',
   title: 'Michigan AI Business Conference',
-  subtitle: "Exploring AI's Impact Across Finance, Venture Capital, and Business Strategy",
+  subtitle: "Exploring AI's Impact Across Finance and Venture Capital",
   badgeText: "University of Michigan • AI Business Group Special Event",
   eventDate: 'Friday, October 23, 2026',
   location: 'Stephen M. Ross School of Business, University of Michigan',
-  description: "The Michigan AI Business Conference, hosted by the University of Michigan's AI Business Group, is a full-day event bringing together students, faculty, and industry leaders to explore AI's impact across finance, venture capital, and business strategy. Taking place Friday, October 23, 2026 at the Stephen M. Ross School of Business, the conference features keynote speakers, expert panels, coffee chats, and networking opportunities for 300+ attendees. Building on past programming like SXSW 2026 and Fireside Chats with firms such as JP Morgan Chase and Goldman Sachs, the event aims to spark meaningful conversations and connections at the intersection of AI and business.",
+  description: "The Michigan AI Business Conference, hosted by the University of Michigan's AI Business Group, is a full-day event bringing together students, faculty, and industry leaders to explore AI's impact across finance and venture capital. Taking place Friday, October 23, 2026 at the Stephen M. Ross School of Business, the conference features keynote speakers, expert panels, coffee chats, and networking opportunities for 300+ attendees. Building on past programming like SXSW 2026 and Fireside Chats with firms such as JP Morgan Chase and Goldman Sachs, the event aims to spark meaningful conversations and connections at the intersection of AI and business.",
   backgroundImageUrl: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?q=80&w=2069&auto=format&fit=crop',
   
   ticketButtonText: 'Buy Tickets',
@@ -79,7 +79,7 @@ export const DEFAULT_CONFERENCE_DATA: ConferenceData = {
       id: 'sched-1',
       time: '8:30 AM - 9:30 AM',
       title: 'Registration & Morning Coffee Chat',
-      location: 'Ross Winter Garden',
+      location: 'Blau Colloquium Hallway',
       description: 'Check in, receive your attendee badge and conference pack, and connect with fellow attendees over breakfast.',
       order: 1,
     },

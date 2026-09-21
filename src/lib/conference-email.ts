@@ -107,7 +107,7 @@ export async function sendConferenceTicketEmail(
                       ${safeCode}
                     </div>
                     <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">
-                      Scan at Ross Winter Garden entrance
+                      Scan at Blau Colloquium Hallway registration
                     </div>
                   </td>
                 </tr>
@@ -153,7 +153,7 @@ export async function sendConferenceTicketEmail(
                   <td>
                     <div style="font-weight: 800; color: #FF6700; margin-bottom: 4px;">📍 Event Logistics</div>
                     <div><strong>Location:</strong> Stephen M. Ross School of Business, 701 Tappan Ave, Ann Arbor, MI 48109</div>
-                    <div><strong>Check-in & Breakfast:</strong> 8:30 AM - 9:30 AM EDT (Ross Winter Garden)</div>
+                    <div><strong>Check-in & Breakfast:</strong> 8:30 AM - 9:30 AM EDT (Blau Colloquium Hallway)</div>
                     <div><strong>Opening Keynote:</strong> 9:30 AM EDT</div>
                     <div><strong>Dress Code:</strong> Business Casual</div>
                   </td>

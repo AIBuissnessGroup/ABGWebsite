@@ -4,7 +4,7 @@
 export function getGoogleCalendarUrl(): string {
   const title = encodeURIComponent('Michigan AI Business Conference 2026');
   const details = encodeURIComponent(
-    'The Michigan AI Business Conference, hosted by the University of Michigan AI Business Group at the Stephen M. Ross School of Business. Full-day event exploring AI across Finance, Venture Capital, and Business Strategy.\n\nBring your digital ticket QR pass for check-in!'
+    'The Michigan AI Business Conference, hosted by the University of Michigan AI Business Group at the Stephen M. Ross School of Business. Full-day event exploring AI across Finance and Venture Capital.\n\nBring your digital ticket QR pass for check-in!'
   );
   const location = encodeURIComponent('Stephen M. Ross School of Business, 701 Tappan Ave, Ann Arbor, MI 48109');
   

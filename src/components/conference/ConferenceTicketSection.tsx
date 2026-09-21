@@ -280,7 +280,7 @@ export default function ConferenceTicketSection() {
               <div className="w-5 h-5 rounded-full bg-orange-500/20 text-[#FF6700] flex items-center justify-center flex-shrink-0 mt-0.5">
                 <CheckIcon className="w-3.5 h-3.5" />
               </div>
-              <span>Full-day access to all Keynotes & Expert Panels (Finance, VC, AI Strategy)</span>
+              <span>Full-day access to all Keynotes & Expert Panels (Finance & VC)</span>
             </div>
 
             <div className="flex items-start gap-3 text-sm text-white/90">
@@ -288,13 +288,6 @@ export default function ConferenceTicketSection() {
                 <CheckIcon className="w-3.5 h-3.5" />
               </div>
               <span>Interactive Case Workshop on AI Deployments</span>
-            </div>
-
-            <div className="flex items-start gap-3 text-sm text-white/90">
-              <div className="w-5 h-5 rounded-full bg-orange-500/20 text-[#FF6700] flex items-center justify-center flex-shrink-0 mt-0.5">
-                <CheckIcon className="w-3.5 h-3.5" />
-              </div>
-              <span>Catered Networking Lunch in Ross Winter Garden</span>
             </div>
 
             <div className="flex items-start gap-3 text-sm text-white/90">
@@ -480,7 +473,7 @@ export default function ConferenceTicketSection() {
 
                 <div>
                   <label className="block text-xs font-extrabold uppercase tracking-wider text-white/70 mb-1.5">
-                    Dietary Restrictions (For catered lunch)
+                    Dietary Restrictions (Optional)
                   </label>
                   <input
                     type="text"

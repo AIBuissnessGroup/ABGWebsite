@@ -186,7 +186,7 @@ function ConferenceSuccessContent() {
                     <MapPinIcon className="w-4 h-4 text-[#FF6700]" />
                     <span>Ross School of Business</span>
                   </div>
-                  <div className="text-xs text-white/70 print:text-gray-600">Winter Garden Registration</div>
+                  <div className="text-xs text-white/70 print:text-gray-600">Blau Colloquium Hallway Registration</div>
                 </div>
 
                 <div>
@@ -209,12 +209,15 @@ function ConferenceSuccessContent() {
               </div>
 
               <div className="text-xs text-white/60 print:text-gray-500 leading-relaxed">
-                Includes full-day keynote & panel access, interactive case workshop, catered networking lunch, and closing reception.
+                Includes full-day keynote & panel access, interactive case workshop, and closing reception.
               </div>
             </div>
 
             {/* Right Column: Scannable QR Code */}
-            <div className="md:col-span-5 flex flex-col items-center justify-center p-6 bg-white rounded-2xl text-center shadow-lg border border-white/20">
+            <div 
+              className="md:col-span-5 flex flex-col items-center justify-center p-6 bg-white rounded-2xl text-center shadow-lg border border-white/20 !text-[#00274c]"
+              style={{ color: '#00274c' }}
+            >
               {ticket.qrCodeDataUrl ? (
                 <img
                   src={ticket.qrCodeDataUrl}
@@ -226,10 +229,16 @@ function ConferenceSuccessContent() {
                   Generating QR...
                 </div>
               )}
-              <div className="mt-3 font-mono font-black text-sm text-[#00274c] tracking-widest">
+              <div 
+                className="mt-3 font-mono font-black text-sm tracking-widest !text-[#00274c]"
+                style={{ color: '#00274c' }}
+              >
                 {ticket.ticketCode}
               </div>
-              <div className="text-[11px] text-gray-500 font-medium mt-1">
+              <div 
+                className="text-[11px] font-medium mt-1 !text-gray-500"
+                style={{ color: '#6b7280' }}
+              >
                 Scan for entry badge
               </div>
             </div>

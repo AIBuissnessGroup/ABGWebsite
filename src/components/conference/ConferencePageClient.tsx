@@ -228,6 +228,14 @@ export default function ConferencePageClient() {
     return [...(data.speakers || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }, [data.speakers]);
 
+  // Clean description to ensure business strategy is removed
+  const conferenceDescription = useMemo(() => {
+    if (!data.description) return '';
+    return data.description
+      .replace('across finance, venture capital, and business strategy', 'across finance and venture capital')
+      .replace(', and business strategy', ' and venture capital');
+  }, [data.description]);
+
   useEffect(() => {
     fetch('/api/conference')
       .then((res) => res.json())
@@ -446,7 +454,7 @@ export default function ConferencePageClient() {
 
             {/* Provided prompt description text */}
             <p className="text-base sm:text-lg lg:text-xl text-white/85 leading-relaxed font-normal">
-              {data.description}
+              {conferenceDescription || data.description}
             </p>
 
             {/* Key stats row */}
@@ -460,8 +468,8 @@ export default function ConferencePageClient() {
                 <div className="text-xs sm:text-sm text-white/70 font-semibold mt-1">Ross School of Business</div>
               </div>
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm col-span-2 sm:col-span-1">
-                <div className="text-3xl sm:text-4xl font-black text-orange-400">3 Key Tracks</div>
-                <div className="text-xs sm:text-sm text-white/70 font-semibold mt-1">Finance, VC & Strategy</div>
+                <div className="text-3xl sm:text-4xl font-black text-orange-400">2 Key Tracks</div>
+                <div className="text-xs sm:text-sm text-white/70 font-semibold mt-1">Finance & VC</div>
               </div>
             </div>
           </motion.div>

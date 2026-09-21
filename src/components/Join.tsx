@@ -2,7 +2,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import FloatingShapes from './FloatingShapes';
-import { CheckCircleIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
 import NewsletterSignup from './NewsletterSignup';
 
 interface JoinContent {
@@ -231,6 +232,22 @@ export default function Join() {
               </motion.div>
             </motion.div>
           ))}
+
+            {/* General Membership Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.8, delay: 0.6 }}
+              className="mt-8 sm:mt-10 flex flex-col items-center justify-center text-center"
+            >
+              <Link
+                href="/general-membership"
+                className="btn-primary inline-flex items-center justify-center gap-2.5 px-8 py-4 text-base sm:text-lg font-bold shadow-lg hover:shadow-2xl transition-all duration-300 group"
+              >
+                <span>Become a General Member</span>
+                <ArrowRightIcon className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
+              </Link>
+            </motion.div>
           </div>
         </div>
 
