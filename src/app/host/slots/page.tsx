@@ -17,6 +17,8 @@ import {
   HandThumbUpIcon,
   HandThumbDownIcon,
   MinusIcon,
+  ChatBubbleLeftRightIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline';
 import { 
   HandThumbUpIcon as HandThumbUpSolid,
@@ -112,13 +114,21 @@ export default function HostSlotsPage() {
     }
   };
 
-  const saveReferral = async (bookingId: string, signal: ReferralSignal) => {
+  const saveReferral = async (bookingId: string, signal?: ReferralSignal, notes?: string) => {
     setSavingReferral(bookingId);
     try {
+      const current = referrals[bookingId];
+      const targetSignal = signal || current?.signal || 'neutral';
+      const targetNotes = notes !== undefined ? notes : current?.notes;
+
       const res = await fetch('/api/host/slots/referral', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId, signal }),
+        body: JSON.stringify({ 
+          bookingId, 
+          signal: targetSignal,
+          notes: targetNotes,
+        }),
       });
       
       if (!res.ok) {
@@ -129,7 +139,10 @@ export default function HostSlotsPage() {
       // Update local state
       setReferrals(prev => ({
         ...prev,
-        [bookingId]: { signal },
+        [bookingId]: { 
+          signal: targetSignal,
+          notes: targetNotes,
+        },
       }));
       
       const signalLabels = {
@@ -137,7 +150,14 @@ export default function HostSlotsPage() {
         neutral: 'Neutral',
         deferral: 'Negative referral',
       };
-      toast.success(`${signalLabels[signal]} saved`);
+      
+      if (signal && notes !== undefined && notes.trim() !== '') {
+        toast.success(`${signalLabels[targetSignal]} & comment saved`);
+      } else if (signal) {
+        toast.success(`${signalLabels[targetSignal]} saved`);
+      } else {
+        toast.success('Comment saved');
+      }
     } catch (error: any) {
       console.error('Error saving referral:', error);
       toast.error(error.message || 'Failed to save referral');
@@ -365,7 +385,7 @@ interface SlotCardProps {
   formatTime: (date: string) => string;
   isPast?: boolean;
   referrals: ReferralMap;
-  onSaveReferral: (bookingId: string, signal: ReferralSignal) => Promise<void>;
+  onSaveReferral: (bookingId: string, signal?: ReferralSignal, notes?: string) => Promise<void>;
   savingReferral: string | null;
 }
 
@@ -454,128 +474,237 @@ function SlotCard({
                   </span>
                 )}
               </div>
-              {slot.bookings.map((booking) => {
-                const currentReferral = referrals[booking._id!];
-                const isSaving = savingReferral === booking._id;
-                
-                return (
-                  <div
-                    key={booking._id}
-                    className="bg-white rounded-lg p-3 border"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <UserIcon className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-900">
-                            {booking.applicantName || 'Unknown'}
-                          </div>
-                          {booking.applicantEmail && (
-                            <a
-                              href={`mailto:${booking.applicantEmail}`}
-                              className="text-sm text-blue-600 hover:underline flex items-center gap-1"
-                            >
-                              <EnvelopeIcon className="w-3 h-3" />
-                              {booking.applicantEmail}
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`text-xs px-2 py-1 rounded-full ${
-                          booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                          booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                          booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {booking.status}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Booked {new Date(booking.bookedAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Referral Buttons - Only for coffee chats */}
-                    {isCoffeeChat && (
-                      <div className="mt-3 pt-3 border-t">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-600 font-medium">Referral:</span>
-                          <div className="flex items-center gap-2">
-                            {/* Thumbs Up - Referral */}
-                            <button
-                              onClick={() => onSaveReferral(booking._id!, 'referral')}
-                              disabled={isSaving}
-                              className={`p-2 rounded-lg transition-all ${
-                                currentReferral?.signal === 'referral'
-                                  ? 'bg-green-100 text-green-600 ring-2 ring-green-500'
-                                  : 'bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-600'
-                              } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              title="Positive referral (thumbs up)"
-                            >
-                              {currentReferral?.signal === 'referral' ? (
-                                <HandThumbUpSolid className="w-5 h-5" />
-                              ) : (
-                                <HandThumbUpIcon className="w-5 h-5" />
-                              )}
-                            </button>
-                            
-                            {/* Neutral */}
-                            <button
-                              onClick={() => onSaveReferral(booking._id!, 'neutral')}
-                              disabled={isSaving}
-                              className={`p-2 rounded-lg transition-all ${
-                                currentReferral?.signal === 'neutral'
-                                  ? 'bg-gray-200 text-gray-700 ring-2 ring-gray-400'
-                                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-600'
-                              } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              title="Neutral"
-                            >
-                              {currentReferral?.signal === 'neutral' ? (
-                                <MinusSolid className="w-5 h-5" />
-                              ) : (
-                                <MinusIcon className="w-5 h-5" />
-                              )}
-                            </button>
-                            
-                            {/* Thumbs Down - Deferral */}
-                            <button
-                              onClick={() => onSaveReferral(booking._id!, 'deferral')}
-                              disabled={isSaving}
-                              className={`p-2 rounded-lg transition-all ${
-                                currentReferral?.signal === 'deferral'
-                                  ? 'bg-red-100 text-red-600 ring-2 ring-red-500'
-                                  : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600'
-                              } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              title="Negative referral (thumbs down)"
-                            >
-                              {currentReferral?.signal === 'deferral' ? (
-                                <HandThumbDownSolid className="w-5 h-5" />
-                              ) : (
-                                <HandThumbDownIcon className="w-5 h-5" />
-                              )}
-                            </button>
-                            
-                            {isSaving && (
-                              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin ml-1"></div>
-                            )}
-                          </div>
-                        </div>
-                        {currentReferral && (
-                          <div className="text-xs text-gray-500 mt-1 text-right">
-                            Current: {currentReferral.signal === 'referral' ? '👍 Positive' : 
-                                     currentReferral.signal === 'deferral' ? '👎 Negative' : '➖ Neutral'}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {slot.bookings.map((booking) => (
+                <BookingItem
+                  key={booking._id}
+                  booking={booking}
+                  isCoffeeChat={isCoffeeChat}
+                  referral={referrals[booking._id!]}
+                  onSaveReferral={onSaveReferral}
+                  isSaving={savingReferral === booking._id}
+                />
+              ))}
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface BookingItemProps {
+  booking: SlotBooking;
+  isCoffeeChat: boolean;
+  referral?: { signal: ReferralSignal; notes?: string };
+  onSaveReferral: (bookingId: string, signal?: ReferralSignal, notes?: string) => Promise<void>;
+  isSaving: boolean;
+}
+
+function BookingItem({
+  booking,
+  isCoffeeChat,
+  referral,
+  onSaveReferral,
+  isSaving,
+}: BookingItemProps) {
+  const [notes, setNotes] = useState(referral?.notes || '');
+
+  // Keep local notes synchronized when referral updates from server
+  useEffect(() => {
+    setNotes(referral?.notes || '');
+  }, [referral?.notes]);
+
+  const savedNotes = referral?.notes || '';
+  const isDirty = notes !== savedNotes;
+
+  const handleSignalClick = (signal: ReferralSignal) => {
+    onSaveReferral(booking._id!, signal, notes);
+  };
+
+  const handleSaveNotes = () => {
+    onSaveReferral(booking._id!, referral?.signal || 'neutral', notes);
+  };
+
+  const handleCancelNotes = () => {
+    setNotes(savedNotes);
+  };
+
+  return (
+    <div className="bg-white rounded-lg p-3.5 border border-gray-200 shadow-sm space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <UserIcon className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <div className="font-medium text-gray-900">
+              {booking.applicantName || 'Unknown'}
+            </div>
+            {booking.applicantEmail && (
+              <a
+                href={`mailto:${booking.applicantEmail}`}
+                className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+              >
+                <EnvelopeIcon className="w-3 h-3" />
+                {booking.applicantEmail}
+              </a>
+            )}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className={`text-xs px-2 py-1 rounded-full ${
+            booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+            booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+            booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+            'bg-gray-100 text-gray-700'
+          }`}>
+            {booking.status}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            Booked {new Date(booking.bookedAt).toLocaleDateString()}
+          </div>
+        </div>
+      </div>
+      
+      {/* Referral Buttons & Notes - Only for coffee chats */}
+      {isCoffeeChat && (
+        <div className="pt-3 border-t border-gray-100 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-600 font-medium">Referral Signal:</span>
+            <div className="flex items-center gap-2">
+              {/* Thumbs Up - Referral */}
+              <button
+                type="button"
+                onClick={() => handleSignalClick('referral')}
+                disabled={isSaving}
+                className={`p-2 rounded-lg transition-all cursor-pointer ${
+                  referral?.signal === 'referral'
+                    ? 'bg-green-100 text-green-600 ring-2 ring-green-500'
+                    : 'bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-600'
+                } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title="Positive referral (thumbs up)"
+              >
+                {referral?.signal === 'referral' ? (
+                  <HandThumbUpSolid className="w-5 h-5" />
+                ) : (
+                  <HandThumbUpIcon className="w-5 h-5" />
+                )}
+              </button>
+              
+              {/* Neutral */}
+              <button
+                type="button"
+                onClick={() => handleSignalClick('neutral')}
+                disabled={isSaving}
+                className={`p-2 rounded-lg transition-all cursor-pointer ${
+                  referral?.signal === 'neutral'
+                    ? 'bg-gray-200 text-gray-700 ring-2 ring-gray-400'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-600'
+                } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title="Neutral"
+              >
+                {referral?.signal === 'neutral' ? (
+                  <MinusSolid className="w-5 h-5" />
+                ) : (
+                  <MinusIcon className="w-5 h-5" />
+                )}
+              </button>
+              
+              {/* Thumbs Down - Deferral */}
+              <button
+                type="button"
+                onClick={() => handleSignalClick('deferral')}
+                disabled={isSaving}
+                className={`p-2 rounded-lg transition-all cursor-pointer ${
+                  referral?.signal === 'deferral'
+                    ? 'bg-red-100 text-red-600 ring-2 ring-red-500'
+                    : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600'
+                } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title="Negative referral (thumbs down)"
+              >
+                {referral?.signal === 'deferral' ? (
+                  <HandThumbDownSolid className="w-5 h-5" />
+                ) : (
+                  <HandThumbDownIcon className="w-5 h-5" />
+                )}
+              </button>
+              
+              {isSaving && (
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin ml-1" />
+              )}
+            </div>
+          </div>
+
+          {referral && (
+            <div className="text-xs text-gray-500 text-right">
+              Current: {referral.signal === 'referral' ? '👍 Positive' : 
+                       referral.signal === 'deferral' ? '👎 Negative' : '➖ Neutral'}
+            </div>
+          )}
+
+          {/* Optional Reviewer Comment / Feedback */}
+          <div className="pt-2 border-t border-dashed border-gray-200">
+            <div className="flex items-center justify-between mb-1.5">
+              <label 
+                htmlFor={`notes-${booking._id}`} 
+                className="text-xs font-medium text-gray-700 flex items-center gap-1.5"
+              >
+                <ChatBubbleLeftRightIcon className="w-3.5 h-3.5 text-gray-400" />
+                Optional Comments / Notes:
+              </label>
+              {savedNotes && !isDirty && (
+                <span className="text-[11px] text-green-600 font-medium flex items-center gap-1">
+                  <CheckIcon className="w-3 h-3" /> Saved
+                </span>
+              )}
+            </div>
+
+            <textarea
+              id={`notes-${booking._id}`}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Leave optional comments or feedback about this applicant..."
+              rows={2}
+              className="w-full text-xs text-gray-800 placeholder-gray-400 p-2.5 bg-gray-50/50 hover:bg-white focus:bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-y min-h-[56px]"
+            />
+
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="text-[11px] text-gray-400">
+                {isDirty ? 'Unsaved changes' : notes ? `${notes.length} characters` : 'Optional note'}
+              </span>
+
+              <div className="flex items-center gap-2">
+                {isDirty && (
+                  <button
+                    type="button"
+                    onClick={handleCancelNotes}
+                    className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSaveNotes}
+                  disabled={isSaving || !isDirty}
+                  className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+                    isDirty
+                      ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Comment'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

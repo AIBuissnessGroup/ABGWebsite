@@ -1809,7 +1809,7 @@ export async function generatePhaseRanking(
         neutral: number; 
         deferral: number; 
         total: number;
-        details: Array<{ hostName: string; hostEmail: string; signal: 'referral' | 'neutral' | 'deferral' }>;
+        details: Array<{ hostName: string; hostEmail: string; signal: 'referral' | 'neutral' | 'deferral'; notes?: string }>;
       } | undefined;
       if (phase === 'application') {
         const coffeeChatReferralsCollection = client.db().collection(COFFEE_CHAT_REFERRALS_COLLECTION);
@@ -1833,6 +1833,7 @@ export async function generatePhaseRanking(
               hostName: ref.hostName || ref.hostEmail?.split('@')[0] || 'Unknown Host',
               hostEmail: ref.hostEmail,
               signal,
+              notes: ref.notes,
             });
           }
           

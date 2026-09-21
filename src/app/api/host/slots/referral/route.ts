@@ -17,6 +17,7 @@ import {
   getSlotById,
   getActiveCycle,
   upsertCoffeeChatReferral,
+  getCoffeeChatReferral,
   getCoffeeChatReferralsByHost,
   getApplicationByUser,
 } from '@/lib/recruitment/db';
@@ -93,15 +94,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate signal
-    const validSignals: ReferralSignal[] = ['referral', 'neutral', 'deferral'];
-    if (!signal || !validSignals.includes(signal)) {
-      return NextResponse.json(
-        { error: 'Invalid signal. Must be "referral", "neutral", or "deferral"' },
-        { status: 400 }
-      );
-    }
-
     // Get the booking
     const booking = await getBookingById(bookingId);
     if (!booking) {
@@ -135,6 +127,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check existing referral to preserve existing signal or notes if not provided
+    const existingRef = await getCoffeeChatReferral(bookingId, hostEmail);
+
+    // Validate and resolve signal (default to existing or 'neutral')
+    const validSignals: ReferralSignal[] = ['referral', 'neutral', 'deferral'];
+    const resolvedSignal: ReferralSignal = signal || existingRef?.signal || 'neutral';
+    if (!validSignals.includes(resolvedSignal)) {
+      return NextResponse.json(
+        { error: 'Invalid signal. Must be "referral", "neutral", or "deferral"' },
+        { status: 400 }
+      );
+    }
+
+    // Resolve notes: if notes is explicitly provided, use trimmed string; otherwise keep existing notes
+    const resolvedNotes = notes !== undefined
+      ? (typeof notes === 'string' ? notes.trim() : notes)
+      : existingRef?.notes;
+
     // Get the applicant's application (if they have one)
     let applicationId: string | undefined;
     if (booking.applicantEmail) {
@@ -152,8 +162,8 @@ export async function POST(request: NextRequest) {
       applicantName: booking.applicantName,
       hostEmail,
       hostName,
-      signal,
-      notes: notes || undefined,
+      signal: resolvedSignal,
+      notes: resolvedNotes !== undefined ? resolvedNotes : undefined,
     });
 
     // Audit log
@@ -167,7 +177,8 @@ export async function POST(request: NextRequest) {
         meta: {
           bookingId,
           applicantEmail: booking.applicantEmail || booking.userId,
-          signal,
+          signal: resolvedSignal,
+          notes: resolvedNotes,
           slotId: booking.slotId,
         },
       }
@@ -175,7 +186,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true,
-      message: `Referral saved: ${signal}`,
+      message: `Referral saved: ${resolvedSignal}`,
+      referral: {
+        signal: resolvedSignal,
+        notes: resolvedNotes,
+      },
     });
   } catch (error: any) {
     console.error('Error saving coffee chat referral:', error);

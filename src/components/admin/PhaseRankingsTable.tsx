@@ -428,19 +428,26 @@ export default function PhaseRankingsTable({
                       </div>
                       {/* Tooltip with host details */}
                       {ranking.coffeeChatReferrals.details && ranking.coffeeChatReferrals.details.length > 0 && (
-                        <div className="absolute z-50 left-0 top-full mt-1 hidden group-hover:block bg-gray-900 border border-white/20 rounded-lg p-3 shadow-xl min-w-[200px]">
+                        <div className="absolute z-50 left-0 top-full mt-1 hidden group-hover:block bg-gray-900 border border-white/20 rounded-lg p-3 shadow-xl min-w-[220px] max-w-xs">
                           <div className="text-xs font-medium text-white/60 mb-2">Coffee Chat Hosts:</div>
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
                             {ranking.coffeeChatReferrals.details.map((detail, idx) => (
-                              <div key={idx} className="flex items-center justify-between gap-3 text-sm">
-                                <span className="text-white/90">{detail.hostName}</span>
-                                <span className={`${
-                                  detail.signal === 'referral' ? 'text-green-400' :
-                                  detail.signal === 'deferral' ? 'text-red-400' :
-                                  'text-gray-400'
-                                }`}>
-                                  {detail.signal === 'referral' ? '👍' : detail.signal === 'deferral' ? '👎' : '➖'}
-                                </span>
+                              <div key={idx} className="text-xs">
+                                <div className="flex items-center justify-between gap-3 text-sm">
+                                  <span className="text-white/90">{detail.hostName}</span>
+                                  <span className={`${
+                                    detail.signal === 'referral' ? 'text-green-400' :
+                                    detail.signal === 'deferral' ? 'text-red-400' :
+                                    'text-gray-400'
+                                  }`}>
+                                    {detail.signal === 'referral' ? '👍' : detail.signal === 'deferral' ? '👎' : '➖'}
+                                  </span>
+                                </div>
+                                {detail.notes && (
+                                  <div className="text-[11px] text-white/70 italic mt-0.5 pl-1 border-l border-white/20 break-words">
+                                    &ldquo;{detail.notes}&rdquo;
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>

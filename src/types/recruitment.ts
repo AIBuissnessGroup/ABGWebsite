@@ -393,6 +393,7 @@ export interface RankedApplicant {
       hostName: string;
       hostEmail: string;
       signal: 'referral' | 'neutral' | 'deferral';
+      notes?: string;
     }>;
   };
   decision?: 'advance' | 'reject' | 'manual_advance' | 'manual_reject';
