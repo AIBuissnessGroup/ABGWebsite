@@ -287,21 +287,14 @@ export default function ConferenceTicketSection() {
               <div className="w-5 h-5 rounded-full bg-orange-500/20 text-[#FF6700] flex items-center justify-center flex-shrink-0 mt-0.5">
                 <CheckIcon className="w-3.5 h-3.5" />
               </div>
-              <span>Interactive Case Workshop on AI Deployments</span>
+              <span>Catered Lunch alongside Workshops (Bitcoin and Health)</span>
             </div>
 
             <div className="flex items-start gap-3 text-sm text-white/90">
               <div className="w-5 h-5 rounded-full bg-orange-500/20 text-[#FF6700] flex items-center justify-center flex-shrink-0 mt-0.5">
                 <CheckIcon className="w-3.5 h-3.5" />
               </div>
-              <span>Coffee Chats with corporate executives and founders</span>
-            </div>
-
-            <div className="flex items-start gap-3 text-sm text-white/90">
-              <div className="w-5 h-5 rounded-full bg-orange-500/20 text-[#FF6700] flex items-center justify-center flex-shrink-0 mt-0.5">
-                <CheckIcon className="w-3.5 h-3.5" />
-              </div>
-              <span>Closing reception with drinks, appetizers & alumni networking</span>
+              <span>Closing reception with Open Networking</span>
             </div>
 
             <div className="flex items-start gap-3 text-sm text-white/90">
