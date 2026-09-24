@@ -2,6 +2,7 @@
 import { SessionProvider } from 'next-auth/react';
 import { Toaster } from 'react-hot-toast';
 
+// Global Client Providers
 export default function Providers({
   children,
 }: {

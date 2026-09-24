@@ -79,8 +79,12 @@ export default function Navbar() {
       .catch(() => {});
   }, []);
 
-  // Hide navbar on overlay routes (for vMix screens)
-  if (pathname?.startsWith('/sxsw/overlay')) {
+  // Hide navbar on overlay routes (for vMix screens) and standalone check-in confirmation screens
+  if (
+    pathname?.startsWith('/sxsw/overlay') ||
+    pathname?.startsWith('/checkin/confirmed') ||
+    pathname?.startsWith('/attendance/confirmed')
+  ) {
     return null;
   }
 
