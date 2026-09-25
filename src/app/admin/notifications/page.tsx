@@ -359,7 +359,6 @@ export default function NotificationsPage() {
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
   const [scheduledEmails, setScheduledEmails] = useState<ScheduledEmail[]>([]);
-  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const [drafts, setDrafts] = useState<EmailDraft[]>([]);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -367,10 +366,6 @@ export default function NotificationsPage() {
   const [signatureSize, setSignatureSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [signatureStyle, setSignatureStyle] = useState<'white' | 'black'>('white');
   const [attachments, setAttachments] = useState<Array<{ name: string; url: string }>>([]);
-  const [selectedApprover, setSelectedApprover] = useState<string>('');
-  const [showApproverModal, setShowApproverModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'send' | 'schedule' | null>(null);
-  const [slackUsers, setSlackUsers] = useState<Array<{ email: string; name: string; slackId: string; isAdmin: boolean }>>([]);
   const previewRef = useRef<HTMLIFrameElement>(null);
 
   // Generate HTML from content sections
@@ -544,22 +539,8 @@ export default function NotificationsPage() {
   useEffect(() => {
     loadUsers();
     loadScheduledEmails();
-    loadPendingApprovals();
     loadDrafts();
-    loadSlackUsers();
   }, []);
-
-  const loadSlackUsers = async () => {
-    try {
-      const response = await fetch('/api/admin/notifications/slack-users');
-      if (response.ok) {
-        const data = await response.json();
-        setSlackUsers(data.users || []);
-      }
-    } catch (error) {
-      console.error('Failed to load Slack users:', error);
-    }
-  };
 
   // Auto-save draft when content changes
   useEffect(() => {
@@ -645,17 +626,6 @@ export default function NotificationsPage() {
     }
   };
 
-  const loadPendingApprovals = async () => {
-    try {
-      const response = await fetch('/api/admin/notifications/pending-approvals');
-      if (response.ok) {
-        const data = await response.json();
-        setPendingApprovals(data.approvals || []);
-      }
-    } catch (error) {
-      console.error('Failed to load pending approvals:', error);
-    }
-  };
 
   const loadDrafts = async () => {
     try {
@@ -899,9 +869,42 @@ export default function NotificationsPage() {
       return;
     }
 
-    // Open approver modal
-    setPendingAction('schedule');
-    setShowApproverModal(true);
+    setSending(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/admin/notifications/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipients: allRecipients,
+          subject,
+          htmlContent,
+          scheduledFor: scheduledFor.toISOString(),
+          attachments,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setMessage({
+          type: 'success',
+          text: `Email successfully scheduled for ${scheduledFor.toLocaleString()}!`,
+        });
+        loadScheduledEmails();
+      } else {
+        throw new Error(data.error || 'Failed to schedule email');
+      }
+    } catch (error) {
+      console.error('Error scheduling email:', error);
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to schedule email',
+      });
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleUpdateScheduledEmail = async (emailId: string, newDate: string, newTime: string) => {
@@ -975,25 +978,6 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleCancelApproval = async (approvalId: string) => {
-    if (!confirm('Cancel this approval request?')) return;
-
-    try {
-      const response = await fetch(`/api/admin/notifications/pending-approvals?id=${approvalId}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        setMessage({ type: 'success', text: 'Approval request cancelled!' });
-        loadPendingApprovals();
-      } else {
-        throw new Error('Failed to cancel approval request');
-      }
-    } catch (error) {
-      console.error('Cancel approval error:', error);
-      setMessage({ type: 'error', text: 'Failed to cancel approval request' });
-    }
-  };
 
   const handleSelectAll = () => {
     if (selectedUsers.length === filteredUsers.length) {
@@ -1079,93 +1063,40 @@ export default function NotificationsPage() {
       return;
     }
 
-    // Open approver modal
-    setPendingAction('send');
-    setShowApproverModal(true);
-  };
-
-  const handleRequestApproval = async () => {
-    if (!selectedApprover) {
-      setMessage({ type: 'error', text: 'Please select an approver' });
-      return;
-    }
-
-    if (selectedApprover === session?.user?.email) {
-      setMessage({ type: 'error', text: 'You cannot approve your own notification' });
+    if (!confirm(`Are you sure you want to send this email to ${allRecipients.length} recipient(s)?`)) {
       return;
     }
 
     setSending(true);
     setMessage(null);
-    setShowApproverModal(false);
 
     try {
-      const allRecipients = [...selectedMcommunityGroups, ...selectedUsers];
-      
-      const response = await fetch('/api/admin/notifications/request-approval', {
+      const response = await fetch('/api/admin/notifications/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          approverEmail: selectedApprover,
-          requesterEmail: session?.user?.email,
-          requesterName: session?.user?.name,
           recipients: allRecipients,
           subject,
           htmlContent,
           attachments,
-          actionType: pendingAction,
-          scheduleDate: pendingAction === 'schedule' ? scheduleDate : undefined,
-          scheduleTime: pendingAction === 'schedule' ? scheduleTime : undefined,
-          draftData: {
-            name: draftName,
-            subject,
-            emailTitle,
-            contentSections,
-            selectedUsers,
-            selectedMcommunityGroups,
-            bannerSettings: {
-              bannerColor,
-              bannerGradient,
-              bannerGradientEnd,
-              bannerGradientOpacity,
-              bannerBackgroundImage,
-              bannerShapes
-            },
-            bottomBannerSettings: {
-              bottomBannerEnabled,
-              bottomBannerColor,
-              bottomBannerGradient,
-              bottomBannerGradientEnd,
-              bottomBannerGradientOpacity,
-              bottomBannerBackgroundImage,
-              bottomBannerShapes,
-              bottomBannerText
-            },
-            signatureSize,
-            signatureStyle,
-            attachments,
-            emailBackgroundColor
-          }
-        })
+        }),
       });
 
-      if (response.ok) {
-        setMessage({ 
-          type: 'success', 
-          text: `Approval request sent to ${selectedApprover} via Slack` 
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setMessage({
+          type: 'success',
+          text: `Email successfully sent to ${data.sent || allRecipients.length} recipient(s)!`,
         });
-        setSelectedApprover('');
-        setPendingAction(null);
-        loadPendingApprovals(); // Reload to show new pending approval
       } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to request approval');
+        throw new Error(data.error || 'Failed to send emails');
       }
     } catch (error) {
-      console.error('Approval request error:', error);
-      setMessage({ 
-        type: 'error', 
-        text: error instanceof Error ? error.message : 'Failed to request approval' 
+      console.error('Error sending emails:', error);
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to send emails',
       });
     } finally {
       setSending(false);
@@ -2253,48 +2184,6 @@ export default function NotificationsPage() {
             </div>
           </div>
 
-          {/* Pending Approvals */}
-          <div className="bg-white rounded-lg shadow border border-gray-200">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">⏳ Pending Approvals</h2>
-            </div>
-            <div className="p-4">
-              <div className="space-y-4">
-                {pendingApprovals.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">No pending approvals</p>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {pendingApprovals.map(approval => (
-                      <div key={approval.id} className="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="text-sm font-medium text-gray-900 truncate">{approval.subject}</div>
-                            <div className="text-xs text-gray-600 mt-1">
-                              Waiting on: {approval.approverName || approval.approverEmail}
-                            </div>
-                            <div className="text-xs text-gray-600">
-                              📧 {approval.recipients?.length || 0} recipient(s)
-                            </div>
-                            <div className="text-xs text-gray-600">
-                              Action: {approval.actionType === 'send' ? 'Send immediately' : 'Schedule'}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-3">
-                          <button
-                            onClick={() => handleCancelApproval(approval.id)}
-                            className="text-xs px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded"
-                          >
-                            ❌ Cancel Request
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
 
           {/* Scheduled Emails */}
           <div className="bg-white rounded-lg shadow border border-gray-200">
@@ -2365,159 +2254,7 @@ export default function NotificationsPage() {
           </div>
         </div>
 
-        {/* Approver Selection Modal */}
-        {showApproverModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
-              {/* Header */}
-              <div className="bg-gray-100 p-6 rounded-t-lg border-b">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <span></span> Request Approval
-                </h3>
-                <p className="text-gray-700 text-sm mt-2">
-                  Select someone to review this notification before it's {pendingAction === 'send' ? 'sent' : 'scheduled'}
-                </p>
-              </div>
 
-              {/* Content */}
-              <div className="p-6">
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl">💡</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">How it works:</p>
-                      <p className="text-xs text-gray-700 mt-1">
-                        Your selected approver will receive a Slack message with an email preview and buttons to approve or deny your request.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mb-6">
-                  <label className="block text-sm font-semibold text-gray-900 mb-3">Select Approver</label>
-                  <div className="space-y-3">
-                    {/* Anthony Walker */}
-                    <button
-                      onClick={() => setSelectedApprover('anthonydanielwalker05@gmail.com')}
-                      className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
-                        selectedApprover === 'anthonydanielwalker05@gmail.com'
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-blue-300 bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-lg">
-                          AW
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-gray-900">Anthony Walker</div>
-                          <div className="text-xs text-gray-600">anthonydanielwalker05@gmail.com</div>
-                          <div className="text-xs text-blue-600 mt-1">💬 Has Slack | 👑 Admin</div>
-                        </div>
-                        {selectedApprover === 'anthonydanielwalker05@gmail.com' && (
-                          <div className="text-blue-500">✓</div>
-                        )}
-                      </div>
-                    </button>
-
-                    {/* Evelyn Chao */}
-                    <button
-                      onClick={() => setSelectedApprover('evelync@umich.edu')}
-                      className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
-                        selectedApprover === 'evelync@umich.edu'
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-blue-300 bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-lg">
-                          EC
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-gray-900">Evelyn Chao</div>
-                          <div className="text-xs text-gray-600">evelync@umich.edu</div>
-                          <div className="text-xs text-blue-600 mt-1">💬 Has Slack | 👑 Admin</div>
-                        </div>
-                        {selectedApprover === 'evelync@umich.edu' && (
-                          <div className="text-blue-500">✓</div>
-                        )}
-                      </div>
-                    </button>
-
-                    {/* Noah Feigenbaum */}
-                    <button
-                      onClick={() => setSelectedApprover('noahfeig@umich.edu')}
-                      className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
-                        selectedApprover === 'noahfeig@umich.edu'
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-blue-300 bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-lg">
-                          NF
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-gray-900">Noah Feigenbaum</div>
-                          <div className="text-xs text-gray-600">noahfeig@umich.edu</div>
-                          <div className="text-xs text-blue-600 mt-1">💬 Has Slack | 👑 Admin</div>
-                        </div>
-                        {selectedApprover === 'noahfeig@umich.edu' && (
-                          <div className="text-blue-500">✓</div>
-                        )}
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Action Summary */}
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-xs font-medium text-gray-600 mb-2">Summary:</p>
-                  <p className="text-sm text-gray-900">
-                    <span className="font-semibold">Action:</span> {pendingAction === 'send' ? '📤 Send immediately' : '📅 Schedule for later'}
-                  </p>
-                  <p className="text-sm text-gray-900">
-                    <span className="font-semibold">Subject:</span> {subject || '(No subject)'}
-                  </p>
-                  <p className="text-sm text-gray-900">
-                    <span className="font-semibold">Recipients:</span> {[...selectedMcommunityGroups, ...selectedUsers].length} recipient(s)
-                  </p>
-                </div>
-
-                {/* Buttons */}
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleRequestApproval}
-                    disabled={!selectedApprover || sending}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-semibold transition-all disabled:cursor-not-allowed"
-                  >
-                    {sending ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="animate-spin">⏳</span> Requesting...
-                      </span>
-                    ) : (
-                      <span className="flex items-center justify-center gap-2">
-                        <span>✅</span> Request Approval
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowApproverModal(false);
-                      setSelectedApprover('');
-                      setPendingAction(null);
-                    }}
-                    disabled={sending}
-                    style={{ backgroundColor: 'white', color: 'black', borderColor: '#d1d5db' }}
-                    className="px-6 py-3 border-2 rounded-lg hover:bg-gray-50 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
