@@ -12,6 +12,17 @@ interface RoundTrackerProps {
 
 type RoundDisplayStatus = 'completed' | 'current' | 'upcoming' | 'skipped';
 
+// Get clean round display name (e.g. Round 1, Round 2 instead of Technical/Behavioral)
+function getRoundLabel(round: RoundStatus): string {
+  if (round.round === 2 || round.phase === 'interview_round1' || /technical/i.test(round.name)) {
+    return 'Round 1';
+  }
+  if (round.round === 3 || round.phase === 'interview_round2' || /behavioral/i.test(round.name)) {
+    return 'Round 2';
+  }
+  return round.name;
+}
+
 // Map round status to display status
 function getDisplayStatus(round: RoundStatus, currentRound: number): RoundDisplayStatus {
   if (round.status === 'completed' || round.status === 'advanced') return 'completed';
@@ -128,7 +139,7 @@ export default function RoundTracker({ tracker }: RoundTrackerProps) {
                       ? 'text-red-500' 
                       : 'text-gray-400'
                   }`}>
-                    {round.name.replace('Round ', 'R').replace(': Technical Interview', '').replace(': Behavioral Interview', '')}
+                    {getRoundLabel(round)}
                   </p>
                   {displayStatus === 'current' && (
                     <motion.span 

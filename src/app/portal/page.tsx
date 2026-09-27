@@ -503,11 +503,10 @@ export default function PortalDashboardPage() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-blue-800 mb-2">
-                We encourage you to join ABG as a General Member
+                We would like to extend you an offer to remain involved with AI Business Group as a General Member
               </h2>
               <p className="text-blue-700 mb-3">
-                You can still be part of the ABG community! General members have access to our events 
-                and networking opportunities.
+                This is a great way to stay involved with AIBG through committees, general meetings, and other club resources.
               </p>
               <div className="flex items-center gap-4">
                 <Link 

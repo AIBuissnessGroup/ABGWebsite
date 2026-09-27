@@ -214,8 +214,8 @@ function buildRoundTrackerData(
       },
       rounds: [
         { round: 1, name: 'Application', phase: 'application', status: 'in_progress' },
-        { round: 2, name: 'Technical Interview', phase: 'interview_round1', status: 'not_started' },
-        { round: 3, name: 'Behavioral Interview', phase: 'interview_round2', status: 'not_started' },
+        { round: 2, name: 'Round 1', phase: 'interview_round1', status: 'not_started' },
+        { round: 3, name: 'Round 2', phase: 'interview_round2', status: 'not_started' },
       ],
     };
   }
@@ -237,8 +237,8 @@ function buildRoundTrackerData(
       },
       rounds: [
         { round: 1, name: 'Application', phase: 'application', status: 'in_progress' },
-        { round: 2, name: 'Technical Interview', phase: 'interview_round1', status: 'not_started' },
-        { round: 3, name: 'Behavioral Interview', phase: 'interview_round2', status: 'not_started' },
+        { round: 2, name: 'Round 1', phase: 'interview_round1', status: 'not_started' },
+        { round: 3, name: 'Round 2', phase: 'interview_round2', status: 'not_started' },
       ],
     }),
     
@@ -253,8 +253,8 @@ function buildRoundTrackerData(
       },
       rounds: [
         { round: 1, name: 'Application', phase: 'application', status: 'completed' },
-        { round: 2, name: 'Technical Interview', phase: 'interview_round1', status: 'not_started' },
-        { round: 3, name: 'Behavioral Interview', phase: 'interview_round2', status: 'not_started' },
+        { round: 2, name: 'Round 1', phase: 'interview_round1', status: 'not_started' },
+        { round: 3, name: 'Round 2', phase: 'interview_round2', status: 'not_started' },
       ],
     }),
     
@@ -269,8 +269,8 @@ function buildRoundTrackerData(
       },
       rounds: [
         { round: 1, name: 'Application', phase: 'application', status: 'completed' },
-        { round: 2, name: 'Technical Interview', phase: 'interview_round1', status: 'not_started' },
-        { round: 3, name: 'Behavioral Interview', phase: 'interview_round2', status: 'not_started' },
+        { round: 2, name: 'Round 1', phase: 'interview_round1', status: 'not_started' },
+        { round: 3, name: 'Round 2', phase: 'interview_round2', status: 'not_started' },
       ],
     }),
     
@@ -286,8 +286,8 @@ function buildRoundTrackerData(
       },
       rounds: [
         { round: 1, name: 'Application', phase: 'application', status: 'completed' },
-        { round: 2, name: 'Technical Interview', phase: 'interview_round1', status: 'not_started' },
-        { round: 3, name: 'Behavioral Interview', phase: 'interview_round2', status: 'not_started' },
+        { round: 2, name: 'Round 1', phase: 'interview_round1', status: 'not_started' },
+        { round: 3, name: 'Round 2', phase: 'interview_round2', status: 'not_started' },
       ],
     }),
     
@@ -300,32 +300,32 @@ function buildRoundTrackerData(
       
       return {
         currentRound: 2,
-        roundName: 'Technical Interview',
+        roundName: 'Round 1',
         status: hasScheduled ? (isInterviewPast ? 'completed' : 'scheduled') : 'invited',
         nextAction: hasScheduled 
           ? (isInterviewPast 
             ? {
                 type: 'wait_for_decision',
                 title: 'Interview Complete',
-                description: 'Your technical interview has been completed. We are reviewing your performance.',
+                description: 'Your Round 1 interview has been completed. We are reviewing your performance.',
               }
             : {
                 type: 'attend_interview',
                 title: 'Attend Your Interview',
-                description: `Your technical interview is scheduled for ${new Date(interviewTime!).toLocaleString()}. Be prepared!`,
+                description: `Your Round 1 interview is scheduled for ${new Date(interviewTime!).toLocaleString()}. Be prepared!`,
               }
             )
           : {
               type: 'schedule_interview',
               title: 'Schedule Your Interview',
-              description: 'Congratulations! You have been invited to interview. Schedule your Round 1 (Technical) interview now.',
+              description: 'Congratulations! You have been invited to interview. Schedule your Round 1 interview now.',
               actionUrl: '/portal/schedule',
             },
         rounds: [
           { round: 1, name: 'Application', phase: 'application', status: 'advanced' },
           { 
             round: 2, 
-            name: 'Technical Interview', 
+            name: 'Round 1', 
             phase: 'interview_round1', 
             status: hasScheduled ? (isInterviewPast ? 'completed' : 'in_progress') : 'in_progress',
             scheduledInterview: r1Booking ? {
@@ -335,7 +335,7 @@ function buildRoundTrackerData(
               interviewers: r1Booking.slotDetails?.hostName ? [r1Booking.slotDetails.hostName] : undefined,
             } : undefined,
           },
-          { round: 3, name: 'Behavioral Interview', phase: 'interview_round2', status: 'not_started' },
+          { round: 3, name: 'Round 2', phase: 'interview_round2', status: 'not_started' },
         ],
       };
     },
@@ -349,7 +349,7 @@ function buildRoundTrackerData(
       
       return {
         currentRound: 3,
-        roundName: 'Behavioral Interview',
+        roundName: 'Round 2',
         status: hasScheduled ? (isInterviewPast ? 'completed' : 'scheduled') : 'invited',
         nextAction: hasScheduled 
           ? (isInterviewPast 
@@ -361,21 +361,21 @@ function buildRoundTrackerData(
             : {
                 type: 'attend_interview',
                 title: 'Attend Your Final Interview',
-                description: `Your behavioral interview is scheduled for ${new Date(interviewTime!).toLocaleString()}. Good luck!`,
+                description: `Your Round 2 interview is scheduled for ${new Date(interviewTime!).toLocaleString()}. Good luck!`,
               }
             )
           : {
               type: 'schedule_interview',
               title: 'Schedule Final Interview',
-              description: 'Congratulations on advancing! Schedule your Round 2 (Behavioral) interview now.',
+              description: 'Congratulations on advancing! Schedule your Round 2 interview now.',
               actionUrl: '/portal/schedule',
             },
         rounds: [
           { round: 1, name: 'Application', phase: 'application', status: 'advanced' },
-          { round: 2, name: 'Technical Interview', phase: 'interview_round1', status: 'advanced' },
+          { round: 2, name: 'Round 1', phase: 'interview_round1', status: 'advanced' },
           { 
             round: 3, 
-            name: 'Behavioral Interview', 
+            name: 'Round 2', 
             phase: 'interview_round2', 
             status: hasScheduled ? (isInterviewPast ? 'completed' : 'in_progress') : 'in_progress',
             scheduledInterview: r2Booking ? {
@@ -400,8 +400,8 @@ function buildRoundTrackerData(
       },
       rounds: [
         { round: 1, name: 'Application', phase: 'application', status: 'advanced' },
-        { round: 2, name: 'Technical Interview', phase: 'interview_round1', status: 'advanced' },
-        { round: 3, name: 'Behavioral Interview', phase: 'interview_round2', status: 'completed' },
+        { round: 2, name: 'Round 1', phase: 'interview_round1', status: 'advanced' },
+        { round: 3, name: 'Round 2', phase: 'interview_round2', status: 'completed' },
       ],
     }),
     
@@ -416,8 +416,8 @@ function buildRoundTrackerData(
       },
       rounds: [
         { round: 1, name: 'Application', phase: 'application', status: 'advanced' },
-        { round: 2, name: 'Technical Interview', phase: 'interview_round1', status: 'advanced' },
-        { round: 3, name: 'Behavioral Interview', phase: 'interview_round2', status: 'completed' },
+        { round: 2, name: 'Round 1', phase: 'interview_round1', status: 'advanced' },
+        { round: 3, name: 'Round 2', phase: 'interview_round2', status: 'completed' },
       ],
     }),
     
@@ -432,8 +432,8 @@ function buildRoundTrackerData(
       },
       rounds: [
         { round: 1, name: 'Application', phase: 'application', status: 'advanced' },
-        { round: 2, name: 'Technical Interview', phase: 'interview_round1', status: 'advanced' },
-        { round: 3, name: 'Behavioral Interview', phase: 'interview_round2', status: 'advanced' },
+        { round: 2, name: 'Round 1', phase: 'interview_round1', status: 'advanced' },
+        { round: 3, name: 'Round 2', phase: 'interview_round2', status: 'advanced' },
       ],
     }),
     
@@ -449,8 +449,8 @@ function buildRoundTrackerData(
       
       const roundStatuses: RoundStatus[] = [
         { round: 1, name: 'Application', phase: 'application', status: rejectedAtRound > 1 ? 'advanced' : 'not_advanced' },
-        { round: 2, name: 'Technical Interview', phase: 'interview_round1', status: rejectedAtRound > 2 ? 'advanced' : (rejectedAtRound === 2 ? 'not_advanced' : 'not_started') },
-        { round: 3, name: 'Behavioral Interview', phase: 'interview_round2', status: rejectedAtRound === 3 ? 'not_advanced' : 'not_started' },
+        { round: 2, name: 'Round 1', phase: 'interview_round1', status: rejectedAtRound > 2 ? 'advanced' : (rejectedAtRound === 2 ? 'not_advanced' : 'not_started') },
+        { round: 3, name: 'Round 2', phase: 'interview_round2', status: rejectedAtRound === 3 ? 'not_advanced' : 'not_started' },
       ];
       
       return {
@@ -478,8 +478,8 @@ function buildRoundTrackerData(
       },
       rounds: [
         { round: 1, name: 'Application', phase: 'application', status: 'not_advanced' },
-        { round: 2, name: 'Technical Interview', phase: 'interview_round1', status: 'not_started' },
-        { round: 3, name: 'Behavioral Interview', phase: 'interview_round2', status: 'not_started' },
+        { round: 2, name: 'Round 1', phase: 'interview_round1', status: 'not_started' },
+        { round: 3, name: 'Round 2', phase: 'interview_round2', status: 'not_started' },
       ],
     }),
     
@@ -495,8 +495,8 @@ function buildRoundTrackerData(
       },
       rounds: [
         { round: 1, name: 'Application', phase: 'application', status: 'not_started' },
-        { round: 2, name: 'Technical Interview', phase: 'interview_round1', status: 'not_started' },
-        { round: 3, name: 'Behavioral Interview', phase: 'interview_round2', status: 'not_started' },
+        { round: 2, name: 'Round 1', phase: 'interview_round1', status: 'not_started' },
+        { round: 3, name: 'Round 2', phase: 'interview_round2', status: 'not_started' },
       ],
     }),
   };
