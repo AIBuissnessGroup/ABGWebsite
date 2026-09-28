@@ -20,6 +20,8 @@ import {
   unlockPhase,
   revertPhase,
   getPhaseCompleteness,
+  getAllPhaseConfigs,
+  deletePhaseConfig,
 } from '@/lib/recruitment/db';
 import { logAuditEvent } from '@/lib/audit';
 import type { ReviewPhase, PhaseConfig, ScoringCategory, ApplicationTrack } from '@/types/recruitment';
@@ -76,11 +78,18 @@ export async function GET(request: NextRequest) {
     const cycleId = searchParams.get('cycleId');
     const phase = searchParams.get('phase') as ReviewPhase | null;
     const track = searchParams.get('track') as ApplicationTrack | null;
+    const all = searchParams.get('all') === 'true';
 
     if (!cycleId) {
       return corsResponse(
         NextResponse.json({ error: 'cycleId is required' }, { status: 400 })
       );
+    }
+
+    // If 'all' is requested, return all phase configs including track-specific ones
+    if (all) {
+      const configs = await getAllPhaseConfigs(cycleId, phase || undefined);
+      return corsResponse(NextResponse.json(configs));
     }
 
     if (phase) {
@@ -331,6 +340,29 @@ export async function PUT(request: NextRequest) {
       return corsResponse(NextResponse.json(updatedConfig));
     }
 
+    if (action === 'reset_to_default') {
+      if (!track) {
+        return corsResponse(
+          NextResponse.json({ error: 'track is required to reset to default' }, { status: 400 })
+        );
+      }
+      await deletePhaseConfig(cycleId, phase, track);
+      
+      await logAuditEvent(
+        session.user.id || session.user.email,
+        session.user.email,
+        'content.deleted',
+        'RecruitmentPhaseConfig',
+        {
+          targetId: `${cycleId}_${phase}_${track}`,
+          meta: { action: 'reset_to_default', phase, track },
+        }
+      );
+      
+      const fallbackConfig = await getPhaseConfig(cycleId, phase);
+      return corsResponse(NextResponse.json({ success: true, config: fallbackConfig }));
+    }
+
     // Update config fields
     const existingConfig = await getPhaseConfig(cycleId, phase, track || undefined);
     if (existingConfig?.status === 'finalized') {
@@ -372,6 +404,51 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating phase config:', error);
     return corsResponse(
       NextResponse.json({ error: 'Failed to update phase config' }, { status: 500 })
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return corsResponse(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
+    }
+
+    if (!isAdmin(session.user)) {
+      return corsResponse(NextResponse.json({ error: 'Forbidden' }, { status: 403 }));
+    }
+
+    const { searchParams } = new URL(request.url);
+    const cycleId = searchParams.get('cycleId');
+    const phase = searchParams.get('phase') as ReviewPhase | null;
+    const track = searchParams.get('track') as ApplicationTrack | null;
+
+    if (!cycleId || !phase || !track) {
+      return corsResponse(
+        NextResponse.json({ error: 'cycleId, phase, and track are required' }, { status: 400 })
+      );
+    }
+
+    await deletePhaseConfig(cycleId, phase, track);
+
+    await logAuditEvent(
+      session.user.id || session.user.email,
+      session.user.email,
+      'content.deleted',
+      'RecruitmentPhaseConfig',
+      {
+        targetId: `${cycleId}_${phase}_${track}`,
+        meta: { action: 'delete', phase, track },
+      }
+    );
+
+    return corsResponse(NextResponse.json({ success: true }));
+  } catch (error) {
+    console.error('Error deleting phase config:', error);
+    return corsResponse(
+      NextResponse.json({ error: 'Failed to delete phase config' }, { status: 500 })
     );
   }
 }

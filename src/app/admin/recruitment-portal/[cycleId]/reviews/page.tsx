@@ -133,11 +133,12 @@ export default function CycleReviewsPage() {
     return phaseConfig?.interviewQuestions || [];
   }, [phaseConfig?.interviewQuestions]);
 
-  // Load phase config when phase changes
-  const loadPhaseConfig = async () => {
+  // Load phase config when phase changes or when evaluating a specific applicant's track
+  const loadPhaseConfig = async (trackOverride?: string) => {
     try {
       // When phase is specified, API returns a single config object (or 404 if not found)
-      const trackParam = filterTrack ? `&track=${filterTrack}` : '';
+      const trackToUse = trackOverride !== undefined ? trackOverride : filterTrack;
+      const trackParam = trackToUse ? `&track=${trackToUse}` : '';
       const response = await fetch(`/api/admin/recruitment/phase-configs?cycleId=${cycleId}&phase=${activePhase}${trackParam}`);
       if (response.ok) {
         const config = await response.json();
@@ -251,8 +252,9 @@ export default function CycleReviewsPage() {
       setSelectedApp(appData);
       setAllReviews(reviewsData);
       
-      // Load questions for this application's track
+      // Load questions and track-specific rubric/phase config for this application's track
       if (appData?.application?.track) {
+        await loadPhaseConfig(appData.application.track);
         try {
           // API returns an array of ApplicationQuestions objects, each with a fields array
           const questionsData = await get<Array<{ fields: QuestionField[] }>>(
@@ -265,6 +267,8 @@ export default function CycleReviewsPage() {
           console.error('Error loading questions:', e);
           setQuestions([]);
         }
+      } else {
+        await loadPhaseConfig();
       }
       
       // If user has a review for this phase, load it into the form
@@ -631,9 +635,16 @@ export default function CycleReviewsPage() {
                 {/* Review Form */}
                 <div className="space-y-6">
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-4">
-                      Your Review ({currentPhaseConfig.label})
-                    </h4>
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-semibold text-gray-900">
+                        Your Review ({currentPhaseConfig.label})
+                      </h4>
+                      {selectedApp?.application?.track && (
+                        <span className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                          Track: {getTrackLabel(selectedApp.application.track as ApplicationTrack)}
+                        </span>
+                      )}
+                    </div>
                     
                     {/* Scores - Categories from phase settings */}
                     <div className="space-y-4">

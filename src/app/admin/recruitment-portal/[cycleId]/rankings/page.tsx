@@ -12,13 +12,15 @@ import {
   UserGroupIcon,
   ArrowUturnLeftIcon,
   ClipboardDocumentIcon,
+  ArrowPathIcon,
+  DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline';
 import { useSession } from 'next-auth/react';
 import toast from 'react-hot-toast';
 import { useAdminApi } from '@/hooks/useAdminApi';
 import { useCycle } from '../layout';
 import { AdminLoadingState } from '@/components/admin/ui';
-import { TRACKS, getTrackLabel } from '@/lib/tracks';
+import { TRACKS, AVAILABLE_TRACKS, getTrackLabel, getTrackShortLabel } from '@/lib/tracks';
 import type { 
   ReviewPhase, 
   PhaseConfig, 
@@ -100,6 +102,7 @@ export default function RankingsPage() {
   const [filterTrack, setFilterTrack] = useState<ApplicationTrack | ''>('');
   const [loading, setLoading] = useState(true);
   const [phaseConfigs, setPhaseConfigs] = useState<Record<string, PhaseConfig>>({});
+  const [allConfigs, setAllConfigs] = useState<PhaseConfig[]>([]);
   const [ranking, setRanking] = useState<PhaseRanking | null>(null);
   const [completeness, setCompleteness] = useState<PhaseCompleteness | null>(null);
   const [incompleteAdmins, setIncompleteAdmins] = useState<{ email: string; reviewed: number; total: number }[]>([]);
@@ -111,6 +114,7 @@ export default function RankingsPage() {
   });
   // Settings mode
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsTrack, setSettingsTrack] = useState<ApplicationTrack | ''>('');
   const [editingCategories, setEditingCategories] = useState<SimpleScoringCategory[]>([]);
   const [minReviewersRequired, setMinReviewersRequired] = useState<number>(2);
   const [referralWeights, setReferralWeights] = useState<{ advocate: number; oppose: number }>({ advocate: 1, oppose: -1 });
@@ -136,15 +140,115 @@ export default function RankingsPage() {
 
   const [expandedApplicant, setExpandedApplicant] = useState<string | null>(null);
 
+  // Check if a track has a custom phase config saved
+  const hasCustomTrackConfig = (track: ApplicationTrack) => {
+    return allConfigs.some(
+      (c) => c.phase === activePhase && c.track === track && c.scoringCategories && c.scoringCategories.length > 0
+    );
+  };
+
+  // Populate editor state from a target track's config or fallback to general default
+  const populateSettingsForTrack = (
+    targetTrack: ApplicationTrack | '',
+    configsList: PhaseConfig[],
+    phase: PhaseTab
+  ) => {
+    const trackCfg = targetTrack 
+      ? configsList.find((c) => c.phase === phase && c.track === targetTrack)
+      : configsList.find((c) => c.phase === phase && !c.track);
+    
+    const fallbackGeneral = configsList.find((c) => c.phase === phase && !c.track);
+    const chosenConfig = (trackCfg?.scoringCategories && trackCfg.scoringCategories.length > 0)
+      ? trackCfg
+      : fallbackGeneral;
+
+    if (chosenConfig?.scoringCategories && chosenConfig.scoringCategories.length > 0) {
+      setEditingCategories(chosenConfig.scoringCategories);
+      setMinReviewersRequired(chosenConfig.minReviewersRequired ?? 2);
+      setReferralWeights(chosenConfig.referralWeights ?? { advocate: 1, oppose: -1 });
+      setInterviewQuestions(chosenConfig.interviewQuestions ?? []);
+      setUseZScoreNormalization(chosenConfig.useZScoreNormalization ?? false);
+    } else {
+      setEditingCategories(DEFAULT_CATEGORIES[phase]);
+      setMinReviewersRequired(2);
+      setReferralWeights({ advocate: 1, oppose: -1 });
+      setInterviewQuestions([]);
+      setUseZScoreNormalization(false);
+    }
+  };
+
+  // Switch which track is being configured in the Settings panel
+  const handleSwitchSettingsTrack = (newTrack: ApplicationTrack | '') => {
+    setSettingsTrack(newTrack);
+    populateSettingsForTrack(newTrack, allConfigs, activePhase);
+  };
+
+  // Copy categories from another track or default
+  const handleCopyCategoriesFrom = (source: ApplicationTrack | 'default') => {
+    let sourceCategories: SimpleScoringCategory[] | undefined;
+    let sourceQuestions: { key: string; question: string }[] | undefined;
+    
+    if (source === 'default') {
+      const gen = allConfigs.find((c) => c.phase === activePhase && !c.track);
+      sourceCategories = gen?.scoringCategories || DEFAULT_CATEGORIES[activePhase];
+      sourceQuestions = gen?.interviewQuestions;
+    } else {
+      const trackCfg = allConfigs.find((c) => c.phase === activePhase && c.track === source);
+      const fallbackGen = allConfigs.find((c) => c.phase === activePhase && !c.track);
+      sourceCategories = trackCfg?.scoringCategories || fallbackGen?.scoringCategories || DEFAULT_CATEGORIES[activePhase];
+      sourceQuestions = trackCfg?.interviewQuestions || fallbackGen?.interviewQuestions;
+    }
+    
+    if (sourceCategories) {
+      setEditingCategories(JSON.parse(JSON.stringify(sourceCategories)));
+      if (sourceQuestions) {
+        setInterviewQuestions(JSON.parse(JSON.stringify(sourceQuestions)));
+      }
+      toast.success(`Copied review criteria from ${source === 'default' ? 'Default' : getTrackLabel(source)}`);
+    }
+  };
+
+  // Reset a track's custom criteria to default
+  const handleResetTrackToDefault = async (trackToReset: ApplicationTrack) => {
+    if (!confirm(`Are you sure you want to reset review criteria for ${getTrackLabel(trackToReset)}? This will remove custom criteria for this track so it inherits the default criteria.`)) {
+      return;
+    }
+    try {
+      setSavingSettings(true);
+      await put('/api/admin/recruitment/phase-configs', {
+        cycleId,
+        phase: activePhase,
+        track: trackToReset,
+        action: 'reset_to_default',
+      }, {
+        successMessage: `Reset ${getTrackLabel(trackToReset)} review criteria to default`,
+      });
+      
+      // Reload configs and refresh editor
+      const allCycleConfigs = await get<PhaseConfig[]>(`/api/admin/recruitment/phase-configs?cycleId=${cycleId}&all=true`);
+      const updatedAll = allCycleConfigs || [];
+      setAllConfigs(updatedAll);
+      populateSettingsForTrack(trackToReset, updatedAll, activePhase);
+      await loadPhaseData();
+    } catch (error) {
+      console.error('Error resetting track config:', error);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   const loadPhaseData = async () => {
     try {
       setLoading(true);
       const trackParam = filterTrack ? `&track=${filterTrack}` : '';
       
-      // Load phase configs
-      const configs = await get<PhaseConfig[]>(`/api/admin/recruitment/phase-configs?cycleId=${cycleId}${trackParam}`);
+      // Load all phase configs (both general and track-specific)
+      const allCycleConfigs = await get<PhaseConfig[]>(`/api/admin/recruitment/phase-configs?cycleId=${cycleId}&all=true`);
+      const fetchedAll = allCycleConfigs || [];
+      setAllConfigs(fetchedAll);
+
       const configMap: Record<string, PhaseConfig> = {};
-      configs.forEach(c => { configMap[c.phase] = c; });
+      fetchedAll.filter((c) => !c.track).forEach((c) => { configMap[c.phase] = c; });
       setPhaseConfigs(configMap);
       
       // Load ranking and completeness for active phase
@@ -161,7 +265,6 @@ export default function RankingsPage() {
       setIncompleteAdmins(rankingData.incompleteAdmins || []);
       
       // Update the phase config for current phase with the track-specific one from ranking API
-      // This ensures we get the correct finalization status for the selected track
       if (rankingData.phaseConfig) {
         configMap[activePhase] = rankingData.phaseConfig;
         setPhaseConfigs({...configMap});
@@ -172,23 +275,8 @@ export default function RankingsPage() {
         setCutoffCount(Math.ceil(rankingData.ranking.rankings.length / 2));
       }
       
-      // Initialize editing categories from config or defaults
-      const currentConfig = configMap[activePhase];
-      console.log('Loaded phase config:', activePhase, currentConfig);
-      console.log('Loaded scoringCategories:', JSON.stringify(currentConfig?.scoringCategories, null, 2));
-      if (currentConfig?.scoringCategories) {
-        setEditingCategories(currentConfig.scoringCategories);
-      } else {
-        setEditingCategories(DEFAULT_CATEGORIES[activePhase]);
-      }
-      // Initialize minReviewersRequired from config or default to 2
-      setMinReviewersRequired(currentConfig?.minReviewersRequired ?? 2);
-      // Initialize referral weights from config or defaults
-      setReferralWeights(currentConfig?.referralWeights ?? { advocate: 1, oppose: -1 });
-      // Initialize interview questions from config
-      setInterviewQuestions(currentConfig?.interviewQuestions ?? []);
-      // Initialize z-score normalization setting
-      setUseZScoreNormalization(currentConfig?.useZScoreNormalization ?? false);
+      // Initialize editing categories from config for the currently active settings track
+      populateSettingsForTrack(settingsTrack, fetchedAll, activePhase);
     } catch (error) {
       console.error('Error loading phase data:', error);
     } finally {
@@ -242,8 +330,7 @@ export default function RankingsPage() {
   const handleSaveSettings = async () => {
     try {
       setSavingSettings(true);
-      console.log('Saving settings with categories:', JSON.stringify(editingCategories, null, 2));
-      console.log('Saving for track:', filterTrack || 'all tracks');
+      const targetTrack = settingsTrack || undefined;
       
       // Include track if one is selected - allows track-specific settings
       const saveData: any = {
@@ -256,15 +343,14 @@ export default function RankingsPage() {
         useZScoreNormalization,
       };
       
-      // If a specific track is selected, save settings for that track only
-      if (filterTrack) {
-        saveData.track = filterTrack;
+      if (targetTrack) {
+        saveData.track = targetTrack;
       }
       
       await put('/api/admin/recruitment/phase-configs', saveData, {
-        successMessage: filterTrack 
-          ? `Phase settings saved for ${filterTrack} track` 
-          : 'Phase settings saved (applies to all tracks)',
+        successMessage: targetTrack 
+          ? `Review criteria saved for ${getTrackLabel(targetTrack)} track` 
+          : 'Default review criteria saved (applies to all tracks)',
       });
       await loadPhaseData();
       setShowSettings(false);
@@ -432,11 +518,26 @@ export default function RankingsPage() {
         </div>
         
         <button
-          onClick={() => setShowSettings(!showSettings)}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border rounded-lg hover:bg-gray-50"
+          onClick={() => {
+            const next = !showSettings;
+            setShowSettings(next);
+            if (next) {
+              handleSwitchSettingsTrack(filterTrack || '');
+            }
+          }}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border rounded-lg transition-colors ${
+            showSettings 
+              ? 'bg-blue-50 text-blue-700 border-blue-300' 
+              : 'text-gray-700 bg-white hover:bg-gray-50 border-gray-300'
+          }`}
         >
           <Cog6ToothIcon className="w-4 h-4" />
-          Phase Settings
+          <span>Phase Settings</span>
+          {filterTrack && (
+            <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-medium">
+              {getTrackShortLabel(filterTrack)}
+            </span>
+          )}
         </button>
       </div>
 
@@ -565,13 +666,139 @@ export default function RankingsPage() {
       {showSettings && (
         <div className="bg-white rounded-xl border p-6 space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900">Phase Settings</h3>
+            <div>
+              <h3 className="font-semibold text-gray-900 text-lg">Phase Settings</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Configure rubric categories, review weights, and normalization for {PHASE_INFO[activePhase].label}
+              </p>
+            </div>
             {isFinalized && (
               <span className="text-sm text-amber-600 flex items-center gap-1">
                 <LockClosedIcon className="w-4 h-4" />
                 Phase finalized - settings locked
               </span>
             )}
+          </div>
+
+          {/* Track Rubric Selector Bar */}
+          <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-purple-50/40 border border-blue-200/80 rounded-xl p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <span>🎯</span>
+                  <span>Review Criteria by Track</span>
+                </h4>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Customize rubric categories and evaluation criteria per track, or configure the default criteria for all tracks.
+                </p>
+              </div>
+
+              {settingsTrack && hasCustomTrackConfig(settingsTrack) && (
+                <button
+                  type="button"
+                  onClick={() => handleResetTrackToDefault(settingsTrack)}
+                  disabled={isFinalized || savingSettings}
+                  className="self-start sm:self-auto text-xs text-red-600 hover:text-red-700 font-medium px-2.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                  title={`Revert ${getTrackLabel(settingsTrack)} to use the default rubric`}
+                >
+                  <ArrowPathIcon className="w-3.5 h-3.5" />
+                  <span>Reset {getTrackShortLabel(settingsTrack)} to Default</span>
+                </button>
+              )}
+            </div>
+
+            {/* Track Tabs */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleSwitchSettingsTrack('')}
+                className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-2 shadow-sm ${
+                  settingsTrack === ''
+                    ? 'bg-blue-600 text-white ring-2 ring-blue-400'
+                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <span>🌐 All Tracks (Default)</span>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                  settingsTrack === '' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  Baseline
+                </span>
+              </button>
+
+              {AVAILABLE_TRACKS.map((t) => {
+                const isCustom = hasCustomTrackConfig(t.value);
+                const isSelected = settingsTrack === t.value;
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => handleSwitchSettingsTrack(t.value)}
+                    className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-2 shadow-sm ${
+                      isSelected
+                        ? 'bg-blue-600 text-white ring-2 ring-blue-400'
+                        : isCustom
+                        ? 'bg-white text-blue-900 border-2 border-blue-400 hover:bg-blue-50'
+                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span>{t.icon} {t.shortLabel}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                      isSelected
+                        ? isCustom
+                          ? 'bg-blue-800 text-white'
+                          : 'bg-blue-700 text-white'
+                        : isCustom
+                        ? 'bg-blue-100 text-blue-800 font-bold'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {isCustom ? 'Custom Rubric' : 'Uses Default'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Editing context description & copy action */}
+            <div className="mt-3 pt-3 border-t border-blue-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-gray-700">Currently Editing:</span>
+                <span className="font-bold text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">
+                  {settingsTrack ? getTrackLabel(settingsTrack) : 'All Tracks (Default Baseline)'}
+                </span>
+                <span className="text-gray-600">
+                  {settingsTrack
+                    ? hasCustomTrackConfig(settingsTrack)
+                      ? '• Has custom evaluation criteria configured'
+                      : '• Currently inheriting default criteria (saving will customize for this track)'
+                    : '• Applies to all tracks that do not have custom criteria'}
+                </span>
+              </div>
+
+              {/* Copy criteria from another track */}
+              <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                <span className="text-gray-600">Copy criteria from:</span>
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleCopyCategoriesFrom(e.target.value as ApplicationTrack | 'default');
+                      e.target.value = '';
+                    }
+                  }}
+                  defaultValue=""
+                  disabled={isFinalized}
+                  className="px-2 py-1 text-xs border rounded-md bg-white text-gray-700 focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="" disabled>Select source...</option>
+                  <option value="default">🌐 Default (All Tracks)</option>
+                  {AVAILABLE_TRACKS.filter(t => t.value !== settingsTrack).map(t => (
+                    <option key={t.value} value={t.value}>
+                      {t.icon} {t.shortLabel} {hasCustomTrackConfig(t.value) ? '(Custom)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Reviewers per Application */}
@@ -838,20 +1065,33 @@ export default function RankingsPage() {
 
           {/* Save/Cancel Buttons */}
           {!isFinalized && (
-            <div className="flex items-center justify-end gap-4 pt-4 border-t">
-              <button
-                onClick={() => setShowSettings(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveSettings}
-                disabled={savingSettings}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {savingSettings ? 'Saving...' : 'Save Settings'}
-              </button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t">
+              <div className="text-xs text-gray-500">
+                {settingsTrack ? (
+                  <span>Saving will update review criteria specifically for <strong>{getTrackLabel(settingsTrack)}</strong>.</span>
+                ) : (
+                  <span>Saving will update the default baseline review criteria (applies to all tracks without custom criteria).</span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 self-end sm:self-auto">
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={savingSettings}
+                  className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 shadow-sm"
+                >
+                  {savingSettings 
+                    ? 'Saving...' 
+                    : settingsTrack 
+                      ? `Save ${getTrackShortLabel(settingsTrack)} Settings` 
+                      : 'Save Default Settings'}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1103,7 +1343,14 @@ export default function RankingsPage() {
                             </div>
                           )}
                           <div>
-                            <p className="font-medium text-gray-900">{applicant.applicantName}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-900">{applicant.applicantName}</p>
+                              {applicant.track && (
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                  {getTrackShortLabel(applicant.track as ApplicationTrack)}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-sm text-gray-500">{applicant.applicantEmail}</p>
                           </div>
                         </div>

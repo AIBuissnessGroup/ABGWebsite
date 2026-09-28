@@ -1174,26 +1174,70 @@ export async function getPhaseConfigsByCycle(
   }
 }
 
+export async function getAllPhaseConfigs(
+  cycleId: string, 
+  phase?: ReviewPhase
+): Promise<PhaseConfig[]> {
+  const client = await getClient();
+  try {
+    const collection = client.db().collection(PHASE_CONFIGS_COLLECTION);
+    const query: any = { cycleId };
+    if (phase) query.phase = phase;
+    const configs = await collection.find(query).toArray();
+    return serializeDocs<PhaseConfig>(configs);
+  } finally {
+    
+  }
+}
+
+export async function deletePhaseConfig(
+  cycleId: string, 
+  phase: ReviewPhase, 
+  track: ApplicationTrack
+): Promise<void> {
+  const client = await getClient();
+  try {
+    const collection = client.db().collection(PHASE_CONFIGS_COLLECTION);
+    await collection.deleteOne({ cycleId, phase, track });
+  } finally {
+    
+  }
+}
+
 export async function upsertPhaseConfig(data: Omit<PhaseConfig, '_id'>): Promise<void> {
   const client = await getClient();
   try {
     const collection = client.db().collection(PHASE_CONFIGS_COLLECTION);
-    // Include track in unique key for track-specific configs
-    const query: any = { cycleId: data.cycleId, phase: data.phase };
-    if (data.track) query.track = data.track;
-    await collection.updateOne(
-      query,
-      { 
-        $set: { 
-          ...data, 
-          updatedAt: new Date().toISOString() 
-        },
-        $setOnInsert: {
-          createdAt: new Date().toISOString(),
+    
+    // Explicitly find existing doc by exact track or general (no track)
+    let existingDoc: any = null;
+    if (data.track) {
+      existingDoc = await collection.findOne({ cycleId: data.cycleId, phase: data.phase, track: data.track });
+    } else {
+      existingDoc = await collection.findOne({ 
+        cycleId: data.cycleId, 
+        phase: data.phase, 
+        $or: [{ track: { $exists: false } }, { track: null }] 
+      });
+    }
+
+    if (existingDoc) {
+      await collection.updateOne(
+        { _id: existingDoc._id },
+        { 
+          $set: { 
+            ...data, 
+            updatedAt: new Date().toISOString() 
+          } 
         }
-      },
-      { upsert: true }
-    );
+      );
+    } else {
+      await collection.insertOne({
+        ...data,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
   } finally {
     
   }
@@ -1580,13 +1624,20 @@ export async function generatePhaseRanking(
     
     const applications = await applicationsCollection.find(applicationFilter).toArray();
     
-    // Get phase config for weighted scoring (with optional track)
-    const configFilter: Record<string, unknown> = { cycleId, phase };
-    if (track) {
-      configFilter.track = track;
-    }
-    const config = await phaseConfigCollection.findOne(configFilter) 
-      || await phaseConfigCollection.findOne({ cycleId, phase }); // Fallback to non-track-specific
+    // Get all phase configs for weighted scoring across tracks
+    const allPhaseConfigs = await phaseConfigCollection.find({ cycleId, phase }).toArray();
+    const trackConfigMap = new Map<string, any>();
+    let generalConfig: any = null;
+    allPhaseConfigs.forEach((c: any) => {
+      if (c.track) {
+        trackConfigMap.set(c.track, c);
+      } else {
+        generalConfig = c;
+      }
+    });
+    
+    // Fallback if specific track was requested in filter
+    const config = (track ? trackConfigMap.get(track) : null) || generalConfig;
     
     // Helper function to get user info from application answers
     const getUserInfo = async (app: any): Promise<{ name: string; email: string; headshot?: string }> => {
@@ -1780,12 +1831,15 @@ export async function generatePhaseRanking(
       
       const avgScore = scores.overall || 0;
       
+      // Use applicant's track-specific config if available, fallback to general config
+      const appConfig = (app.track && trackConfigMap.get(app.track)) || config || generalConfig;
+      
       // Calculate weighted score
       let weightedScore = avgScore;
-      if (config?.scoringCategories) {
+      if (appConfig?.scoringCategories) {
         let totalWeight = 0;
         let weightedSum = 0;
-        config.scoringCategories.forEach((cat: any) => {
+        appConfig.scoringCategories.forEach((cat: any) => {
           if (scores[cat.key] !== undefined) {
             weightedSum += scores[cat.key] * cat.weight;
             totalWeight += cat.weight;
@@ -1797,9 +1851,9 @@ export async function generatePhaseRanking(
       }
       
       // Apply referral weights to score (from phase reviews)
-      if (config?.referralWeights) {
-        const advocateWeight = config.referralWeights.advocate || 0;
-        const opposeWeight = config.referralWeights.oppose || 0;
+      if (appConfig?.referralWeights) {
+        const advocateWeight = appConfig.referralWeights.advocate || 0;
+        const opposeWeight = appConfig.referralWeights.oppose || 0;
         weightedScore += (referralCount * advocateWeight) + (deferralCount * opposeWeight);
       }
       
