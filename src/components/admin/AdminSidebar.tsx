@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { 
   HomeIcon,
   CalendarIcon,
+  CalendarDaysIcon,
   UserGroupIcon,
   DocumentTextIcon,
   CogIcon,
@@ -40,6 +41,7 @@ const navigationSections = [
     items: [
       { name: '⚡ AI Conference', href: '/admin/conference', icon: SparklesIcon },
       { name: '❄️ Winter Takeover', href: '/admin/winter-takeover', icon: SnowflakeIconCustom, anthonyOnly: true },
+      { name: 'Meeting Attendance', href: '/admin/meetings', icon: CalendarDaysIcon },
       { name: 'Recruitment Portal', href: '/admin/recruitment-portal', icon: AcademicCapIcon },
       { name: 'Events', href: '/admin/events', icon: CalendarIcon },
       { name: 'Forms', href: '/admin/forms', icon: DocumentTextIcon },

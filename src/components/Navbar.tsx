@@ -83,7 +83,8 @@ export default function Navbar() {
   if (
     pathname?.startsWith('/sxsw/overlay') ||
     pathname?.startsWith('/checkin/confirmed') ||
-    pathname?.startsWith('/attendance/confirmed')
+    pathname?.startsWith('/attendance/confirmed') ||
+    pathname?.startsWith('/attendance/meeting')
   ) {
     return null;
   }
