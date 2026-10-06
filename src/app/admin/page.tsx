@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { 
   HomeIcon,
   InformationCircleIcon,
@@ -16,11 +17,9 @@ import {
   CalendarIcon,
   EyeIcon,
   ChartBarIcon,
-  CalendarDaysIcon,
-  QrCodeIcon
+  CalendarDaysIcon
 } from '@heroicons/react/24/outline';
 import AnalyticsWidget from '@/components/admin/AnalyticsWidget';
-import MeetingAttendanceModal from '@/components/admin/meeting-attendance/MeetingAttendanceModal';
 
 interface AuditLog {
   _id: string;
@@ -41,17 +40,6 @@ export default function AdminDashboard() {
   const [themeF1Enabled, setThemeF1Enabled] = useState(false);
   const [themeSaving, setThemeSaving] = useState(false);
   const [themeMessage, setThemeMessage] = useState('');
-  const [showMeetingAttendanceModal, setShowMeetingAttendanceModal] = useState(false);
-
-  useEffect(() => {
-    // Check if URL specifies meeting attendance popup
-    if (typeof window !== 'undefined') {
-      const searchParams = new URLSearchParams(window.location.search);
-      if (searchParams.get('meetings') === 'true' || searchParams.get('tab') === 'meetings') {
-        setShowMeetingAttendanceModal(true);
-      }
-    }
-  }, []);
 
   useEffect(() => {
     // Load audit logs
@@ -148,7 +136,6 @@ export default function AdminDashboard() {
       icon: CalendarDaysIcon,
       color: 'bg-emerald-600',
       href: '/admin/meetings',
-      onClick: () => setShowMeetingAttendanceModal(true),
     },
     {
       title: 'Hero Section',
@@ -273,13 +260,13 @@ export default function AdminDashboard() {
           <p className="text-gray-600 mt-1">Manage ABG website content and monitor activity.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowMeetingAttendanceModal(true)}
-            className="flex items-center gap-2 bg-[#00274c] hover:bg-[#003366] text-white px-4 py-2 rounded-lg font-semibold text-sm shadow-sm transition-all cursor-pointer"
+          <Link
+            href="/admin/meetings"
+            className="flex items-center gap-2 bg-[#00274c] hover:bg-[#003366] text-white px-4 py-2 rounded-lg font-semibold text-sm shadow-sm transition-all"
           >
             <CalendarDaysIcon className="w-4 h-4 text-emerald-400" />
             Meeting Attendance
-          </button>
+          </Link>
           <a href="/" target="_blank" className="btn-primary flex items-center gap-2">
             <EyeIcon className="w-4 h-4" />
             View Website
@@ -296,15 +283,9 @@ export default function AdminDashboard() {
         <div className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {quickActions.map((action) => (
-              <a
+              <Link
                 key={action.title}
                 href={action.href}
-                onClick={(e) => {
-                  if (action.onClick) {
-                    e.preventDefault();
-                    action.onClick();
-                  }
-                }}
                 className="flex flex-col items-center gap-3 p-6 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all group hover:shadow-md cursor-pointer"
               >
                 <div className={`p-4 rounded-lg ${action.color} group-hover:scale-110 transition-transform shadow-sm`}>
@@ -316,7 +297,7 @@ export default function AdminDashboard() {
                   </h3>
                   <p className="text-xs text-gray-500 leading-tight">{action.description}</p>
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         </div>
@@ -411,12 +392,6 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
-
-      {/* Meeting Attendance Popup Modal */}
-      <MeetingAttendanceModal
-        isOpen={showMeetingAttendanceModal}
-        onClose={() => setShowMeetingAttendanceModal(false)}
-      />
     </div>
   );
 } 

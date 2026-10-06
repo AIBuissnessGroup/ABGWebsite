@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import QRCode from 'qrcode';
 import { 
   PlusIcon, 
   QrCodeIcon, 
@@ -12,7 +11,6 @@ import {
   ArrowDownTrayIcon,
   ArrowTopRightOnSquareIcon,
   XMarkIcon,
-  FunnelIcon,
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
@@ -48,7 +46,7 @@ export default function MeetingsTab() {
       const res = await fetch('/api/admin/meetings');
       if (res.ok) {
         const data = await res.json();
-        setMeetings(data.meetings || []);
+        setMeetings(Array.isArray(data?.meetings) ? data.meetings : []);
       } else {
         toast.error('Failed to load meetings');
       }
@@ -86,7 +84,7 @@ export default function MeetingsTab() {
         setShowCreateForm(false);
         loadMeetings();
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         toast.error(err.error || 'Failed to create meeting');
       }
     } catch (err) {
@@ -151,7 +149,9 @@ export default function MeetingsTab() {
     const checkinUrl = `${origin}/attendance/meeting/${meeting.id}`;
 
     try {
-      const url = await QRCode.toDataURL(checkinUrl, {
+      const qrModule = await import('qrcode');
+      const qrLib: any = qrModule.default || qrModule;
+      const url = await qrLib.toDataURL(checkinUrl, {
         width: 320,
         margin: 2,
         color: {
@@ -191,7 +191,7 @@ export default function MeetingsTab() {
       const res = await fetch(`/api/admin/meetings/${meeting.id}`);
       if (res.ok) {
         const data = await res.json();
-        setAttendees(data.attendees || []);
+        setAttendees(Array.isArray(data?.attendees) ? data.attendees : []);
       } else {
         toast.error('Failed to load attendees');
       }
@@ -208,8 +208,8 @@ export default function MeetingsTab() {
 
     const headers = ['Name', 'Email', 'Roles', 'Check-In Timestamp'];
     const rows = attendees.map((a) => [
-      `"${a.userName.replace(/"/g, '""')}"`,
-      `"${a.userEmail.replace(/"/g, '""')}"`,
+      `"${(a.userName || '').replace(/"/g, '""')}"`,
+      `"${(a.userEmail || '').replace(/"/g, '""')}"`,
       `"${(a.userRoles || []).join('; ')}"`,
       `"${new Date(a.checkedInAt).toLocaleString()}"`,
     ]);
@@ -239,7 +239,7 @@ export default function MeetingsTab() {
   };
 
   const filteredMeetings = meetings.filter((m) => {
-    const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase()) || m.date.includes(search);
+    const matchesSearch = (m.name || '').toLowerCase().includes(search.toLowerCase()) || (m.date || '').includes(search);
     const matchesCategory = categoryFilter === 'ALL' || m.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
@@ -251,7 +251,7 @@ export default function MeetingsTab() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#00274c] hover:bg-[#003366] text-white text-sm font-semibold shadow-sm transition-all"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#00274c] hover:bg-[#003366] text-white text-sm font-semibold shadow-sm transition-all cursor-pointer"
           >
             <PlusIcon className="w-4 h-4 stroke-[2.5]" />
             {showCreateForm ? 'Close Form' : 'New Meeting'}
@@ -350,7 +350,7 @@ export default function MeetingsTab() {
               <button
                 type="submit"
                 disabled={creating}
-                className="w-full py-2 px-4 rounded-xl bg-[#00274c] hover:bg-[#003366] text-white text-sm font-semibold shadow-sm transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2 px-4 rounded-xl bg-[#00274c] hover:bg-[#003366] text-white text-sm font-semibold shadow-sm transition-all disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {creating ? 'Creating...' : 'Save & Generate QR'}
               </button>
@@ -401,7 +401,7 @@ export default function MeetingsTab() {
                     <td className="px-5 py-4 whitespace-nowrap">
                       <button
                         onClick={() => handleToggleStatus(meeting)}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
                           meeting.isOpen
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                             : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
@@ -415,7 +415,7 @@ export default function MeetingsTab() {
                     <td className="px-5 py-4 whitespace-nowrap text-center">
                       <button
                         onClick={() => handleViewAttendees(meeting)}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold transition-all"
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold transition-all cursor-pointer"
                       >
                         <UsersIcon className="w-3.5 h-3.5" />
                         {meeting.attendeeCount ?? 0}
@@ -425,7 +425,7 @@ export default function MeetingsTab() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleOpenQR(meeting)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200 transition-all"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200 transition-all cursor-pointer"
                           title="Generate & View QR Code"
                         >
                           <QrCodeIcon className="w-4 h-4 text-emerald-600" />
@@ -434,7 +434,7 @@ export default function MeetingsTab() {
 
                         <button
                           onClick={() => handleDeleteMeeting(meeting)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                           title="Delete meeting"
                         >
                           <TrashIcon className="w-4 h-4" />
@@ -455,7 +455,7 @@ export default function MeetingsTab() {
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center relative border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
             <button
               onClick={() => setQrMeeting(null)}
-              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <XMarkIcon className="w-5 h-5" />
             </button>
@@ -482,7 +482,7 @@ export default function MeetingsTab() {
             <div className="flex flex-col gap-2">
               <button
                 onClick={handleCopyLink}
-                className="w-full py-2.5 px-4 rounded-xl bg-[#00274c] hover:bg-[#003366] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm"
+                className="w-full py-2.5 px-4 rounded-xl bg-[#00274c] hover:bg-[#003366] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
               >
                 {copiedLink ? <CheckIcon className="w-4 h-4 text-emerald-400" /> : <ClipboardDocumentIcon className="w-4 h-4" />}
                 {copiedLink ? 'Link Copied!' : 'Copy Check-In Link'}
@@ -491,7 +491,7 @@ export default function MeetingsTab() {
               <div className="flex gap-2">
                 <button
                   onClick={handleDownloadQR}
-                  className="flex-1 py-2 px-3 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                  className="flex-1 py-2 px-3 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <ArrowDownTrayIcon className="w-3.5 h-3.5" />
                   Save Image
@@ -532,7 +532,7 @@ export default function MeetingsTab() {
                 {attendees.length > 0 && (
                   <button
                     onClick={handleExportCSV}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700 transition-colors shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700 transition-colors shadow-sm cursor-pointer"
                   >
                     <ArrowDownTrayIcon className="w-3.5 h-3.5 text-gray-500" />
                     Export CSV
@@ -540,7 +540,7 @@ export default function MeetingsTab() {
                 )}
                 <button
                   onClick={() => setActiveMeeting(null)}
-                  className="p-1.5 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <XMarkIcon className="w-5 h-5" />
                 </button>
@@ -571,7 +571,7 @@ export default function MeetingsTab() {
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-gray-900 leading-tight">
-                            {attendee.userName}
+                            {attendee.userName || 'Member'}
                           </p>
                           <p className="text-xs text-gray-500">{attendee.userEmail}</p>
                         </div>
@@ -579,7 +579,7 @@ export default function MeetingsTab() {
 
                       <div className="text-right">
                         <div className="flex flex-wrap gap-1 justify-end mb-0.5">
-                          {attendee.userRoles?.map((r) => (
+                          {(attendee.userRoles || []).map((r) => (
                             <span
                               key={r}
                               className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-700 border border-gray-200"
@@ -593,10 +593,12 @@ export default function MeetingsTab() {
                           ))}
                         </div>
                         <p className="text-[11px] text-gray-400">
-                          {new Date(attendee.checkedInAt).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {attendee.checkedInAt
+                            ? new Date(attendee.checkedInAt).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : ''}
                         </p>
                       </div>
                     </div>
@@ -609,7 +611,7 @@ export default function MeetingsTab() {
             <div className="pt-3 border-t border-gray-100 flex justify-end">
               <button
                 onClick={() => setActiveMeeting(null)}
-                className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold transition-colors"
+                className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold transition-colors cursor-pointer"
               >
                 Close
               </button>

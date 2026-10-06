@@ -3,12 +3,9 @@
 import { useState, useEffect } from 'react';
 import { 
   MagnifyingGlassIcon, 
-  UsersIcon, 
   CalendarDaysIcon, 
   XMarkIcon,
   ChevronRightIcon,
-  AcademicCapIcon,
-  SparklesIcon,
   ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
@@ -36,7 +33,7 @@ export default function AttendanceTab() {
       const res = await fetch(`/api/admin/attendance/users?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setUsers(data.users || []);
+        setUsers(Array.isArray(data?.users) ? data.users : []);
       } else {
         toast.error('Failed to load users');
       }
@@ -62,7 +59,7 @@ export default function AttendanceTab() {
       const res = await fetch(`/api/admin/attendance/users/${user.userId}`);
       if (res.ok) {
         const data = await res.json();
-        setUserMeetings(data.meetings || []);
+        setUserMeetings(Array.isArray(data?.meetings) ? data.meetings : []);
       } else {
         toast.error('Failed to load user attendance history');
       }
@@ -79,17 +76,17 @@ export default function AttendanceTab() {
 
     const headers = ['Meeting Name', 'Category', 'Meeting Date', 'Checked-In At'];
     const rows = userMeetings.map((m) => [
-      `"${m.meetingName.replace(/"/g, '""')}"`,
-      `"${m.meetingCategory}"`,
-      `"${m.meetingDate}"`,
-      `"${new Date(m.checkedInAt).toLocaleString()}"`,
+      `"${(m.meetingName || '').replace(/"/g, '""')}"`,
+      `"${m.meetingCategory || ''}"`,
+      `"${m.meetingDate || ''}"`,
+      `"${m.checkedInAt ? new Date(m.checkedInAt).toLocaleString() : ''}"`,
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Attendance_${selectedUser.name.replace(/\s+/g, '_')}.csv`);
+    link.setAttribute('download', `Attendance_${(selectedUser.name || 'member').replace(/\s+/g, '_')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -137,7 +134,7 @@ export default function AttendanceTab() {
             <button
               key={pill.value}
               onClick={() => setRoleFilter(pill.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 roleFilter === pill.value
                   ? 'bg-[#00274c] text-white shadow-sm'
                   : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
@@ -174,93 +171,96 @@ export default function AttendanceTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {users.map((user) => (
-                  <tr
-                    key={user.userId}
-                    onClick={() => handleSelectUser(user)}
-                    className="hover:bg-blue-50/40 cursor-pointer transition-colors group"
-                  >
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#00274c] to-blue-700 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 group-hover:scale-105 transition-transform shadow-xs">
-                          {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                {users.map((user) => {
+                  const safeRoles = Array.isArray(user.roles) ? user.roles : [];
+                  return (
+                    <tr
+                      key={user.userId}
+                      onClick={() => handleSelectUser(user)}
+                      className="hover:bg-blue-50/40 cursor-pointer transition-colors group"
+                    >
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#00274c] to-blue-700 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                            {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
+                              {user.name}
+                            </p>
+                            <p className="text-xs text-gray-500">{user.email}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
-                            {user.name}
-                          </p>
-                          <p className="text-xs text-gray-500">{user.email}</p>
-                        </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="px-5 py-3.5">
-                      <div className="flex flex-wrap gap-1">
-                        {user.roles.map((role) => (
-                          <span
-                            key={role}
-                            className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
-                              role === 'PROJECT_TEAM_MEMBER'
-                                ? 'bg-purple-50 text-purple-700 border-purple-200'
+                      <td className="px-5 py-3.5">
+                        <div className="flex flex-wrap gap-1">
+                          {safeRoles.map((role) => (
+                            <span
+                              key={role}
+                              className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                                role === 'PROJECT_TEAM_MEMBER'
+                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                  : role === 'GENERAL_MEMBER'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : role === 'ADMIN'
+                                  ? 'bg-red-50 text-red-700 border-red-200'
+                                  : 'bg-gray-100 text-gray-600 border-gray-200'
+                              }`}
+                            >
+                              {role === 'PROJECT_TEAM_MEMBER'
+                                ? 'Project Team'
                                 : role === 'GENERAL_MEMBER'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : role === 'ADMIN'
-                                ? 'bg-red-50 text-red-700 border-red-200'
-                                : 'bg-gray-100 text-gray-600 border-gray-200'
-                            }`}
-                          >
-                            {role === 'PROJECT_TEAM_MEMBER'
-                              ? 'Project Team'
-                              : role === 'GENERAL_MEMBER'
-                              ? 'General Member'
-                              : role}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-
-                    <td className="px-5 py-3.5 text-center whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
-                          user.totalAttended > 0
-                            ? 'bg-blue-50 text-blue-800 border-blue-200'
-                            : 'bg-gray-50 text-gray-400 border-gray-200'
-                        }`}
-                      >
-                        <CalendarDaysIcon className="w-3.5 h-3.5" />
-                        {user.totalAttended} {user.totalAttended === 1 ? 'meeting' : 'meetings'}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-3.5 text-xs text-gray-600">
-                      {user.lastAttended ? (
-                        <div>
-                          <p className="font-medium text-gray-800 truncate max-w-xs">
-                            {user.lastAttended.meetingName}
-                          </p>
-                          <p className="text-[11px] text-gray-400">
-                            {user.lastAttended.meetingDate} • {user.lastAttended.meetingCategory}
-                          </p>
+                                ? 'General Member'
+                                : role}
+                            </span>
+                          ))}
                         </div>
-                      ) : (
-                        <span className="text-gray-400 italic">No attendance recorded</span>
-                      )}
-                    </td>
+                      </td>
 
-                    <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSelectUser(user);
-                        }}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#00274c] bg-gray-100 group-hover:bg-[#00274c] group-hover:text-white transition-all"
-                      >
-                        <span>History</span>
-                        <ChevronRightIcon className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                            user.totalAttended > 0
+                              ? 'bg-blue-50 text-blue-800 border-blue-200'
+                              : 'bg-gray-50 text-gray-400 border-gray-200'
+                          }`}
+                        >
+                          <CalendarDaysIcon className="w-3.5 h-3.5" />
+                          {user.totalAttended} {user.totalAttended === 1 ? 'meeting' : 'meetings'}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-3.5 text-xs text-gray-600">
+                        {user.lastAttended ? (
+                          <div>
+                            <p className="font-medium text-gray-800 truncate max-w-xs">
+                              {user.lastAttended.meetingName}
+                            </p>
+                            <p className="text-[11px] text-gray-400">
+                              {user.lastAttended.meetingDate} • {user.lastAttended.meetingCategory}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic">No attendance recorded</span>
+                        )}
+                      </td>
+
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectUser(user);
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#00274c] bg-gray-100 group-hover:bg-[#00274c] group-hover:text-white transition-all cursor-pointer"
+                        >
+                          <span>History</span>
+                          <ChevronRightIcon className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -281,7 +281,7 @@ export default function AttendanceTab() {
                   <h3 className="text-xl font-bold text-gray-900 leading-tight">{selectedUser.name}</h3>
                   <p className="text-xs text-gray-500">{selectedUser.email}</p>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {selectedUser.roles.map((r) => (
+                    {(selectedUser.roles || []).map((r) => (
                       <span
                         key={r}
                         className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-700 border border-gray-200"
@@ -297,7 +297,7 @@ export default function AttendanceTab() {
                 {userMeetings.length > 0 && (
                   <button
                     onClick={handleExportUserHistoryCSV}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700 transition-colors shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700 transition-colors shadow-sm cursor-pointer"
                   >
                     <ArrowDownTrayIcon className="w-3.5 h-3.5 text-gray-500" />
                     Export
@@ -305,7 +305,7 @@ export default function AttendanceTab() {
                 )}
                 <button
                   onClick={() => setSelectedUser(null)}
-                  className="p-1.5 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <XMarkIcon className="w-5 h-5" />
                 </button>
@@ -379,10 +379,12 @@ export default function AttendanceTab() {
                           ✓ Attended
                         </span>
                         <p className="text-[11px] text-gray-400 mt-1">
-                          {new Date(record.checkedInAt).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {record.checkedInAt
+                            ? new Date(record.checkedInAt).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : ''}
                         </p>
                       </div>
                     </div>
@@ -395,7 +397,7 @@ export default function AttendanceTab() {
             <div className="pt-3 border-t border-gray-100 flex justify-end">
               <button
                 onClick={() => setSelectedUser(null)}
-                className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold transition-colors"
+                className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold transition-colors cursor-pointer"
               >
                 Close
               </button>
