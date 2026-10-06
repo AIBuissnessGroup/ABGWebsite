@@ -355,6 +355,7 @@ export default function NotificationsPage() {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [subject, setSubject] = useState('');
   const [emailTitle, setEmailTitle] = useState('Email from ABG');
+  const [emailTitleColor, setEmailTitleColor] = useState('#ffffff');
   const [bannerColor, setBannerColor] = useState('#00274c');
   const [bannerGradient, setBannerGradient] = useState(false);
   const [bannerGradientEnd, setBannerGradientEnd] = useState('#00509e');
@@ -539,7 +540,7 @@ export default function NotificationsPage() {
 <body>
   <div class="container">
     <div class="header">
-      <h1 style="margin: 0; font-size: 28px; position: relative; z-index: 10;">${emailTitle}</h1>
+      <h1 style="margin: 0; font-size: 28px; position: relative; z-index: 10; color: ${emailTitleColor || '#ffffff'};">${emailTitle}</h1>
     </div>
     <div class="content">
       ${sectionsHtml}
@@ -564,7 +565,7 @@ export default function NotificationsPage() {
         doc.close();
       }
     }
-  }, [contentSections, subject, emailTitle, bannerColor, bannerGradient, bannerGradientEnd, bannerGradientOpacity, bannerBackgroundImage, bannerShapes, bottomBannerEnabled, bottomBannerColor, bottomBannerGradient, bottomBannerGradientEnd, bottomBannerGradientOpacity, bottomBannerBackgroundImage, bottomBannerShapes, bottomBannerText, signatureSize, signatureStyle]);
+  }, [contentSections, subject, emailTitle, emailTitleColor, bannerColor, bannerGradient, bannerGradientEnd, bannerGradientOpacity, bannerBackgroundImage, bannerShapes, bottomBannerEnabled, bottomBannerColor, bottomBannerGradient, bottomBannerGradientEnd, bottomBannerGradientOpacity, bottomBannerBackgroundImage, bottomBannerShapes, bottomBannerText, signatureSize, signatureStyle, emailBackgroundColor]);
 
   useEffect(() => {
     loadUsers();
@@ -587,7 +588,8 @@ export default function NotificationsPage() {
           bannerGradientEnd,
           bannerGradientOpacity,
           bannerBackgroundImage,
-          bannerShapes
+          bannerShapes,
+          emailTitleColor
         };
 
         const bottomBannerSettings = {
@@ -626,7 +628,7 @@ export default function NotificationsPage() {
     };
 
     autoSave();
-  }, [currentDraftId, draftName, subject, emailTitle, contentSections, selectedUsers, selectedMcommunityGroups, 
+  }, [currentDraftId, draftName, subject, emailTitle, emailTitleColor, contentSections, selectedUsers, selectedMcommunityGroups, 
       bannerColor, bannerGradient, bannerGradientEnd, bannerGradientOpacity, bannerBackgroundImage, bannerShapes,
       bottomBannerEnabled, bottomBannerColor, bottomBannerGradient, bottomBannerGradientEnd, bottomBannerGradientOpacity,
       bottomBannerBackgroundImage, bottomBannerShapes, bottomBannerText, signatureSize, signatureStyle, emailBackgroundColor, attachments]);
@@ -791,7 +793,8 @@ export default function NotificationsPage() {
         bannerGradientEnd,
         bannerGradientOpacity,
         bannerBackgroundImage,
-        bannerShapes
+        bannerShapes,
+        emailTitleColor
       };
 
       const bottomBannerSettings = {
@@ -869,6 +872,7 @@ export default function NotificationsPage() {
       setBannerGradientOpacity(draft.bannerSettings.bannerGradientOpacity || 1);
       setBannerBackgroundImage(draft.bannerSettings.bannerBackgroundImage || '');
       setBannerShapes(draft.bannerSettings.bannerShapes || false);
+      setEmailTitleColor(draft.bannerSettings.emailTitleColor || '#ffffff');
     }
     
     if (draft.bottomBannerSettings) {
@@ -931,6 +935,7 @@ export default function NotificationsPage() {
     setSelectedUsers([]);
     setSelectedMcommunityGroups([]);
     setBannerColor('#00274c');
+    setEmailTitleColor('#ffffff');
     setBannerGradient(false);
     setBannerGradientEnd('#00509e');
     setBannerGradientOpacity(1);
@@ -1264,7 +1269,8 @@ export default function NotificationsPage() {
         bannerGradientEnd,
         bannerGradientOpacity,
         bannerBackgroundImage,
-        bannerShapes
+        bannerShapes,
+        emailTitleColor
       };
 
       const bottomBannerSettings = {
@@ -1550,8 +1556,29 @@ export default function NotificationsPage() {
               </div>
 
               {/* Email Title */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email Banner Title</label>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-gray-700">Email Banner Title</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 font-medium">Text Color:</span>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="color"
+                        value={emailTitleColor}
+                        onChange={(e) => setEmailTitleColor(e.target.value)}
+                        className="w-7 h-7 rounded border border-gray-300 cursor-pointer p-0.5"
+                        title="Choose title text color"
+                      />
+                      <input
+                        type="text"
+                        value={emailTitleColor}
+                        onChange={(e) => setEmailTitleColor(e.target.value)}
+                        placeholder="#ffffff"
+                        className="w-20 px-2 py-0.5 text-xs font-mono uppercase border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
                 <input
                   type="text"
                   value={emailTitle}
@@ -1559,21 +1586,69 @@ export default function NotificationsPage() {
                   placeholder="Email from ABG"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
+                {/* Preset quick colors */}
+                <div className="flex items-center flex-wrap gap-1.5 pt-1">
+                  <span className="text-xs text-gray-400 mr-1">Presets:</span>
+                  {[
+                    { label: 'White', color: '#ffffff' },
+                    { label: 'Maize Yellow', color: '#ffcb05' },
+                    { label: 'ABG Navy', color: '#00274c' },
+                    { label: 'Dark Charcoal', color: '#111827' },
+                    { label: 'Silver Gray', color: '#e5e7eb' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.color}
+                      type="button"
+                      onClick={() => setEmailTitleColor(preset.color)}
+                      className={`text-xs px-2 py-0.5 rounded-md border transition-all flex items-center gap-1.5 ${
+                        emailTitleColor.toLowerCase() === preset.color.toLowerCase()
+                          ? 'border-blue-600 bg-blue-50 text-blue-700 font-medium ring-1 ring-blue-500'
+                          : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full inline-block border border-gray-300 shadow-sm"
+                        style={{ backgroundColor: preset.color }}
+                      />
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Banner Customization */}
               <div className="space-y-3 border-t pt-3">
                 <h3 className="text-sm font-semibold text-gray-700">Banner Customization</h3>
                 
-                {/* Email Background Color */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Background Color</label>
-                  <input
-                    type="color"
-                    value={emailBackgroundColor}
-                    onChange={(e) => setEmailBackgroundColor(e.target.value)}
-                    className="w-full h-10 rounded-lg border border-gray-300 cursor-pointer"
-                  />
+                {/* Email Background Color & Banner Title Color */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Background Color</label>
+                    <input
+                      type="color"
+                      value={emailBackgroundColor}
+                      onChange={(e) => setEmailBackgroundColor(e.target.value)}
+                      className="w-full h-10 rounded-lg border border-gray-300 cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Banner Title Text Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={emailTitleColor}
+                        onChange={(e) => setEmailTitleColor(e.target.value)}
+                        className="w-12 h-10 rounded-lg border border-gray-300 cursor-pointer p-0.5"
+                      />
+                      <input
+                        type="text"
+                        value={emailTitleColor}
+                        onChange={(e) => setEmailTitleColor(e.target.value)}
+                        placeholder="#ffffff"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm uppercase focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
                 </div>
                 
                 {/* Use Gradient Toggle */}
