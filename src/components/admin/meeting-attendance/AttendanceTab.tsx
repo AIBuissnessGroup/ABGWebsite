@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   MagnifyingGlassIcon, 
   CalendarDaysIcon, 
@@ -12,6 +13,7 @@ import toast from 'react-hot-toast';
 import { UserAttendanceSummary, MeetingAttendee } from '@/types/meetings';
 
 export default function AttendanceTab() {
+  const [mounted, setMounted] = useState(false);
   const [users, setUsers] = useState<UserAttendanceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -21,6 +23,10 @@ export default function AttendanceTab() {
   const [selectedUser, setSelectedUser] = useState<UserAttendanceSummary | null>(null);
   const [userMeetings, setUserMeetings] = useState<MeetingAttendee[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const fetchUsers = async (searchQuery: string = search, role: string = roleFilter) => {
     try {
@@ -54,6 +60,7 @@ export default function AttendanceTab() {
 
   const handleSelectUser = async (user: UserAttendanceSummary) => {
     setSelectedUser(user);
+    setUserMeetings([]);
     setLoadingHistory(true);
     try {
       const res = await fetch(`/api/admin/attendance/users/${user.userId}`);
@@ -267,10 +274,16 @@ export default function AttendanceTab() {
         )}
       </div>
 
-      {/* User Meeting History Modal */}
-      {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-2xl w-full shadow-2xl relative border border-gray-100 flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150">
+      {/* User Meeting History Modal - Rendered via createPortal directly into document.body */}
+      {mounted && selectedUser && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={() => setSelectedUser(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 sm:p-7 max-w-2xl w-full shadow-2xl relative border border-gray-100 flex flex-col max-h-[85vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <div className="flex items-start justify-between pb-4 border-b border-gray-100">
               <div className="flex items-center gap-3.5">
@@ -403,7 +416,8 @@ export default function AttendanceTab() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

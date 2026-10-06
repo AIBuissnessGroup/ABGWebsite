@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { isAdmin } from '@/lib/roles';
 import { getMeetingById, updateMeeting, deleteMeeting } from '@/lib/meetings';
 import { logAuditEvent, getRequestMetadata } from '@/lib/audit';
+import QRCode from 'qrcode';
 
 export async function GET(
   request: NextRequest,
@@ -22,7 +23,32 @@ export async function GET(
       return NextResponse.json({ error: 'Meeting not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ meeting, attendees });
+    // Generate QR code on server for guaranteed reliability
+    const host = request.headers.get('host') || 'localhost:3000';
+    const protocol = request.headers.get('x-forwarded-proto') || (host.startsWith('localhost') ? 'http' : 'https');
+    const baseUrl = `${protocol}://${host}`;
+    const checkinUrl = `${baseUrl}/attendance/meeting/${meeting.id}`;
+
+    let qrCodeDataUrl = '';
+    try {
+      qrCodeDataUrl = await QRCode.toDataURL(checkinUrl, {
+        width: 340,
+        margin: 2,
+        color: {
+          dark: '#00274c',
+          light: '#ffffff',
+        },
+      });
+    } catch (qrErr) {
+      console.error('Error generating QR code on server:', qrErr);
+    }
+
+    return NextResponse.json({
+      meeting,
+      attendees,
+      qrCodeDataUrl,
+      checkinUrl,
+    });
   } catch (error) {
     console.error('Error fetching meeting details:', error);
     return NextResponse.json({ error: 'Failed to fetch meeting details' }, { status: 500 });

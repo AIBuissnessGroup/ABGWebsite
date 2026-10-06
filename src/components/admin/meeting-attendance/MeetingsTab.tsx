@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   PlusIcon, 
   QrCodeIcon, 
@@ -17,6 +18,7 @@ import toast from 'react-hot-toast';
 import { Meeting, MeetingAttendee, MeetingCategory } from '@/types/meetings';
 
 export default function MeetingsTab() {
+  const [mounted, setMounted] = useState(false);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -32,12 +34,17 @@ export default function MeetingsTab() {
   // QR Modal
   const [qrMeeting, setQrMeeting] = useState<Meeting | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Attendees Modal
   const [activeMeeting, setActiveMeeting] = useState<Meeting | null>(null);
   const [attendees, setAttendees] = useState<MeetingAttendee[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Load meetings
   const loadMeetings = async () => {
@@ -144,25 +151,47 @@ export default function MeetingsTab() {
 
   const handleOpenQR = async (meeting: Meeting) => {
     setQrMeeting(meeting);
+    setQrDataUrl(null);
+    setQrLoading(true);
     setCopiedLink(false);
+
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const checkinUrl = `${origin}/attendance/meeting/${meeting.id}`;
 
+    // 1. Fetch from server API first (which generates reliable QR code on server)
+    try {
+      const res = await fetch(`/api/admin/meetings/${meeting.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.qrCodeDataUrl) {
+          setQrDataUrl(data.qrCodeDataUrl);
+          setQrLoading(false);
+          return;
+        }
+      }
+    } catch (apiErr) {
+      console.warn('Server QR fetch fallback:', apiErr);
+    }
+
+    // 2. Client-side fallback if server didn't provide it
     try {
       const qrModule = await import('qrcode');
       const qrLib: any = qrModule.default || qrModule;
-      const url = await qrLib.toDataURL(checkinUrl, {
-        width: 320,
-        margin: 2,
-        color: {
-          dark: '#00274c',
-          light: '#ffffff',
-        },
-      });
-      setQrDataUrl(url);
+      if (typeof qrLib.toDataURL === 'function') {
+        const url = await qrLib.toDataURL(checkinUrl, {
+          width: 340,
+          margin: 2,
+          color: {
+            dark: '#00274c',
+            light: '#ffffff',
+          },
+        });
+        setQrDataUrl(url);
+      }
     } catch (err) {
       console.error('Error generating QR code:', err);
-      toast.error('Failed to generate QR code');
+    } finally {
+      setQrLoading(false);
     }
   };
 
@@ -186,6 +215,7 @@ export default function MeetingsTab() {
 
   const handleViewAttendees = async (meeting: Meeting) => {
     setActiveMeeting(meeting);
+    setAttendees([]);
     setLoadingAttendees(true);
     try {
       const res = await fetch(`/api/admin/meetings/${meeting.id}`);
@@ -211,7 +241,7 @@ export default function MeetingsTab() {
       `"${(a.userName || '').replace(/"/g, '""')}"`,
       `"${(a.userEmail || '').replace(/"/g, '""')}"`,
       `"${(a.userRoles || []).join('; ')}"`,
-      `"${new Date(a.checkedInAt).toLocaleString()}"`,
+      `"${a.checkedInAt ? new Date(a.checkedInAt).toLocaleString() : ''}"`,
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -415,7 +445,8 @@ export default function MeetingsTab() {
                     <td className="px-5 py-4 whitespace-nowrap text-center">
                       <button
                         onClick={() => handleViewAttendees(meeting)}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold transition-all cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold transition-all cursor-pointer border border-blue-200/60"
+                        title="View attendees"
                       >
                         <UsersIcon className="w-3.5 h-3.5" />
                         {meeting.attendeeCount ?? 0}
@@ -423,6 +454,17 @@ export default function MeetingsTab() {
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* Explicit Attendees Button */}
+                        <button
+                          onClick={() => handleViewAttendees(meeting)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-semibold border border-blue-200 transition-all cursor-pointer"
+                          title="View Attendees"
+                        >
+                          <UsersIcon className="w-3.5 h-3.5 text-blue-600" />
+                          Attendees
+                        </button>
+
+                        {/* Explicit QR Code Button */}
                         <button
                           onClick={() => handleOpenQR(meeting)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200 transition-all cursor-pointer"
@@ -432,6 +474,7 @@ export default function MeetingsTab() {
                           QR Code
                         </button>
 
+                        {/* Delete Button */}
                         <button
                           onClick={() => handleDeleteMeeting(meeting)}
                           className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
@@ -449,10 +492,16 @@ export default function MeetingsTab() {
         )}
       </div>
 
-      {/* QR Code Presentation Modal */}
-      {qrMeeting && qrDataUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center relative border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
+      {/* QR Code Presentation Modal - Rendered via createPortal directly into document.body */}
+      {mounted && qrMeeting && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={() => setQrMeeting(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center relative border border-gray-100"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setQrMeeting(null)}
               className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
@@ -467,12 +516,25 @@ export default function MeetingsTab() {
             <h3 className="text-xl font-bold text-gray-900 mb-1 leading-tight">{qrMeeting.name}</h3>
             <p className="text-xs text-gray-500 mb-5">📅 {qrMeeting.date}</p>
 
-            <div className="bg-gradient-to-br from-[#00274c]/5 to-blue-50 p-4 rounded-2xl border border-gray-200/80 mb-5 inline-block shadow-inner">
-              <img
-                src={qrDataUrl}
-                alt={`QR code for ${qrMeeting.name}`}
-                className="w-64 h-64 mx-auto rounded-lg"
-              />
+            {/* QR Code Visual Area */}
+            <div className="bg-gradient-to-br from-[#00274c]/5 to-blue-50 p-4 rounded-2xl border border-gray-200/80 mb-5 inline-block shadow-inner min-h-[280px] min-w-[280px] flex items-center justify-center">
+              {qrLoading ? (
+                <div className="flex flex-col items-center justify-center py-10">
+                  <div className="w-9 h-9 border-3 border-[#00274c]/20 border-t-[#00274c] rounded-full animate-spin mb-3" />
+                  <p className="text-xs font-medium text-gray-600">Generating QR code...</p>
+                </div>
+              ) : qrDataUrl ? (
+                <img
+                  src={qrDataUrl}
+                  alt={`QR code for ${qrMeeting.name}`}
+                  className="w-64 h-64 mx-auto rounded-lg"
+                />
+              ) : (
+                <div className="text-center p-4">
+                  <p className="text-xs text-red-500 mb-2">QR code could not be previewed.</p>
+                  <p className="text-[11px] text-gray-500">You can still copy or open the direct check-in link below.</p>
+                </div>
+              )}
             </div>
 
             <p className="text-xs text-gray-500 mb-5">
@@ -489,13 +551,15 @@ export default function MeetingsTab() {
               </button>
 
               <div className="flex gap-2">
-                <button
-                  onClick={handleDownloadQR}
-                  className="flex-1 py-2 px-3 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <ArrowDownTrayIcon className="w-3.5 h-3.5" />
-                  Save Image
-                </button>
+                {qrDataUrl && (
+                  <button
+                    onClick={handleDownloadQR}
+                    className="flex-1 py-2 px-3 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                    Save Image
+                  </button>
+                )}
 
                 <a
                   href={`/attendance/meeting/${qrMeeting.id}`}
@@ -504,18 +568,25 @@ export default function MeetingsTab() {
                   className="flex-1 py-2 px-3 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
-                  Preview
+                  Preview Link
                 </a>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Attendees Drawer / Modal */}
-      {activeMeeting && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-2xl w-full shadow-2xl relative border border-gray-100 flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150">
+      {/* Attendees Modal - Rendered via createPortal directly into document.body */}
+      {mounted && activeMeeting && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={() => setActiveMeeting(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 sm:p-7 max-w-2xl w-full shadow-2xl relative border border-gray-100 flex flex-col max-h-[85vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <div className="flex items-center justify-between pb-4 border-b border-gray-100">
               <div>
@@ -617,7 +688,8 @@ export default function MeetingsTab() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
