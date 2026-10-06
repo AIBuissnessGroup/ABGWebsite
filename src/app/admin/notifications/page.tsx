@@ -18,8 +18,32 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
   BookmarkIcon,
-  FolderIcon
+  FolderIcon,
+  BoltIcon,
+  ShieldCheckIcon,
+  ShieldExclamationIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
+
+interface SlackUser {
+  email: string;
+  name: string;
+  slackId: string;
+  isAdmin: boolean;
+}
+
+interface PendingApproval {
+  id: string;
+  subject: string;
+  approverEmail: string;
+  approverName: string;
+  requesterEmail: string;
+  requesterName: string;
+  recipients: string[];
+  actionType: 'send' | 'schedule';
+  createdAt: string;
+  status: string;
+}
 
 interface User {
   email: string;
@@ -366,6 +390,12 @@ export default function NotificationsPage() {
   const [signatureSize, setSignatureSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [signatureStyle, setSignatureStyle] = useState<'white' | 'black'>('white');
   const [attachments, setAttachments] = useState<Array<{ name: string; url: string }>>([]);
+  const [adminOverride, setAdminOverride] = useState(false);
+  const [selectedApprover, setSelectedApprover] = useState<string>('');
+  const [showApproverModal, setShowApproverModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'send' | 'schedule' | null>(null);
+  const [slackUsers, setSlackUsers] = useState<SlackUser[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const previewRef = useRef<HTMLIFrameElement>(null);
 
   // Generate HTML from content sections
@@ -540,6 +570,8 @@ export default function NotificationsPage() {
     loadUsers();
     loadScheduledEmails();
     loadDrafts();
+    loadSlackUsers();
+    loadPendingApprovals();
   }, []);
 
   // Auto-save draft when content changes
@@ -636,6 +668,78 @@ export default function NotificationsPage() {
       }
     } catch (error) {
       console.error('Failed to load drafts:', error);
+    }
+  };
+
+  const loadSlackUsers = async () => {
+    try {
+      const response = await fetch('/api/admin/notifications/slack-users');
+      if (response.ok) {
+        const data = await response.json();
+        setSlackUsers(data.users || []);
+      }
+    } catch (error) {
+      console.error('Failed to load Slack users:', error);
+    }
+  };
+
+  const loadPendingApprovals = async () => {
+    try {
+      const response = await fetch('/api/admin/notifications/pending-approvals');
+      if (response.ok) {
+        const data = await response.json();
+        setPendingApprovals(data.approvals || []);
+      }
+    } catch (error) {
+      console.error('Failed to load pending approvals:', error);
+    }
+  };
+
+  const handleCancelApproval = async (approvalId: string) => {
+    if (!confirm('Cancel this approval request?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/notifications/pending-approvals?id=${approvalId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Approval request cancelled!' });
+        loadPendingApprovals();
+      } else {
+        throw new Error('Failed to cancel approval request');
+      }
+    } catch (error) {
+      console.error('Cancel approval error:', error);
+      setMessage({ type: 'error', text: 'Failed to cancel approval request' });
+    }
+  };
+
+  const handleApprovePendingOverride = async (approvalId: string) => {
+    if (!confirm('⚡ [ADMIN OVERRIDE]\nBypass peer review and execute this pending notification immediately?')) return;
+
+    try {
+      const response = await fetch('/api/admin/notifications/request-approval', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approvalId,
+          action: 'approve',
+          approverEmail: session?.user?.email
+        })
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: '⚡ Pending notification approved and executed via Admin Override!' });
+        loadPendingApprovals();
+        loadScheduledEmails();
+      } else {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to approve notification');
+      }
+    } catch (error) {
+      console.error('Override approval error:', error);
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to approve notification' });
     }
   };
 
@@ -847,28 +951,9 @@ export default function NotificationsPage() {
     setMessage(null);
   };
 
-  const handleScheduledSend = async () => {
-    if (!scheduleDate || !scheduleTime) {
-      setMessage({ type: 'error', text: 'Please select a date and time for scheduling' });
-      return;
-    }
-
+  const executeScheduleSend = async () => {
     const scheduledFor = new Date(`${scheduleDate}T${scheduleTime}`);
-    if (scheduledFor <= new Date()) {
-      setMessage({ type: 'error', text: 'Scheduled time must be in the future' });
-      return;
-    }
-
     const allRecipients = [...selectedMcommunityGroups, ...selectedUsers];
-    if (allRecipients.length === 0) {
-      setMessage({ type: 'error', text: 'Please select at least one recipient' });
-      return;
-    }
-    if (!subject.trim() || contentSections.length === 0) {
-      setMessage({ type: 'error', text: 'Please complete the email content' });
-      return;
-    }
-
     setSending(true);
     setMessage(null);
 
@@ -893,6 +978,9 @@ export default function NotificationsPage() {
           text: `Email successfully scheduled for ${scheduledFor.toLocaleString()}!`,
         });
         loadScheduledEmails();
+        setShowApproverModal(false);
+        setSelectedApprover('');
+        setPendingAction(null);
       } else {
         throw new Error(data.error || 'Failed to schedule email');
       }
@@ -904,6 +992,43 @@ export default function NotificationsPage() {
       });
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleScheduledSend = async () => {
+    if (!scheduleDate || !scheduleTime) {
+      setMessage({ type: 'error', text: 'Please select a date and time for scheduling' });
+      return;
+    }
+
+    const scheduledFor = new Date(`${scheduleDate}T${scheduleTime}`);
+    if (scheduledFor <= new Date()) {
+      setMessage({ type: 'error', text: 'Scheduled time must be in the future' });
+      return;
+    }
+
+    const allRecipients = [...selectedMcommunityGroups, ...selectedUsers];
+    if (allRecipients.length === 0) {
+      setMessage({ type: 'error', text: 'Please select at least one recipient' });
+      return;
+    }
+    if (!subject.trim() || contentSections.length === 0) {
+      setMessage({ type: 'error', text: 'Please complete the email content' });
+      return;
+    }
+    if (!htmlContent.trim()) {
+      setMessage({ type: 'error', text: 'Please enter email content' });
+      return;
+    }
+
+    if (adminOverride) {
+      if (!confirm(`⚡ [ADMIN OVERRIDE]\nAre you sure you want to bypass approval and schedule this email for ${scheduledFor.toLocaleString()} to ${allRecipients.length} recipient(s)?`)) {
+        return;
+      }
+      await executeScheduleSend();
+    } else {
+      setPendingAction('schedule');
+      setShowApproverModal(true);
     }
   };
 
@@ -1042,31 +1167,8 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleSendEmails = async () => {
-    // Combine mcommunity groups FIRST, then individual users
+  const executeSendEmails = async () => {
     const allRecipients = [...selectedMcommunityGroups, ...selectedUsers];
-    
-    if (allRecipients.length === 0) {
-      setMessage({ type: 'error', text: 'Please select at least one recipient or mcommunity group' });
-      return;
-    }
-    if (!subject.trim()) {
-      setMessage({ type: 'error', text: 'Please enter a subject' });
-      return;
-    }
-    if (contentSections.length === 0) {
-      setMessage({ type: 'error', text: 'Please add content sections' });
-      return;
-    }
-    if (!htmlContent.trim()) {
-      setMessage({ type: 'error', text: 'Please enter email content' });
-      return;
-    }
-
-    if (!confirm(`Are you sure you want to send this email to ${allRecipients.length} recipient(s)?`)) {
-      return;
-    }
-
     setSending(true);
     setMessage(null);
 
@@ -1089,6 +1191,9 @@ export default function NotificationsPage() {
           type: 'success',
           text: `Email successfully sent to ${data.sent || allRecipients.length} recipient(s)!`,
         });
+        setShowApproverModal(false);
+        setSelectedApprover('');
+        setPendingAction(null);
       } else {
         throw new Error(data.error || 'Failed to send emails');
       }
@@ -1100,6 +1205,145 @@ export default function NotificationsPage() {
       });
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleSendEmails = async () => {
+    // Combine mcommunity groups FIRST, then individual users
+    const allRecipients = [...selectedMcommunityGroups, ...selectedUsers];
+    
+    if (allRecipients.length === 0) {
+      setMessage({ type: 'error', text: 'Please select at least one recipient or mcommunity group' });
+      return;
+    }
+    if (!subject.trim()) {
+      setMessage({ type: 'error', text: 'Please enter a subject' });
+      return;
+    }
+    if (contentSections.length === 0) {
+      setMessage({ type: 'error', text: 'Please add content sections' });
+      return;
+    }
+    if (!htmlContent.trim()) {
+      setMessage({ type: 'error', text: 'Please enter email content' });
+      return;
+    }
+
+    if (adminOverride) {
+      if (!confirm(`⚡ [ADMIN OVERRIDE]\nAre you sure you want to bypass approval and send this email immediately to ${allRecipients.length} recipient(s)?`)) {
+        return;
+      }
+      await executeSendEmails();
+    } else {
+      setPendingAction('send');
+      setShowApproverModal(true);
+    }
+  };
+
+  const handleRequestApproval = async () => {
+    if (!selectedApprover) {
+      setMessage({ type: 'error', text: 'Please select an approver' });
+      return;
+    }
+
+    if (selectedApprover === session?.user?.email) {
+      setMessage({ type: 'error', text: 'You cannot approve your own notification' });
+      return;
+    }
+
+    setSending(true);
+    setMessage(null);
+    setShowApproverModal(false);
+
+    try {
+      const allRecipients = [...selectedMcommunityGroups, ...selectedUsers];
+      
+      const bannerSettings = {
+        bannerColor,
+        bannerGradient,
+        bannerGradientEnd,
+        bannerGradientOpacity,
+        bannerBackgroundImage,
+        bannerShapes
+      };
+
+      const bottomBannerSettings = {
+        bottomBannerEnabled,
+        bottomBannerColor,
+        bottomBannerGradient,
+        bottomBannerGradientEnd,
+        bottomBannerGradientOpacity,
+        bottomBannerBackgroundImage,
+        bottomBannerShapes,
+        bottomBannerText
+      };
+
+      const response = await fetch('/api/admin/notifications/request-approval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approverEmail: selectedApprover,
+          requesterEmail: session?.user?.email,
+          requesterName: session?.user?.name || session?.user?.email,
+          recipients: allRecipients,
+          subject,
+          htmlContent,
+          attachments,
+          actionType: pendingAction,
+          scheduleDate: pendingAction === 'schedule' ? scheduleDate : undefined,
+          scheduleTime: pendingAction === 'schedule' ? scheduleTime : undefined,
+          draftData: {
+            name: draftName || `Notification - ${subject || 'Untitled'}`,
+            subject,
+            emailTitle,
+            contentSections,
+            selectedUsers,
+            selectedMcommunityGroups,
+            bannerSettings,
+            bottomBannerSettings,
+            signatureSize,
+            signatureStyle,
+            emailBackgroundColor,
+            attachments
+          }
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setMessage({
+          type: 'success',
+          text: `Approval request sent to ${selectedApprover} via Slack!`,
+        });
+        loadPendingApprovals();
+        setSelectedApprover('');
+        setPendingAction(null);
+      } else {
+        throw new Error(data.error || 'Failed to request approval');
+      }
+    } catch (error) {
+      console.error('Error requesting approval:', error);
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to request approval',
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleModalOverride = async () => {
+    const allRecipients = [...selectedMcommunityGroups, ...selectedUsers];
+    const actionLabel = pendingAction === 'send' ? 'send immediately' : `schedule for ${scheduleDate} ${scheduleTime}`;
+    if (!confirm(`⚡ [ADMIN OVERRIDE]\nAre you sure you want to bypass approval and ${actionLabel} to ${allRecipients.length} recipient(s)?`)) {
+      return;
+    }
+
+    if (pendingAction === 'send') {
+      await executeSendEmails();
+    } else if (pendingAction === 'schedule') {
+      await executeScheduleSend();
     }
   };
 
@@ -2125,31 +2369,87 @@ export default function NotificationsPage() {
           </p>
         </div>
 
-        {/* Row 3: Send Buttons & Scheduled Emails */}
+        {/* Row 3: Send Buttons, Pending Approvals & Scheduled Emails */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Send Buttons */}
-          <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-            <div className="space-y-4">
+          {/* Send Controls */}
+          <div className="bg-white rounded-lg shadow border border-gray-200 p-4 space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">Dispatch Controls</h2>
+              <p className="text-xs text-gray-500">Choose immediate send, scheduling, or request peer approval.</p>
+            </div>
+
+            {/* Admin Override Toggle Card */}
+            <div className={`p-4 rounded-xl border transition-all ${
+              adminOverride 
+                ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-400' 
+                : 'bg-gray-50 border-gray-200'
+            }`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <div className={`p-2 rounded-lg mt-0.5 ${adminOverride ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                    <BoltIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-gray-900">Admin Override Mode</span>
+                      {adminOverride ? (
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-amber-200 text-amber-900 rounded-full">
+                          Active
+                        </span>
+                      ) : (
+                        <span className="text-[10px] uppercase font-medium tracking-wider px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full">
+                          Off (Approval Enabled)
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                      Bypasses peer review to dispatch immediately. Use when other admins do not have time to review before send.
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                  <input
+                    type="checkbox"
+                    checked={adminOverride}
+                    onChange={(e) => setAdminOverride(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                </label>
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-2">
               {/* Immediate Send */}
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Send Now</h3>
                 <button
                   onClick={handleSendEmails}
                   disabled={sending}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors">
+                  className={`w-full text-white px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
+                    adminOverride
+                      ? 'bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400'
+                      : 'bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400'
+                  }`}
+                >
                   {sending ? (
                     <>Sending...</>
+                  ) : adminOverride ? (
+                    <>
+                      <BoltIcon className="w-5 h-5" />
+                      ⚡ Override & Send Now
+                    </>
                   ) : (
                     <>
                       <PaperAirplaneIcon className="w-5 h-5" />
-                      Send Emails
+                      Send Emails (Request Approval)
                     </>
                   )}
                 </button>
               </div>
 
               {/* Scheduled Send */}
-              <div>
+              <div className="border-t border-gray-100 pt-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Schedule Send</h3>
                 <div className="flex gap-2 mb-2">
                   <input
@@ -2169,14 +2469,23 @@ export default function NotificationsPage() {
                 <button
                   onClick={handleScheduledSend}
                   disabled={sending}
-                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+                  className={`w-full text-white px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
+                    adminOverride
+                      ? 'bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400'
+                      : 'bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400'
+                  }`}
                 >
                   {sending ? (
                     <>Scheduling...</>
+                  ) : adminOverride ? (
+                    <>
+                      <BoltIcon className="w-5 h-5" />
+                      ⚡ Override & Schedule
+                    </>
                   ) : (
                     <>
                       <PaperAirplaneIcon className="w-5 h-5" />
-                      Schedule Email
+                      Schedule Email (Request Approval)
                     </>
                   )}
                 </button>
@@ -2184,77 +2493,301 @@ export default function NotificationsPage() {
             </div>
           </div>
 
-
-          {/* Scheduled Emails */}
-          <div className="bg-white rounded-lg shadow border border-gray-200">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Scheduled Emails</h2>
-            </div>
-            <div className="p-4">
-              <div className="space-y-4">
-                {scheduledEmails.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">No scheduled emails</p>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {scheduledEmails.map(email => (
-                      <div key={email.id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="text-sm font-medium text-gray-900 truncate">{email.subject}</div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              📅 {new Date(email.scheduledFor).toLocaleString()}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              📧 {email.recipients.length} recipient(s)
-                            </div>
-                            <div className={`text-xs mt-1 font-medium ${
-                              email.status === 'pending' ? 'text-blue-600' : 
-                              email.status === 'sent' ? 'text-green-600' : 'text-red-600'
-                            }`}>
-                              {email.status.toUpperCase()}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {email.status === 'pending' && (
-                          <div className="mt-3 flex gap-2 flex-wrap">
-                            <button
-                              onClick={() => {
-                                const scheduledDate = new Date(email.scheduledFor);
-                                const newDate = prompt('Enter new date (YYYY-MM-DD):', scheduledDate.toISOString().split('T')[0]);
-                                const newTime = prompt('Enter new time (HH:MM):', scheduledDate.toISOString().split('T')[1]?.substring(0, 5));
-                                if (newDate && newTime) {
-                                  handleUpdateScheduledEmail(email.id, newDate, newTime);
-                                }
-                              }}
-                              className="text-xs px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded"
-                            >
-                              ⏰ Change Time
-                            </button>
-                            <button
-                              onClick={() => handleSendScheduledNow(email.id)}
-                              className="text-xs px-3 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded"
-                            >
-                              🚀 Send Now
-                            </button>
-                            <button
-                              onClick={() => handleDeleteScheduledEmail(email.id)}
-                              className="text-xs px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded"
-                            >
-                              🗑️ Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+          {/* Right Column: Pending Approvals & Scheduled Emails */}
+          <div className="space-y-6">
+            {/* Pending Approvals Card (shown when there are approvals) */}
+            {pendingApprovals.length > 0 && (
+              <div className="bg-white rounded-lg shadow border-2 border-amber-300 overflow-hidden">
+                <div className="p-4 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">⏳</span>
+                    <h2 className="text-base font-bold text-amber-900">
+                      Pending Approvals ({pendingApprovals.length})
+                    </h2>
                   </div>
-                )}
+                  <span className="text-xs bg-amber-200 text-amber-900 font-semibold px-2 py-0.5 rounded-full">
+                    Awaiting Slack Response
+                  </span>
+                </div>
+                <div className="p-4 max-h-80 overflow-y-auto space-y-3">
+                  {pendingApprovals.map((approval) => (
+                    <div key={approval.id} className="border border-amber-200 bg-amber-50/40 rounded-lg p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-gray-900 text-sm truncate">{approval.subject}</h4>
+                          <p className="text-xs text-gray-600 mt-1">
+                            <strong>Approver:</strong> {approval.approverName || approval.approverEmail}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            <strong>Recipients:</strong> {approval.recipients.length} | <strong>Action:</strong> {approval.actionType === 'send' ? 'Immediate' : 'Scheduled'}
+                          </p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            Sent: {new Date(approval.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex items-center gap-2 pt-2 border-t border-amber-200/60">
+                        <button
+                          onClick={() => handleApprovePendingOverride(approval.id)}
+                          className="flex-1 text-xs py-1.5 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded font-medium flex items-center justify-center gap-1 shadow-sm transition-colors"
+                        >
+                          <BoltIcon className="w-3.5 h-3.5" />
+                          ⚡ Override & Execute Now
+                        </button>
+                        <button
+                          onClick={() => handleCancelApproval(approval.id)}
+                          className="text-xs py-1.5 px-3 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded font-medium transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Scheduled Emails */}
+            <div className="bg-white rounded-lg shadow border border-gray-200">
+              <div className="p-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">Scheduled Emails</h2>
+              </div>
+              <div className="p-4">
+                <div className="space-y-4">
+                  {scheduledEmails.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-4">No scheduled emails</p>
+                  ) : (
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {scheduledEmails.map(email => (
+                        <div key={email.id} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-gray-900 truncate">{email.subject}</div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                📅 {new Date(email.scheduledFor).toLocaleString()}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                📧 {email.recipients.length} recipient(s)
+                              </div>
+                              <div className={`text-xs mt-1 font-medium ${
+                                email.status === 'pending' ? 'text-blue-600' : 
+                                email.status === 'sent' ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {email.status.toUpperCase()}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {email.status === 'pending' && (
+                            <div className="mt-3 flex gap-2 flex-wrap">
+                              <button
+                                onClick={() => {
+                                  const scheduledDate = new Date(email.scheduledFor);
+                                  const newDate = prompt('Enter new date (YYYY-MM-DD):', scheduledDate.toISOString().split('T')[0]);
+                                  const newTime = prompt('Enter new time (HH:MM):', scheduledDate.toISOString().split('T')[1]?.substring(0, 5));
+                                  if (newDate && newTime) {
+                                    handleUpdateScheduledEmail(email.id, newDate, newTime);
+                                  }
+                                }}
+                                className="text-xs px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded"
+                              >
+                                ⏰ Change Time
+                              </button>
+                              <button
+                                onClick={() => handleSendScheduledNow(email.id)}
+                                className="text-xs px-3 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded"
+                              >
+                                🚀 Send Now
+                              </button>
+                              <button
+                                onClick={() => handleDeleteScheduledEmail(email.id)}
+                                className="text-xs px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded"
+                              >
+                                🗑️ Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Approver Selection & Override Modal */}
+        {showApproverModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-[#00274c] to-[#00509e] p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <ShieldCheckIcon className="w-6 h-6 text-yellow-400" />
+                    <h3 className="text-xl font-bold">Review & Approval</h3>
+                  </div>
+                  <span className="text-xs uppercase font-bold tracking-wider px-2.5 py-1 bg-white/20 rounded-full">
+                    {pendingAction === 'send' ? 'Immediate Send' : 'Scheduled Send'}
+                  </span>
+                </div>
+                <p className="text-white/80 text-xs mt-1.5">
+                  Request peer review via Slack or use Admin Override to dispatch immediately.
+                </p>
+              </div>
 
+              {/* Content */}
+              <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+                {/* Admin Override Alert Card */}
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">⚡</span>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-amber-900">Admin Override Option</h4>
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
+                          Instant
+                        </span>
+                      </div>
+                      <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                        If other admins do not have time to review or this is time-sensitive, you can bypass the approval flow and dispatch right now.
+                      </p>
+                      <button
+                        onClick={handleModalOverride}
+                        disabled={sending}
+                        className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all"
+                      >
+                        <BoltIcon className="w-4 h-4" />
+                        ⚡ Admin Override: {pendingAction === 'send' ? 'Send Immediately' : 'Schedule Directly'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="relative flex py-1 items-center">
+                  <div className="flex-grow border-t border-gray-200"></div>
+                  <span className="flex-shrink mx-3 text-xs uppercase tracking-wider font-semibold text-gray-400">or request review</span>
+                  <div className="flex-grow border-t border-gray-200"></div>
+                </div>
+
+                {/* Approver Selection */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 mb-2">
+                    Select Approver for Slack Review
+                  </label>
+                  <p className="text-xs text-gray-500 mb-3">
+                    The chosen admin will receive an interactive Slack DM with email preview and Approve/Deny buttons.
+                  </p>
+
+                  {/* Quick-Select Admin Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-3">
+                    {[
+                      { name: 'Anthony Walker', email: 'anthonydanielwalker05@gmail.com', initials: 'AW', color: 'bg-blue-600' },
+                      { name: 'Evelyn Chao', email: 'evelync@umich.edu', initials: 'EC', color: 'bg-purple-600' },
+                      { name: 'Noah Feigenbaum', email: 'noahfeig@umich.edu', initials: 'NF', color: 'bg-emerald-600' }
+                    ]
+                      .filter(admin => admin.email !== session?.user?.email)
+                      .map((admin) => (
+                        <button
+                          key={admin.email}
+                          type="button"
+                          onClick={() => setSelectedApprover(admin.email)}
+                          className={`p-3 rounded-xl border text-left transition-all ${
+                            selectedApprover === admin.email
+                              ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500'
+                              : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`w-7 h-7 rounded-full ${admin.color} text-white text-xs font-bold flex items-center justify-center`}>
+                              {admin.initials}
+                            </span>
+                            <span className="text-xs font-bold text-gray-900 truncate">{admin.name}</span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 truncate">{admin.email}</p>
+                        </button>
+                      ))}
+                  </div>
+
+                  {/* Dropdown for other admins */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Or choose any other admin:</label>
+                    <select
+                      value={selectedApprover}
+                      onChange={(e) => setSelectedApprover(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
+                    >
+                      <option value="">Select from team directory...</option>
+                      {/* Slack Admins */}
+                      {slackUsers.filter(u => u.isAdmin && u.email !== session?.user?.email).length > 0 && (
+                        <optgroup label="👑 Slack Workspace Admins">
+                          {slackUsers
+                            .filter(u => u.isAdmin && u.email !== session?.user?.email)
+                            .map(user => (
+                              <option key={user.email} value={user.email}>
+                                👑 {user.name} ({user.email})
+                              </option>
+                            ))}
+                        </optgroup>
+                      )}
+                      {/* Website Admins */}
+                      <optgroup label="👥 Website Admins">
+                        {users
+                          .filter(u => u.email !== session?.user?.email && u.roles.some(r => ['admin', 'super-admin', 'ADMIN'].includes(r)))
+                          .map(user => (
+                            <option key={user.email} value={user.email}>
+                              👤 {user.name} ({user.email})
+                            </option>
+                          ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 space-y-1 text-xs text-gray-700">
+                  <div><strong>Action:</strong> {pendingAction === 'send' ? '📤 Send Immediately' : `📅 Schedule for ${scheduleDate} ${scheduleTime}`}</div>
+                  <div><strong>Subject:</strong> {subject || '(No subject)'}</div>
+                  <div><strong>Recipients:</strong> {[...selectedMcommunityGroups, ...selectedUsers].length} recipient(s)</div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowApproverModal(false);
+                    setSelectedApprover('');
+                    setPendingAction(null);
+                  }}
+                  disabled={sending}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRequestApproval}
+                    disabled={!selectedApprover || sending}
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-1.5 disabled:cursor-not-allowed"
+                  >
+                    {sending ? (
+                      <>Requesting...</>
+                    ) : (
+                      <>
+                        <span>✅</span> Request Approval
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
