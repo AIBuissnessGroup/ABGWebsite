@@ -287,7 +287,7 @@ export default function ConferenceTicketSection() {
               <div className="w-5 h-5 rounded-full bg-orange-500/20 text-[#FF6700] flex items-center justify-center flex-shrink-0 mt-0.5">
                 <CheckIcon className="w-3.5 h-3.5" />
               </div>
-              <span>Catered Lunch alongside Workshops (Bitcoin and Health)</span>
+              <span>Catered Lunch alongside Workshops (Bitcoin and Professional Development)</span>
             </div>
 
             <div className="flex items-start gap-3 text-sm text-white/90">
