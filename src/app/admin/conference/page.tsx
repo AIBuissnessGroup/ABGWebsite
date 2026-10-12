@@ -936,7 +936,15 @@ export default function AdminConferencePage() {
                     </span>
                     <div>
                       <h4 className="font-bold text-gray-900 text-sm sm:text-base">{item.title}</h4>
-                      <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
+                      {item.description && (
+                        <div className="text-xs text-gray-600 mt-1 space-y-1.5">
+                          {item.description.split(/\n\s*\n/).map((para, pIdx) => (
+                            <p key={pIdx} className="whitespace-pre-line leading-relaxed">
+                              {para.trim()}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                       {item.location && (
                         <span className="inline-block text-[11px] text-gray-600 bg-gray-100 px-2 py-0.5 rounded mt-1">
                           📍 {item.location}
@@ -1506,13 +1514,16 @@ export default function AdminConferencePage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Description</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-gray-700 uppercase">Description</label>
+                  <span className="text-[11px] text-gray-400">Press Enter twice for separate paragraphs</span>
+                </div>
                 <textarea
-                  rows={3}
+                  rows={5}
                   value={editingSchedule.description || ''}
                   onChange={(e) => setEditingSchedule({ ...editingSchedule, description: e.target.value })}
-                  placeholder="Details about topics covered..."
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 text-gray-900"
+                  placeholder="Details about topics covered, breakout themes, or panel format (press Enter twice for a new paragraph)..."
+                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 text-gray-900 leading-relaxed text-sm"
                 />
               </div>
             </div>

@@ -613,9 +613,13 @@ export default function ConferencePageClient() {
                       {item.title}
                     </h3>
                     {item.description && (
-                      <p className="text-xs sm:text-sm text-white/60 mt-1 leading-relaxed">
-                        {item.description}
-                      </p>
+                      <div className="mt-2 text-xs sm:text-sm text-white/70 leading-relaxed space-y-2">
+                        {item.description.split(/\n\s*\n/).map((para, pIdx) => (
+                          <p key={pIdx} className="whitespace-pre-line leading-relaxed">
+                            {para.trim()}
+                          </p>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>
