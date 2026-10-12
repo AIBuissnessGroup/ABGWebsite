@@ -732,6 +732,7 @@ export default function AdminConferencePage() {
                     name: '',
                     role: '',
                     company: '',
+                    event: '',
                     photoUrl: '',
                     bio: '',
                     linkedinUrl: '',
@@ -820,6 +821,13 @@ export default function AdminConferencePage() {
                     <h4 className="font-bold text-gray-900 text-sm line-clamp-1">{speaker.name || 'Untitled Speaker'}</h4>
                     <p className="text-xs font-semibold text-[#FF6700] line-clamp-1 mt-0.5">{speaker.role || 'Role'}</p>
                     <p className="text-xs text-gray-500 font-medium line-clamp-1">{speaker.company || 'Company'}</p>
+                    {speaker.event ? (
+                      <div className="mt-1 px-2 py-0.5 rounded-md bg-sky-50 border border-sky-200 text-sky-800 text-[10px] font-medium line-clamp-2 text-center" title={speaker.event}>
+                        {speaker.event}
+                      </div>
+                    ) : (
+                      <span className="inline-block mt-1 text-[10px] text-gray-400 italic">No session assigned</span>
+                    )}
 
                     {/* Bio Preview Snippet */}
                     <div className="mt-2.5 pt-2 border-t border-gray-100 text-left">
@@ -1119,6 +1127,40 @@ export default function AdminConferencePage() {
                 </div>
 
                 <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-gray-700 uppercase">
+                      Conference Event / Session
+                    </label>
+                    <span className="text-[10px] text-gray-400">
+                      Keep concise for card display
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    list="conference-schedule-datalist"
+                    value={editingSpeaker.event || ''}
+                    onChange={(e) => setEditingSpeaker({ ...editingSpeaker, event: e.target.value })}
+                    placeholder="e.g. Opening Keynote or AI in Finance Panel"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-gray-900 focus:ring-2 focus:ring-[#FF6700] text-sm"
+                  />
+                  <datalist id="conference-schedule-datalist">
+                    <option value="Opening Keynote" />
+                    <option value="AI in Finance Panel" />
+                    <option value="Venture Capital Panel" />
+                    <option value="Interactive Case Workshop" />
+                    <option value="Closing Fireside Chat" />
+                    {data.schedule?.map((item) => (
+                      <option key={item.id} value={item.title}>
+                        {item.time} ({item.location || 'Conference'})
+                      </option>
+                    ))}
+                  </datalist>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    The panel, keynote, or workshop in the AI Business Conference they are part of. Best kept concise (2–4 words) for clean display on the card.
+                  </p>
+                </div>
+
+                <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Profile Picture URL</label>
                   <input
                     type="url"
@@ -1222,6 +1264,13 @@ export default function AdminConferencePage() {
                           <p className="font-extrabold text-sm text-white truncate max-w-[200px]">{editingSpeaker.name || 'Speaker Name'}</p>
                           <p className="text-[11px] text-[#FF6700] truncate max-w-[200px]">{editingSpeaker.role || 'Role'}</p>
                           <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-white/10 text-[10px] text-white/80">{editingSpeaker.company || 'Company'}</span>
+                          {editingSpeaker.event && (
+                            <div className="mt-1 flex justify-center">
+                              <span className="inline-block px-2 py-0.5 rounded-lg bg-sky-500/15 border border-sky-400/30 text-sky-200 text-[10px] font-medium max-w-[190px] line-clamp-2 leading-tight text-center" title={editingSpeaker.event}>
+                                {editingSpeaker.event}
+                              </span>
+                            </div>
+                          )}
                         </div>
                         <span className="text-[10px] text-white/50 flex items-center gap-1">
                           <ArrowPathIcon className="w-2.5 h-2.5 text-orange-400" />
@@ -1242,6 +1291,11 @@ export default function AdminConferencePage() {
                           <div className="min-w-0 flex-1">
                             <p className="font-bold text-xs text-white truncate">{editingSpeaker.name || 'Speaker'}</p>
                             <p className="text-[10px] text-[#FF6700] truncate">{editingSpeaker.role || 'Role'}</p>
+                            {editingSpeaker.event && (
+                              <p className="text-[10px] text-white/70 font-medium line-clamp-2 leading-tight mt-0.5">
+                                Session: <span className="text-sky-200 font-semibold">{editingSpeaker.event}</span>
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="my-auto overflow-y-auto max-h-20 text-[11px] text-white/90 leading-relaxed pr-1">
@@ -1250,7 +1304,7 @@ export default function AdminConferencePage() {
                           )}
                         </div>
                         <div className="pt-1 border-t border-white/10 flex items-center justify-between text-[10px] text-white/60">
-                          <span className="truncate max-w-[140px]">{editingSpeaker.company || 'Company'}</span>
+                          <span className="truncate max-w-[140px]">{editingSpeaker.company || 'Company'}{editingSpeaker.event ? ` • ${editingSpeaker.event}` : ''}</span>
                           {editingSpeaker.linkedinUrl && (
                             <span className="text-blue-300 font-semibold flex items-center gap-0.5">LinkedIn ✓</span>
                           )}
@@ -1339,6 +1393,7 @@ export default function AdminConferencePage() {
                         </p>
                         <p className="text-xs text-[#FF6700] font-medium truncate mt-0.5">
                           {speaker.role || 'Role'} • <span className="text-gray-500">{speaker.company}</span>
+                          {speaker.event && <span className="text-gray-500 font-medium"> • {speaker.event}</span>}
                         </p>
                       </div>
                     </div>

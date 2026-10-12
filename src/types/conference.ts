@@ -3,6 +3,7 @@ export interface ConferenceSpeaker {
   name: string;
   role: string;
   company: string;
+  event?: string; // What event/session in the AI business conference they are part of
   photoUrl: string;
   bio?: string;
   linkedinUrl?: string;

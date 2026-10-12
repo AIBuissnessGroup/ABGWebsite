@@ -41,7 +41,7 @@ function ConferenceSpeakerCard({ speaker, index }: { speaker: ConferenceSpeaker;
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.08 }}
-      className="group relative w-full h-[410px] perspective-1000 cursor-pointer select-none"
+      className="group relative w-full h-[440px] perspective-1000 cursor-pointer select-none"
       onClick={() => setIsFlipped((prev) => !prev)}
       onMouseEnter={() => setIsFlipped(true)}
       onMouseLeave={() => setIsFlipped(false)}
@@ -87,10 +87,10 @@ function ConferenceSpeakerCard({ speaker, index }: { speaker: ConferenceSpeaker;
               >
                 {speaker.name
                   ? speaker.name
-                      .split(' ')
-                      .map((n) => n[0])
-                      .slice(0, 2)
-                      .join('')
+                    .split(' ')
+                    .map((n) => n[0])
+                    .slice(0, 2)
+                    .join('')
                   : 'AI'}
               </div>
 
@@ -122,14 +122,28 @@ function ConferenceSpeakerCard({ speaker, index }: { speaker: ConferenceSpeaker;
               <p className="text-xs font-semibold text-[#FF6700] mt-1 line-clamp-1">
                 {speaker.role}
               </p>
-              <div className="inline-block mt-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-white/80 text-[11px] font-bold border border-white/10 line-clamp-1">
+
+              {/* Company Glass Bubble */}
+              <div className="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-white/10 text-white/80 text-[11px] font-bold border border-white/10 line-clamp-1">
                 {speaker.company}
               </div>
+
+              {/* Conference Event Space (under company with clear ice-blue tint to differentiate from company pill) */}
+              {speaker.event && (
+                <div className="mt-1.5 flex justify-center">
+                  <div
+                    className="w-full max-w-[210px] px-2.5 py-1 rounded-xl bg-sky-500/15 border border-sky-400/30 text-sky-200 text-[10.5px] font-medium leading-[1.35] line-clamp-3 backdrop-blur-xs text-center group-hover:bg-sky-500/25 group-hover:border-sky-300/45 group-hover:text-sky-100 transition-colors"
+                    title={speaker.event}
+                  >
+                    {speaker.event}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Bottom Flip Cue */}
-          <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-center gap-1.5 text-[11px] font-medium text-white/60 group-hover:text-orange-400 transition-colors">
+          <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-center gap-1.5 text-[11px] font-medium text-white/60 group-hover:text-orange-400 transition-colors">
             <ArrowPathIcon className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-500" />
             <span>Hover for Bio</span>
           </div>
@@ -159,6 +173,11 @@ function ConferenceSpeakerCard({ speaker, index }: { speaker: ConferenceSpeaker;
                 <p className="text-[10px] text-white/60 truncate font-medium">
                   {speaker.company}
                 </p>
+                {speaker.event && (
+                  <p className="text-[10px] text-white/70 font-medium leading-snug line-clamp-2 mt-0.5" title={speaker.event}>
+                    Session: <span className="text-sky-200 font-semibold">{speaker.event}</span>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -169,7 +188,7 @@ function ConferenceSpeakerCard({ speaker, index }: { speaker: ConferenceSpeaker;
           </div>
 
           {/* Middle Bio Section with Smooth Scroll */}
-          <div className="my-auto py-2.5 overflow-y-auto max-h-[175px] pr-1.5 text-xs text-white/90 leading-relaxed font-normal">
+          <div className="my-auto py-2.5 overflow-y-auto max-h-[160px] pr-1.5 text-xs text-white/90 leading-relaxed font-normal">
             {speaker.bio ? (
               <p className="whitespace-pre-line">{speaker.bio}</p>
             ) : (
