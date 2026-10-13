@@ -32,8 +32,8 @@ export interface ConferenceTicket {
   attendeeEmail: string;
   affiliation?: string;
   dietaryRestrictions?: string;
-  tier: 'Early Bird Pass' | 'General Admission';
-  amountPaid: number; // in dollars (e.g. 13 or 17)
+  tier: 'Early Bird Pass' | 'General Admission' | 'Complimentary';
+  amountPaid: number; // in dollars (e.g. 13 or 17, 0 for complimentary)
   currency: string; // 'usd'
   status: 'confirmed' | 'refunded' | 'cancelled';
   checkedIn: boolean;
@@ -42,6 +42,7 @@ export interface ConferenceTicket {
   checkInToken: string; // secure hash/token encoded in QR code
   qrCodeDataUrl?: string; // Base64 data URL of the QR code image
   userEmail?: string; // matched Google login email if signed in
+  issuedBy?: string; // admin email, set only on complimentary tickets issued from the admin portal
   createdAt: number;
   updatedAt: number;
 }
@@ -51,6 +52,7 @@ export interface AdminTicketStats {
   grossRevenue: number;
   earlyBirdCount: number;
   generalCount: number;
+  compCount: number;
   checkedInCount: number;
   pendingCheckInCount: number;
 }

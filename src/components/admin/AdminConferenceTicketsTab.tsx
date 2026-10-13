@@ -13,7 +13,8 @@ import {
   XCircleIcon,
   SparklesIcon,
   ClockIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  GiftIcon
 } from '@heroicons/react/24/outline';
 import { ConferenceTicket, AdminTicketStats, TicketPricingStatus } from '@/types/conference-ticket';
 import { getConferenceTicketStatus } from '@/lib/conference-pricing';
@@ -25,6 +26,7 @@ export default function AdminConferenceTicketsTab() {
     grossRevenue: 0,
     earlyBirdCount: 0,
     generalCount: 0,
+    compCount: 0,
     checkedInCount: 0,
     pendingCheckInCount: 0,
   });
@@ -32,6 +34,15 @@ export default function AdminConferenceTicketsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [pricingStatus, setPricingStatus] = useState<TicketPricingStatus>(getConferenceTicketStatus());
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [showCompForm, setShowCompForm] = useState(false);
+  const [issuingComp, setIssuingComp] = useState(false);
+  const [compForm, setCompForm] = useState({
+    name: '',
+    email: '',
+    affiliation: 'umich_student',
+    dietaryRestrictions: '',
+    sendEmail: true,
+  });
 
   const fetchTickets = async (query = '') => {
     setLoading(true);
@@ -46,6 +57,7 @@ export default function AdminConferenceTicketsTab() {
             grossRevenue: 0,
             earlyBirdCount: 0,
             generalCount: 0,
+            compCount: 0,
             checkedInCount: 0,
             pendingCheckInCount: 0,
           }
@@ -111,6 +123,36 @@ export default function AdminConferenceTicketsTab() {
     }
   };
 
+  const handleIssueComp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIssuingComp(true);
+
+    try {
+      const res = await fetch('/api/admin/conference/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(compForm),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        if (compForm.sendEmail && !data.emailSent) {
+          toast.error(`Issued ${data.ticket.ticketCode}, but the pass email to ${data.ticket.attendeeEmail} failed to send`);
+        } else {
+          toast.success(`Issued ${data.ticket.ticketCode} to ${data.ticket.attendeeName}`);
+        }
+        setCompForm((prev) => ({ ...prev, name: '', email: '', dietaryRestrictions: '' }));
+        fetchTickets(searchQuery);
+      } else {
+        toast.error(data.error || 'Failed to issue complimentary ticket');
+      }
+    } catch (err) {
+      toast.error('Network error issuing complimentary ticket');
+    } finally {
+      setIssuingComp(false);
+    }
+  };
+
   const handleDownloadCsv = () => {
     window.open('/api/admin/conference/tickets?format=csv', '_blank');
   };
@@ -147,6 +189,14 @@ export default function AdminConferenceTicketsTab() {
           </button>
 
           <button
+            onClick={() => setShowCompForm((prev) => !prev)}
+            className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#00274c] hover:bg-[#003366] text-white text-sm font-bold shadow-sm transition-all"
+          >
+            <GiftIcon className="w-4 h-4" />
+            <span>Issue Comp Ticket</span>
+          </button>
+
+          <button
             onClick={handleDownloadCsv}
             className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm transition-all"
           >
@@ -156,6 +206,77 @@ export default function AdminConferenceTicketsTab() {
         </div>
       </div>
 
+      {/* ── ISSUE COMPLIMENTARY TICKET ── */}
+      {showCompForm && (
+        <form onSubmit={handleIssueComp} className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm space-y-4">
+          <div>
+            <h4 className="text-lg font-bold text-gray-900">Issue Complimentary Ticket</h4>
+            <p className="text-xs text-gray-500">Creates a confirmed $0 pass without Stripe checkout. One ticket per email address.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              type="text"
+              required
+              minLength={2}
+              maxLength={100}
+              value={compForm.name}
+              onChange={(e) => setCompForm((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder="Attendee full name"
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#FF6700]"
+            />
+            <input
+              type="email"
+              required
+              value={compForm.email}
+              onChange={(e) => setCompForm((prev) => ({ ...prev, email: e.target.value }))}
+              placeholder="Attendee email"
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#FF6700]"
+            />
+            <select
+              value={compForm.affiliation}
+              onChange={(e) => setCompForm((prev) => ({ ...prev, affiliation: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#FF6700]"
+            >
+              <option value="umich_student">UMich Student</option>
+              <option value="umich_faculty">UMich Faculty</option>
+              <option value="alumni">Alumni</option>
+              <option value="industry">Industry</option>
+              <option value="other">Other</option>
+            </select>
+            <input
+              type="text"
+              maxLength={200}
+              value={compForm.dietaryRestrictions}
+              onChange={(e) => setCompForm((prev) => ({ ...prev, dietaryRestrictions: e.target.value }))}
+              placeholder="Dietary restrictions (optional)"
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#FF6700]"
+            />
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={compForm.sendEmail}
+                onChange={(e) => setCompForm((prev) => ({ ...prev, sendEmail: e.target.checked }))}
+                className="rounded border-gray-300"
+              />
+              <span>Email the QR pass to the attendee</span>
+            </label>
+
+            <button
+              type="submit"
+              disabled={issuingComp}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#FF6700] hover:bg-[#FF5500] disabled:opacity-60 text-white text-sm font-bold shadow-sm transition-all"
+            >
+              <GiftIcon className="w-4 h-4" />
+              <span>{issuingComp ? 'Issuing...' : 'Issue Ticket'}</span>
+            </button>
+          </div>
+        </form>
+      )}
+
       {/* ── METRICS TILES ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm">
@@ -163,7 +284,7 @@ export default function AdminConferenceTicketsTab() {
             <TicketIcon className="w-5 h-5" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-gray-900">{stats.totalTickets}</div>
-          <div className="text-xs font-semibold text-gray-500 mt-1">Total Passes Sold</div>
+          <div className="text-xs font-semibold text-gray-500 mt-1">Total Passes Issued</div>
           <div className="text-[11px] text-gray-400 mt-2">Target: 300 Attendees</div>
         </div>
 
@@ -182,7 +303,7 @@ export default function AdminConferenceTicketsTab() {
           </div>
           <div className="text-2xl sm:text-3xl font-black text-gray-900">{stats.earlyBirdCount} / {stats.generalCount}</div>
           <div className="text-xs font-semibold text-gray-500 mt-1">Early Bird / General</div>
-          <div className="text-[11px] text-gray-400 mt-2">$13 vs $17 distribution</div>
+          <div className="text-[11px] text-gray-400 mt-2">$13 vs $17 distribution · {stats.compCount} complimentary</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm">
@@ -277,6 +398,8 @@ export default function AdminConferenceTicketsTab() {
                         className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold ${
                           t.tier === 'Early Bird Pass'
                             ? 'bg-orange-100 text-orange-800'
+                            : t.tier === 'Complimentary'
+                            ? 'bg-purple-100 text-purple-800'
                             : 'bg-blue-100 text-blue-800'
                         }`}
                       >
