@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import { 
   CalendarIcon, 
@@ -16,7 +15,6 @@ import {
   BuildingOffice2Icon,
   ChevronDownIcon,
   EyeSlashIcon,
-  ShieldCheckIcon,
   EnvelopeIcon,
   BriefcaseIcon,
   ArrowPathIcon
@@ -24,7 +22,7 @@ import {
 import { FaLinkedin } from 'react-icons/fa';
 import FloatingShapes from '@/components/FloatingShapes';
 import Footer from '@/components/Footer';
-import { ConferenceData, ConferenceSpeaker, ConferenceScheduleItem, ConferenceSponsor } from '@/types/conference';
+import { ConferenceData, ConferenceSpeaker } from '@/types/conference';
 import { DEFAULT_CONFERENCE_DATA } from '@/lib/conference-defaults';
 import { isAdmin } from '@/lib/roles';
 import ConferenceTicketSection from '@/components/conference/ConferenceTicketSection';
@@ -246,6 +244,11 @@ export default function ConferencePageClient() {
   const sortedSpeakers = useMemo(() => {
     return [...(data.speakers || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }, [data.speakers]);
+
+  // Sort schedule strictly by their order property
+  const sortedSchedule = useMemo(() => {
+    return [...(data.schedule || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }, [data.schedule]);
 
   // Clean description to ensure business strategy is removed
   const conferenceDescription = useMemo(() => {
@@ -591,8 +594,8 @@ export default function ConferencePageClient() {
 
         {/* Schedule timeline items */}
         <div className="space-y-4">
-          {data.schedule && data.schedule.length > 0 ? (
-            data.schedule.map((item, idx) => (
+          {sortedSchedule && sortedSchedule.length > 0 ? (
+            sortedSchedule.map((item, idx) => (
               <motion.div
                 key={item.id || idx}
                 initial={{ opacity: 0, y: 15 }}
@@ -784,7 +787,7 @@ export default function ConferencePageClient() {
                 Interested in Sponsoring the Conference?
               </h3>
               <p className="mt-4 text-white/80 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
-                Connect your brand with 300+ students, top researchers, and corporate decision-makers at the University of Michigan's premier AI event. Sponsorship tiers include keynote visibility, booth activations, and direct recruiting access.
+                Connect your brand with 300+ students, top researchers, and corporate decision-makers at the University of Michigan&apos;s premier AI event. Sponsorship tiers include keynote visibility, booth activations, and direct recruiting access.
               </p>
               <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
                 <a

@@ -51,6 +51,10 @@ export default function AdminConferencePage() {
   const [editingSchedule, setEditingSchedule] = useState<ConferenceScheduleItem | null>(null);
   const [isNewSchedule, setIsNewSchedule] = useState(false);
 
+  // Reorder Schedule Modal State
+  const [isReorderingScheduleModalOpen, setIsReorderingScheduleModalOpen] = useState(false);
+  const [reorderScheduleList, setReorderScheduleList] = useState<ConferenceScheduleItem[]>([]);
+
   // Sponsor Modal State
   const [editingSponsor, setEditingSponsor] = useState<ConferenceSponsor | null>(null);
   const [isNewSponsor, setIsNewSponsor] = useState(false);
@@ -73,7 +77,9 @@ export default function AdminConferencePage() {
         .then((res) => res.json())
         .then((resData) => {
           if (resData && !resData.error) {
-            setData(resData);
+            const sortedSpeakers = [...(resData.speakers || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+            const sortedSchedule = [...(resData.schedule || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+            setData({ ...resData, speakers: sortedSpeakers, schedule: sortedSchedule });
           } else {
             setData(DEFAULT_CONFERENCE_DATA);
           }
@@ -99,7 +105,9 @@ export default function AdminConferencePage() {
 
       const result = await res.json();
       if (res.ok) {
-        setData(result);
+        const sortedSpeakers = [...(result.speakers || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        const sortedSchedule = [...(result.schedule || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        setData({ ...result, speakers: sortedSpeakers, schedule: sortedSchedule });
         toast.success('Conference page updated successfully!');
       } else {
         toast.error(result.error || 'Failed to save changes');
@@ -127,7 +135,7 @@ export default function AdminConferencePage() {
       return;
     }
 
-    let updatedSpeakers = [...(data.speakers || [])];
+    const updatedSpeakers = [...(data.speakers || [])];
     const totalCount = isNewSpeaker ? updatedSpeakers.length + 1 : updatedSpeakers.length;
     const targetOrder = Math.max(1, Math.min(editingSpeaker.order || (isNewSpeaker ? totalCount : 1), totalCount));
 
@@ -198,35 +206,81 @@ export default function AdminConferencePage() {
   };
 
   // --- Schedule Handlers ---
-  const handleSaveSchedule = () => {
+  const handleSaveSchedule = async () => {
     if (!editingSchedule) return;
     if (!editingSchedule.title.trim() || !editingSchedule.time.trim()) {
       toast.error('Time and Title are required');
       return;
     }
 
-    let updatedSchedule = [...data.schedule];
+    const updatedSchedule = [...(data.schedule || [])];
+    const totalCount = isNewSchedule ? updatedSchedule.length + 1 : updatedSchedule.length;
+    const targetOrder = Math.max(1, Math.min(editingSchedule.order || (isNewSchedule ? totalCount : 1), totalCount));
+
     if (isNewSchedule) {
       const newEntry = {
         ...editingSchedule,
-        id: `sched-${Date.now()}`,
-        order: updatedSchedule.length + 1,
+        id: editingSchedule.id || `sched-${Date.now()}`,
+        order: targetOrder,
       };
-      updatedSchedule.push(newEntry);
+      updatedSchedule.splice(targetOrder - 1, 0, newEntry);
     } else {
-      updatedSchedule = updatedSchedule.map((item) => (item.id === editingSchedule.id ? editingSchedule : item));
+      const oldIdx = updatedSchedule.findIndex((s) => s.id === editingSchedule.id);
+      if (oldIdx !== -1) {
+        updatedSchedule.splice(oldIdx, 1);
+      }
+      updatedSchedule.splice(targetOrder - 1, 0, { ...editingSchedule, order: targetOrder });
     }
 
-    setData((prev) => ({ ...prev, schedule: updatedSchedule }));
+    // Normalize all order numbers: 1..N
+    const normalized = updatedSchedule.map((s, idx) => ({ ...s, order: idx + 1 }));
+
+    setData((prev) => ({ ...prev, schedule: normalized }));
     setEditingSchedule(null);
-    toast.success(isNewSchedule ? 'Schedule item added' : 'Schedule item updated');
+    await handleSave({ schedule: normalized });
+    toast.success(isNewSchedule ? 'Schedule session added' : 'Schedule session updated');
   };
 
-  const handleDeleteSchedule = (id: string) => {
+  const handleDeleteSchedule = async (id: string) => {
     if (confirm('Delete this schedule session?')) {
-      setData((prev) => ({ ...prev, schedule: prev.schedule.filter((s) => s.id !== id) }));
+      const remaining = (data.schedule || []).filter((s) => s.id !== id);
+      const normalized = remaining.map((s, idx) => ({ ...s, order: idx + 1 }));
+      setData((prev) => ({ ...prev, schedule: normalized }));
+      await handleSave({ schedule: normalized });
       toast.success('Session deleted');
     }
+  };
+
+  const handleMoveSchedule = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= (data.schedule?.length || 0)) return;
+    const updated = [...(data.schedule || [])];
+    const [moved] = updated.splice(index, 1);
+    updated.splice(targetIndex, 0, moved);
+    const normalized = updated.map((s, idx) => ({ ...s, order: idx + 1 }));
+    setData((prev) => ({ ...prev, schedule: normalized }));
+    await handleSave({ schedule: normalized });
+    toast.success(`Moved "${moved.title || 'session'}" to slot #${targetIndex + 1}`);
+  };
+
+  const handleSetScheduleOrder = async (fromIndex: number, toPosition: number) => {
+    const targetIndex = toPosition - 1;
+    if (targetIndex < 0 || targetIndex >= (data.schedule?.length || 0) || targetIndex === fromIndex) return;
+    const updated = [...(data.schedule || [])];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(targetIndex, 0, moved);
+    const normalized = updated.map((s, idx) => ({ ...s, order: idx + 1 }));
+    setData((prev) => ({ ...prev, schedule: normalized }));
+    await handleSave({ schedule: normalized });
+    toast.success(`Moved "${moved.title || 'session'}" to slot #${toPosition}`);
+  };
+
+  const handleSaveScheduleBulkReorder = async () => {
+    const normalized = reorderScheduleList.map((s, idx) => ({ ...s, order: idx + 1 }));
+    setData((prev) => ({ ...prev, schedule: normalized }));
+    setIsReorderingScheduleModalOpen(false);
+    await handleSave({ schedule: normalized });
+    toast.success('Schedule event order saved successfully!');
   };
 
   // --- Sponsor Handlers ---
@@ -900,27 +954,42 @@ export default function AdminConferencePage() {
             <div>
               <h3 className="text-lg font-bold text-gray-900">Event Schedule Timeline</h3>
               <p className="text-sm text-gray-500">
-                Manage keynote, panel, coffee chat, and networking slots for the conference.
+                Manage keynote, panel, coffee chat, and networking slots for the conference. Adjust display order using the controls below.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingSchedule({
-                  id: '',
-                  time: '',
-                  title: '',
-                  location: 'Stephen M. Ross School of Business',
-                  description: '',
-                  order: (data.schedule?.length || 0) + 1,
-                });
-                setIsNewSchedule(true);
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#00274c] hover:bg-[#0e3b6e] text-white text-sm font-bold shadow"
-            >
-              <PlusIcon className="w-4 h-4" />
-              <span>Add Schedule Session</span>
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setReorderScheduleList([...(data.schedule || [])]);
+                  setIsReorderingScheduleModalOpen(true);
+                }}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm font-bold border border-gray-300 shadow-xs transition-all"
+                title="Open schedule reorder tool"
+              >
+                <ArrowsUpDownIcon className="w-4 h-4 text-[#FF6700]" />
+                <span>Reorder Schedule</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingSchedule({
+                    id: '',
+                    time: '',
+                    title: '',
+                    location: 'Stephen M. Ross School of Business',
+                    description: '',
+                    order: (data.schedule?.length || 0) + 1,
+                  });
+                  setIsNewSchedule(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#00274c] hover:bg-[#0e3b6e] text-white text-sm font-bold shadow transition-all"
+              >
+                <PlusIcon className="w-4 h-4" />
+                <span>Add Schedule Session</span>
+              </button>
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -928,16 +997,33 @@ export default function AdminConferencePage() {
               data.schedule.map((item, index) => (
                 <div
                   key={item.id || index}
-                  className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  className="bg-white p-4.5 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-orange-300 transition-colors"
                 >
-                  <div className="flex items-start gap-4">
-                    <span className="px-3 py-1.5 rounded-lg bg-orange-100 text-orange-800 text-xs font-extrabold flex-shrink-0">
-                      {item.time}
-                    </span>
-                    <div>
-                      <h4 className="font-bold text-gray-900 text-sm sm:text-base">{item.title}</h4>
+                  <div className="flex items-start gap-3.5 min-w-0">
+                    {/* Position / Slot Badge */}
+                    <div className="flex flex-col items-center justify-center flex-shrink-0">
+                      <span className="w-9 h-9 rounded-xl bg-[#00274c] text-white flex items-center justify-center text-xs font-black shadow-xs">
+                        #{index + 1}
+                      </span>
+                      <span className="text-[10px] font-bold text-gray-400 mt-1 uppercase">
+                        Slot
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="px-3 py-1 rounded-lg bg-orange-100 text-orange-800 text-xs font-extrabold flex-shrink-0">
+                          {item.time}
+                        </span>
+                        {item.location && (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-gray-600 bg-gray-100 px-2.5 py-1 rounded-lg">
+                            📍 {item.location}
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="font-bold text-gray-900 text-base">{item.title}</h4>
                       {item.description && (
-                        <div className="text-xs text-gray-600 mt-1 space-y-1.5">
+                        <div className="text-xs text-gray-600 space-y-1.5 max-w-3xl">
                           {item.description.split(/\n\s*\n/).map((para, pIdx) => (
                             <p key={pIdx} className="whitespace-pre-line leading-relaxed">
                               {para.trim()}
@@ -945,15 +1031,55 @@ export default function AdminConferencePage() {
                           ))}
                         </div>
                       )}
-                      {item.location && (
-                        <span className="inline-block text-[11px] text-gray-600 bg-gray-100 px-2 py-0.5 rounded mt-1">
-                          📍 {item.location}
-                        </span>
-                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 self-end sm:self-center">
+                  {/* Ordering & Action Controls */}
+                  <div className="flex flex-wrap items-center gap-2 self-end md:self-center flex-shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-gray-100 w-full md:w-auto justify-end">
+                    {/* Slot selector dropdown */}
+                    <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
+                        Slot:
+                      </span>
+                      <select
+                        value={index + 1}
+                        onChange={(e) => handleSetScheduleOrder(index, Number(e.target.value))}
+                        className="text-xs font-bold bg-white text-gray-900 border border-gray-300 rounded-md px-2 py-0.5 focus:ring-2 focus:ring-[#FF6700] cursor-pointer shadow-xs"
+                        title="Change schedule order position"
+                      >
+                        {data.schedule.map((_, slotIdx) => (
+                          <option key={slotIdx + 1} value={slotIdx + 1}>
+                            #{slotIdx + 1} {slotIdx === 0 ? '(1st)' : slotIdx === data.schedule.length - 1 ? '(End)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Up & Down Arrows */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSchedule(index, 'up')}
+                        disabled={index === 0}
+                        className="p-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-25 transition-colors shadow-2xs"
+                        title={index === 0 ? 'First session' : `Move up to slot #${index}`}
+                      >
+                        <ArrowUpIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSchedule(index, 'down')}
+                        disabled={index === data.schedule.length - 1}
+                        className="p-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-25 transition-colors shadow-2xs"
+                        title={index === data.schedule.length - 1 ? 'Last session' : `Move down to slot #${index + 2}`}
+                      >
+                        <ArrowDownIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="h-4 w-px bg-gray-200 mx-0.5" />
+
+                    {/* Edit & Delete */}
                     <button
                       type="button"
                       onClick={() => {
@@ -961,6 +1087,7 @@ export default function AdminConferencePage() {
                         setIsNewSchedule(false);
                       }}
                       className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-semibold flex items-center gap-1"
+                      title="Edit Session"
                     >
                       <PencilSquareIcon className="w-4 h-4" />
                       <span>Edit</span>
@@ -969,6 +1096,7 @@ export default function AdminConferencePage() {
                       type="button"
                       onClick={() => handleDeleteSchedule(item.id)}
                       className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg text-xs font-semibold flex items-center gap-1"
+                      title="Delete Session"
                     >
                       <TrashIcon className="w-4 h-4" />
                       <span>Delete</span>
@@ -978,7 +1106,7 @@ export default function AdminConferencePage() {
               ))
             ) : (
               <div className="p-8 bg-white rounded-xl border border-gray-200 text-center text-gray-500">
-                No schedule sessions added yet.
+                No schedule sessions added yet. Click &quot;Add Schedule Session&quot; above to start.
               </div>
             )}
           </div>
@@ -1470,6 +1598,128 @@ export default function AdminConferencePage() {
       )}
 
       {/* ─────────────────────────────────────────────────────────────────────────────
+          MODAL: REORDER SCHEDULE TIMELINE
+      ────────────────────────────────────────────────────────────────────────────── */}
+      {isReorderingScheduleModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 my-8">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-orange-100 text-[#FF6700] flex items-center justify-center shadow-xs">
+                  <ArrowsUpDownIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Reorder Event Schedule</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Adjust the chronological order of sessions and events on the conference agenda.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsReorderingScheduleModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Reorder List */}
+            <div className="space-y-2.5 max-h-[60vh] overflow-y-auto pr-1">
+              {reorderScheduleList && reorderScheduleList.length > 0 ? (
+                reorderScheduleList.map((item, idx) => (
+                  <div
+                    key={item.id || idx}
+                    className="flex items-center justify-between p-3 rounded-xl border border-gray-200 bg-white hover:border-[#FF6700]/50 hover:shadow-xs transition-all gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {/* Position Number Pill */}
+                      <span className="w-8 h-8 rounded-lg bg-[#00274c] text-white flex items-center justify-center text-xs font-black flex-shrink-0 shadow-xs">
+                        #{idx + 1}
+                      </span>
+
+                      {/* Time Pill */}
+                      <span className="px-2.5 py-1 rounded-lg bg-orange-100 text-orange-800 text-xs font-extrabold flex-shrink-0 truncate max-w-[140px]">
+                        {item.time}
+                      </span>
+
+                      {/* Item Info */}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-sm text-gray-900 truncate leading-tight">
+                          {item.title || 'Untitled Session'}
+                        </p>
+                        {item.location && (
+                          <p className="text-xs text-gray-500 truncate mt-0.5">
+                            📍 {item.location}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Move Up / Down Buttons */}
+                    <div className="flex items-center gap-1.5 flex-shrink-0 pl-2">
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => {
+                          const next = [...reorderScheduleList];
+                          const [moved] = next.splice(idx, 1);
+                          next.splice(idx - 1, 0, moved);
+                          setReorderScheduleList(next);
+                        }}
+                        className="p-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-25 transition-colors shadow-2xs"
+                        title="Move up (earlier in schedule)"
+                      >
+                        <ArrowUpIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === reorderScheduleList.length - 1}
+                        onClick={() => {
+                          const next = [...reorderScheduleList];
+                          const [moved] = next.splice(idx, 1);
+                          next.splice(idx + 1, 0, moved);
+                          setReorderScheduleList(next);
+                        }}
+                        className="p-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-25 transition-colors shadow-2xs"
+                        title="Move down (later in schedule)"
+                      >
+                        <ArrowDownIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-6">No schedule sessions found.</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+              <span className="text-xs text-gray-500">
+                Top-to-bottom order: Slot 1 to Slot {reorderScheduleList.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsReorderingScheduleModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-100 text-sm font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveScheduleBulkReorder}
+                  className="px-5 py-2 rounded-xl bg-[#00274c] hover:bg-[#0e3b6e] text-white text-sm font-bold shadow-md transition-all"
+                >
+                  Save Schedule Order
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
           MODAL: EDIT / ADD SCHEDULE ITEM
       ────────────────────────────────────────────────────────────────────────────── */}
       {editingSchedule && (
@@ -1511,6 +1761,29 @@ export default function AdminConferencePage() {
                   placeholder="e.g. Robertson Auditorium"
                   className="w-full px-3.5 py-2 rounded-lg border border-gray-300 text-gray-900"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Schedule Slot Position
+                </label>
+                <select
+                  value={editingSchedule.order || (isNewSchedule ? (data.schedule?.length || 0) + 1 : 1)}
+                  onChange={(e) => setEditingSchedule({ ...editingSchedule, order: Number(e.target.value) })}
+                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-[#FF6700] text-sm bg-white"
+                >
+                  {Array.from(
+                    { length: isNewSchedule ? (data.schedule?.length || 0) + 1 : Math.max(data.schedule?.length || 1, 1) },
+                    (_, i) => (
+                      <option key={i + 1} value={i + 1}>
+                        Slot #{i + 1} {i === 0 ? '(1st - Earliest)' : i === (isNewSchedule ? (data.schedule?.length || 0) : (data.schedule?.length || 1) - 1) ? '(Last - Latest)' : ''}
+                      </option>
+                    )
+                  )}
+                </select>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Timeline position from earliest to latest session on the conference page.
+                </p>
               </div>
 
               <div>
@@ -1574,7 +1847,7 @@ export default function AdminConferencePage() {
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Tier</label>
                 <select
                   value={editingSponsor.tier}
-                  onChange={(e) => setEditingSponsor({ ...editingSponsor, tier: e.target.value as any })}
+                  onChange={(e) => setEditingSponsor({ ...editingSponsor, tier: e.target.value as ConferenceSponsor['tier'] })}
                   className="w-full px-3.5 py-2 rounded-lg border border-gray-300 text-gray-900"
                 >
                   <option value="Title">Title Partner</option>
