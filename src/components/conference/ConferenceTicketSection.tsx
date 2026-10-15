@@ -137,16 +137,16 @@ export default function ConferenceTicketSection() {
   return (
     <section id="tickets" className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto relative scroll-mt-12">
       {/* Decorative background glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-96 bg-[#FF6700]/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-96 bg-[#FFCB05]/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative z-10 text-center max-w-3xl mx-auto mb-16">
-        <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-[#FF6700] text-xs font-extrabold uppercase tracking-wider mb-4">
+        <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-[#FFCB05]/10 border border-[#FFCB05]/30 text-[#FFCB05] text-xs font-extrabold uppercase tracking-wider mb-4">
           <TicketIcon className="w-4 h-4" />
           <span>Conference Registration</span>
         </div>
 
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
-          Reserve Your <span className="text-[#FF6700]">Conference Pass</span>
+          Reserve Your <span className="text-[#FFCB05]">Conference Pass</span>
         </h2>
 
         <p className="mt-4 text-white/80 text-base sm:text-lg leading-relaxed">
@@ -187,12 +187,12 @@ export default function ConferenceTicketSection() {
 
       {/* ── PASS CARDS GRID ── */}
       <div className="max-w-xl mx-auto">
-        <div className="relative rounded-3xl p-8 sm:p-10 bg-gradient-to-b from-white/10 to-white/[0.04] border-2 border-orange-500/50 backdrop-blur-xl shadow-2xl shadow-orange-950/40">
+        <div className="relative rounded-3xl p-8 sm:p-10 bg-gradient-to-b from-white/10 to-white/[0.04] border-2 border-[#FFCB05]/50 backdrop-blur-xl shadow-2xl shadow-[#2E2400]/40">
           
           {/* Top Floating Badge */}
           <div className="absolute -top-4 left-1/2 -translate-x-1/2">
             {pricing.phase === 'EARLY_BIRD' ? (
-              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#FF6700] to-[#FF5500] text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-orange-600/40 border border-white/20">
+              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#FFCB05] to-[#F5B700] text-[#00274c] text-xs font-black uppercase tracking-wider shadow-lg shadow-[#E6B700]/40 border border-white/20">
                 <SparklesIcon className="w-3.5 h-3.5" />
                 <span>Early Bird Special • Limited Time</span>
               </span>
@@ -228,7 +228,7 @@ export default function ConferenceTicketSection() {
 
             {/* Discount note or deadline notice */}
             {pricing.discountNote && pricing.phase === 'EARLY_BIRD' && (
-              <div className="mt-2 text-xs font-extrabold text-orange-300">
+              <div className="mt-2 text-xs font-extrabold text-[#FFE066]">
                 ⚡ {pricing.discountNote} (Ends Mon, Sep 21 at 12:00 AM EDT)
               </div>
             )}
@@ -243,7 +243,7 @@ export default function ConferenceTicketSection() {
           {/* Live Countdown Clock */}
           {timeLeft && pricing.isAvailable && (
             <div className="mt-6 p-4 rounded-2xl bg-white/5 border border-white/10 text-center">
-              <div className="text-[11px] font-extrabold uppercase tracking-widest text-[#FF6700] mb-2 flex items-center justify-center gap-1.5">
+              <div className="text-[11px] font-extrabold uppercase tracking-widest text-[#FFCB05] mb-2 flex items-center justify-center gap-1.5">
                 <ClockIcon className="w-3.5 h-3.5" />
                 <span>
                   {pricing.phase === 'EARLY_BIRD' ? 'Early Bird Ends In' : 'Registration Closes In'}
@@ -277,28 +277,28 @@ export default function ConferenceTicketSection() {
             </div>
             
             <div className="flex items-start gap-3 text-sm text-white/90">
-              <div className="w-5 h-5 rounded-full bg-orange-500/20 text-[#FF6700] flex items-center justify-center flex-shrink-0 mt-0.5">
+              <div className="w-5 h-5 rounded-full bg-[#FFCB05]/20 text-[#FFCB05] flex items-center justify-center flex-shrink-0 mt-0.5">
                 <CheckIcon className="w-3.5 h-3.5" />
               </div>
               <span>Full-day access to all Keynotes & Expert Panels (Finance & VC)</span>
             </div>
 
             <div className="flex items-start gap-3 text-sm text-white/90">
-              <div className="w-5 h-5 rounded-full bg-orange-500/20 text-[#FF6700] flex items-center justify-center flex-shrink-0 mt-0.5">
+              <div className="w-5 h-5 rounded-full bg-[#FFCB05]/20 text-[#FFCB05] flex items-center justify-center flex-shrink-0 mt-0.5">
                 <CheckIcon className="w-3.5 h-3.5" />
               </div>
               <span>Catered Lunch alongside Workshops (Bitcoin and Professional Development)</span>
             </div>
 
             <div className="flex items-start gap-3 text-sm text-white/90">
-              <div className="w-5 h-5 rounded-full bg-orange-500/20 text-[#FF6700] flex items-center justify-center flex-shrink-0 mt-0.5">
+              <div className="w-5 h-5 rounded-full bg-[#FFCB05]/20 text-[#FFCB05] flex items-center justify-center flex-shrink-0 mt-0.5">
                 <CheckIcon className="w-3.5 h-3.5" />
               </div>
               <span>Closing reception with Open Networking</span>
             </div>
 
             <div className="flex items-start gap-3 text-sm text-white/90">
-              <div className="w-5 h-5 rounded-full bg-orange-500/20 text-[#FF6700] flex items-center justify-center flex-shrink-0 mt-0.5">
+              <div className="w-5 h-5 rounded-full bg-[#FFCB05]/20 text-[#FFCB05] flex items-center justify-center flex-shrink-0 mt-0.5">
                 <CheckIcon className="w-3.5 h-3.5" />
               </div>
               <span>Digital Conference Pass with personalized check-in QR code</span>
@@ -310,7 +310,7 @@ export default function ConferenceTicketSection() {
             {pricing.isAvailable ? (
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#FF6700] to-[#FF5500] hover:from-[#ff7a1a] hover:to-[#ff6700] text-white font-extrabold text-lg shadow-xl shadow-orange-600/30 hover:shadow-orange-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border border-orange-400/40 flex items-center justify-center gap-2"
+                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#FFCB05] to-[#F5B700] hover:from-[#FFD84D] hover:to-[#FFCB05] text-[#00274c] font-extrabold text-lg shadow-xl shadow-[#E6B700]/30 hover:shadow-[#FFCB05]/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border border-[#FFD633]/40 flex items-center justify-center gap-2"
               >
                 <TicketIcon className="w-6 h-6" />
                 <span>Get Your Pass — {pricing.priceLabel}</span>
@@ -344,7 +344,7 @@ export default function ConferenceTicketSection() {
             <div className="text-[11px] text-white/60 leading-relaxed max-w-lg mx-auto space-y-1">
               <p>
                 <strong className="text-white/80">Refund Policy:</strong> All pass sales are final and non-refundable. Registrations may be transferred to another attendee up to 48 hours before the event by contacting{' '}
-                <a href="mailto:ABGContact@umich.edu" className="text-[#FF6700] underline">
+                <a href="mailto:ABGContact@umich.edu" className="text-[#FFCB05] underline">
                   ABGContact@umich.edu
                 </a>.
               </p>
@@ -393,7 +393,7 @@ export default function ConferenceTicketSection() {
               </button>
 
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-orange-500/20 text-[#FF6700] flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[#FFCB05]/20 text-[#FFCB05] flex items-center justify-center flex-shrink-0">
                   <TicketIcon className="w-5 h-5" />
                 </div>
                 <div>
@@ -415,7 +415,7 @@ export default function ConferenceTicketSection() {
               <form onSubmit={handleProceedToCheckout} className="space-y-4">
                 <div>
                   <label className="block text-xs font-extrabold uppercase tracking-wider text-white/70 mb-1.5">
-                    Full Name <span className="text-[#FF6700]">*</span>
+                    Full Name <span className="text-[#FFCB05]">*</span>
                   </label>
                   <input
                     type="text"
@@ -424,13 +424,13 @@ export default function ConferenceTicketSection() {
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g. Jane Doe"
                     disabled={loadingCheckout}
-                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-white placeholder-white/40 focus:outline-none focus:border-[#FF6700] text-sm"
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-white placeholder-white/40 focus:outline-none focus:border-[#FFCB05] text-sm"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-extrabold uppercase tracking-wider text-white/70 mb-1.5">
-                    Email Address <span className="text-[#FF6700]">*</span>
+                    Email Address <span className="text-[#FFCB05]">*</span>
                   </label>
                   <input
                     type="email"
@@ -439,7 +439,7 @@ export default function ConferenceTicketSection() {
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="name@umich.edu or personal email"
                     disabled={loadingCheckout}
-                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-white placeholder-white/40 focus:outline-none focus:border-[#FF6700] text-sm"
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-white placeholder-white/40 focus:outline-none focus:border-[#FFCB05] text-sm"
                   />
                   <span className="text-[11px] text-white/50 mt-1 block">
                     Your QR ticket badge and receipt will be delivered to this address.
@@ -454,7 +454,7 @@ export default function ConferenceTicketSection() {
                     value={formData.affiliation}
                     onChange={(e) => setFormData({ ...formData, affiliation: e.target.value })}
                     disabled={loadingCheckout}
-                    className="w-full px-4 py-3 rounded-xl bg-[#00172e] border border-white/15 text-white focus:outline-none focus:border-[#FF6700] text-sm"
+                    className="w-full px-4 py-3 rounded-xl bg-[#00172e] border border-white/15 text-white focus:outline-none focus:border-[#FFCB05] text-sm"
                   >
                     <option value="umich_student">University of Michigan Student</option>
                     <option value="umich_faculty">UMich Faculty / Researcher</option>
@@ -474,7 +474,7 @@ export default function ConferenceTicketSection() {
                     onChange={(e) => setFormData({ ...formData, dietaryRestrictions: e.target.value })}
                     placeholder="None, Vegetarian, Vegan, Gluten-Free, Halal, etc."
                     disabled={loadingCheckout}
-                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-white placeholder-white/40 focus:outline-none focus:border-[#FF6700] text-sm"
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-white placeholder-white/40 focus:outline-none focus:border-[#FFCB05] text-sm"
                   />
                 </div>
 
@@ -482,7 +482,7 @@ export default function ConferenceTicketSection() {
                   <button
                     type="submit"
                     disabled={loadingCheckout}
-                    className="w-full py-3.5 px-6 rounded-xl bg-[#FF6700] hover:bg-[#FF7700] disabled:bg-white/20 text-white font-extrabold text-base shadow-lg shadow-orange-600/30 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-3.5 px-6 rounded-xl bg-[#FFCB05] hover:bg-[#FFD84D] disabled:bg-white/20 disabled:text-white/60 text-[#00274c] font-extrabold text-base shadow-lg shadow-[#E6B700]/30 transition-all flex items-center justify-center gap-2"
                   >
                     {loadingCheckout ? (
                       <>

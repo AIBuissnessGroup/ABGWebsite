@@ -59,7 +59,7 @@ function ConferenceSpeakerCard({ speaker, index }: { speaker: ConferenceSpeaker;
         }`}
       >
         {/* ── FRONT FACE ──────────────────────────────────────────────────────── */}
-        <div className="absolute inset-0 w-full h-full backface-hidden flex flex-col justify-between bg-gradient-to-b from-white/10 to-white/[0.03] border border-white/15 group-hover:border-orange-500/50 rounded-2xl p-5 backdrop-blur-md transition-all duration-300 shadow-xl group-hover:shadow-2xl group-hover:shadow-orange-950/30">
+        <div className="absolute inset-0 w-full h-full backface-hidden flex flex-col justify-between bg-gradient-to-b from-white/10 to-white/[0.03] border border-white/15 group-hover:border-[#FFCB05]/50 rounded-2xl p-5 backdrop-blur-md transition-all duration-300 shadow-xl group-hover:shadow-2xl group-hover:shadow-[#2E2400]/30">
           <div>
             {/* Photo Container */}
             <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-3.5 bg-gradient-to-br from-[#00274c] to-[#00172e] border border-white/20 shadow-inner flex items-center justify-center">
@@ -114,10 +114,10 @@ function ConferenceSpeakerCard({ speaker, index }: { speaker: ConferenceSpeaker;
 
             {/* Speaker Info */}
             <div className="text-center">
-              <h3 className="font-extrabold text-base lg:text-lg text-white group-hover:text-orange-300 transition-colors duration-200 line-clamp-1">
+              <h3 className="font-extrabold text-base lg:text-lg text-white group-hover:text-[#FFE066] transition-colors duration-200 line-clamp-1">
                 {speaker.name}
               </h3>
-              <p className="text-xs font-semibold text-[#FF6700] mt-1 line-clamp-1">
+              <p className="text-xs font-semibold text-[#FFCB05] mt-1 line-clamp-1">
                 {speaker.role}
               </p>
 
@@ -141,18 +141,18 @@ function ConferenceSpeakerCard({ speaker, index }: { speaker: ConferenceSpeaker;
           </div>
 
           {/* Bottom Flip Cue */}
-          <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-center gap-1.5 text-[11px] font-medium text-white/60 group-hover:text-orange-400 transition-colors">
+          <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-center gap-1.5 text-[11px] font-medium text-white/60 group-hover:text-[#FFD633] transition-colors">
             <ArrowPathIcon className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-500" />
             <span>Hover for Bio</span>
           </div>
         </div>
 
         {/* ── BACK FACE (FLIPPED REVEALING BIO) ────────────────────────────────── */}
-        <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180 rounded-2xl p-5 bg-gradient-to-b from-[#002855] via-[#001c38] to-[#001026] border-2 border-orange-500/60 backdrop-blur-xl shadow-2xl shadow-orange-950/50 flex flex-col justify-between overflow-hidden text-left">
+        <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180 rounded-2xl p-5 bg-gradient-to-b from-[#002855] via-[#001c38] to-[#001026] border-2 border-[#FFCB05]/60 backdrop-blur-xl shadow-2xl shadow-[#2E2400]/50 flex flex-col justify-between overflow-hidden text-left">
           {/* Top Speaker Details */}
           <div>
             <div className="flex items-center gap-2.5 mb-2.5">
-              <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#00172e] border border-orange-500/40 flex-shrink-0 flex items-center justify-center shadow-inner">
+              <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#00172e] border border-[#FFCB05]/40 flex-shrink-0 flex items-center justify-center shadow-inner">
                 {speaker.photoUrl ? (
                   <img src={speaker.photoUrl} alt={speaker.name} className="w-full h-full object-cover" />
                 ) : (
@@ -165,7 +165,7 @@ function ConferenceSpeakerCard({ speaker, index }: { speaker: ConferenceSpeaker;
                 <h4 className="font-extrabold text-sm text-white truncate leading-tight">
                   {speaker.name}
                 </h4>
-                <p className="text-[11px] text-[#FF6700] font-semibold truncate mt-0.5">
+                <p className="text-[11px] text-[#FFCB05] font-semibold truncate mt-0.5">
                   {speaker.role}
                 </p>
                 <p className="text-[10px] text-white/60 truncate font-medium">
@@ -179,8 +179,8 @@ function ConferenceSpeakerCard({ speaker, index }: { speaker: ConferenceSpeaker;
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-orange-400/90 py-1 border-y border-white/10">
-              <SparklesIcon className="w-3 h-3 text-[#FF6700]" />
+            <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-[#FFD633]/90 py-1 border-y border-white/10">
+              <SparklesIcon className="w-3 h-3 text-[#FFCB05]" />
               <span>Speaker Bio</span>
             </div>
           </div>
@@ -276,7 +276,7 @@ export default function ConferencePageClient() {
       <div className="min-h-screen bg-[#00274c] text-white flex flex-col items-center justify-center px-4 relative overflow-hidden">
         <FloatingShapes variant="dense" opacity={0.06} />
         <div className="max-w-lg w-full bg-white/5 border border-white/15 backdrop-blur-xl rounded-3xl p-8 sm:p-10 text-center shadow-2xl relative z-10">
-          <div className="w-16 h-16 rounded-2xl bg-orange-500/20 border border-orange-500/40 text-[#FF6700] flex items-center justify-center mx-auto mb-6">
+          <div className="w-16 h-16 rounded-2xl bg-[#FFCB05]/20 border border-[#FFCB05]/40 text-[#FFCB05] flex items-center justify-center mx-auto mb-6">
             <SparklesIcon className="w-8 h-8" />
           </div>
           <h1 className="text-3xl font-extrabold mb-3">Conference Coming Soon</h1>
@@ -295,10 +295,10 @@ export default function ConferencePageClient() {
   }
 
   return (
-    <div className="min-h-screen bg-[#001e3b] text-white selection:bg-[#FF6700] selection:text-white">
+    <div className="min-h-screen bg-[#001e3b] text-white selection:bg-[#FFCB05] selection:text-[#00274c]">
       {/* Admin Preview Mode Alert Banner if hidden */}
       {!data.isVisible && userIsAdmin && (
-        <div className="bg-amber-500/90 text-gray-950 font-bold px-4 py-2 text-center text-xs sm:text-sm flex items-center justify-center gap-2 sticky top-16 z-40 shadow-md">
+        <div className="bg-[#FFCB05]/90 text-gray-950 font-bold px-4 py-2 text-center text-xs sm:text-sm flex items-center justify-center gap-2 sticky top-16 z-40 shadow-md">
           <EyeSlashIcon className="w-4 h-4" />
           <span>Admin Preview Mode: This page is currently set to HIDDEN in the admin portal.</span>
           <Link href="/admin/conference" className="underline hover:text-black ml-2">
@@ -317,7 +317,7 @@ export default function ConferencePageClient() {
           style={{ backgroundImage: `url('${data.backgroundImageUrl}')` }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[#00274c]/90 via-[#00274c]/85 to-[#001e3b]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,103,0,0.18)_0%,transparent_70%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,203,5,0.18)_0%,transparent_70%)] pointer-events-none" />
 
         {/* Floating Shapes Animation */}
         <FloatingShapes variant="dense" opacity={0.07} />
@@ -328,10 +328,10 @@ export default function ConferencePageClient() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="inline-flex flex-wrap items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-orange-400/30 backdrop-blur-md shadow-lg shadow-orange-500/10 mb-6"
+            className="inline-flex flex-wrap items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-[#FFD633]/30 backdrop-blur-md shadow-lg shadow-[#FFCB05]/10 mb-6"
           >
-            <span className="w-2 h-2 rounded-full bg-[#FF6700] animate-pulse" />
-            <span className="text-xs sm:text-sm font-semibold tracking-wide text-orange-200">
+            <span className="w-2 h-2 rounded-full bg-[#FFCB05] animate-pulse" />
+            <span className="text-xs sm:text-sm font-semibold tracking-wide text-[#FFEB99]">
               {data.badgeText || "University of Michigan • AI Business Group Special Event"}
             </span>
           </motion.div>
@@ -343,7 +343,7 @@ export default function ConferencePageClient() {
             transition={{ duration: 0.7, delay: 0.1 }}
             className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight text-white leading-tight drop-shadow-md max-w-4xl"
           >
-            <span className="bg-gradient-to-r from-white via-white to-orange-100 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-white via-white to-[#FFF5CC] bg-clip-text text-transparent">
               {data.title}
             </span>
           </motion.h1>
@@ -365,13 +365,13 @@ export default function ConferencePageClient() {
             transition={{ duration: 0.7, delay: 0.3 }}
             className="mt-8 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-sm sm:text-base font-semibold text-white/90 bg-white/10 backdrop-blur-md border border-white/15 px-6 py-3 rounded-2xl shadow-xl"
           >
-            <div className="flex items-center gap-2 text-orange-300">
-              <CalendarIcon className="w-5 h-5 text-[#FF6700]" />
+            <div className="flex items-center gap-2 text-[#FFE066]">
+              <CalendarIcon className="w-5 h-5 text-[#FFCB05]" />
               <span>{data.eventDate}</span>
             </div>
             <div className="hidden sm:block w-1.5 h-1.5 rounded-full bg-white/30" />
             <div className="flex items-center gap-2 text-white/90">
-              <MapPinIcon className="w-5 h-5 text-[#FF6700]" />
+              <MapPinIcon className="w-5 h-5 text-[#FFCB05]" />
               <span>{data.location}</span>
             </div>
           </motion.div>
@@ -422,7 +422,7 @@ export default function ConferencePageClient() {
           >
             <a
               href="#tickets"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl bg-gradient-to-r from-[#FF6700] to-[#FF5500] hover:from-[#ff7a1a] hover:to-[#ff6700] text-white font-extrabold text-base sm:text-lg shadow-xl shadow-orange-600/30 hover:shadow-orange-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border border-orange-400/40"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl bg-gradient-to-r from-[#FFCB05] to-[#F5B700] hover:from-[#FFD84D] hover:to-[#FFCB05] text-[#00274c] font-extrabold text-base sm:text-lg shadow-xl shadow-[#E6B700]/30 hover:shadow-[#FFCB05]/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border border-[#FFD633]/40"
             >
               <TicketIcon className="w-5 h-5" />
               <span>{data.ticketButtonText || "Buy Tickets"}</span>
@@ -463,16 +463,16 @@ export default function ConferencePageClient() {
             transition={{ duration: 0.8 }}
             className="lg:col-span-7 space-y-6"
           >
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-[#FF6700] text-xs font-extrabold uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FFCB05]/10 border border-[#FFCB05]/30 text-[#FFCB05] text-xs font-extrabold uppercase tracking-wider">
               <SparklesIcon className="w-4 h-4" />
               <span>About The Conference</span>
             </div>
 
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white leading-tight">
-              Shaping the Intersection of <span className="text-[#FF6700]">AI & Business</span>
+              Shaping the Intersection of <span className="text-[#FFCB05]">AI & Business</span>
             </h2>
 
-            <div className="w-20 h-1.5 bg-gradient-to-r from-[#FF6700] to-transparent rounded-full" />
+            <div className="w-20 h-1.5 bg-gradient-to-r from-[#FFCB05] to-transparent rounded-full" />
 
             {/* Provided prompt description text */}
             <p className="text-base sm:text-lg lg:text-xl text-white/85 leading-relaxed font-normal">
@@ -482,7 +482,7 @@ export default function ConferencePageClient() {
             {/* Key stats row */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4">
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
-                <div className="text-3xl sm:text-4xl font-black text-[#FF6700]">300+</div>
+                <div className="text-3xl sm:text-4xl font-black text-[#FFCB05]">300+</div>
                 <div className="text-xs sm:text-sm text-white/70 font-semibold mt-1">Attendees & Leaders</div>
               </div>
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
@@ -490,7 +490,7 @@ export default function ConferencePageClient() {
                 <div className="text-xs sm:text-sm text-white/70 font-semibold mt-1">Ross School of Business</div>
               </div>
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm col-span-2 sm:col-span-1">
-                <div className="text-3xl sm:text-4xl font-black text-orange-400">2 Key Tracks</div>
+                <div className="text-3xl sm:text-4xl font-black text-[#FFD633]">2 Key Tracks</div>
                 <div className="text-xs sm:text-sm text-white/70 font-semibold mt-1">Finance & VC</div>
               </div>
             </div>
@@ -504,8 +504,8 @@ export default function ConferencePageClient() {
             transition={{ duration: 0.8 }}
             className="lg:col-span-5 grid grid-cols-1 gap-4"
           >
-            <div className="p-6 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/15 backdrop-blur-lg hover:border-orange-500/40 transition-all duration-300 shadow-xl">
-              <div className="w-12 h-12 rounded-xl bg-orange-500/20 text-[#FF6700] flex items-center justify-center mb-4 border border-orange-500/30">
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/15 backdrop-blur-lg hover:border-[#FFCB05]/40 transition-all duration-300 shadow-xl">
+              <div className="w-12 h-12 rounded-xl bg-[#FFCB05]/20 text-[#FFCB05] flex items-center justify-center mb-4 border border-[#FFCB05]/30">
                 <BriefcaseIcon className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Finance & Quantitative Strategy</h3>
@@ -514,7 +514,7 @@ export default function ConferencePageClient() {
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/15 backdrop-blur-lg hover:border-orange-500/40 transition-all duration-300 shadow-xl">
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/15 backdrop-blur-lg hover:border-[#FFCB05]/40 transition-all duration-300 shadow-xl">
               <div className="w-12 h-12 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center mb-4 border border-blue-500/30">
                 <BuildingOffice2Icon className="w-6 h-6" />
               </div>
@@ -524,8 +524,8 @@ export default function ConferencePageClient() {
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/15 backdrop-blur-lg hover:border-orange-500/40 transition-all duration-300 shadow-xl">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-4 border border-amber-500/30">
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/15 backdrop-blur-lg hover:border-[#FFCB05]/40 transition-all duration-300 shadow-xl">
+              <div className="w-12 h-12 rounded-xl bg-[#FFCB05]/20 text-[#FFD633] flex items-center justify-center mb-4 border border-[#FFCB05]/30">
                 <UserGroupIcon className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Coffee Chats & High-Impact Networking</h3>
@@ -548,7 +548,7 @@ export default function ConferencePageClient() {
       <section id="speakers" className="py-20 bg-[#00172e] border-y border-white/10 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-[#FF6700] text-xs font-extrabold uppercase tracking-wider mb-4">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FFCB05]/10 border border-[#FFCB05]/30 text-[#FFCB05] text-xs font-extrabold uppercase tracking-wider mb-4">
               <UserGroupIcon className="w-4 h-4" />
               <span>Distinguished Lineup</span>
             </div>
@@ -580,7 +580,7 @@ export default function ConferencePageClient() {
       ────────────────────────────────────────────────────────────────────────────── */}
       <section id="schedule" className="py-20 lg:py-28 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-[#FF6700] text-xs font-extrabold uppercase tracking-wider mb-4">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FFCB05]/10 border border-[#FFCB05]/30 text-[#FFCB05] text-xs font-extrabold uppercase tracking-wider mb-4">
             <ClockIcon className="w-4 h-4" />
             <span>Event Itinerary</span>
           </div>
@@ -602,11 +602,11 @@ export default function ConferencePageClient() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: idx * 0.05 }}
-                className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-white/5 hover:bg-white/[0.08] border border-white/10 hover:border-orange-500/30 backdrop-blur-sm transition-all duration-200"
+                className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-white/5 hover:bg-white/[0.08] border border-white/10 hover:border-[#FFCB05]/30 backdrop-blur-sm transition-all duration-200"
               >
                 <div className="flex items-start gap-4 sm:gap-6">
                   {/* Time Badge */}
-                  <div className="flex-shrink-0 min-w-[140px] px-3.5 py-2 rounded-xl bg-orange-500/10 border border-orange-500/20 text-[#FF6700] text-xs sm:text-sm font-black flex items-center gap-2">
+                  <div className="flex-shrink-0 min-w-[140px] px-3.5 py-2 rounded-xl bg-[#FFCB05]/10 border border-[#FFCB05]/20 text-[#FFCB05] text-xs sm:text-sm font-black flex items-center gap-2">
                     <ClockIcon className="w-4 h-4" />
                     <span>{item.time}</span>
                   </div>
@@ -629,7 +629,7 @@ export default function ConferencePageClient() {
 
                 {item.location && (
                   <div className="flex-shrink-0 flex items-center gap-1.5 text-xs text-white/70 bg-white/10 px-3 py-1.5 rounded-lg border border-white/10 self-start sm:self-center">
-                    <MapPinIcon className="w-3.5 h-3.5 text-[#FF6700]" />
+                    <MapPinIcon className="w-3.5 h-3.5 text-[#FFCB05]" />
                     <span>{item.location}</span>
                   </div>
                 )}
@@ -649,7 +649,7 @@ export default function ConferencePageClient() {
       <section id="sponsors" className="py-20 bg-[#00172e] border-t border-white/10 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-[#FF6700] text-xs font-extrabold uppercase tracking-wider mb-4">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FFCB05]/10 border border-[#FFCB05]/30 text-[#FFCB05] text-xs font-extrabold uppercase tracking-wider mb-4">
               <BuildingOffice2Icon className="w-4 h-4" />
               <span>Partnership & Support</span>
             </div>
@@ -678,7 +678,7 @@ export default function ConferencePageClient() {
                 {sponsorSingleSet.map((sponsor, idx) => (
                   <div
                     key={`sponsor-a-${sponsor.id || idx}-${idx}`}
-                    className="w-72 sm:w-80 flex-shrink-0 p-6 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-orange-500/40 hover:bg-white/[0.08] backdrop-blur-sm flex flex-col items-center justify-center text-center group transition-all duration-300 shadow-lg hover:shadow-orange-500/10 select-none"
+                    className="w-72 sm:w-80 flex-shrink-0 p-6 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-[#FFCB05]/40 hover:bg-white/[0.08] backdrop-blur-sm flex flex-col items-center justify-center text-center group transition-all duration-300 shadow-lg hover:shadow-[#FFCB05]/10 select-none"
                   >
                     <div className="h-20 w-full flex items-center justify-center mb-4 px-4">
                       {sponsor.logoUrl ? (
@@ -699,10 +699,10 @@ export default function ConferencePageClient() {
                       </div>
                     </div>
 
-                    <h3 className="font-bold text-white text-sm sm:text-base line-clamp-1 group-hover:text-[#FF6700] transition-colors">
+                    <h3 className="font-bold text-white text-sm sm:text-base line-clamp-1 group-hover:text-[#FFCB05] transition-colors">
                       {sponsor.name}
                     </h3>
-                    <span className="mt-1 text-[11px] font-extrabold uppercase tracking-widest text-[#FF6700]">
+                    <span className="mt-1 text-[11px] font-extrabold uppercase tracking-widest text-[#FFCB05]">
                       {sponsor.tier} Partner
                     </span>
 
@@ -726,7 +726,7 @@ export default function ConferencePageClient() {
                 {sponsorSingleSet.map((sponsor, idx) => (
                   <div
                     key={`sponsor-b-${sponsor.id || idx}-${idx}`}
-                    className="w-72 sm:w-80 flex-shrink-0 p-6 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-orange-500/40 hover:bg-white/[0.08] backdrop-blur-sm flex flex-col items-center justify-center text-center group transition-all duration-300 shadow-lg hover:shadow-orange-500/10 select-none"
+                    className="w-72 sm:w-80 flex-shrink-0 p-6 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-[#FFCB05]/40 hover:bg-white/[0.08] backdrop-blur-sm flex flex-col items-center justify-center text-center group transition-all duration-300 shadow-lg hover:shadow-[#FFCB05]/10 select-none"
                   >
                     <div className="h-20 w-full flex items-center justify-center mb-4 px-4">
                       {sponsor.logoUrl ? (
@@ -747,10 +747,10 @@ export default function ConferencePageClient() {
                       </div>
                     </div>
 
-                    <h3 className="font-bold text-white text-sm sm:text-base line-clamp-1 group-hover:text-[#FF6700] transition-colors">
+                    <h3 className="font-bold text-white text-sm sm:text-base line-clamp-1 group-hover:text-[#FFCB05] transition-colors">
                       {sponsor.name}
                     </h3>
-                    <span className="mt-1 text-[11px] font-extrabold uppercase tracking-widest text-[#FF6700]">
+                    <span className="mt-1 text-[11px] font-extrabold uppercase tracking-widest text-[#FFCB05]">
                       {sponsor.tier} Partner
                     </span>
 
@@ -779,9 +779,9 @@ export default function ConferencePageClient() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
-            className="max-w-4xl mx-auto rounded-3xl p-8 sm:p-12 bg-gradient-to-r from-orange-950/40 via-orange-900/20 to-blue-950/40 border border-orange-500/30 backdrop-blur-lg shadow-2xl text-center relative overflow-hidden"
+            className="max-w-4xl mx-auto rounded-3xl p-8 sm:p-12 bg-gradient-to-r from-[#2E2400]/40 via-[#4D3D00]/20 to-blue-950/40 border border-[#FFCB05]/30 backdrop-blur-lg shadow-2xl text-center relative overflow-hidden"
           >
-            <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#FF6700]/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#FFCB05]/20 rounded-full blur-3xl pointer-events-none" />
             <div className="relative z-10">
               <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white">
                 Interested in Sponsoring the Conference?
@@ -792,7 +792,7 @@ export default function ConferencePageClient() {
               <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
                 <a
                   href={data.sponsorButtonUrl || "mailto:ABGContact@umich.edu?subject=Michigan%20AI%20Business%20Conference%20Sponsorship"}
-                  className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-[#FF6700] hover:bg-[#FF7700] text-white font-extrabold text-base sm:text-lg shadow-lg shadow-orange-600/30 hover:shadow-orange-500/50 hover:scale-[1.02] transition-all duration-300 border border-orange-400/30"
+                  className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-[#FFCB05] hover:bg-[#FFD84D] text-[#00274c] font-extrabold text-base sm:text-lg shadow-lg shadow-[#E6B700]/30 hover:shadow-[#FFCB05]/50 hover:scale-[1.02] transition-all duration-300 border border-[#FFD633]/30"
                 >
                   <EnvelopeIcon className="w-5 h-5" />
                   <span>{data.sponsorButtonText || "Become a Sponsor"}</span>

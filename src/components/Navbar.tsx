@@ -150,7 +150,7 @@ export default function Navbar() {
   return (
     <nav className={`sticky top-0 z-50 bg-[#00274c]/95 backdrop-blur-md transition-all duration-300 shadow-lg ${
       isConferenceActive 
-        ? 'border-b-2 border-[#FF6700] shadow-[0_4px_25px_rgba(255,103,0,0.25)]' 
+        ? 'border-b-2 border-[#FFCB05] shadow-[0_4px_25px_rgba(255,203,5,0.25)]' 
         : 'border-b border-white/10'
     }`}>
       <div className="px-6 sm:px-8 lg:px-12 py-4 sm:py-3">
@@ -215,7 +215,7 @@ export default function Navbar() {
                       item.label === "Admin" 
                         ? "text-yellow-300 hover:text-yellow-100 hover:border-yellow-300/60" 
                         : item.glow
-                        ? "text-[#FF6700] hover:text-[#FFA04D] hover:border-[#FF6700]/60 relative sxsw-glow"
+                        ? "text-[#FFCB05] hover:text-[#FFE380] hover:border-[#FFCB05]/60 relative sxsw-glow"
                         : "text-white/80 hover:text-white"
                     }`}
                   >
@@ -323,7 +323,7 @@ export default function Navbar() {
                     onClick={() => setMobileMenuOpen(false)}
                     className={`hover:bg-white/10 transition-all duration-200 py-4 px-2 font-bold text-base rounded-lg min-h-[56px] flex items-center ${
                       item.glow 
-                        ? "text-[#FF6700] sxsw-glow" 
+                        ? "text-[#FFCB05] sxsw-glow" 
                         : "text-white/80 hover:text-white"
                     }`}
                   >

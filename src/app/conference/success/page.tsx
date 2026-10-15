@@ -55,7 +55,7 @@ function ConferenceSuccessContent() {
       <div className="min-h-screen bg-[#00172e] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
         <FloatingShapes variant="dense" opacity={0.06} />
         <div className="relative z-10 flex flex-col items-center text-center">
-          <div className="w-16 h-16 border-4 border-orange-500/20 border-t-[#FF6700] rounded-full animate-spin mb-4" />
+          <div className="w-16 h-16 border-4 border-[#FFCB05]/20 border-t-[#FFCB05] rounded-full animate-spin mb-4" />
           <h2 className="text-2xl font-black text-white">Generating Your Conference Pass...</h2>
           <p className="text-white/60 text-sm mt-2 max-w-sm">
             Verifying your payment with Stripe and creating your official check-in badge.
@@ -70,7 +70,7 @@ function ConferenceSuccessContent() {
       <div className="min-h-screen bg-[#00172e] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
         <FloatingShapes variant="dense" opacity={0.06} />
         <div className="relative z-10 max-w-md w-full bg-white/5 border border-white/10 rounded-3xl p-8 text-center backdrop-blur-xl">
-          <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-[#FFCB05]/20 border border-[#FFCB05]/30 text-[#FFD633] flex items-center justify-center mx-auto mb-4">
             <TicketIcon className="w-7 h-7" />
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Notice</h2>
@@ -79,7 +79,7 @@ function ConferenceSuccessContent() {
           </p>
           <Link
             href="/conference"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#FF6700] hover:bg-[#FF7700] text-white font-bold transition-all text-sm"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#FFCB05] hover:bg-[#FFD84D] text-[#00274c] font-bold transition-all text-sm"
           >
             <ArrowLeftIcon className="w-4 h-4" />
             <span>Return to Conference Page</span>
@@ -90,7 +90,7 @@ function ConferenceSuccessContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#00172e] text-white selection:bg-[#FF6700] selection:text-white py-12 px-4 sm:px-6 relative overflow-hidden print:bg-white print:text-black print:p-0">
+    <div className="min-h-screen bg-[#00172e] text-white selection:bg-[#FFCB05] selection:text-[#00274c] py-12 px-4 sm:px-6 relative overflow-hidden print:bg-white print:text-black print:p-0">
       <FloatingShapes variant="dense" opacity={0.06} />
 
       <div className="max-w-3xl mx-auto relative z-10">
@@ -121,29 +121,29 @@ function ConferenceSuccessContent() {
         </div>
 
         {/* ── THE OFFICIAL DIGITAL PASS CARD ── */}
-        <div className="bg-gradient-to-b from-[#00274c] to-[#001e3b] border-2 border-[#FF6700]/40 rounded-3xl overflow-hidden shadow-2xl shadow-black/60 backdrop-blur-xl print:border-black print:bg-white print:text-black">
+        <div className="bg-gradient-to-b from-[#00274c] to-[#001e3b] border-2 border-[#FFCB05]/40 rounded-3xl overflow-hidden shadow-2xl shadow-black/60 backdrop-blur-xl print:border-black print:bg-white print:text-black">
           
           {/* Card Top Banner */}
-          <div className="bg-gradient-to-r from-[#FF6700] via-[#FF5500] to-[#E64D00] p-6 sm:p-8 text-white relative">
+          <div className="bg-gradient-to-r from-[#FFCB05] via-[#F5B700] to-[#E0A800] p-6 sm:p-8 text-[#00274c] relative">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-[11px] font-extrabold uppercase tracking-wider mb-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#00274c]/10 text-[#00274c] text-[11px] font-extrabold uppercase tracking-wider mb-2">
                   <SparklesIcon className="w-3.5 h-3.5" />
                   <span>Official Admission Pass</span>
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
                   Michigan AI Business Conference 2026
                 </h2>
-                <p className="text-white/90 text-sm font-semibold mt-1">
+                <p className="text-[#00274c]/80 text-sm font-semibold mt-1">
                   University of Michigan • Stephen M. Ross School of Business
                 </p>
               </div>
 
               <div className="text-right">
-                <div className="text-xs uppercase tracking-wider text-white/80 font-bold">
+                <div className="text-xs uppercase tracking-wider text-[#00274c]/70 font-bold">
                   Pass Type
                 </div>
-                <div className="text-lg sm:text-xl font-black text-white">
+                <div className="text-lg sm:text-xl font-black text-[#00274c]">
                   {ticket.tier}
                 </div>
               </div>
@@ -155,7 +155,7 @@ function ConferenceSuccessContent() {
             {/* Left Column: Attendee & Event Info */}
             <div className="md:col-span-7 space-y-6">
               <div>
-                <div className="text-xs uppercase tracking-widest text-[#FF6700] font-extrabold mb-1">
+                <div className="text-xs uppercase tracking-widest text-[#FFCB05] font-extrabold mb-1">
                   Attendee Name
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-white print:text-black">
@@ -172,7 +172,7 @@ function ConferenceSuccessContent() {
                     Date & Time
                   </div>
                   <div className="text-sm font-bold text-white print:text-black mt-1 flex items-center gap-1.5">
-                    <CalendarIcon className="w-4 h-4 text-[#FF6700]" />
+                    <CalendarIcon className="w-4 h-4 text-[#FFCB05]" />
                     <span>Fri, Oct 23, 2026</span>
                   </div>
                   <div className="text-xs text-white/70 print:text-gray-600">8:30 AM - 5:30 PM EDT</div>
@@ -183,7 +183,7 @@ function ConferenceSuccessContent() {
                     Location
                   </div>
                   <div className="text-sm font-bold text-white print:text-black mt-1 flex items-center gap-1.5">
-                    <MapPinIcon className="w-4 h-4 text-[#FF6700]" />
+                    <MapPinIcon className="w-4 h-4 text-[#FFCB05]" />
                     <span>Ross School of Business</span>
                   </div>
                   <div className="text-xs text-white/70 print:text-gray-600">Blau Colloquium Hallway Registration</div>
@@ -193,7 +193,7 @@ function ConferenceSuccessContent() {
                   <div className="text-xs text-white/50 print:text-gray-500 font-bold uppercase tracking-wider">
                     Ticket Code
                   </div>
-                  <div className="text-sm font-black text-orange-300 print:text-black mt-1 tracking-widest font-mono">
+                  <div className="text-sm font-black text-[#FFE066] print:text-black mt-1 tracking-widest font-mono">
                     {ticket.ticketCode}
                   </div>
                 </div>
@@ -251,7 +251,7 @@ function ConferenceSuccessContent() {
             href={getGoogleCalendarUrl()}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#FF6700] hover:bg-[#FF7700] text-white font-extrabold text-sm shadow-lg shadow-orange-600/30 hover:scale-[1.02] transition-all"
+            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#FFCB05] hover:bg-[#FFD84D] text-[#00274c] font-extrabold text-sm shadow-lg shadow-[#E6B700]/30 hover:scale-[1.02] transition-all"
           >
             <CalendarIcon className="w-5 h-5" />
             <span>Add to Google Calendar</span>
@@ -276,7 +276,7 @@ export default function ConferenceSuccessPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#00172e] text-white flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-orange-500/20 border-t-[#FF6700] rounded-full animate-spin" />
+          <div className="w-12 h-12 border-4 border-[#FFCB05]/20 border-t-[#FFCB05] rounded-full animate-spin" />
         </div>
       }
     >
