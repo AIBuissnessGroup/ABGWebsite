@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { CalendarIcon, MapPinIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import { analytics } from '@/lib/analytics';
 import { useRouter } from 'next/navigation';
+import ConferenceLineupCarousel from '@/components/conference/ConferenceLineupCarousel';
 
 // Helper function to check if event is SXSW
 const isSXSWEvent = (title: string): boolean => {
@@ -318,6 +319,7 @@ export default function EventCountdown({
           {nextEvent?.title || eventName}
         </motion.h3>
         
+        {!isConference && (
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -329,6 +331,7 @@ export default function EventCountdown({
             (nextEvent?.description || eventDescription)
           }
         </motion.p>
+        )}
 
         {/* Conference: date and location pill */}
         {isConference && nextEvent && (
@@ -415,6 +418,18 @@ export default function EventCountdown({
           </motion.div>
         ))}
       </motion.div>
+
+      {/* Conference: rotating speaker lineup */}
+      {isConference && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.8 }}
+          className="relative z-10 pt-2 sm:pt-3"
+        >
+          <ConferenceLineupCarousel />
+        </motion.div>
+      )}
 
       {/* Event Partners - Below Countdown */}
       {nextEvent && nextEvent.partnerships && nextEvent.partnerships.length > 0 ? (

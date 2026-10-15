@@ -7,7 +7,6 @@ import { useSession } from 'next-auth/react';
 import { 
   CalendarIcon, 
   MapPinIcon, 
-  ClockIcon, 
   TicketIcon, 
   ArrowTopRightOnSquareIcon,
   SparklesIcon,
@@ -16,215 +15,15 @@ import {
   ChevronDownIcon,
   EyeSlashIcon,
   EnvelopeIcon,
-  BriefcaseIcon,
-  ArrowPathIcon
+  BriefcaseIcon
 } from '@heroicons/react/24/outline';
-import { FaLinkedin } from 'react-icons/fa';
 import FloatingShapes from '@/components/FloatingShapes';
 import Footer from '@/components/Footer';
-import { ConferenceData, ConferenceSpeaker } from '@/types/conference';
+import { ConferenceData } from '@/types/conference';
 import { DEFAULT_CONFERENCE_DATA } from '@/lib/conference-defaults';
 import { isAdmin } from '@/lib/roles';
 import ConferenceTicketSection from '@/components/conference/ConferenceTicketSection';
-
-/**
- * 3D Interactive Speaker Card with Flip Effect on Hover & Touch
- */
-function ConferenceSpeakerCard({ speaker, index }: { speaker: ConferenceSpeaker; index: number }) {
-  const [isFlipped, setIsFlipped] = useState(false);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 25 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5, delay: index * 0.08 }}
-      className="group relative w-full h-[440px] perspective-1000 cursor-pointer select-none"
-      onClick={() => setIsFlipped((prev) => !prev)}
-      onMouseEnter={() => setIsFlipped(true)}
-      onMouseLeave={() => setIsFlipped(false)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          setIsFlipped((prev) => !prev);
-        }
-      }}
-      tabIndex={0}
-      role="button"
-      aria-label={`Speaker card for ${speaker.name}. Hover or tap to view bio.`}
-    >
-      <div
-        className={`relative w-full h-full preserve-3d transition-transform duration-700 ease-out ${
-          isFlipped ? 'rotate-y-180' : ''
-        }`}
-      >
-        {/* ── FRONT FACE ──────────────────────────────────────────────────────── */}
-        <div className="absolute inset-0 w-full h-full backface-hidden flex flex-col justify-between bg-gradient-to-b from-white/10 to-white/[0.03] border border-white/15 group-hover:border-[#FFCB05]/50 rounded-2xl p-5 backdrop-blur-md transition-all duration-300 shadow-xl group-hover:shadow-2xl group-hover:shadow-[#2E2400]/30">
-          <div>
-            {/* Photo Container */}
-            <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-3.5 bg-gradient-to-br from-[#00274c] to-[#00172e] border border-white/20 shadow-inner flex items-center justify-center">
-              {speaker.photoUrl ? (
-                <img
-                  src={speaker.photoUrl}
-                  alt={speaker.name}
-                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const fallback = target.parentElement?.querySelector('.avatar-fallback');
-                    if (fallback) fallback.classList.remove('hidden');
-                  }}
-                />
-              ) : null}
-
-              {/* Initials Fallback */}
-              <div
-                className={`avatar-fallback w-full h-full flex items-center justify-center text-white/80 font-black text-2xl ${
-                  speaker.photoUrl ? 'hidden' : ''
-                }`}
-              >
-                {speaker.name
-                  ? speaker.name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .slice(0, 2)
-                    .join('')
-                  : 'AI'}
-              </div>
-
-              {/* Speaker Index Badge */}
-              <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-white/90 text-[10px] font-bold border border-white/10">
-                #{index + 1}
-              </span>
-
-              {/* LinkedIn badge on front */}
-              {speaker.linkedinUrl && (
-                <a
-                  href={speaker.linkedinUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-[#0077b5] text-white/90 hover:text-white backdrop-blur-sm transition-colors duration-200 shadow-md"
-                  title="LinkedIn Profile"
-                >
-                  <FaLinkedin className="w-3.5 h-3.5" />
-                </a>
-              )}
-            </div>
-
-            {/* Speaker Info */}
-            <div className="text-center">
-              <h3 className="font-extrabold text-base lg:text-lg text-white group-hover:text-[#FFE066] transition-colors duration-200 line-clamp-1">
-                {speaker.name}
-              </h3>
-              <p className="text-xs font-semibold text-[#FFCB05] mt-1 line-clamp-1">
-                {speaker.role}
-              </p>
-
-              {/* Company Glass Bubble */}
-              <div className="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-white/10 text-white/80 text-[11px] font-bold border border-white/10 line-clamp-1">
-                {speaker.company}
-              </div>
-
-              {/* Conference Event Space (under company with clear ice-blue tint to differentiate from company pill) */}
-              {speaker.event && (
-                <div className="mt-1.5 flex justify-center">
-                  <div
-                    className="w-full max-w-[210px] px-2.5 py-1 rounded-xl bg-sky-500/15 border border-sky-400/30 text-sky-200 text-[10.5px] font-medium leading-[1.35] line-clamp-3 backdrop-blur-xs text-center group-hover:bg-sky-500/25 group-hover:border-sky-300/45 group-hover:text-sky-100 transition-colors"
-                    title={speaker.event}
-                  >
-                    {speaker.event}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Bottom Flip Cue */}
-          <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-center gap-1.5 text-[11px] font-medium text-white/60 group-hover:text-[#FFD633] transition-colors">
-            <ArrowPathIcon className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-500" />
-            <span>Hover for Bio</span>
-          </div>
-        </div>
-
-        {/* ── BACK FACE (FLIPPED REVEALING BIO) ────────────────────────────────── */}
-        <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180 rounded-2xl p-5 bg-gradient-to-b from-[#002855] via-[#001c38] to-[#001026] border-2 border-[#FFCB05]/60 backdrop-blur-xl shadow-2xl shadow-[#2E2400]/50 flex flex-col justify-between overflow-hidden text-left">
-          {/* Top Speaker Details */}
-          <div>
-            <div className="flex items-center gap-2.5 mb-2.5">
-              <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#00172e] border border-[#FFCB05]/40 flex-shrink-0 flex items-center justify-center shadow-inner">
-                {speaker.photoUrl ? (
-                  <img src={speaker.photoUrl} alt={speaker.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-white text-xs font-black">
-                    {speaker.name ? speaker.name.charAt(0) : 'S'}
-                  </span>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="font-extrabold text-sm text-white truncate leading-tight">
-                  {speaker.name}
-                </h4>
-                <p className="text-[11px] text-[#FFCB05] font-semibold truncate mt-0.5">
-                  {speaker.role}
-                </p>
-                <p className="text-[10px] text-white/60 truncate font-medium">
-                  {speaker.company}
-                </p>
-                {speaker.event && (
-                  <p className="text-[10px] text-white/70 font-medium leading-snug line-clamp-2 mt-0.5" title={speaker.event}>
-                    Session: <span className="text-sky-200 font-semibold">{speaker.event}</span>
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-[#FFD633]/90 py-1 border-y border-white/10">
-              <SparklesIcon className="w-3 h-3 text-[#FFCB05]" />
-              <span>Speaker Bio</span>
-            </div>
-          </div>
-
-          {/* Middle Bio Section with Smooth Scroll */}
-          <div className="my-auto py-2.5 overflow-y-auto max-h-[160px] pr-1.5 text-xs text-white/90 leading-relaxed font-normal">
-            {speaker.bio ? (
-              <p className="whitespace-pre-line">{speaker.bio}</p>
-            ) : (
-              <p className="text-white/50 italic">
-                Speaker bio to be announced soon. Check back closer to the conference.
-              </p>
-            )}
-          </div>
-
-          {/* Bottom Footer / LinkedIn Button */}
-          <div className="pt-2 border-t border-white/10 space-y-1.5">
-            {speaker.linkedinUrl ? (
-              <a
-                href={speaker.linkedinUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="w-full py-2 px-3 rounded-xl bg-[#0077b5]/30 hover:bg-[#0077b5] text-white border border-[#0077b5]/50 flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-200 shadow-sm"
-              >
-                <FaLinkedin className="w-3.5 h-3.5" />
-                <span>LinkedIn Profile</span>
-                <ArrowTopRightOnSquareIcon className="w-3 h-3 opacity-80" />
-              </a>
-            ) : (
-              <div className="text-center text-[11px] font-medium text-white/70 py-1">
-                {speaker.company}
-              </div>
-            )}
-            <div className="text-center text-[10px] text-white/40 flex items-center justify-center gap-1">
-              <ArrowPathIcon className="w-2.5 h-2.5 opacity-60" />
-              <span>Hover off to flip</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
+import ConferenceLineup from '@/components/conference/ConferenceLineup';
 
 export default function ConferencePageClient() {
   const { data: session } = useSession();
@@ -239,16 +38,6 @@ export default function ConferencePageClient() {
     const repeatCount = Math.max(1, Math.ceil(8 / rawSponsors.length));
     return Array.from({ length: repeatCount }, () => rawSponsors).flat();
   }, [data.sponsors]);
-
-  // Sort speakers strictly by their order property
-  const sortedSpeakers = useMemo(() => {
-    return [...(data.speakers || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  }, [data.speakers]);
-
-  // Sort schedule strictly by their order property
-  const sortedSchedule = useMemo(() => {
-    return [...(data.schedule || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  }, [data.schedule]);
 
   // Clean description to ensure business strategy is removed
   const conferenceDescription = useMemo(() => {
@@ -310,7 +99,7 @@ export default function ConferencePageClient() {
       {/* ─────────────────────────────────────────────────────────────────────────────
           1. HERO / TITLE SECTION (Faded Background Image)
       ────────────────────────────────────────────────────────────────────────────── */}
-      <section className="relative min-h-[90vh] flex flex-col justify-center items-center text-center px-4 sm:px-6 lg:px-8 py-20 overflow-hidden">
+      <section className="relative flex flex-col justify-center items-center text-center px-4 sm:px-6 lg:px-8 pt-24 pb-20 sm:pt-28 overflow-hidden">
         {/* Faded Background Image with Multi-layer Gradient Overlays */}
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-1000 scale-105"
@@ -451,6 +240,11 @@ export default function ConferencePageClient() {
       </section>
 
       {/* ─────────────────────────────────────────────────────────────────────────────
+          1.5. SPEAKER LINEUP (session posters in agenda order)
+      ────────────────────────────────────────────────────────────────────────────── */}
+      <ConferenceLineup backgroundImageUrl={data.backgroundImageUrl} />
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
           2. EVENT DESCRIPTION & KEY PILLARS
       ────────────────────────────────────────────────────────────────────────────── */}
       <section id="about" className="py-20 lg:py-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto relative">
@@ -541,107 +335,6 @@ export default function ConferencePageClient() {
           2.5. TICKETS & PASSES SECTION
       ────────────────────────────────────────────────────────────────────────────── */}
       <ConferenceTicketSection />
-
-      {/* ─────────────────────────────────────────────────────────────────────────────
-          3. SPEAKERS SECTION (5 cards in a row on standard laptop screen)
-      ────────────────────────────────────────────────────────────────────────────── */}
-      <section id="speakers" className="py-20 bg-[#00172e] border-y border-white/10 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FFCB05]/10 border border-[#FFCB05]/30 text-[#FFCB05] text-xs font-extrabold uppercase tracking-wider mb-4">
-              <UserGroupIcon className="w-4 h-4" />
-              <span>Distinguished Lineup</span>
-            </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white">
-              {data.speakersTitle || "Featured Speakers & Panelists"}
-            </h2>
-            <p className="mt-4 text-white/70 text-base sm:text-lg">
-              {data.speakersDescription || "Keynote speakers and expert panelists from world-leading financial institutions, venture firms, and academia."}
-            </p>
-          </div>
-
-          {/* 5 cards in a row on laptop/desktop: lg:grid-cols-5 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-5">
-            {sortedSpeakers && sortedSpeakers.length > 0 ? (
-              sortedSpeakers.map((speaker, index) => (
-                <ConferenceSpeakerCard key={speaker.id || index} speaker={speaker} index={index} />
-              ))
-            ) : (
-              <div className="col-span-full py-12 text-center text-white/60">
-                Speaker lineup will be announced soon.
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────────────────────────
-          4. SCHEDULE SECTION (To be specified / customized)
-      ────────────────────────────────────────────────────────────────────────────── */}
-      <section id="schedule" className="py-20 lg:py-28 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FFCB05]/10 border border-[#FFCB05]/30 text-[#FFCB05] text-xs font-extrabold uppercase tracking-wider mb-4">
-            <ClockIcon className="w-4 h-4" />
-            <span>Event Itinerary</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white">
-            {data.scheduleTitle || "Event Schedule"}
-          </h2>
-          <p className="mt-4 text-white/70 text-base sm:text-lg">
-            {data.scheduleDescription || "Detailed session times, keynote presentations, and breakout opportunities throughout the day."}
-          </p>
-        </div>
-
-        {/* Schedule timeline items */}
-        <div className="space-y-4">
-          {sortedSchedule && sortedSchedule.length > 0 ? (
-            sortedSchedule.map((item, idx) => (
-              <motion.div
-                key={item.id || idx}
-                initial={{ opacity: 0, y: 15 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: idx * 0.05 }}
-                className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-white/5 hover:bg-white/[0.08] border border-white/10 hover:border-[#FFCB05]/30 backdrop-blur-sm transition-all duration-200"
-              >
-                <div className="flex items-start gap-4 sm:gap-6">
-                  {/* Time Badge */}
-                  <div className="flex-shrink-0 min-w-[140px] px-3.5 py-2 rounded-xl bg-[#FFCB05]/10 border border-[#FFCB05]/20 text-[#FFCB05] text-xs sm:text-sm font-black flex items-center gap-2">
-                    <ClockIcon className="w-4 h-4" />
-                    <span>{item.time}</span>
-                  </div>
-
-                  <div>
-                    <h3 className="font-bold text-base sm:text-lg text-white">
-                      {item.title}
-                    </h3>
-                    {item.description && (
-                      <div className="mt-2 text-xs sm:text-sm text-white/70 leading-relaxed space-y-2">
-                        {item.description.split(/\n\s*\n/).map((para, pIdx) => (
-                          <p key={pIdx} className="whitespace-pre-line leading-relaxed">
-                            {para.trim()}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {item.location && (
-                  <div className="flex-shrink-0 flex items-center gap-1.5 text-xs text-white/70 bg-white/10 px-3 py-1.5 rounded-lg border border-white/10 self-start sm:self-center">
-                    <MapPinIcon className="w-3.5 h-3.5 text-[#FFCB05]" />
-                    <span>{item.location}</span>
-                  </div>
-                )}
-              </motion.div>
-            ))
-          ) : (
-            <div className="p-8 rounded-2xl bg-white/5 border border-white/10 text-center text-white/70">
-              Schedule details will be updated as speakers and panels are confirmed.
-            </div>
-          )}
-        </div>
-      </section>
 
       {/* ─────────────────────────────────────────────────────────────────────────────
           5. SPONSORS SECTION & BECOME A SPONSOR
