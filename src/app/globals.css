@@ -688,6 +688,45 @@ body.profile-page .text-white {
   transform: translateY(-4px);
 }
 
+/* Michigan AI Business Conference featured event card (home page countdown) */
+@property --conf-angle {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 140deg;
+}
+
+.conference-featured-event {
+  --conf-angle: 140deg;
+  border-color: transparent !important;
+  border-radius: 16px !important;
+}
+
+/* Maize edge that is strongest at two opposite corners and fades along the sides */
+.conference-featured-event::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(var(--conf-angle), #FFCB05, rgba(255, 203, 5, 0.08) 45%, rgba(255, 203, 5, 0.08) 60%, #FFCB05);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 20;
+  opacity: 0.85;
+  transition: opacity 0.3s ease, --conf-angle 0.25s ease-out;
+}
+
+.conference-featured-event:hover {
+  border-color: transparent !important;
+  box-shadow: none;
+}
+
+.conference-featured-event:hover::after {
+  opacity: 1;
+}
+
 /* Timeline Styles */
 .timeline-item {
   position: relative;

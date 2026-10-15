@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { CalendarIcon, MapPinIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import { analytics } from '@/lib/analytics';
@@ -8,6 +8,11 @@ import { useRouter } from 'next/navigation';
 // Helper function to check if event is SXSW
 const isSXSWEvent = (title: string): boolean => {
   return title?.toLowerCase().includes('sxsw');
+};
+
+// Helper function to check if event is the Michigan AI Business Conference
+const isConferenceEvent = (title: string): boolean => {
+  return title?.toLowerCase().includes('ai business conference');
 };
 
 // Helper function to format dates in ET timezone
@@ -84,6 +89,8 @@ export default function EventCountdown({
   eventDescription = "Join us for an exclusive evening exploring the future of AI in business"
 }: EventCountdownProps) {
   const router = useRouter();
+  const conferenceAngleRef = useRef(140);
+  const conferenceCardRef = useRef<HTMLDivElement>(null);
   const [timeLeft, setTimeLeft] = useState({
     days: 0,
     hours: 0,
@@ -195,6 +202,35 @@ export default function EventCountdown({
     return () => clearInterval(timer);
   }, [eventDate, nextEvent]);
 
+  // Conference card: point the gradient edge toward the mouse, wherever it is on the page
+  useEffect(() => {
+    if (!isClient || !nextEvent || !isConferenceEvent(nextEvent.title)) return;
+
+    let frame = 0;
+    const handleMouseMove = (e: MouseEvent) => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const card = conferenceCardRef.current;
+        if (!card) return;
+        const rect = card.getBoundingClientRect();
+        const dx = e.clientX - (rect.left + rect.width / 2);
+        const dy = e.clientY - (rect.top + rect.height / 2);
+        // CSS gradient angles: 0deg points up, 90deg points right
+        const target = (Math.atan2(dx, -dy) * 180) / Math.PI;
+        // Take the shortest way around so the edge never spins the long way past 180°
+        const current = conferenceAngleRef.current;
+        conferenceAngleRef.current = current + (((target - current + 540) % 360) - 180);
+        card.style.setProperty('--conf-angle', `${conferenceAngleRef.current}deg`);
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [isClient, nextEvent]);
+
   if (!isClient) {
     return (
       <div className="w-full max-w-sm mx-auto lg:max-w-none">
@@ -213,13 +249,15 @@ export default function EventCountdown({
   ];
 
   const isSXSW = nextEvent ? isSXSWEvent(nextEvent.title) : false;
+  const isConference = nextEvent ? isConferenceEvent(nextEvent.title) : false;
 
   return (
     <div className="w-full max-w-sm mx-auto lg:max-w-none">
       <div 
-        onClick={isSXSW ? () => router.push('/sxsw') : undefined}
+        onClick={isSXSW ? () => router.push('/sxsw') : isConference ? () => router.push('/conference') : undefined}
+        ref={conferenceCardRef}
         className={`glass-card p-3 sm:p-4 lg:p-6 min-h-[400px] sm:min-h-[480px] lg:min-h-[600px] flex flex-col relative overflow-hidden ${
-          isSXSW ? 'cursor-pointer sxsw-featured-event' : ''
+          isSXSW ? 'cursor-pointer sxsw-featured-event' : isConference ? 'cursor-pointer conference-featured-event' : ''
         }`}
       >
         {/* Background Image */}
@@ -246,6 +284,11 @@ export default function EventCountdown({
         
         {/* Background overlay for better text readability */}
         <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+
+        {/* Conference: Michigan Blue tint to match the /conference page */}
+        {isConference && (
+          <div className="absolute inset-0 bg-gradient-to-b from-[#00274c]/60 via-[#001e3b]/50 to-[#00172e]/80" />
+        )}
         
         {/* Background decorative elements */}
         <div className="absolute top-2 sm:top-3 right-2 sm:right-3 w-3 sm:w-4 h-3 sm:h-4 border border-white/20 rounded-full"></div>
@@ -258,7 +301,9 @@ export default function EventCountdown({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="flex items-center justify-center gap-2 text-muted text-xs sm:text-sm"
+          className={`flex items-center justify-center gap-2 text-xs sm:text-sm ${
+            isConference ? 'text-[#FFCB05] font-bold' : 'text-muted'
+          }`}
         >
           <CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4" />
           <span className="uppercase tracking-wider">Featured Event</span>
@@ -284,6 +329,26 @@ export default function EventCountdown({
             (nextEvent?.description || eventDescription)
           }
         </motion.p>
+
+        {/* Conference: date and location pill */}
+        {isConference && nextEvent && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.25 }}
+            className="pt-1 sm:pt-2"
+          >
+            <span className="inline-block px-3 py-1 rounded-full bg-[#FFCB05]/10 border border-[#FFCB05]/35 text-[#FFCB05] text-xs font-extrabold">
+              {new Date(nextEvent.eventDate).toLocaleDateString('en-US', {
+                timeZone: 'America/New_York',
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+              })}
+              {nextEvent.location?.trim() ? ` · ${nextEvent.location.trim()}` : ''}
+            </span>
+          </motion.div>
+        )}
 
         {/* Upcoming Subevents */}
         {nextEvent && nextEvent.subevents && nextEvent.subevents.length > 0 ? (
@@ -391,6 +456,7 @@ export default function EventCountdown({
         className="space-y-1 sm:space-y-2 relative z-10 mt-auto pt-2 sm:pt-3"
       >
         {/* Location and Venue */}
+        {!isConference && (
         <div className="text-center space-y-0.5">
           <div className="flex items-center justify-center gap-2 text-muted text-xs">
             <MapPinIcon className="w-3 h-3" />
@@ -402,6 +468,7 @@ export default function EventCountdown({
             </div>
           )}
         </div>
+        )}
         
         {/* Event Date */}
         <div className="text-center">
@@ -409,7 +476,7 @@ export default function EventCountdown({
             <CalendarIcon className="w-3 h-3" />
             <span>
               {nextEvent?.eventDate ? 
-                formatDateInET(new Date(nextEvent.eventDate)) : 
+                formatDateInET(new Date(nextEvent.eventDate), isConference ? 'time' : 'datetime') + (isConference ? ' ET' : '') : 
                 formatDateInET(new Date(eventDate))
               }
             </span>
@@ -423,7 +490,7 @@ export default function EventCountdown({
         
         <div className="text-center pt-1 sm:pt-2 pb-1">
           <div className="flex flex-col gap-1 sm:gap-2 justify-center items-center">
-            {nextEvent && (
+            {nextEvent && !isConference && (
               <motion.a
                 href={isSXSW ? '/sxsw' : `/events/${nextEvent.slug || generateSlug(nextEvent.title)}`}
                 onClick={() => {
@@ -450,7 +517,20 @@ export default function EventCountdown({
               </motion.a>
             )}
 
-            {nextEvent && nextEvent.registrationEnabled && !isSXSW ? (
+            {isConference && nextEvent ? (
+              <motion.a
+                href="/conference"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  analytics.events.clickRegister(nextEvent.title);
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-full bg-gradient-to-r from-[#FFCB05]/25 to-[#FFCB05]/10 hover:from-[#FFCB05]/35 hover:to-[#FFCB05]/20 border border-[#FFCB05]/50 hover:border-[#FFCB05]/80 backdrop-blur-sm rounded px-3 py-2 text-[#FFCB05] text-xs sm:text-sm font-bold transition-all duration-300 text-center"
+              >
+                {nextEvent.registrationCtaLabel || 'Register Now'} →
+              </motion.a>
+            ) : nextEvent && nextEvent.registrationEnabled && !isSXSW ? (
               <motion.button
                 onClick={(e) => {
                   e.preventDefault();
