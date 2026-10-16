@@ -70,7 +70,7 @@ function LogoBadge({ speaker, className = '' }: { speaker: LineupSpeaker; classN
   return (
     <div
       className={`rounded-[3px] px-1.5 py-1 shadow-sm flex items-center ${
-        speaker.logo.src ? 'bg-white/95' : 'bg-[#00274c] border border-[#FFCB05]/60'
+        speaker.logo.src && !speaker.logo.dark ? 'bg-white/95' : 'bg-[#00274c] border border-[#FFCB05]/60'
       } ${className}`}
     >
       {speaker.logo.src ? (
@@ -168,24 +168,34 @@ export function FaceCard({
         <div className="absolute inset-0 bg-gradient-to-b from-transparent from-40% to-[#00274c]/95" />
       </div>
 
+      {/* Logo sits top-right on larger screens; on phones it moves above the name so it doesn't cover the face */}
       {speaker.logo && size !== 'xs' && (
-        <div className="absolute top-1.5 right-2 sm:top-2.5 sm:right-3 skew-x-12">
+        <div className="hidden sm:block absolute sm:top-2.5 sm:right-3 skew-x-12">
           <LogoBadge speaker={speaker} />
         </div>
       )}
 
 
       <div className="absolute left-2.5 right-2 bottom-2 sm:left-3.5 sm:bottom-3 skew-x-12">
-        {tag && size !== 'xs' && (
-          <div className="inline-block mb-1 bg-[#FFCB05] text-[#00274c] text-[8px] sm:text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 leading-none">
-            {tag}
+        {size !== 'xs' && (speaker.logo || tag) && (
+          <div className="flex flex-wrap items-center gap-1 mb-1">
+            {speaker.logo && (
+              <div className="sm:hidden w-fit">
+                <LogoBadge speaker={speaker} />
+              </div>
+            )}
+            {tag && (
+              <div className="bg-[#FFCB05] text-[#00274c] text-[7px] sm:text-[9px] font-extrabold uppercase tracking-wide px-1 sm:px-1.5 py-0.5 leading-none">
+                {tag}
+              </div>
+            )}
           </div>
         )}
         <div className={`${sizes.name} font-bold text-white leading-tight pb-1 border-b-2 border-white block w-fit min-w-[70%]`}>
           {speaker.name}
         </div>
         {showTitle && (
-          <div className={`${sizes.title} text-white/80 mt-1 leading-snug line-clamp-3`}>
+          <div className={`${sizes.title} text-white/80 mt-1 leading-snug ${tag ? 'line-clamp-1' : 'line-clamp-2'} sm:line-clamp-3`}>
             {speaker.title}
             {speaker.company ? `, ${speaker.company}` : ''}
           </div>
@@ -240,7 +250,7 @@ function Eyebrow({ session }: { session: LineupSession }) {
 function InfoRow({ session }: { session: LineupSession }) {
   return (
     <motion.div
-      className="mt-5 flex items-end justify-between gap-6"
+      className="mt-5 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-6"
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.6 }}
@@ -252,7 +262,7 @@ function InfoRow({ session }: { session: LineupSession }) {
           {session.start} – {session.end}
         </span>
       </div>
-      <div className="font-extrabold uppercase text-[#FFCB05] text-base sm:text-xl leading-tight text-right">
+      <div className="font-extrabold uppercase text-[#FFCB05] text-base sm:text-xl leading-tight sm:text-right">
         {session.room}
         <span className="block text-white normal-case text-sm sm:text-base font-bold mt-0.5">{CONFERENCE_VENUE}</span>
       </div>
@@ -381,7 +391,7 @@ function KeynotePoster({ session, backgroundImageUrl }: { session: LineupSession
           {[keynote, ...others].map((sp, i) => (
             <motion.div
               key={`${sp.name}-chip`}
-              className={`absolute z-20 bg-[#FFCB05] text-[#00274c] rounded-xl px-3 py-2 shadow-xl max-w-[62%] ${
+              className={`hidden sm:block absolute z-20 bg-[#FFCB05] text-[#00274c] rounded-xl px-3 py-2 shadow-xl max-w-[62%] ${
                 i === 0 ? 'left-0 bottom-6' : 'right-0 bottom-20 text-right'
               }`}
               initial={{ opacity: 0, y: 16, scale: 0.95 }}
@@ -398,6 +408,22 @@ function KeynotePoster({ session, backgroundImageUrl }: { session: LineupSession
                 {ROLE_TAG[sp.role] || 'Speaker'}
               </div>
             </motion.div>
+          ))}
+        </div>
+
+        {/* On phones the name chips sit below the portraits instead of over the faces */}
+        <div className="sm:hidden -mt-6 grid grid-cols-2 gap-2">
+          {[keynote, ...others].map((sp) => (
+            <div key={`${sp.name}-chip-mobile`} className="bg-[#FFCB05] text-[#00274c] rounded-xl px-3 py-2 shadow-xl">
+              <div className="text-sm font-extrabold leading-tight">{sp.name}</div>
+              <div className="text-[10px] font-medium leading-snug">
+                {sp.title}
+                {sp.company ? ` · ${sp.company}` : ''}
+              </div>
+              <div className="mt-1 pt-1 border-t border-[#00274c]/30 text-xs font-extrabold uppercase">
+                {ROLE_TAG[sp.role] || 'Speaker'}
+              </div>
+            </div>
           ))}
         </div>
       </div>

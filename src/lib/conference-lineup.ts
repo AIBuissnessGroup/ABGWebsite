@@ -7,6 +7,7 @@ export interface LineupLogo {
   src?: string; // omitted → a text badge is shown instead
   alt: string;
   text?: string; // shorter text for the badge when there is no image
+  dark?: boolean; // white logo that needs a dark badge
 }
 
 export interface LineupSpeaker {
@@ -131,7 +132,7 @@ export const CONFERENCE_LINEUP: LineupSession[] = [
         company: 'NorthStar Advisory Group',
         photo: `${PHOTO}/josh-spiewak.jpg`,
         role: 'speaker',
-        logo: { alt: 'NorthStar Advisory Group', text: 'NorthStar' },
+        logo: { src: `${LOGO}/northstar.png`, alt: 'NorthStar Advisory Group', dark: true },
       },
       {
         name: 'Sloan Spiewak',
@@ -162,6 +163,7 @@ export const CONFERENCE_LINEUP: LineupSession[] = [
         company: 'BNY',
         photo: `${PHOTO}/jacob-walker.jpg`,
         role: 'host',
+        logo: { src: `${LOGO}/bny.png`, alt: 'BNY' },
       },
     ],
   },
@@ -222,7 +224,7 @@ export const CONFERENCE_LINEUP: LineupSession[] = [
         company: 'Detroit Venture Partners',
         photo: `${PHOTO}/lindsey-kilbride.jpg`,
         role: 'speaker',
-        logo: { alt: 'Detroit Venture Partners', text: 'Detroit Venture Partners' },
+        logo: { src: `${LOGO}/dvp.png`, alt: 'Detroit Venture Partners' },
       },
       {
         name: 'Doug Neal',
@@ -255,7 +257,6 @@ export const CONFERENCE_LINEUP: LineupSession[] = [
         photo: `${PHOTO}/anthony-walker.jpg`,
         role: 'moderator',
         logo: ABG_LOGO,
-        photoPosition: 'center 15%',
       },
     ],
   },
@@ -280,6 +281,25 @@ const FEATURED_SESSION_IDS = ['banks-and-funds', 'bitcoin-101', 'professional-br
 export const FEATURED_SESSIONS = CONFERENCE_LINEUP.filter((s) => FEATURED_SESSION_IDS.includes(s.id));
 
 export const LINEUP_SPEAKER_COUNT = SPEAKER_SESSIONS.reduce((n, s) => n + s.speakers.length, 0);
+
+// Session times are Eastern (EDT, UTC-4) on the conference day
+const CONFERENCE_DAY = '2026-10-23';
+
+export function sessionStartTime(session: LineupSession): Date {
+  const [, h, m, ampm] = session.start.match(/(\d+):(\d+)\s*(AM|PM)/i) || [];
+  let hour = Number(h) % 12;
+  if (ampm?.toUpperCase() === 'PM') hour += 12;
+  return new Date(`${CONFERENCE_DAY}T${String(hour).padStart(2, '0')}:${m}:00-04:00`);
+}
+
+// The session(s) starting next after this one (two when they run concurrently)
+export function nextSessionsAfter(session: LineupSession): LineupSession[] {
+  const start = sessionStartTime(session).getTime();
+  const later = CONFERENCE_LINEUP.filter((s) => sessionStartTime(s).getTime() > start);
+  if (later.length === 0) return [];
+  const soonest = Math.min(...later.map((s) => sessionStartTime(s).getTime()));
+  return later.filter((s) => sessionStartTime(s).getTime() === soonest);
+}
 
 // Splits "From *Pitch* to *Portfolio*" into plain and maize segments
 export function parseHeadline(line: string): { text: string; maize: boolean }[] {

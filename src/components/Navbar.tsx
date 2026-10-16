@@ -143,7 +143,7 @@ export default function Navbar() {
     navigationItems.push({ href: "/admin", label: "Admin" });
   }
 
-  if (pathname === '/splash-pad' || pathname === '/splash') {
+  if (pathname === '/splash-pad' || pathname === '/splash' || pathname?.startsWith('/conference/background')) {
     return null;
   }
 
