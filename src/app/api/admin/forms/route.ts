@@ -131,7 +131,8 @@ function normalizeFormStructure(
             maxLength: question?.maxLength ?? null,
             pattern: question?.pattern || '',
             matrixRows: question?.matrixRows || '',
-            matrixCols: question?.matrixCols || '',
+            matrixCols: question?.matrixCols || question?.matrixColumns || '',
+            matrixColumns: question?.matrixColumns || question?.matrixCols || '',
             descriptionContent: question?.descriptionContent || '',
             sectionId,
             sectionOrder,
@@ -300,11 +301,11 @@ export async function POST(request: NextRequest) {
     
     const db = await getDb();
 
-    const user = await db.collection('User').findOne({ email: session.user.email });
+    const user = (await db.collection('User').findOne({ email: session.user.email })) ||
+                 (await db.collection('users').findOne({ email: session.user.email }));
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
+    const userEmail = session.user.email;
+    const userId = user?._id?.toString() || user?.id || session.user.email;
 
     const data = await request.json();
 
@@ -325,7 +326,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { questions, sections, ...formData } = data;
-    const notificationConfig = buildNotificationConfig(data, undefined, user.email);
+    const notificationConfig = buildNotificationConfig(data, undefined, user?.email || userEmail);
     const normalized = normalizeFormStructure(
       {
         ...formData,
@@ -341,7 +342,7 @@ export async function POST(request: NextRequest) {
       slug,
       questions: normalized.questions,
       sections: normalized.sections,
-      createdBy: user._id.toString(),
+      createdBy: userId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       // Ensure required fields have defaults

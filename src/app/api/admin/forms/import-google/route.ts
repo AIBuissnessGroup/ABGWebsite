@@ -364,10 +364,9 @@ export async function POST(request: NextRequest) {
     const db = await getDb();
 
     // Get user info
-    const user = await db.collection('User').findOne({ email: session.user.email });
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
+    const user = (await db.collection('User').findOne({ email: session.user.email })) ||
+                 (await db.collection('users').findOne({ email: session.user.email }));
+    const userId = user?._id?.toString() || user?.id || session.user.email;
 
     // Generate slug from title
     const baseSlug = googleFormData.title

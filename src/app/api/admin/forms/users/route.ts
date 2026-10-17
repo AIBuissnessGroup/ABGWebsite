@@ -1,28 +1,8 @@
 import { getDb } from '@/lib/mongodb';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-
 import { authOptions } from '@/lib/auth';
-import { isAdmin } from '@/lib/admin';
-
-
-let cachedClient: MongoClient | null = null;
-let cachedDb: any = null;
-
-async function connectToDatabase() {
-  if (cachedClient && cachedDb) {
-    return { client: cachedClient, db: cachedDb };
-  }
-
-  
-  
-  const db = await getDb();
-
-  cachedClient = client;
-  cachedDb = db;
-
-  return { client, db };
-}
+import { isAdmin, getAdminEmails } from '@/lib/admin';
 
 export async function GET() {
   try {
@@ -36,27 +16,24 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { db } = await connectToDatabase();
+    const db = await getDb();
 
-    // Fetch only admin users with their name and email
-    console.log('Fetching users with ADMIN role...');
-    
-    const users = await db.collection('users') // Changed from 'User' to 'users'
-      .find(
-        { 
-          email: { 
-            $exists: true, 
-            $nin: [null, ''] 
-          },
-          roles: { $in: ['ADMIN'] } // Check if 'ADMIN' is in the roles array
-        },
-        { projection: { email: 1, name: 1, roles: 1, _id: 0 } }
-      )
+    // Fetch admin users with their name and email
+    const adminEmails = getAdminEmails();
+    const query = {
+      email: { $exists: true, $nin: [null, ''] },
+      $or: [
+        { roles: { $in: ['ADMIN'] } },
+        { role: 'ADMIN' },
+        ...(adminEmails.length > 0 ? [{ email: { $in: adminEmails } }] : [])
+      ]
+    };
+
+    const users = await db.collection('users')
+      .find(query, { projection: { email: 1, name: 1, roles: 1, _id: 0 } })
       .sort({ name: 1 })
       .toArray();
 
-    console.log(`Found ${users.length} admin users:`, users);
-    
     return NextResponse.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);

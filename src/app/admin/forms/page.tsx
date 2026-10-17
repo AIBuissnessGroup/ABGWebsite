@@ -153,7 +153,9 @@ function normalizeQuestion(question: any, index: number): FormQuestion {
   
   let matrixColumns = Array.isArray(question?.matrixColumns)
     ? question.matrixColumns.filter((col: string) => col && col.trim())
-    : [];
+    : Array.isArray(question?.matrixCols)
+      ? question.matrixCols.filter((col: string) => col && col.trim())
+      : [];
 
   // If matrix type but no valid rows/columns, provide defaults
   if (question?.type === 'MATRIX') {
