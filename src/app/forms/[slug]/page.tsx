@@ -635,11 +635,11 @@ export default function FormPage() {
         await deleteDraft();
       } else {
         const errorData = await res.json();
-        setError(errorData.error || 'Failed to submit application');
+        setError(errorData.error || 'Failed to submit form');
       }
     } catch (error) {
       console.error('Error submitting form:', error);
-      setError('Failed to submit application');
+      setError('Failed to submit form');
     }
     
     setSubmitting(false);
@@ -1131,7 +1131,7 @@ export default function FormPage() {
               {isPreviousSubmission ? '✓' : '✓'}
             </div>
             <h1 className="text-2xl font-bold text-white mb-4">
-              {isPreviousSubmission ? 'You already submitted this form' : 'Application Submitted!'}
+              {isPreviousSubmission ? 'You already submitted this form' : 'Form Submitted!'}
             </h1>
             <p className="text-white/80 mb-4">
               {(existingSubmission?.totalSubmissions || 1) > 1 ? (
@@ -1672,7 +1672,7 @@ export default function FormPage() {
                           Submitting...
                         </div>
                       ) : (
-                        '🚀 Submit Application'
+                        'Submit'
                       )}
                     </button>
                   )}
