@@ -7,7 +7,7 @@ import {
   SparklesIcon,
   QrCodeIcon,
   UserCircleIcon,
-  FolderGit2Icon,
+  FolderIcon,
   CalendarDaysIcon,
   DocumentTextIcon,
   ArrowTopRightOnSquareIcon,
@@ -18,17 +18,22 @@ import {
 
 export default function MemberDashboardPage() {
   const { data: session } = useSession();
+  const [currentDate, setCurrentDate] = React.useState<string>('');
 
-  const userRoles = session?.user?.roles || [];
-  const isAdmin = userRoles.includes('ADMIN');
-  const isProjectMember = userRoles.includes('PROJECT_TEAM_MEMBER');
+  React.useEffect(() => {
+    setCurrentDate(
+      new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    );
+  }, []);
 
-  const currentDate = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const userRoles = Array.isArray(session?.user?.roles) ? session.user.roles : [];
+  const isAdmin = userRoles.includes('ADMIN') || (session?.user as any)?.role === 'ADMIN';
+  const isProjectMember = userRoles.includes('PROJECT_TEAM_MEMBER') || (session?.user as any)?.role === 'PROJECT_TEAM_MEMBER';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
@@ -58,7 +63,7 @@ export default function MemberDashboardPage() {
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-white/60">
-              <span>📅 {currentDate}</span>
+              <span suppressHydrationWarning>{currentDate ? `📅 ${currentDate}` : '📅 Winter 2026'}</span>
               <span>•</span>
               <span className="inline-flex items-center gap-1.5 text-green-400">
                 <CheckBadgeIcon className="w-4 h-4" />
@@ -163,7 +168,7 @@ export default function MemberDashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-[#FFCB05]/20 text-[#FFCB05] flex items-center justify-center">
-                  <FolderGit2Icon className="w-4 h-4" />
+                  <FolderIcon className="w-4 h-4" />
                 </div>
                 <h3 className="text-lg font-bold text-white">Project Workstream Hub</h3>
               </div>

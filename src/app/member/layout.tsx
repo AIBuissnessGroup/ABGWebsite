@@ -61,9 +61,9 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     return null;
   }
 
-  const userRoles = session.user.roles || [];
-  const userIsAdmin = isAdmin(session.user) || userRoles.includes('ADMIN');
-  const userIsProjectTeamMember = userRoles.includes('PROJECT_TEAM_MEMBER');
+  const userRoles = Array.isArray(session.user.roles) ? session.user.roles : [];
+  const userIsAdmin = userRoles.includes('ADMIN') || (session.user as any)?.role === 'ADMIN';
+  const userIsProjectTeamMember = userRoles.includes('PROJECT_TEAM_MEMBER') || (session.user as any)?.role === 'PROJECT_TEAM_MEMBER';
   const isAuthorized = userIsAdmin || userIsProjectTeamMember || canAccessMemberDashboard(userRoles);
 
   // Unauthorized access screen - tailored specifically to Member Dashboard RBAC requirement
@@ -179,12 +179,14 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white/80 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
             >
               {session.user.image ? (
-                <Image
+                <img
                   src={session.user.image}
                   alt={session.user.name || 'Member'}
-                  width={22}
-                  height={22}
-                  className="rounded-full ring-1 ring-white/20"
+                  className="w-5 h-5 rounded-full ring-1 ring-white/20 object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
                 />
               ) : (
                 <UserCircleIcon className="w-4 h-4 text-[#FFCB05]" />
