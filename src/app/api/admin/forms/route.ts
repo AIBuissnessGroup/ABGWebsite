@@ -312,17 +312,19 @@ export async function POST(request: NextRequest) {
     console.log('POST /api/admin/forms - Received data:', data);
     console.log('Questions in request:', data.questions ? data.questions.length + ' questions' : 'No questions field');
 
-    // Generate slug from title
-    const slug = data.title
+    // Generate slug from title with collision prevention
+    const rawTitle = (typeof data?.title === 'string' ? data.title.trim() : '') || 'Untitled form';
+    const baseSlug = rawTitle
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+      .replace(/(^-|-$)/g, '') || 'form';
 
-    // Check if slug already exists
-    const existingForm = await db.collection('Form').findOne({ slug });
-
-    if (existingForm) {
-      return NextResponse.json({ error: 'A form with this title already exists' }, { status: 400 });
+    // Ensure unique slug so collisions do not prevent creating forms
+    let slug = baseSlug;
+    let counter = 1;
+    while (await db.collection('Form').findOne({ slug })) {
+      slug = `${baseSlug}-${counter}`;
+      counter++;
     }
 
     const { questions, sections, ...formData } = data;

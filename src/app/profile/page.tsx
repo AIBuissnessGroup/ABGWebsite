@@ -208,13 +208,23 @@ export default function ProfilePage() {
             </div>
             
             {!editing ? (
-              <button
-                onClick={() => setEditing(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366]"
-              >
-                <PencilIcon className="w-4 h-4" />
-                Edit Profile
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                {Boolean(profile?.user?.roles?.includes('PROJECT_TEAM_MEMBER') || profile?.user?.roles?.includes('ADMIN') || session?.user?.roles?.includes('PROJECT_TEAM_MEMBER') || session?.user?.roles?.includes('ADMIN')) && (
+                  <Link
+                    href="/member"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#FFCB05] text-[#00274c] font-bold rounded-lg hover:bg-[#FFE380] transition-colors shadow-sm"
+                  >
+                    Member Dashboard →
+                  </Link>
+                )}
+                <button
+                  onClick={() => setEditing(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#00274c] text-white rounded-lg hover:bg-[#003366]"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                  Edit Profile
+                </button>
+              </div>
             ) : (
               <div className="flex gap-2">
                 <button

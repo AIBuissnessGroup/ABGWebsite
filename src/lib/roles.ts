@@ -149,3 +149,12 @@ export async function wouldRemoveLastAdmin(
   
   return otherAdmins === 0;
 }
+
+/**
+ * Check if a user has access to the member dashboard.
+ * Requires either PROJECT_TEAM_MEMBER or ADMIN role.
+ */
+export function canAccessMemberDashboard(userRoles?: UserRole[] | string[] | null): boolean {
+  if (!userRoles || !Array.isArray(userRoles)) return false;
+  return userRoles.includes('PROJECT_TEAM_MEMBER') || userRoles.includes('ADMIN');
+}

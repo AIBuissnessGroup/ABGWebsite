@@ -345,16 +345,16 @@ export default function FormsAdminPage() {
   }, [session, status]);
 
   useEffect(() => {
+    if (selectedFormId === 'new') {
+      setDraft((current) => (current && !current.id ? current : createEmptyDraft()));
+      return;
+    }
     if (!forms.length) {
       setDraft(null);
       return;
     }
     if (!selectedFormId) {
       setSelectedFormId(forms[0].id);
-      return;
-    }
-    if (selectedFormId === 'new') {
-      setDraft(createEmptyDraft());
       return;
     }
     // Don't overwrite draft if we're currently saving/updating
@@ -665,6 +665,14 @@ export default function FormsAdminPage() {
     });
   }
 
+  const handleCreateNew = useCallback(() => {
+    setSelectedFormId('new');
+    setDraft(createEmptyDraft());
+    setActiveTab('questions');
+    setSaveMessage(null);
+    setSaveError(null);
+  }, []);
+
   async function handleSave() {
     if (!draft) return;
     if (!draft.title.trim()) {
@@ -736,9 +744,12 @@ export default function FormsAdminPage() {
       
       // If creating a new form, update the draft with the saved ID and switch to it
       if (!isUpdate) {
-        setDraft((current) => current ? { ...current, id: saved.id } : current);
+        const normalizedSaved = normalizeForm(saved);
+        setDraft(normalizedSaved);
         setSelectedFormId(saved.id);
-        // Reload forms list in background to update sidebar (with small delay to avoid connection pool issues)
+        // Immediately add to local forms list so sidebar updates right away
+        setForms((current) => [saved, ...current.filter((f) => f.id !== saved.id)]);
+        // Reload forms list in background to ensure full sync
         setTimeout(() => {
           loadForms().catch(console.error);
         }, 500);
@@ -990,7 +1001,7 @@ export default function FormsAdminPage() {
               )}
             </button>
             <button
-              onClick={() => setSelectedFormId('new')}
+              onClick={handleCreateNew}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 hover:shadow-md hover:scale-105 transition-all duration-200"
             >
               <PlusIcon className="h-4 w-4" /> New form
@@ -1033,7 +1044,7 @@ export default function FormsAdminPage() {
                 </button>
               ))}
               <button
-                onClick={() => setSelectedFormId('new')}
+                onClick={handleCreateNew}
                 className={`rounded-lg px-3 py-2 text-left text-xs transition-all duration-200 ${
                   selectedFormId === 'new'
                     ? 'bg-blue-500 text-white shadow-md'
@@ -1088,7 +1099,14 @@ export default function FormsAdminPage() {
 
           {!draft && (
             <div className="rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 p-12 text-center text-sm text-gray-700">
-              Select a form to begin editing or create a new one.
+              <p className="mb-4 font-medium text-gray-800">Select a form to begin editing or create a new one.</p>
+              <button
+                type="button"
+                onClick={handleCreateNew}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-blue-600 hover:shadow-lg transition-all duration-200"
+              >
+                <PlusIcon className="h-4 w-4" /> Create new form
+              </button>
             </div>
           )}
 

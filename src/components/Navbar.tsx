@@ -139,6 +139,13 @@ export default function Navbar() {
   //   });
   // }
 
+  const userRoles = session?.user?.roles || [];
+  const canAccessMember = userIsAdmin || userRoles.includes('PROJECT_TEAM_MEMBER');
+
+  if (canAccessMember) {
+    navigationItems.push({ href: "/member", label: "Member Hub" });
+  }
+
   if (userIsAdmin) {
     navigationItems.push({ href: "/admin", label: "Admin" });
   }
@@ -214,6 +221,8 @@ export default function Navbar() {
                     className={`border-b-2 border-transparent hover:border-white/60 transition-all duration-300 pb-1 text-xs lg:text-sm font-bold ${
                       item.label === "Admin" 
                         ? "text-yellow-300 hover:text-yellow-100 hover:border-yellow-300/60" 
+                        : item.label === "Member Hub"
+                        ? "text-[#FFCB05] hover:text-[#FFE380] hover:border-[#FFCB05]/60 font-extrabold"
                         : item.glow
                         ? "text-[#FFCB05] hover:text-[#FFE380] hover:border-[#FFCB05]/60 relative sxsw-glow"
                         : "text-white/80 hover:text-white"
