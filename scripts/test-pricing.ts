@@ -11,16 +11,27 @@ console.log('----------------------------------------------------');
 console.log('CONFERENCE PRICING SCHEDULE VALIDATION');
 console.log('----------------------------------------------------');
 
-// Test 1: Current date (Sep 15, 2026) -> Should be Early Bird $13
-const currentStatus = getConferenceTicketStatus();
-console.log('1. Current Date (Sep 15, 2026):', {
-  phase: currentStatus.phase,
-  price: currentStatus.priceLabel,
-  tier: currentStatus.tierName,
-  isAvailable: currentStatus.isAvailable,
+// Test 1: Early Bird period (Sep 15, 2026) -> Should be Early Bird $13
+const earlyBirdStatus = getConferenceTicketStatus(new Date('2026-09-15T12:00:00-04:00').getTime());
+console.log('1. Early Bird Sample Date (Sep 15, 2026):', {
+  phase: earlyBirdStatus.phase,
+  price: earlyBirdStatus.priceLabel,
+  tier: earlyBirdStatus.tierName,
+  isAvailable: earlyBirdStatus.isAvailable,
 });
-if (currentStatus.phase !== 'EARLY_BIRD' || currentStatus.price !== 13) {
-  throw new Error('Test 1 failed: Current date should be Early Bird $13');
+if (earlyBirdStatus.phase !== 'EARLY_BIRD' || earlyBirdStatus.price !== 13) {
+  throw new Error('Test 1 failed: Date before Sep 21 should be Early Bird $13');
+}
+
+// Test 1b: Live Date.now() check (Oct 18, 2026 is currently General Admission $17)
+const liveStatus = getConferenceTicketStatus();
+console.log('1b. Live Runtime Date (Today):', {
+  phase: liveStatus.phase,
+  price: liveStatus.priceLabel,
+  isAvailable: liveStatus.isAvailable,
+});
+if (!liveStatus.isAvailable) {
+  throw new Error('Test 1b failed: Tickets should still be available today');
 }
 
 // Test 2: Just before Early Bird deadline (Sunday Sep 20, 2026 11:59 PM EDT)
@@ -57,19 +68,19 @@ if (duringGeneral.phase !== 'GENERAL' || duringGeneral.price !== 17) {
   throw new Error('Test 4 failed: Should be General Admission $17');
 }
 
-// Test 5: Just before cutoff (Thu Oct 22, 2026 07:59:59 AM EDT)
+// Test 5: Just before cutoff (Thu Oct 22, 2026 04:59:59 PM EDT)
 const beforeCutoff = getConferenceTicketStatus(SALES_CLOSE_TIMESTAMP - 1000);
-console.log('5. Thu Oct 22, 2026 07:59:59 AM EDT:', {
+console.log('5. Thu Oct 22, 2026 04:59:59 PM EDT:', {
   phase: beforeCutoff.phase,
   isAvailable: beforeCutoff.isAvailable,
 });
 if (!beforeCutoff.isAvailable) {
-  throw new Error('Test 5 failed: Should still be available before 8:00 AM EDT');
+  throw new Error('Test 5 failed: Should still be available before 5:00 PM EDT');
 }
 
-// Test 6: At and after cutoff (Thu Oct 22, 2026 08:00:00 AM EDT)
+// Test 6: At and after cutoff (Thu Oct 22, 2026 05:00:00 PM EDT)
 const afterCutoff = getConferenceTicketStatus(SALES_CLOSE_TIMESTAMP);
-console.log('6. Thu Oct 22, 2026 08:00:00 AM EDT (Cutoff):', {
+console.log('6. Thu Oct 22, 2026 05:00:00 PM EDT (Cutoff):', {
   phase: afterCutoff.phase,
   tier: afterCutoff.tierName,
   isAvailable: afterCutoff.isAvailable,

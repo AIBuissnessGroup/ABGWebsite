@@ -235,7 +235,7 @@ export default function ConferenceTicketSection() {
 
             {pricing.phase === 'GENERAL' && (
               <div className="mt-2 text-xs font-bold text-white/70">
-                Tickets available until Thu, Oct 22 at 8:00 AM EDT
+                Tickets available until Thu, Oct 22 at 5:00 PM EDT
               </div>
             )}
           </div>
