@@ -404,6 +404,50 @@ function PanelSlide({ session, next, remaining, sponsors }: SlideProps) {
   );
 }
 
+// Sessions running at the same time in different rooms, shown side by side
+function ConcurrentSlide({ sessions, next, remaining, sponsors }: { sessions: LineupSession[]; next: LineupSession[]; remaining: number | null; sponsors: ConferenceSponsor[] }) {
+  return (
+    <div className="relative h-full w-full flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0" style={{ padding: '2.6vw 5vw 1.6vw' }}>
+        <SlideHeader sponsors={sponsors} />
+        <div className="text-center" style={{ marginTop: '0.6vw' }}>
+          <span
+            className="inline-block bg-[#FFCB05] text-[#00274c] font-extrabold uppercase rounded-[0.25vw]"
+            style={{ fontSize: '0.95vw', padding: '0.3vw 0.8vw', letterSpacing: '0.15em' }}
+          >
+            Concurrent sessions · {sessions[0].start}
+          </span>
+        </div>
+        <div className="flex-1 grid items-center" style={{ gridTemplateColumns: `repeat(${sessions.length}, 1fr)`, gap: '3vw' }}>
+          {sessions.map((s, col) => (
+            <div key={s.id} className={`flex flex-col items-center text-center ${col > 0 ? 'border-l border-white/10' : ''}`} style={{ gap: '1.4vw' }}>
+              <div className="flex flex-col items-center">
+                <Eyebrow session={s} />
+                <div style={{ marginTop: '0.7vw' }}>
+                  <Headline lines={[s.headline.join(' ')]} size="2.9vw" align="center" />
+                </div>
+              </div>
+              <div className="flex justify-center items-end" style={{ gap: '1vw' }}>
+                {s.speakers.map((sp, i) => (
+                  <FlyerCard key={sp.name} speaker={sp} index={i} count={Math.max(2, s.speakers.length)} />
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center justify-center text-white/85 font-bold" style={{ gap: '1vw', fontSize: '1.2vw' }}>
+                <span className="text-[#FFCB05] uppercase font-extrabold">{s.room}</span>
+                <span className="text-white/30">|</span>
+                <span>
+                  {s.start} – {s.end}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <UpNextBar next={next} remaining={remaining} />
+    </div>
+  );
+}
+
 // Sessions without speakers (registration, coffee chats, closing): a "happening now" screen
 function HappeningNowSlide({ session, next, remaining, now, sponsors, demo }: SlideProps) {
   const start = sessionStartTime(session).getTime();
@@ -518,7 +562,10 @@ function HappeningNowSlide({ session, next, remaining, now, sponsors, demo }: Sl
 // Intro and outro (5 seconds each)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TransitionScreen({ kicker, session, mode }: { kicker: string; session: LineupSession; mode: 'intro' | 'outro' }) {
+function TransitionScreen({ kicker, sessions, mode }: { kicker: string; sessions: LineupSession[]; mode: 'intro' | 'outro' }) {
+  const session = sessions[0];
+  const concurrent = sessions.length > 1;
+  const speakers = sessions.flatMap((s) => s.speakers);
   return (
     <motion.div
       className="absolute inset-0 z-50 overflow-hidden bg-[#00274c] flex items-center justify-center"
@@ -573,9 +620,10 @@ function TransitionScreen({ kicker, session, mode }: { kicker: string; session: 
 
         <h2
           className={`${conferenceDisplayFont.className} font-extrabold uppercase leading-[0.92] text-white`}
-          style={{ fontSize: session.speakers.length > 0 ? '4.8vw' : '6vw', marginTop: '1.2vw' }}
+          style={{ fontSize: concurrent ? '3.6vw' : speakers.length > 0 ? '4.8vw' : '6vw', marginTop: '1.2vw' }}
         >
-          {session.headline.map((line, i) => (
+          {/* Concurrent sessions get one line each */}
+          {(concurrent ? sessions.map((s) => s.headline.join(' ')) : session.headline).map((line, i) => (
             <span key={i} className="block overflow-hidden">
               <motion.span
                 className="block"
@@ -604,13 +652,13 @@ function TransitionScreen({ kicker, session, mode }: { kicker: string; session: 
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 2.6 }}
         >
-          {session.start} · {session.room}
+          {session.start} · {sessions.map((s) => s.room).join(' & ')}
         </motion.div>
 
         {/* Speakers pop in one after another */}
-        {session.speakers.length > 0 && (
+        {speakers.length > 0 && (
           <div className="flex justify-center items-start" style={{ gap: '1.4vw', marginTop: '2.2vw' }}>
-            {session.speakers.map((sp, i) => (
+            {speakers.map((sp, i) => (
               <motion.div
                 key={sp.name}
                 className="flex flex-col items-center"
@@ -650,20 +698,21 @@ function TransitionScreen({ kicker, session, mode }: { kicker: string; session: 
 // ─────────────────────────────────────────────────────────────────────────────
 
 function StageScreen({
-  session,
+  sessions,
   demo,
   skipIntro,
   order,
   sponsors,
   onAdvance,
 }: {
-  session: LineupSession;
+  sessions: LineupSession[];
   demo: boolean;
   skipIntro: boolean;
   order: OrderMap;
   sponsors: ConferenceSponsor[];
-  onAdvance: (next: LineupSession) => void;
+  onAdvance: (next: LineupSession[]) => void;
 }) {
+  const session = sessions[0];
   // Coming from an outro, the "Up next" screen already introduced this session, so go straight to it
   const [phase, setPhase] = useState<'intro' | 'live' | 'outro'>(skipIntro ? 'live' : 'intro');
   // Memoized so the hand-off timers aren't reset by every clock tick
@@ -693,20 +742,27 @@ function StageScreen({
 
   useEffect(() => {
     if (phase !== 'outro' || !nextSessions[0]) return;
-    const timer = setTimeout(() => onAdvance(nextSessions[0]), OUTRO_MS);
+    const timer = setTimeout(() => onAdvance(nextSessions), OUTRO_MS);
     return () => clearTimeout(timer);
   }, [phase, nextSessions, onAdvance]);
 
-  const ordered = applySpeakerOrder(session, order[session.id]);
+  const ordered = sessions.map((s) => applySpeakerOrder(s, order[s.id]));
   const orderedNext = nextSessions.map((s) => applySpeakerOrder(s, order[s.id]));
   const Slide = session.speakers.length > 0 ? PanelSlide : HappeningNowSlide;
 
   return (
     <>
-      {phase !== 'intro' && <Slide session={ordered} next={orderedNext} remaining={remaining} now={now} sponsors={sponsors} demo={demo} />}
+      {phase !== 'intro' &&
+        (ordered.length > 1 ? (
+          <ConcurrentSlide sessions={ordered} next={orderedNext} remaining={remaining} sponsors={sponsors} />
+        ) : (
+          <Slide session={ordered[0]} next={orderedNext} remaining={remaining} now={now} sponsors={sponsors} demo={demo} />
+        ))}
       <AnimatePresence>
-        {phase === 'intro' && <TransitionScreen key="intro" mode="intro" kicker={session.label || 'Now'} session={ordered} />}
-        {phase === 'outro' && orderedNext[0] && <TransitionScreen key="outro" mode="outro" kicker="Up next" session={orderedNext[0]} />}
+        {phase === 'intro' && (
+          <TransitionScreen key="intro" mode="intro" kicker={ordered.length > 1 ? 'Concurrent sessions' : session.label || 'Now'} sessions={ordered} />
+        )}
+        {phase === 'outro' && orderedNext.length > 0 && <TransitionScreen key="outro" mode="outro" kicker="Up next" sessions={orderedNext} />}
       </AnimatePresence>
     </>
   );
@@ -726,8 +782,13 @@ export default function ConferenceBackgroundClient({
   skipIntro?: boolean;
 }) {
   const router = useRouter();
-  const index = CONFERENCE_LINEUP.findIndex((s) => s.id === sessionId);
-  const session = index >= 0 ? CONFERENCE_LINEUP[index] : null;
+  // "s" may list several ids separated by commas when sessions run at the same time
+  const sessions = (sessionId || '')
+    .split(',')
+    .map((id) => CONFERENCE_LINEUP.find((s) => s.id === id))
+    .filter((s): s is LineupSession => Boolean(s));
+  const session = sessions[0] || null;
+  const index = session ? CONFERENCE_LINEUP.indexOf(session) : -1;
   const [cursorHidden, setCursorHidden] = useState(false);
   const [order, setOrder] = useState<OrderMap>({});
   const [sponsors, setSponsors] = useState<ConferenceSponsor[]>([]);
@@ -756,7 +817,7 @@ export default function ConferenceBackgroundClient({
   }, []);
 
   const onAdvance = useCallback(
-    (next: LineupSession) => router.replace(`/conference/background?s=${next.id}${demo ? '&demo=1' : ''}&from=outro`),
+    (next: LineupSession[]) => router.replace(`/conference/background?s=${next.map((s) => s.id).join(',')}${demo ? '&demo=1' : ''}&from=outro`),
     [router, demo]
   );
 
@@ -786,6 +847,24 @@ export default function ConferenceBackgroundClient({
   }, [session, index, demo, router]);
 
   if (!session) {
+    const indexRows = CONFERENCE_LINEUP.flatMap((s) => {
+      const row = { key: s.id, ids: s.id, start: s.start, title: plainTitle(s), note: s.concurrentWith ? `${s.room} only` : '' };
+      const partner = s.concurrentWith && CONFERENCE_LINEUP.find((p) => p.id === s.concurrentWith);
+      // Add the combined slide once, ahead of the first of the pair
+      if (partner && CONFERENCE_LINEUP.indexOf(partner) > CONFERENCE_LINEUP.indexOf(s)) {
+        return [
+          {
+            key: `${s.id}+${partner.id}`,
+            ids: `${s.id},${partner.id}`,
+            start: s.start,
+            title: `${plainTitle(s)} + ${plainTitle(partner)}`,
+            note: 'Both sessions side by side (the screen moves here automatically)',
+          },
+          row,
+        ];
+      }
+      return [row];
+    });
     return (
       <div className="min-h-screen bg-[#00274c] text-white px-6 py-12">
         <div className="max-w-5xl mx-auto">
@@ -798,19 +877,22 @@ export default function ConferenceBackgroundClient({
             and sponsors are set in the admin conference page and update on open screens within a few seconds.
           </p>
           <div className="mt-8 space-y-3">
-            {CONFERENCE_LINEUP.map((s) => (
-              <div key={s.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="w-24 text-sm font-bold text-[#FFCB05]">{s.start}</div>
-                <div className="flex-1 min-w-[200px] font-semibold">{plainTitle(s)}</div>
+            {indexRows.map(({ key, ids, start, title, note }) => (
+              <div key={key} className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="w-24 text-sm font-bold text-[#FFCB05]">{start}</div>
+                <div className="flex-1 min-w-[200px] font-semibold">
+                  {title}
+                  {note && <span className="block text-xs font-normal text-white/50">{note}</span>}
+                </div>
                 <div className="flex gap-2">
                   <Link
-                    href={`/conference/background?s=${s.id}`}
+                    href={`/conference/background?s=${ids}`}
                     className="rounded-lg bg-[#FFCB05]/15 border border-[#FFCB05]/50 text-[#FFCB05] px-3 py-1.5 text-xs font-bold hover:bg-[#FFCB05]/25"
                   >
                     Open
                   </Link>
                   <Link
-                    href={`/conference/background?s=${s.id}&demo=1`}
+                    href={`/conference/background?s=${ids}&demo=1`}
                     className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-bold hover:border-white/50"
                   >
                     Rehearse
@@ -831,8 +913,8 @@ export default function ConferenceBackgroundClient({
       <FloatingShapes variant="dense" opacity={0.08} />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,203,5,0.08),transparent_55%)] pointer-events-none" />
       <StageScreen
-        key={`${session.id}-${demo}`}
-        session={session}
+        key={`${sessions.map((s) => s.id).join(',')}-${demo}`}
+        sessions={sessions}
         demo={demo}
         skipIntro={skipIntro}
         order={order}
