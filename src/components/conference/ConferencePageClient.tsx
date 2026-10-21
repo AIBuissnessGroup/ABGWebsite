@@ -9,6 +9,7 @@ import {
   MapPinIcon, 
   TicketIcon, 
   ArrowTopRightOnSquareIcon,
+  CheckCircleIcon,
   SparklesIcon,
   UserGroupIcon,
   BuildingOffice2Icon,
@@ -23,6 +24,8 @@ import { ConferenceData } from '@/types/conference';
 import { DEFAULT_CONFERENCE_DATA } from '@/lib/conference-defaults';
 import { isAdmin } from '@/lib/roles';
 import ConferenceTicketSection from '@/components/conference/ConferenceTicketSection';
+import ConferenceSignInButton from '@/components/conference/ConferenceSignInButton';
+import { useConferencePass } from '@/hooks/useConferencePass';
 import ConferenceLineup from '@/components/conference/ConferenceLineup';
 
 export default function ConferencePageClient() {
@@ -30,6 +33,7 @@ export default function ConferencePageClient() {
   const [data, setData] = useState<ConferenceData>(DEFAULT_CONFERENCE_DATA);
   const [loading, setLoading] = useState(true);
   const userIsAdmin = isAdmin(session?.user?.roles || []);
+  const pass = useConferencePass();
 
   // Pre-expand sponsor list so the moving track has ample cards to span wide viewports
   const sponsorSingleSet = useMemo(() => {
@@ -209,14 +213,26 @@ export default function ConferencePageClient() {
             transition={{ duration: 0.7, delay: 0.4 }}
             className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto"
           >
-            <a
-              href="#tickets"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl bg-gradient-to-r from-[#FFCB05] to-[#F5B700] hover:from-[#FFD84D] hover:to-[#FFCB05] text-[#00274c] font-extrabold text-base sm:text-lg shadow-xl shadow-[#E6B700]/30 hover:shadow-[#FFCB05]/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border border-[#FFD633]/40"
-            >
-              <TicketIcon className="w-5 h-5" />
-              <span>{data.ticketButtonText || "Buy Tickets"}</span>
-              <ChevronDownIcon className="w-4 h-4 opacity-80" />
-            </a>
+            {pass.status === 'has-pass' ? (
+              // Already holds a pass: point to it instead of selling another
+              <a
+                href={`/conference/success?ticket_id=${pass.ticket.id}`}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-base sm:text-lg shadow-xl shadow-emerald-900/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border border-emerald-300/30"
+              >
+                <CheckCircleIcon className="w-5 h-5" />
+                <span>You already have an active pass</span>
+                <ArrowTopRightOnSquareIcon className="w-4 h-4 opacity-80" />
+              </a>
+            ) : (
+              <a
+                href="#tickets"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl bg-gradient-to-r from-[#FFCB05] to-[#F5B700] hover:from-[#FFD84D] hover:to-[#FFCB05] text-[#00274c] font-extrabold text-base sm:text-lg shadow-xl shadow-[#E6B700]/30 hover:shadow-[#FFCB05]/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border border-[#FFD633]/40"
+              >
+                <TicketIcon className="w-5 h-5" />
+                <span>{data.ticketButtonText || "Buy Tickets"}</span>
+                <ChevronDownIcon className="w-4 h-4 opacity-80" />
+              </a>
+            )}
 
             <a
               href={data.learnMoreButtonUrl || "#about"}
@@ -226,6 +242,18 @@ export default function ConferencePageClient() {
               <ChevronDownIcon className="w-4 h-4" />
             </a>
           </motion.div>
+
+          {pass.status === 'signed-out' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+              className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-3 text-sm text-white/70"
+            >
+              <span>Already have a pass, or want faster checkout?</span>
+              <ConferenceSignInButton className="px-5 py-2.5 text-sm" />
+            </motion.div>
+          )}
         </div>
 
         {/* Scroll down prompt */}
@@ -334,7 +362,7 @@ export default function ConferencePageClient() {
       {/* ─────────────────────────────────────────────────────────────────────────────
           2.5. TICKETS & PASSES SECTION
       ────────────────────────────────────────────────────────────────────────────── */}
-      <ConferenceTicketSection />
+      <ConferenceTicketSection pass={pass} />
 
       {/* ─────────────────────────────────────────────────────────────────────────────
           5. SPONSORS SECTION & BECOME A SPONSOR

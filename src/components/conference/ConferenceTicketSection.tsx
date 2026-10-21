@@ -16,11 +16,14 @@ import {
 } from '@heroicons/react/24/outline';
 import { TicketPricingStatus, ConferenceTicket } from '@/types/conference-ticket';
 import { getConferenceTicketStatus } from '@/lib/conference-pricing';
+import type { ConferencePassState } from '@/hooks/useConferencePass';
+import ConferenceSignInButton from '@/components/conference/ConferenceSignInButton';
 
-export default function ConferenceTicketSection() {
+export default function ConferenceTicketSection({ pass }: { pass: ConferencePassState }) {
   const { data: session } = useSession();
   const [pricing, setPricing] = useState<TicketPricingStatus>(getConferenceTicketStatus());
-  const [existingTicket, setExistingTicket] = useState<ConferenceTicket | null>(null);
+  // Looked up once by the page and shared with the hero button
+  const existingTicket: ConferenceTicket | null = pass.status === 'has-pass' ? pass.ticket : null;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadingCheckout, setLoadingCheckout] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -44,16 +47,6 @@ export default function ConferenceTicketSection() {
         name: prev.name || session.user?.name || '',
         email: prev.email || session.user?.email || '',
       }));
-
-      // Check if user already purchased a ticket
-      fetch('/api/conference/tickets/my-pass')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.hasTicket && data.ticket) {
-            setExistingTicket(data.ticket);
-          }
-        })
-        .catch((e) => console.error('Error checking existing pass:', e));
     }
   }, [session]);
 
@@ -307,7 +300,16 @@ export default function ConferenceTicketSection() {
 
           {/* CTA Button */}
           <div className="mt-8">
-            {pricing.isAvailable ? (
+            {existingTicket ? (
+              // Already holds a pass: link to it instead of selling a second one
+              <a
+                href={`/conference/success?ticket_id=${existingTicket.id}`}
+                className="w-full py-4 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg shadow-xl shadow-emerald-900/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border border-emerald-300/30 flex items-center justify-center gap-2"
+              >
+                <CheckIcon className="w-6 h-6" />
+                <span>You already have an active pass</span>
+              </a>
+            ) : pricing.isAvailable ? (
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#FFCB05] to-[#F5B700] hover:from-[#FFD84D] hover:to-[#FFCB05] text-[#00274c] font-extrabold text-lg shadow-xl shadow-[#E6B700]/30 hover:shadow-[#FFCB05]/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 border border-[#FFD633]/40 flex items-center justify-center gap-2"
@@ -318,6 +320,13 @@ export default function ConferenceTicketSection() {
             ) : (
               <div className="w-full py-4 px-6 rounded-2xl bg-white/10 text-white/50 font-bold text-base text-center border border-white/10">
                 Ticket Sales Have Concluded
+              </div>
+            )}
+
+            {pass.status === 'signed-out' && (
+              <div className="mt-4 flex flex-col items-center gap-2 text-xs text-white/60">
+                <span>Bought a pass already? Sign in to see it.</span>
+                <ConferenceSignInButton className="w-full px-5 py-3 text-sm" label="Sign in with Google" />
               </div>
             )}
 
