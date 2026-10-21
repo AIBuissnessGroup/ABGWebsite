@@ -24,19 +24,21 @@ import {
   ArrowTopRightOnSquareIcon,
   CheckCircleIcon,
   TicketIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  ComputerDesktopIcon
 } from '@heroicons/react/24/outline';
 import { ConferenceData, ConferenceSpeaker, ConferenceScheduleItem, ConferenceSponsor } from '@/types/conference';
 import { DEFAULT_CONFERENCE_DATA } from '@/lib/conference-defaults';
 import { isAdmin } from '@/lib/roles';
 import AdminConferenceTicketsTab from '@/components/admin/AdminConferenceTicketsTab';
+import AdminStageBackgroundsTab from '@/components/admin/AdminStageBackgroundsTab';
 
 export default function AdminConferencePage() {
   const { data: session, status } = useSession();
   const [data, setData] = useState<ConferenceData>(DEFAULT_CONFERENCE_DATA);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'visibility' | 'content' | 'speakers' | 'schedule' | 'sponsors' | 'tickets'>('visibility');
+  const [activeTab, setActiveTab] = useState<'visibility' | 'content' | 'speakers' | 'schedule' | 'sponsors' | 'tickets' | 'backgrounds'>('visibility');
 
   // Speaker Modal State
   const [editingSpeaker, setEditingSpeaker] = useState<ConferenceSpeaker | null>(null);
@@ -446,6 +448,18 @@ export default function AdminConferencePage() {
         >
           <TicketIcon className="w-4 h-4" />
           <span>Tickets & Roster</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('backgrounds')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${
+            activeTab === 'backgrounds'
+              ? 'bg-[#00274c] text-white shadow-md'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          <ComputerDesktopIcon className="w-4 h-4" />
+          <span>Stage Backgrounds</span>
         </button>
       </div>
 
@@ -1201,6 +1215,14 @@ export default function AdminConferencePage() {
           TAB 6: TICKETS & ROSTER MANAGEMENT
       ────────────────────────────────────────────────────────────────────────────── */}
       {activeTab === 'tickets' && <AdminConferenceTicketsTab />}
+
+      {activeTab === 'backgrounds' && (
+        <AdminStageBackgroundsTab
+          value={data.backgroundSpeakerOrder}
+          saving={saving}
+          onSave={(order) => handleSave({ backgroundSpeakerOrder: order })}
+        />
+      )}
 
       {/* ─────────────────────────────────────────────────────────────────────────────
           MODAL: EDIT / ADD SPEAKER

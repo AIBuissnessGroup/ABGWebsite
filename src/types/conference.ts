@@ -60,6 +60,9 @@ export interface ConferenceData {
   sponsorsDescription?: string;
   sponsors: ConferenceSponsor[];
 
+  // Stage backgrounds: speaker order per lineup session id (speaker names, left to right)
+  backgroundSpeakerOrder?: Record<string, string[]>;
+
   // Visibility / Temporary toggle
   isVisible: boolean;
   updatedAt: number;

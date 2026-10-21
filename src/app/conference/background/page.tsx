@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 export default async function ConferenceBackgroundPage({
   searchParams,
 }: {
-  searchParams: Promise<{ s?: string; demo?: string }>;
+  searchParams: Promise<{ s?: string; demo?: string; from?: string }>;
 }) {
-  const { s, demo } = await searchParams;
-  return <ConferenceBackgroundClient sessionId={s} demo={demo === '1'} />;
+  const { s, demo, from } = await searchParams;
+  return <ConferenceBackgroundClient sessionId={s} demo={demo === '1'} skipIntro={from === 'outro'} />;
 }

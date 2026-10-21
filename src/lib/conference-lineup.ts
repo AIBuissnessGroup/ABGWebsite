@@ -286,10 +286,37 @@ export const LINEUP_SPEAKER_COUNT = SPEAKER_SESSIONS.reduce((n, s) => n + s.spea
 const CONFERENCE_DAY = '2026-10-23';
 
 export function sessionStartTime(session: LineupSession): Date {
-  const [, h, m, ampm] = session.start.match(/(\d+):(\d+)\s*(AM|PM)/i) || [];
+  return parseClock(session.start);
+}
+
+function parseClock(clock: string): Date {
+  const [, h, m, ampm] = clock.match(/(\d+):(\d+)\s*(AM|PM)/i) || [];
   let hour = Number(h) % 12;
   if (ampm?.toUpperCase() === 'PM') hour += 12;
   return new Date(`${CONFERENCE_DAY}T${String(hour).padStart(2, '0')}:${m}:00-04:00`);
+}
+
+export function sessionEndTime(session: LineupSession): Date {
+  return parseClock(session.end);
+}
+
+// e.g. "45 min" or "1 hr 15 min"
+export function sessionDurationLabel(session: LineupSession): string {
+  const minutes = Math.round((sessionEndTime(session).getTime() - sessionStartTime(session).getTime()) / 60000);
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h} hr${m ? ` ${m} min` : ''}` : `${m} min`;
+}
+
+// Reorders a session's speakers by name (from the admin stage background settings); unknown names are ignored
+export function applySpeakerOrder(session: LineupSession, order?: string[]): LineupSession {
+  if (!order || order.length === 0) return session;
+  const rank = (name: string) => {
+    const i = order.indexOf(name);
+    return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+  };
+  const speakers = [...session.speakers].sort((a, b) => rank(a.name) - rank(b.name));
+  return { ...session, speakers };
 }
 
 // The session(s) starting next after this one (two when they run concurrently)
