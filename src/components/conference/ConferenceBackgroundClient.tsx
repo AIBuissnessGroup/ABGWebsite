@@ -165,6 +165,16 @@ function SponsorLogos({
   );
 }
 
+// Top row shared by every slide: ABG mark on the left, sponsors stacked 3 and 3 on the right
+function SlideHeader({ sponsors }: { sponsors: ConferenceSponsor[] }) {
+  return (
+    <div className="flex items-start justify-between" style={{ gap: '3vw', minHeight: '5vw' }}>
+      <HostedBy />
+      <SponsorLogos sponsors={sponsors} columns={3} compact />
+    </div>
+  );
+}
+
 function Eyebrow({ session }: { session: LineupSession }) {
   if (!session.label) return null;
   return (
@@ -352,10 +362,7 @@ function PanelSlide({ session, next, remaining, sponsors }: SlideProps) {
     <div className="relative h-full w-full flex flex-col">
       <div className="flex-1 flex min-h-0">
         <div className="flex-1 flex flex-col min-w-0" style={{ padding: '2.6vw 5vw 1.6vw' }}>
-          <div className="flex items-start justify-between" style={{ gap: '3vw' }}>
-            <HostedBy />
-            <SponsorLogos sponsors={sponsors} columns={3} compact />
-          </div>
+          <SlideHeader sponsors={sponsors} />
           <div className="flex-1 flex flex-col items-center justify-center text-center" style={{ gap: '1.6vw' }}>
             <div className="flex flex-col items-center">
               <Eyebrow session={session} />
@@ -427,15 +434,12 @@ function HappeningNowSlide({ session, next, remaining, now, sponsors, demo }: Sl
     }
   }
 
-  const tiles = [
-    { label: 'Where', value: session.room, sub: CONFERENCE_VENUE },
-    { label: 'When', value: `${session.start} – ${session.end}`, sub: sessionDurationLabel(session) },
-  ];
+  const tiles = [{ label: 'Where', value: session.room, sub: CONFERENCE_VENUE }];
 
   return (
     <div className="relative h-full w-full flex flex-col">
       <div className="flex-1 flex flex-col min-h-0" style={{ padding: '2.6vw 5vw 2vw' }}>
-        <HostedBy />
+        <SlideHeader sponsors={sponsors} />
 
         <div className="flex-1 grid items-center" style={{ gridTemplateColumns: '1.35fr 1fr', gap: '4vw' }}>
           <div>
@@ -503,10 +507,6 @@ function HappeningNowSlide({ session, next, remaining, now, sponsors, demo }: Sl
               </div>
             </div>
           </motion.div>
-        </div>
-
-        <div className="flex justify-end">
-          <SponsorLogos sponsors={sponsors} />
         </div>
       </div>
       <UpNextBar next={next} remaining={remaining} />
