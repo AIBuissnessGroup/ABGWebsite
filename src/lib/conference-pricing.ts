@@ -3,7 +3,7 @@ import { TicketPricingStatus, TicketPricingPhase } from '@/types/conference-tick
 // Milestones in America/New_York (EDT = UTC-4)
 // Early bird ends at midnight starting Mon, Sep 21, 2026
 export const EARLY_BIRD_END_ISO = '2026-09-21T00:00:00-04:00';
-export const SALES_CLOSE_ISO = '2026-10-22T17:00:00-04:00';
+export const SALES_CLOSE_ISO = '2026-10-22T22:00:00-04:00';
 export const CONFERENCE_START_ISO = '2026-10-23T08:30:00-04:00';
 
 export const EARLY_BIRD_END_TIMESTAMP = new Date(EARLY_BIRD_END_ISO).getTime();
@@ -29,7 +29,7 @@ export function getConferenceTicketStatus(nowMs: number = Date.now()): TicketPri
       priceInCents: GENERAL_PRICE_CENTS,
       priceLabel: `$${GENERAL_PRICE}`,
       tierName: 'Registration Closed',
-      deadlineLabel: 'Concluded on Thu, Oct 22, 2026 at 5:00 PM EDT',
+      deadlineLabel: 'Concluded on Thu, Oct 22, 2026 at 10:00 PM EDT',
       deadlineTimestamp: SALES_CLOSE_TIMESTAMP,
       salesCloseTimestamp: SALES_CLOSE_TIMESTAMP,
       message: 'Ticket sales for the Michigan AI Business Conference 2026 have ended. On-site registration is not guaranteed.',
@@ -62,7 +62,7 @@ export function getConferenceTicketStatus(nowMs: number = Date.now()): TicketPri
     priceInCents: GENERAL_PRICE_CENTS,
     priceLabel: `$${GENERAL_PRICE}`,
     tierName: 'General Admission',
-    deadlineLabel: 'Sales close Thu, Oct 22, 2026 at 5:00 PM EDT',
+    deadlineLabel: 'Sales close Thu, Oct 22, 2026 at 10:00 PM EDT',
     deadlineTimestamp: SALES_CLOSE_TIMESTAMP,
     salesCloseTimestamp: SALES_CLOSE_TIMESTAMP,
     message: 'Full day access to keynotes, workshops, and networking reception.',

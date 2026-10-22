@@ -228,7 +228,7 @@ export default function ConferenceTicketSection({ pass }: { pass: ConferencePass
 
             {pricing.phase === 'GENERAL' && (
               <div className="mt-2 text-xs font-bold text-white/70">
-                Tickets available until Thu, Oct 22 at 5:00 PM EDT
+                Tickets available until Thu, Oct 22 at 10:00 PM EDT
               </div>
             )}
           </div>

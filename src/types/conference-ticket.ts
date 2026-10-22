@@ -11,7 +11,7 @@ export interface TicketPricingStatus {
   discountNote?: string; // "Save $4 before Sep 21"
   deadlineLabel: string; // human readable deadline
   deadlineTimestamp: number; // epoch ms for countdown timers
-  salesCloseTimestamp: number; // Oct 22, 2026, 5:00 PM EDT in epoch ms
+  salesCloseTimestamp: number; // Oct 22, 2026, 10:00 PM EDT in epoch ms
   message?: string;
 }
 
