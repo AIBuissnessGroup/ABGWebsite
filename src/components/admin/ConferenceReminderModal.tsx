@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import {
   XMarkIcon,
   EnvelopeIcon,
-  CheckIcon,
   PlusIcon,
   TrashIcon,
   ArrowUpIcon,
@@ -13,8 +12,6 @@ import {
   EyeIcon,
   CodeBracketIcon,
   SparklesIcon,
-  InformationCircleIcon,
-  CheckCircleIcon,
   MagnifyingGlassIcon,
   UserGroupIcon,
   ShieldCheckIcon,
@@ -188,7 +185,7 @@ const PRESET_TEMPLATES = [
 export default function ConferenceReminderModal({
   isOpen,
   onClose,
-  tickets,
+  tickets = [],
 }: ConferenceReminderModalProps) {
   // Primary email settings
   const [primaryTo, setPrimaryTo] = useState('ABGcontact@umich.edu');
@@ -206,7 +203,6 @@ export default function ConferenceReminderModal({
   const [bannerColor, setBannerColor] = useState(PRESET_TEMPLATES[0].bannerColor);
   const [bannerGradient, setBannerGradient] = useState(PRESET_TEMPLATES[0].bannerGradient);
   const [bannerGradientEnd, setBannerGradientEnd] = useState(PRESET_TEMPLATES[0].bannerGradientEnd);
-  const [bannerGradientOpacity, setBannerGradientOpacity] = useState(1);
   const [bannerShapes, setBannerShapes] = useState(PRESET_TEMPLATES[0].bannerShapes);
   const [bottomBannerEnabled, setBottomBannerEnabled] = useState(PRESET_TEMPLATES[0].bottomBannerEnabled);
   const [bottomBannerText, setBottomBannerText] = useState(PRESET_TEMPLATES[0].bottomBannerText);
@@ -226,12 +222,26 @@ export default function ConferenceReminderModal({
   const [sending, setSending] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('conference_reminder');
 
-  const previewIframeRef = useRef<HTMLIFrameElement>(null);
+  // Escape key listener to close
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showConfirmModal) {
+          setShowConfirmModal(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, showConfirmModal, onClose]);
 
   // Initialize selected emails to all valid ticket holders when modal opens
   useEffect(() => {
     if (isOpen) {
-      const initialEmails = tickets
+      const initialEmails = (tickets || [])
         .filter((t) => t.status === 'confirmed' && t.attendeeEmail && t.attendeeEmail.includes('@'))
         .map((t) => t.attendeeEmail.toLowerCase().trim());
       setSelectedEmails(Array.from(new Set(initialEmails)));
@@ -239,8 +249,9 @@ export default function ConferenceReminderModal({
   }, [isOpen, tickets]);
 
   // Generate HTML from content sections (identical to Notification Center)
-  const generateHtml = () => {
+  const previewHtml = useMemo(() => {
     const formatText = (text: string, isBold?: boolean) => {
+      if (!text) return '';
       let formatted = text.replace(
         /<([^>]+)>\(([^)]+)\)/g,
         '<a href="$2" style="color: #00274c; text-decoration: underline; font-weight: 600;">$1</a>'
@@ -254,7 +265,7 @@ export default function ConferenceReminderModal({
       return formatted;
     };
 
-    const sectionsHtml = contentSections
+    const sectionsHtml = (contentSections || [])
       .map((section) => {
         const getImageSizeStyle = (size?: string) => {
           switch (size) {
@@ -273,19 +284,19 @@ export default function ConferenceReminderModal({
         switch (section.type) {
           case 'heading':
             return `<h2 style="color: #00274c; font-size: 22px; font-weight: 700; margin: 24px 0 12px 0;">${formatText(
-              section.content,
+              section.content || '',
               section.isBold
             )}</h2>`;
           case 'text':
             return `<div style="margin: 12px 0; line-height: 1.65; color: #374151; font-size: 15px;">${formatText(
-              section.content,
+              section.content || '',
               section.isBold
             )}</div>`;
           case 'button':
             return `<div style="margin: 24px 0; text-align: center;"><a href="${
               section.buttonUrl || '#'
             }" style="display: inline-block; padding: 13px 32px; background: linear-gradient(135deg, #00274c 0%, #003b75 100%); color: #ffffff !important; text-decoration: none; border-radius: 9999px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(0,39,76,0.25);">${
-              section.content
+              section.content || 'Click Here'
             }</a></div>`;
           case 'divider':
             return `<hr style="border: none; border-top: 2px solid #e5e7eb; margin: 24px 0;" />`;
@@ -298,7 +309,7 @@ export default function ConferenceReminderModal({
                 : 'text-align: center;';
             return `<div style="margin: 20px 0; ${alignStyle}"><img src="${
               section.imageUrl || ''
-            }" alt="${section.content}" style="${getImageSizeStyle(
+            }" alt="${section.content || ''}" style="${getImageSizeStyle(
               section.imageSize
             )} height: auto; border-radius: 12px; display: inline-block;" /></div>`;
           case 'text-image':
@@ -311,7 +322,7 @@ export default function ConferenceReminderModal({
             }" alt="Image" style="${imageFloat} ${getImageSizeStyle(
               section.imageSize
             )} height: auto; border-radius: 10px;" /><div style="line-height: 1.65; color: #374151;">${formatText(
-              section.content,
+              section.content || '',
               section.isBold
             )}</div></div>`;
           default:
@@ -373,7 +384,7 @@ export default function ConferenceReminderModal({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${subject}</title>
+  <title>${subject || 'Conference Reminder'}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #374151; margin: 0; padding: 24px; background-color: ${emailBackgroundColor}; }
     .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
@@ -394,19 +405,6 @@ export default function ConferenceReminderModal({
   </div>
 </body>
 </html>`;
-  };
-
-  // Live update preview
-  useEffect(() => {
-    if (previewIframeRef.current) {
-      const doc =
-        previewIframeRef.current.contentDocument || previewIframeRef.current.contentWindow?.document;
-      if (doc) {
-        doc.open();
-        doc.write(generateHtml());
-        doc.close();
-      }
-    }
   }, [
     contentSections,
     subject,
@@ -425,7 +423,6 @@ export default function ConferenceReminderModal({
     signatureSize,
     signatureStyle,
     emailBackgroundColor,
-    activeTab,
   ]);
 
   // Load Template
@@ -494,7 +491,7 @@ export default function ConferenceReminderModal({
   };
 
   // Filter tickets for BCC selection
-  const eligibleTickets = tickets.filter((t) => {
+  const eligibleTickets = (tickets || []).filter((t) => {
     if (t.status !== 'confirmed') return false;
     if (recipientFilter === 'checked') return t.checkedIn;
     if (recipientFilter === 'unchecked') return !t.checkedIn;
@@ -505,9 +502,9 @@ export default function ConferenceReminderModal({
     if (!recipientSearch.trim()) return true;
     const query = recipientSearch.toLowerCase();
     return (
-      t.attendeeName.toLowerCase().includes(query) ||
+      (t.attendeeName && t.attendeeName.toLowerCase().includes(query)) ||
       (t.attendeeEmail && t.attendeeEmail.toLowerCase().includes(query)) ||
-      t.ticketCode.toLowerCase().includes(query) ||
+      (t.ticketCode && t.ticketCode.toLowerCase().includes(query)) ||
       (t.affiliation && t.affiliation.toLowerCase().includes(query))
     );
   });
@@ -564,7 +561,6 @@ export default function ConferenceReminderModal({
   const handleSendReminder = async () => {
     setSending(true);
     try {
-      const htmlContent = generateHtml();
       const res = await fetch('/api/admin/conference/tickets/reminder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -572,7 +568,7 @@ export default function ConferenceReminderModal({
           to: primaryTo.trim(),
           bcc: selectedEmails,
           subject: subject.trim(),
-          htmlContent,
+          htmlContent: previewHtml,
           replyTo: replyTo.trim() || 'ABGcontact@umich.edu',
         }),
       });
@@ -599,10 +595,16 @@ export default function ConferenceReminderModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
-      <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-full max-w-7xl h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div
+      className="fixed inset-0 z-[9999] overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-full max-w-7xl h-[92vh] max-h-[92vh] flex flex-col overflow-hidden relative z-10"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* ── HEADER ── */}
-        <div className="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-4 bg-gray-50/70">
+        <div className="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-4 bg-gray-50/90 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#00274c] text-white flex items-center justify-center shadow-md">
               <EnvelopeIcon className="w-5 h-5 text-white" />
@@ -624,6 +626,7 @@ export default function ConferenceReminderModal({
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex items-center bg-gray-200/80 p-1 rounded-xl">
               <button
+                type="button"
                 onClick={() => setActiveTab('designer')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                   activeTab === 'designer'
@@ -636,6 +639,7 @@ export default function ConferenceReminderModal({
               </button>
 
               <button
+                type="button"
                 onClick={() => setActiveTab('recipients')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                   activeTab === 'recipients'
@@ -648,6 +652,7 @@ export default function ConferenceReminderModal({
               </button>
 
               <button
+                type="button"
                 onClick={() => setActiveTab('preview')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                   activeTab === 'preview'
@@ -661,6 +666,7 @@ export default function ConferenceReminderModal({
             </div>
 
             <button
+              type="button"
               onClick={handleOpenConfirm}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#FF6700] hover:bg-[#FF5500] text-white text-sm font-bold shadow-md hover:shadow-lg transition-all"
             >
@@ -669,8 +675,10 @@ export default function ConferenceReminderModal({
             </button>
 
             <button
+              type="button"
               onClick={onClose}
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              title="Close (Esc)"
             >
               <XMarkIcon className="w-5 h-5" />
             </button>
@@ -678,10 +686,10 @@ export default function ConferenceReminderModal({
         </div>
 
         {/* ── BODY SPLIT VIEW ── */}
-        <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+        <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-0">
           {/* LEFT 7 COLS: Controls (Designer or Recipients) */}
           <div
-            className={`lg:col-span-7 h-full overflow-y-auto p-6 space-y-6 border-r border-gray-200 ${
+            className={`lg:col-span-7 h-full overflow-y-auto p-6 space-y-6 border-r border-gray-200 bg-white ${
               activeTab === 'preview' ? 'hidden lg:block' : 'block'
             }`}
           >
@@ -1221,7 +1229,7 @@ export default function ConferenceReminderModal({
             }`}
           >
             {/* Preview Toolbar */}
-            <div className="px-5 py-3 border-b border-gray-200 bg-white flex items-center justify-between">
+            <div className="px-5 py-3 border-b border-gray-200 bg-white flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-xs font-bold uppercase tracking-wider text-gray-700">Live Email Preview</span>
@@ -1252,17 +1260,16 @@ export default function ConferenceReminderModal({
             </div>
 
             {/* IFrame Container */}
-            <div className="flex-1 p-4 flex items-center justify-center overflow-auto">
+            <div className="flex-1 p-4 flex items-center justify-center overflow-auto min-h-0">
               <div
-                className={`h-full transition-all duration-300 bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-300 ${
+                className={`h-full transition-all duration-200 bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-300 ${
                   previewDevice === 'mobile' ? 'w-[375px]' : 'w-full'
                 }`}
               >
                 <iframe
-                  ref={previewIframeRef}
+                  srcDoc={previewHtml}
                   title="Live Email Preview"
-                  className="w-full h-full border-0 bg-transparent"
-                  sandbox="allow-same-origin"
+                  className="w-full h-full border-0 bg-white"
                 />
               </div>
             </div>
@@ -1271,10 +1278,16 @@ export default function ConferenceReminderModal({
 
         {/* ── SAFETY CONFIRMATION DIALOG ── */}
         {showConfirmModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-gray-200 space-y-5 animate-in fade-in zoom-in-95">
+          <div
+            className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowConfirmModal(false)}
+          >
+            <div
+              className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-gray-200 space-y-5 relative z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-orange-100 text-[#FF6700] flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-orange-100 text-[#FF6700] flex items-center justify-center flex-shrink-0">
                   <EnvelopeIcon className="w-6 h-6" />
                 </div>
                 <div>
