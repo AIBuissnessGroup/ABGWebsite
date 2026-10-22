@@ -29,6 +29,12 @@ export interface ConferenceSponsor {
   order: number;
 }
 
+export interface ConferenceCheckinStaff {
+  email: string;
+  addedBy?: string;
+  addedAt?: number;
+}
+
 export interface ConferenceData {
   id: string;
   title: string;
@@ -62,6 +68,9 @@ export interface ConferenceData {
 
   // Stage backgrounds: speaker order per lineup session id (speaker names, left to right)
   backgroundSpeakerOrder?: Record<string, string[]>;
+
+  // People (besides admins) allowed to use /conference/checkin on conference day
+  checkinStaff?: ConferenceCheckinStaff[];
 
   // Visibility / Temporary toggle
   isVisible: boolean;

@@ -25,20 +25,22 @@ import {
   CheckCircleIcon,
   TicketIcon,
   ArrowPathIcon,
-  ComputerDesktopIcon
+  ComputerDesktopIcon,
+  QrCodeIcon
 } from '@heroicons/react/24/outline';
 import { ConferenceData, ConferenceSpeaker, ConferenceScheduleItem, ConferenceSponsor } from '@/types/conference';
 import { DEFAULT_CONFERENCE_DATA } from '@/lib/conference-defaults';
 import { isAdmin } from '@/lib/roles';
 import AdminConferenceTicketsTab from '@/components/admin/AdminConferenceTicketsTab';
 import AdminStageBackgroundsTab from '@/components/admin/AdminStageBackgroundsTab';
+import AdminCheckinStaffTab from '@/components/admin/AdminCheckinStaffTab';
 
 export default function AdminConferencePage() {
   const { data: session, status } = useSession();
   const [data, setData] = useState<ConferenceData>(DEFAULT_CONFERENCE_DATA);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'visibility' | 'content' | 'speakers' | 'schedule' | 'sponsors' | 'tickets' | 'backgrounds'>('visibility');
+  const [activeTab, setActiveTab] = useState<'visibility' | 'content' | 'speakers' | 'schedule' | 'sponsors' | 'tickets' | 'backgrounds' | 'checkin'>('visibility');
 
   // Speaker Modal State
   const [editingSpeaker, setEditingSpeaker] = useState<ConferenceSpeaker | null>(null);
@@ -460,6 +462,18 @@ export default function AdminConferencePage() {
         >
           <ComputerDesktopIcon className="w-4 h-4" />
           <span>Stage Backgrounds</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('checkin')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${
+            activeTab === 'checkin'
+              ? 'bg-[#00274c] text-white shadow-md'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          <QrCodeIcon className="w-4 h-4" />
+          <span>Check-in Staff ({data.checkinStaff?.length || 0})</span>
         </button>
       </div>
 
@@ -1215,6 +1229,14 @@ export default function AdminConferencePage() {
           TAB 6: TICKETS & ROSTER MANAGEMENT
       ────────────────────────────────────────────────────────────────────────────── */}
       {activeTab === 'tickets' && <AdminConferenceTicketsTab />}
+
+      {activeTab === 'checkin' && (
+        <AdminCheckinStaffTab
+          value={data.checkinStaff}
+          saving={saving}
+          onSave={(staff) => handleSave({ checkinStaff: staff })}
+        />
+      )}
 
       {activeTab === 'backgrounds' && (
         <AdminStageBackgroundsTab

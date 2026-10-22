@@ -13,7 +13,6 @@ import {
   QrCodeIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
-import { isAdmin } from '@/lib/roles';
 import { ConferenceTicket } from '@/types/conference-ticket';
 import ConferenceSignInButton from '@/components/conference/ConferenceSignInButton';
 
@@ -40,7 +39,11 @@ function buzz(pattern: number | number[]) {
 // Mobile check-in for conference passes: scan the attendee's QR code or look them up by name
 export default function ConferenceCheckinClient() {
   const { data: session, status } = useSession();
-  const userIsAdmin = isAdmin(session?.user?.roles || []);
+  // Decided by the server: admins plus anyone on the conference's check-in staff list
+  const [access, setAccess] = useState<{ state: 'checking' | 'allowed' | 'denied'; role?: 'admin' | 'staff'; reason?: string }>({
+    state: 'checking',
+  });
+  const hasAccess = access.state === 'allowed';
 
   const [tickets, setTickets] = useState<ConferenceTicket[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -57,9 +60,14 @@ export default function ConferenceCheckinClient() {
   // Roster: loaded once and refreshed so check-ins from other phones show up
   const loadTickets = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/conference/tickets', { cache: 'no-store' });
+      const res = await fetch('/api/conference/checkin', { cache: 'no-store' });
       const data = await res.json();
+      if (res.status === 401 || res.status === 403) {
+        setAccess({ state: 'denied', reason: data.error });
+        return null;
+      }
       if (!res.ok) throw new Error(data.error || 'Failed to load tickets');
+      setAccess({ state: 'allowed', role: data.role });
       setTickets(data.tickets || []);
       setLoadError(null);
       return (data.tickets || []) as ConferenceTicket[];
@@ -70,11 +78,11 @@ export default function ConferenceCheckinClient() {
   }, []);
 
   useEffect(() => {
-    if (!userIsAdmin) return;
+    if (!session) return;
     loadTickets();
     const timer = setInterval(loadTickets, REFRESH_MS);
     return () => clearInterval(timer);
-  }, [userIsAdmin, loadTickets]);
+  }, [session, loadTickets]);
 
   const valid = tickets.filter((t) => t.status === 'confirmed');
   const checkedInCount = valid.filter((t) => t.checkedIn).length;
@@ -82,7 +90,7 @@ export default function ConferenceCheckinClient() {
   const setCheckedIn = useCallback(async (ticket: ConferenceTicket, checkedIn: boolean) => {
     setBusyId(ticket.id);
     try {
-      const res = await fetch('/api/admin/conference/tickets', {
+      const res = await fetch('/api/conference/checkin', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticketId: ticket.id, checkedIn }),
@@ -145,7 +153,7 @@ export default function ConferenceCheckinClient() {
   );
 
   // Camera + QR decoding loop (paused while a result is showing)
-  const scanning = userIsAdmin && mode === 'scan' && !result;
+  const scanning = hasAccess && mode === 'scan' && !result;
   useEffect(() => {
     if (!scanning) return;
     let stream: MediaStream | null = null;
@@ -226,19 +234,27 @@ export default function ConferenceCheckinClient() {
         <div className="py-16 text-center">
           <QrCodeIcon className="w-12 h-12 text-[#FFCB05] mx-auto" />
           <h1 className="mt-4 text-2xl font-extrabold">Conference Check-in</h1>
-          <p className="mt-2 text-white/70 text-sm">Sign in with your admin account to check attendees in.</p>
+          <p className="mt-2 text-white/70 text-sm">Sign in with your umich account to check attendees in.</p>
           <ConferenceSignInButton className="mt-6 px-6 py-3 text-sm" callbackUrl="/conference/checkin" />
         </div>
       </Screen>
     );
   }
-  if (!userIsAdmin) {
+  if (access.state === 'checking') {
+    return <Screen><div className="py-24 text-center text-white/60">Checking access…</div></Screen>;
+  }
+  if (access.state === 'denied') {
     return (
       <Screen>
         <div className="py-16 text-center">
           <XCircleIcon className="w-12 h-12 text-red-400 mx-auto" />
-          <h1 className="mt-4 text-2xl font-extrabold">Admins only</h1>
-          <p className="mt-2 text-white/70 text-sm">Check-in is limited to conference admins. Signed in as {session.user?.email}.</p>
+          <h1 className="mt-4 text-2xl font-extrabold">No check-in access</h1>
+          <p className="mt-2 text-white/70 text-sm">
+            {access.reason === 'Check-in staff access has ended'
+              ? 'Check-in staff access ended after conference day.'
+              : 'Check-in is limited to admins and assigned check-in staff. Ask a conference admin to add you.'}
+          </p>
+          <p className="mt-3 text-xs text-white/40">Signed in as {session.user?.email}</p>
         </div>
       </Screen>
     );
@@ -250,7 +266,9 @@ export default function ConferenceCheckinClient() {
       <div className="flex items-center justify-between">
         <div>
           <div className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#FFCB05]">Michigan AI Business Conference</div>
-          <h1 className="text-xl font-extrabold">Check-in</h1>
+          <h1 className="text-xl font-extrabold">
+            Check-in{access.role === 'staff' && <span className="ml-2 align-middle text-[10px] font-bold uppercase tracking-wider text-white/50">Staff</span>}
+          </h1>
         </div>
         <div className="text-right">
           <div className="text-2xl font-extrabold tabular-nums">

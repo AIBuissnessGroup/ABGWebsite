@@ -7,6 +7,7 @@ import { getDb } from '@/lib/mongodb';
 import { ConferenceTicket, AdminTicketStats } from '@/types/conference-ticket';
 import { escapeRegex, sanitizeCsvCell, sanitizeStringInput } from '@/lib/conference-security';
 import { sendConferenceTicketEmail } from '@/lib/conference-email';
+import { setTicketCheckIn } from '@/lib/conference-checkin';
 
 export const dynamic = 'force-dynamic';
 
@@ -239,45 +240,8 @@ export async function PATCH(req: Request) {
     }
 
     const ticketId = sanitizeStringInput(rawTicketId, 50);
-
-    const db = await getDb();
-    const ticketsCollection = db.collection<ConferenceTicket>('ConferenceTickets');
-
-    const match = { $or: [{ id: ticketId }, { ticketCode: ticketId.toUpperCase() }] };
-    const ticket = await ticketsCollection.findOne(match);
-    if (!ticket) {
-      return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
-    }
-
-    if (checkedIn) {
-      if (ticket.status !== 'confirmed') {
-        return NextResponse.json({ error: `This pass is ${ticket.status} and can't be checked in` }, { status: 409 });
-      }
-
-      // Only flips an unchecked pass, so two admins scanning the same person can't both check them in
-      const now = Date.now();
-      const result = await ticketsCollection.updateOne(
-        { id: ticket.id, checkedIn: { $ne: true } },
-        { $set: { checkedIn: true, checkedInAt: now, checkedInBy: session.user?.email || 'admin', updatedAt: now } }
-      );
-      if (result.modifiedCount === 0) {
-        const current = await ticketsCollection.findOne({ id: ticket.id });
-        return NextResponse.json({
-          success: true,
-          checkedIn: true,
-          alreadyCheckedIn: true,
-          checkedInAt: current?.checkedInAt ?? null,
-          checkedInBy: current?.checkedInBy ?? null,
-        });
-      }
-      return NextResponse.json({ success: true, checkedIn: true, checkedInAt: now, checkedInBy: session.user?.email || 'admin' });
-    }
-
-    await ticketsCollection.updateOne(
-      { id: ticket.id },
-      { $set: { checkedIn: false, updatedAt: Date.now() }, $unset: { checkedInAt: '', checkedInBy: '' } }
-    );
-    return NextResponse.json({ success: true, checkedIn: false });
+    const result = await setTicketCheckIn(ticketId, checkedIn, session.user?.email || 'admin');
+    return NextResponse.json(result.body, { status: result.status });
   } catch (error: any) {
     console.error('Error updating ticket check-in status:', error);
     return NextResponse.json({ error: 'Failed to update check-in status' }, { status: 500 });

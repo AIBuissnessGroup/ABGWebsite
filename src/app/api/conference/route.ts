@@ -3,7 +3,9 @@ import { getConferenceData } from '@/lib/site-content/conference';
 
 export async function GET() {
   try {
-    const data = await getConferenceData();
+    // The check-in staff list is internal; keep it out of the public payload
+    const data = { ...(await getConferenceData()) };
+    delete data.checkinStaff;
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching conference data:', error);
