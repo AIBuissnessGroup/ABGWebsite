@@ -24,8 +24,8 @@ async function getGmailClient() {
     return cachedGmailClient;
   }
 
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const clientId = process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
   const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
 
   if (!clientId || !clientSecret || !refreshToken) {
@@ -83,8 +83,8 @@ async function getDriveClient() {
     return cachedDriveClient;
   }
 
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const clientId = process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
   const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
 
   if (!clientId || !clientSecret || !refreshToken) {
@@ -184,8 +184,8 @@ async function getTransporter() {
   }
 
   // Gmail API OAuth2 credentials
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const clientId = process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
   const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
   const userEmail = process.env.GMAIL_USER_EMAIL || process.env.SMTP_FROM_EMAIL;
 

@@ -15,10 +15,16 @@ import {
   ClockIcon,
   ShieldCheckIcon,
   GiftIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  ArrowUpTrayIcon,
+  DocumentArrowDownIcon,
+  DocumentTextIcon,
+  XMarkIcon,
+  EnvelopeIcon
 } from '@heroicons/react/24/outline';
 import { ConferenceTicket, AdminTicketStats, TicketPricingStatus } from '@/types/conference-ticket';
 import { getConferenceTicketStatus } from '@/lib/conference-pricing';
+import ConferenceReminderModal from '@/components/admin/ConferenceReminderModal';
 
 export default function AdminConferenceTicketsTab() {
   const [tickets, setTickets] = useState<ConferenceTicket[]>([]);
@@ -42,6 +48,164 @@ export default function AdminConferenceTicketsTab() {
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkResults, setBulkResults] = useState<{ name: string; outcome: 'added' | 'exists' | 'failed'; detail: string }[]>([]);
   const [issuingComp, setIssuingComp] = useState(false);
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [showCsvModal, setShowCsvModal] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvEntries, setCsvEntries] = useState<Array<{ first: string; last: string; email: string }>>([]);
+  const [csvAffiliation, setCsvAffiliation] = useState('other');
+  const [csvUploading, setCsvUploading] = useState(false);
+  const [csvSummary, setCsvSummary] = useState<{
+    total: number;
+    importedCount: number;
+    skippedCount: number;
+    errorCount: number;
+    imported: Array<{ name: string; email?: string; ticketCode: string }>;
+    skipped: Array<{ name: string; email?: string; reason: string; ticketCode?: string }>;
+    errors: Array<{ name: string; email?: string; error: string }>;
+  } | null>(null);
+
+  const parseCsvContent = (text: string): Array<{ first: string; last: string; email: string }> => {
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) return [];
+
+    const parsedRows: string[][] = [];
+
+    for (const line of lines) {
+      const row: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          row.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      row.push(current.trim());
+      parsedRows.push(row);
+    }
+
+    if (parsedRows.length === 0) return [];
+
+    // Detect if first row is header
+    const firstRowLower = parsedRows[0].map((c) => c.toLowerCase());
+    const isHeader = firstRowLower.some(
+      (c) => c.includes('first') || c.includes('name') || c.includes('email') || c.includes('last')
+    );
+
+    const dataRows = isHeader ? parsedRows.slice(1) : parsedRows;
+
+    return dataRows
+      .map((cols) => {
+        const first = (cols[0] || '').trim();
+        const last = (cols[1] || '').trim();
+        const email = (cols[2] || '').trim();
+        return { first, last, email };
+      })
+      .filter((entry) => entry.first.length > 0 || entry.last.length > 0);
+  };
+
+  const handleDownloadSampleCsv = () => {
+    const sample = 'first,last,email\nAlex,Rivera,alex@umich.edu\nJordan,Smith,\nTaylor,Kim,taylor.kim@gmail.com';
+    const blob = new Blob([sample], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'conference_attendees_sample.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      toast.error('Please upload a valid .csv file');
+      return;
+    }
+
+    setCsvFile(file);
+    setCsvSummary(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        const parsed = parseCsvContent(content);
+        setCsvEntries(parsed);
+        if (parsed.length === 0) {
+          toast.error('No attendee rows found in CSV');
+        } else {
+          toast.success(`Loaded ${parsed.length} attendee(s) from CSV`);
+        }
+      }
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read CSV file');
+    };
+    reader.readAsText(file);
+  };
+
+  const handleResetCsv = () => {
+    setCsvFile(null);
+    setCsvEntries([]);
+    setCsvSummary(null);
+  };
+
+  const handleBulkCsvSubmit = async () => {
+    if (csvEntries.length === 0) {
+      toast.error('No attendees found to import');
+      return;
+    }
+
+    setCsvUploading(true);
+    try {
+      const res = await fetch('/api/admin/conference/tickets/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entries: csvEntries,
+          affiliation: csvAffiliation,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCsvSummary(data);
+        if (data.importedCount > 0) {
+          toast.success(`Successfully created ${data.importedCount} ticket(s)`);
+        }
+        if (data.skippedCount > 0) {
+          toast(`Skipped ${data.skippedCount} attendee(s) already on roster`, { icon: 'ℹ️' });
+        }
+        fetchTickets(searchQuery);
+      } else {
+        toast.error(data.error || 'Failed to import CSV tickets');
+      }
+    } catch (err) {
+      console.error('Bulk CSV import error:', err);
+      toast.error('Network error importing CSV tickets');
+    } finally {
+      setCsvUploading(false);
+    }
+  };
+
   const [compForm, setCompForm] = useState({
     name: '',
     email: '',
@@ -254,11 +418,31 @@ export default function AdminConferenceTicketsTab() {
           </button>
 
           <button
+            onClick={() => {
+              setShowCsvModal(true);
+              setCsvSummary(null);
+            }}
+            className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#FF6700] hover:bg-[#FF5500] text-white text-sm font-bold shadow-sm transition-all"
+          >
+            <ArrowUpTrayIcon className="w-4 h-4" />
+            <span>Upload CSV</span>
+          </button>
+
+          <button
             onClick={() => setShowBulkForm((prev) => !prev)}
             className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-[#00274c] text-[#00274c] hover:bg-blue-50 text-sm font-bold shadow-sm transition-all"
           >
             <UserGroupIcon className="w-4 h-4" />
             <span>Bulk Add Guests</span>
+          </button>
+
+          <button
+            onClick={() => setShowReminderModal(true)}
+            className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-sm font-bold shadow-sm transition-all"
+            title="Send reminder email to ticket holders in BCC"
+          >
+            <EnvelopeIcon className="w-4 h-4" />
+            <span>Send Reminder</span>
           </button>
 
           <button
@@ -603,6 +787,245 @@ export default function AdminConferenceTicketsTab() {
           </table>
         </div>
       </div>
+
+      {/* ── BULK CSV UPLOAD MODAL ── */}
+      {showCsvModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto space-y-6">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 rounded-xl bg-orange-100 text-[#FF6700]">
+                    <ArrowUpTrayIcon className="w-5 h-5" />
+                  </span>
+                  <h3 className="text-xl font-bold text-gray-900">Bulk Create Tickets from CSV</h3>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Upload a CSV file to create confirmed tickets for attendees who paid with an alternative method.
+                  Passes are issued as Complimentary ($0), no automatic emails are sent, and duplicates are skipped.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCsvModal(false)}
+                className="p-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Post-Import Results Summary */}
+            {csvSummary ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
+                  <div className="flex items-center gap-2 text-emerald-800 font-bold">
+                    <CheckCircleIcon className="w-5 h-5 text-emerald-600" />
+                    <span>Import Completed: {csvSummary.importedCount} ticket(s) created</span>
+                  </div>
+                  <p className="text-xs text-emerald-700 mt-1">
+                    Processed {csvSummary.total} row(s) in total. {csvSummary.skippedCount} skipped as already existing on the roster.
+                  </p>
+                </div>
+
+                {/* Skipped Details */}
+                {csvSummary.skipped.length > 0 && (
+                  <div className="space-y-2">
+                    <h5 className="text-xs font-bold text-amber-800 uppercase tracking-wider">
+                      Skipped ({csvSummary.skipped.length} already on roster)
+                    </h5>
+                    <div className="max-h-40 overflow-y-auto rounded-xl border border-amber-200 bg-amber-50/50 p-2 text-xs divide-y divide-amber-100">
+                      {csvSummary.skipped.map((s, idx) => (
+                        <div key={idx} className="py-1.5 flex items-center justify-between text-amber-900">
+                          <span className="font-medium truncate mr-2">
+                            {s.name} {s.email ? `(${s.email})` : ''}
+                          </span>
+                          <span className="font-bold text-amber-700 shrink-0">{s.reason}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Errors */}
+                {csvSummary.errors && csvSummary.errors.length > 0 && (
+                  <div className="space-y-2">
+                    <h5 className="text-xs font-bold text-red-800 uppercase tracking-wider">
+                      Invalid Rows ({csvSummary.errors.length})
+                    </h5>
+                    <div className="max-h-36 overflow-y-auto rounded-xl border border-red-200 bg-red-50/50 p-2 text-xs divide-y divide-red-100">
+                      {csvSummary.errors.map((e, idx) => (
+                        <div key={idx} className="py-1.5 flex items-center justify-between text-red-900">
+                          <span className="truncate mr-2">{e.name}</span>
+                          <span className="font-bold text-red-700 shrink-0">{e.error}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+                  <button
+                    onClick={handleResetCsv}
+                    className="px-4 py-2.5 rounded-xl border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-semibold transition-colors"
+                  >
+                    Upload Another CSV
+                  </button>
+                  <button
+                    onClick={() => setShowCsvModal(false)}
+                    className="px-5 py-2.5 rounded-xl bg-[#00274c] hover:bg-[#003366] text-white text-sm font-bold shadow-sm transition-all"
+                  >
+                    Done & View Roster
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Pre-Import Upload & Preview */
+              <div className="space-y-5">
+                {/* Format Instructions & Sample Download */}
+                <div className="p-4 rounded-2xl bg-blue-50/80 border border-blue-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-bold text-[#00274c] uppercase tracking-wider">Expected CSV Format</div>
+                    <div className="text-sm font-mono text-gray-800 mt-0.5">
+                      <span className="font-bold text-blue-700">first</span>, <span className="font-bold text-blue-700">last</span>, <span className="text-gray-500">email (optional)</span>
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      Header row is optional. If email is blank, guests will be checked in by name at the door.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadSampleCsv}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-blue-200 text-xs font-bold text-[#00274c] hover:bg-blue-50 transition-colors shadow-2xs whitespace-nowrap"
+                  >
+                    <DocumentArrowDownIcon className="w-4 h-4 text-[#FF6700]" />
+                    <span>Download Sample CSV</span>
+                  </button>
+                </div>
+
+                {/* Affiliation Dropdown */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    Default Affiliation for this Batch
+                  </label>
+                  <select
+                    value={csvAffiliation}
+                    onChange={(e) => setCsvAffiliation(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#00274c]"
+                  >
+                    <option value="umich_student">UMich Student</option>
+                    <option value="umich_faculty">UMich Faculty</option>
+                    <option value="alumni">Alumni</option>
+                    <option value="industry">Industry</option>
+                    <option value="high_school_student">High School Student</option>
+                    <option value="high_school_teacher">High School Teacher</option>
+                    <option value="other">Other / General</option>
+                  </select>
+                </div>
+
+                {/* File Dropzone */}
+                {!csvFile ? (
+                  <div className="border-2 border-dashed border-gray-300 hover:border-[#FF6700] rounded-2xl p-6 text-center transition-colors">
+                    <input
+                      type="file"
+                      id="conference-csv-file-input"
+                      accept=".csv,text/csv"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <label htmlFor="conference-csv-file-input" className="cursor-pointer block">
+                      <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#FF6700] flex items-center justify-center mx-auto mb-3">
+                        <DocumentTextIcon className="w-6 h-6" />
+                      </div>
+                      <span className="text-sm font-bold text-gray-900 block">Click to browse or drag and drop your CSV</span>
+                      <span className="text-xs text-gray-500 mt-1 block">Columns: first, last, email</span>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Selected File Details */}
+                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                      <div className="flex items-center gap-2.5 truncate">
+                        <DocumentTextIcon className="w-5 h-5 text-gray-500 shrink-0" />
+                        <div className="truncate">
+                          <div className="text-sm font-bold text-gray-900 truncate">{csvFile.name}</div>
+                          <div className="text-xs text-gray-500">{(csvFile.size / 1024).toFixed(1)} KB · {csvEntries.length} attendee(s) parsed</div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleResetCsv}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        title="Remove file"
+                      >
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Preview Table */}
+                    {csvEntries.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                            Parsed Preview ({csvEntries.length} attendees)
+                          </span>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto rounded-xl border border-gray-200 divide-y divide-gray-100 text-xs">
+                          {csvEntries.slice(0, 15).map((entry, idx) => (
+                            <div key={idx} className="p-2.5 flex items-center justify-between hover:bg-gray-50">
+                              <span className="font-semibold text-gray-900">
+                                {entry.first} {entry.last}
+                              </span>
+                              {entry.email ? (
+                                <span className="text-gray-600 font-mono">{entry.email}</span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-[10px] font-semibold">
+                                  No email (Name check-in)
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                          {csvEntries.length > 15 && (
+                            <div className="p-2 text-center text-gray-400 text-[11px] bg-gray-50/50">
+                              ...and {csvEntries.length - 15} more attendee(s)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowCsvModal(false)}
+                    className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-semibold transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBulkCsvSubmit}
+                    disabled={csvUploading || csvEntries.length === 0}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#00274c] hover:bg-[#003366] disabled:opacity-50 text-white text-sm font-bold shadow-sm transition-all"
+                  >
+                    <ArrowUpTrayIcon className={`w-4 h-4 ${csvUploading ? 'animate-bounce' : ''}`} />
+                    <span>{csvUploading ? `Creating ${csvEntries.length} Tickets...` : `Create ${csvEntries.length || ''} Tickets`}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── SEND REMINDER MODAL ── */}
+      <ConferenceReminderModal
+        isOpen={showReminderModal}
+        onClose={() => setShowReminderModal(false)}
+        tickets={tickets}
+      />
     </div>
   );
 }

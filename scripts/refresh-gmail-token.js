@@ -21,9 +21,17 @@ async function openBrowser(url) {
   }
 }
 
-const CLIENT_ID = process.env.GMAIL_CLIENT_ID || '1045234004522-ocemq7esg2135t0a6471jfnueqkia77v.apps.googleusercontent.com';
-const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || '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';
+require('dotenv').config({ path: '.env.local' });
+require('dotenv').config({ path: '.env' });
+
+const CLIENT_ID = process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = 'http://localhost:3005/oauth2callback';
+
+if (!CLIENT_ID || !CLIENT_SECRET) {
+  console.error('❌ Error: GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET must be set in .env.local or environment variables.');
+  process.exit(1);
+}
 
 const oauth2Client = new google.auth.OAuth2(
   CLIENT_ID,

@@ -23,10 +23,7 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 
-async function getDb() {
-  
-  return await getDb('abg-website');
-}
+import { getDb } from '@/lib/mongodb';
 
 // GET - Retrieve all drafts
 export async function GET(request: NextRequest) {
