@@ -361,20 +361,21 @@ export default function AdminConferenceTicketsTab() {
                 <th className="px-5 py-3.5">Amount</th>
                 <th className="px-5 py-3.5">Purchase Date</th>
                 <th className="px-5 py-3.5">Status</th>
+                <th className="px-5 py-3.5">Pass</th>
                 <th className="px-5 py-3.5 text-right">Check-in</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-gray-400">
+                  <td colSpan={9} className="px-5 py-12 text-center text-gray-400">
                     <div className="w-6 h-6 border-2 border-gray-300 border-t-[#FF6700] rounded-full animate-spin mx-auto mb-2" />
                     <span>Loading attendee roster...</span>
                   </td>
                 </tr>
               ) : tickets.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-gray-500">
+                  <td colSpan={9} className="px-5 py-12 text-center text-gray-500">
                     {searchQuery ? 'No attendees match your search query.' : 'No tickets have been sold yet. Sales will appear here automatically.'}
                   </td>
                 </tr>
@@ -424,6 +425,16 @@ export default function AdminConferenceTicketsTab() {
                         <CheckCircleIcon className="w-3.5 h-3.5" />
                         <span>Confirmed</span>
                       </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <a
+                        href={`/api/admin/conference/tickets/${encodeURIComponent(t.id)}/pdf`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#00274c] text-xs font-bold transition-all"
+                        title={`Download ${t.attendeeName}'s pass as a PDF`}
+                      >
+                        <ArrowDownTrayIcon className="w-4 h-4" />
+                        <span>PDF</span>
+                      </a>
                     </td>
                     <td className="px-5 py-4 text-right">
                       <button
