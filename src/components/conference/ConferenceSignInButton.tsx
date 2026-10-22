@@ -2,12 +2,20 @@
 
 import { signIn } from 'next-auth/react';
 
-// Google sign-in (the site's OAuth) that returns the visitor to the conference tickets section
-export default function ConferenceSignInButton({ className = '', label = 'Sign in with Google' }: { className?: string; label?: string }) {
+// Google sign-in (the site's OAuth); returns to the conference tickets section unless told otherwise
+export default function ConferenceSignInButton({
+  className = '',
+  label = 'Sign in with Google',
+  callbackUrl = '/conference#tickets',
+}: {
+  className?: string;
+  label?: string;
+  callbackUrl?: string;
+}) {
   return (
     <button
       type="button"
-      onClick={() => signIn('google', { callbackUrl: '/conference#tickets' })}
+      onClick={() => signIn('google', { callbackUrl })}
       className={`inline-flex items-center justify-center gap-2.5 rounded-xl bg-white hover:bg-white/90 text-[#00274c] font-bold shadow-lg transition-all duration-300 ${className}`}
     >
       <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true">
