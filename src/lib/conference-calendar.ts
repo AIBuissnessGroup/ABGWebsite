@@ -8,9 +8,9 @@ export function getGoogleCalendarUrl(): string {
   );
   const location = encodeURIComponent('Stephen M. Ross School of Business, 701 Tappan Ave, Ann Arbor, MI 48109');
   
-  // Oct 23, 2026: 8:30 AM to 5:30 PM EDT (EDT is UTC-4 -> 12:30 UTC to 21:30 UTC)
-  const startIso = '20261023T123000Z';
-  const endIso = '20261023T213000Z';
+  // Oct 23, 2026: 10:30 AM arrival to 5:00 PM EDT (EDT is UTC-4 -> 14:30 UTC to 21:00 UTC)
+  const startIso = '20261023T143000Z';
+  const endIso = '20261023T210000Z';
 
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startIso}/${endIso}&details=${details}&location=${location}`;
 }
