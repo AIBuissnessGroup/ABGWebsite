@@ -14,7 +14,8 @@ import {
   SparklesIcon,
   ClockIcon,
   ShieldCheckIcon,
-  GiftIcon
+  GiftIcon,
+  UserGroupIcon
 } from '@heroicons/react/24/outline';
 import { ConferenceTicket, AdminTicketStats, TicketPricingStatus } from '@/types/conference-ticket';
 import { getConferenceTicketStatus } from '@/lib/conference-pricing';
@@ -35,6 +36,11 @@ export default function AdminConferenceTicketsTab() {
   const [pricingStatus, setPricingStatus] = useState<TicketPricingStatus>(getConferenceTicketStatus());
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [showCompForm, setShowCompForm] = useState(false);
+  const [showBulkForm, setShowBulkForm] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [bulkAffiliation, setBulkAffiliation] = useState('high_school_student');
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkResults, setBulkResults] = useState<{ name: string; outcome: 'added' | 'exists' | 'failed'; detail: string }[]>([]);
   const [issuingComp, setIssuingComp] = useState(false);
   const [compForm, setCompForm] = useState({
     name: '',
@@ -136,7 +142,7 @@ export default function AdminConferenceTicketsTab() {
 
       const data = await res.json();
       if (res.ok) {
-        if (compForm.sendEmail && !data.emailSent) {
+        if (compForm.sendEmail && compForm.email && !data.emailSent) {
           toast.error(`Issued ${data.ticket.ticketCode}, but the pass email to ${data.ticket.attendeeEmail} failed to send`);
         } else {
           toast.success(`Issued ${data.ticket.ticketCode} to ${data.ticket.attendeeName}`);
@@ -151,6 +157,57 @@ export default function AdminConferenceTicketsTab() {
     } finally {
       setIssuingComp(false);
     }
+  };
+
+  // One attendee per line: "First Last" or "First Last | dietary restriction"
+  const bulkEntries = bulkText
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [name, ...rest] = line.split('|');
+      return { name: name.trim(), dietaryRestrictions: rest.join('|').trim() };
+    })
+    .filter((entry) => entry.name.length >= 2);
+
+  const handleBulkAdd = async () => {
+    if (bulkEntries.length === 0) return;
+    setBulkRunning(true);
+    setBulkResults([]);
+    const results: typeof bulkResults = [];
+
+    // One at a time so duplicate checks see the passes just created
+    for (const entry of bulkEntries) {
+      try {
+        const res = await fetch('/api/admin/conference/tickets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: entry.name,
+            email: '',
+            affiliation: bulkAffiliation,
+            dietaryRestrictions: entry.dietaryRestrictions,
+            sendEmail: false,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) results.push({ name: entry.name, outcome: 'added', detail: data.ticket.ticketCode });
+        else if (data.alreadyExists) results.push({ name: entry.name, outcome: 'exists', detail: data.ticketCode });
+        else results.push({ name: entry.name, outcome: 'failed', detail: data.error || 'Failed' });
+      } catch {
+        results.push({ name: entry.name, outcome: 'failed', detail: 'Network error' });
+      }
+      setBulkResults([...results]);
+    }
+
+    const added = results.filter((r) => r.outcome === 'added').length;
+    const exists = results.filter((r) => r.outcome === 'exists').length;
+    const failed = results.filter((r) => r.outcome === 'failed').length;
+    if (failed) toast.error(`Added ${added}, skipped ${exists} already on the roster, ${failed} failed`);
+    else toast.success(`Added ${added}${exists ? `, skipped ${exists} already on the roster` : ''}`);
+    if (added) setBulkText('');
+    setBulkRunning(false);
+    fetchTickets(searchQuery);
   };
 
   const handleDownloadCsv = () => {
@@ -197,6 +254,14 @@ export default function AdminConferenceTicketsTab() {
           </button>
 
           <button
+            onClick={() => setShowBulkForm((prev) => !prev)}
+            className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-[#00274c] text-[#00274c] hover:bg-blue-50 text-sm font-bold shadow-sm transition-all"
+          >
+            <UserGroupIcon className="w-4 h-4" />
+            <span>Bulk Add Guests</span>
+          </button>
+
+          <button
             onClick={handleDownloadCsv}
             className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm transition-all"
           >
@@ -211,7 +276,10 @@ export default function AdminConferenceTicketsTab() {
         <form onSubmit={handleIssueComp} className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm space-y-4">
           <div>
             <h4 className="text-lg font-bold text-gray-900">Issue Complimentary Ticket</h4>
-            <p className="text-xs text-gray-500">Creates a confirmed $0 pass without Stripe checkout. One ticket per email address.</p>
+            <p className="text-xs text-gray-500">
+              Creates a confirmed $0 pass without Stripe checkout. Email is optional: without one, no pass email is sent (download the PDF
+              from the roster instead). One pass per email, or per name when there&apos;s no email.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -227,10 +295,9 @@ export default function AdminConferenceTicketsTab() {
             />
             <input
               type="email"
-              required
               value={compForm.email}
               onChange={(e) => setCompForm((prev) => ({ ...prev, email: e.target.value }))}
-              placeholder="Attendee email"
+              placeholder="Attendee email (optional)"
               className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#FF6700]"
             />
             <select
@@ -242,6 +309,8 @@ export default function AdminConferenceTicketsTab() {
               <option value="umich_faculty">UMich Faculty</option>
               <option value="alumni">Alumni</option>
               <option value="industry">Industry</option>
+              <option value="high_school_student">High School Student</option>
+              <option value="high_school_teacher">High School Teacher</option>
               <option value="other">Other</option>
             </select>
             <input
@@ -258,11 +327,12 @@ export default function AdminConferenceTicketsTab() {
             <label className="inline-flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"
-                checked={compForm.sendEmail}
+                checked={compForm.sendEmail && Boolean(compForm.email)}
+                disabled={!compForm.email}
                 onChange={(e) => setCompForm((prev) => ({ ...prev, sendEmail: e.target.checked }))}
                 className="rounded border-gray-300"
               />
-              <span>Email the QR pass to the attendee</span>
+              <span className={compForm.email ? '' : 'text-gray-400'}>Email the QR pass to the attendee</span>
             </label>
 
             <button
@@ -275,6 +345,73 @@ export default function AdminConferenceTicketsTab() {
             </button>
           </div>
         </form>
+      )}
+
+      {/* ── BULK ADD GUESTS (no email needed) ── */}
+      {showBulkForm && (
+        <div className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm space-y-4">
+          <div>
+            <h4 className="text-lg font-bold text-gray-900">Bulk Add Guests</h4>
+            <p className="text-xs text-gray-500">
+              For groups without emails (e.g. high school students). Paste one person per line as <span className="font-mono">First Last</span>,
+              optionally followed by <span className="font-mono">| dietary restriction</span>. Each gets a free Complimentary pass; anyone
+              whose name is already on the roster is skipped. No emails are sent; download passes as PDFs from the roster or check guests in by
+              name.
+            </p>
+          </div>
+
+          <textarea
+            value={bulkText}
+            onChange={(e) => setBulkText(e.target.value)}
+            rows={8}
+            placeholder={'Ethan Bray\nSophia Charvat\nSarah Hobart | Gluten free'}
+            className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm font-mono focus:outline-none focus:border-[#00274c]"
+          />
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <select
+                value={bulkAffiliation}
+                onChange={(e) => setBulkAffiliation(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#00274c]"
+              >
+                <option value="umich_student">UMich Student</option>
+                <option value="umich_faculty">UMich Faculty</option>
+                <option value="alumni">Alumni</option>
+                <option value="industry">Industry</option>
+                <option value="high_school_student">High School Student</option>
+                <option value="high_school_teacher">High School Teacher</option>
+                <option value="other">Other</option>
+              </select>
+              <span className="text-xs text-gray-500">{bulkEntries.length} {bulkEntries.length === 1 ? 'person' : 'people'}</span>
+            </div>
+            <button
+              onClick={handleBulkAdd}
+              disabled={bulkRunning || bulkEntries.length === 0}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#00274c] hover:bg-[#003366] disabled:opacity-50 text-white text-sm font-bold shadow-sm transition-all"
+            >
+              <UserGroupIcon className="w-4 h-4" />
+              <span>{bulkRunning ? `Adding ${bulkResults.length + 1} of ${bulkEntries.length}...` : `Add ${bulkEntries.length || ''} Guests`}</span>
+            </button>
+          </div>
+
+          {bulkResults.length > 0 && (
+            <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 text-sm">
+              {bulkResults.map((r) => (
+                <li key={r.name} className="flex items-center justify-between px-3 py-2">
+                  <span className="font-medium text-gray-900">{r.name}</span>
+                  <span
+                    className={`text-xs font-bold ${
+                      r.outcome === 'added' ? 'text-emerald-600' : r.outcome === 'exists' ? 'text-amber-600' : 'text-red-600'
+                    }`}
+                  >
+                    {r.outcome === 'added' ? `Added · ${r.detail}` : r.outcome === 'exists' ? `Already on roster · ${r.detail}` : r.detail}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
 
       {/* ── METRICS TILES ── */}
@@ -387,7 +524,7 @@ export default function AdminConferenceTicketsTab() {
                     </td>
                     <td className="px-5 py-4">
                       <div className="font-bold text-gray-900">{t.attendeeName}</div>
-                      <div className="text-xs text-gray-500">{t.attendeeEmail}</div>
+                      <div className="text-xs text-gray-500">{t.attendeeEmail || <span className="italic text-gray-400">No email</span>}</div>
                       {t.dietaryRestrictions && (
                         <div className="text-[11px] text-amber-600 font-medium mt-0.5">
                           Diet: {t.dietaryRestrictions}
@@ -408,7 +545,7 @@ export default function AdminConferenceTicketsTab() {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-xs text-gray-600 capitalize">
-                      {t.affiliation?.replace('_', ' ') || 'Other'}
+                      {t.affiliation?.replace(/_/g, ' ') || 'Other'}
                     </td>
                     <td className="px-5 py-4 font-semibold text-gray-900">
                       ${t.amountPaid}.00

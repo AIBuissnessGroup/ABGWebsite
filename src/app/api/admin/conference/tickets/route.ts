@@ -145,22 +145,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Attendee full name is required' }, { status: 400 });
     }
 
-    const attendeeEmail = sanitizeStringInput(body.email, 254).toLowerCase();
-    if (!EMAIL_REGEX.test(attendeeEmail)) {
-      return NextResponse.json({ error: 'A valid attendee email is required' }, { status: 400 });
+    // Email is optional (e.g. high school guests); without one, no pass email is sent
+    const attendeeEmail = sanitizeStringInput(body.email || '', 254).toLowerCase();
+    if (attendeeEmail && !EMAIL_REGEX.test(attendeeEmail)) {
+      return NextResponse.json({ error: 'That email address is not valid' }, { status: 400 });
     }
 
     const affiliation = sanitizeStringInput(body.affiliation || 'other', 50);
     const dietaryRestrictions = sanitizeStringInput(body.dietaryRestrictions || '', 200);
-    const sendEmail = body.sendEmail !== false;
+    const sendEmail = body.sendEmail !== false && Boolean(attendeeEmail);
 
     const db = await getDb();
     const ticketsCollection = db.collection<ConferenceTicket>('ConferenceTickets');
 
-    const existingTicket = await ticketsCollection.findOne({ attendeeEmail, status: 'confirmed' });
+    // One pass per person: match by email, or by name when there's no email
+    const existingTicket = attendeeEmail
+      ? await ticketsCollection.findOne({ attendeeEmail, status: 'confirmed' })
+      : await ticketsCollection.findOne({
+          attendeeName: { $regex: `^${escapeRegex(attendeeName)}$`, $options: 'i' },
+          status: 'confirmed',
+        });
     if (existingTicket) {
       return NextResponse.json(
-        { error: `${attendeeEmail} already has a confirmed ticket (${existingTicket.ticketCode})` },
+        {
+          error: `${attendeeEmail || attendeeName} already has a confirmed ticket (${existingTicket.ticketCode})`,
+          alreadyExists: true,
+          ticketCode: existingTicket.ticketCode,
+        },
         { status: 409 }
       );
     }
@@ -194,7 +205,7 @@ export async function POST(req: Request) {
     };
 
     await ticketsCollection.insertOne(ticketDoc as any);
-    console.log(`✅ Issued complimentary ticket ${ticketDoc.ticketCode} for ${attendeeEmail} by ${ticketDoc.issuedBy}`);
+    console.log(`✅ Issued complimentary ticket ${ticketDoc.ticketCode} for ${attendeeEmail || attendeeName} by ${ticketDoc.issuedBy}`);
 
     let emailSent = false;
     if (sendEmail) {
