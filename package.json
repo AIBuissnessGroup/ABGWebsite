@@ -27,6 +27,7 @@
     "framer-motion": "^12.12.1",
     "googleapis": "^161.0.0",
     "hls.js": "^1.6.15",
+    "html-to-image": "^1.11.11",
     "jose": "^6.1.0",
     "jsqr": "^1.4.0",
     "lightningcss": "^1.30.2",

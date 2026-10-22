@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, MotionGlobalConfig, motion } from 'framer-motion';
 import FloatingShapes from '@/components/FloatingShapes';
 import {
   CONFERENCE_DATE_LABEL,
@@ -354,6 +354,7 @@ interface SlideProps {
   now: number | null;
   sponsors: ConferenceSponsor[];
   demo: boolean;
+  still?: boolean; // screenshot mode: leave out anything time-based
 }
 
 // Title above the speakers, date and location below, sponsors in the top-right corner
@@ -449,7 +450,7 @@ function ConcurrentSlide({ sessions, next, remaining, sponsors }: { sessions: Li
 }
 
 // Sessions without speakers (registration, coffee chats, closing): a "happening now" screen
-function HappeningNowSlide({ session, next, remaining, now, sponsors, demo }: SlideProps) {
+function HappeningNowSlide({ session, next, remaining, now, sponsors, demo, still = false }: SlideProps) {
   const start = sessionStartTime(session).getTime();
   const end = sessionEndTime(session).getTime();
   // In rehearsal mode the session "runs" for the length of the demo countdown
@@ -495,11 +496,12 @@ function HappeningNowSlide({ session, next, remaining, now, sponsors, demo }: Sl
               transition={{ duration: 0.5 }}
             >
               <span className="relative flex" style={{ width: '0.7vw', height: '0.7vw' }}>
-                {status === 'live' && <span className="absolute inset-0 rounded-full bg-[#FFCB05] animate-ping opacity-70" />}
+                {status === 'live' && !still && <span className="absolute inset-0 rounded-full bg-[#FFCB05] animate-ping opacity-70" />}
                 <span className="relative rounded-full bg-[#FFCB05] w-full h-full" />
               </span>
               <span className="font-extrabold uppercase text-[#FFCB05]" style={{ fontSize: '0.95vw', letterSpacing: '0.25em' }}>
-                {status === 'before' ? 'Coming up' : status === 'after' ? 'Just wrapped' : 'Happening now'}
+                {/* A screenshot shows the time slot instead of a live status */}
+                {still ? `${session.start} – ${session.end}` : status === 'before' ? 'Coming up' : status === 'after' ? 'Just wrapped' : 'Happening now'}
               </span>
             </motion.div>
 
@@ -539,6 +541,7 @@ function HappeningNowSlide({ session, next, remaining, now, sponsors, demo }: Sl
                 </div>
               </div>
             ))}
+            {!still && (
             <div className="rounded-[1vw] border border-[#FFCB05]/40 bg-[#FFCB05]/[0.08]" style={{ padding: '1.1vw 1.4vw' }}>
               <div className="font-extrabold uppercase text-[#FFCB05]/80" style={{ fontSize: '0.75vw', letterSpacing: '0.2em' }}>
                 {clockLabel}
@@ -550,6 +553,7 @@ function HappeningNowSlide({ session, next, remaining, now, sponsors, demo }: Sl
                 <div className="h-full bg-[#FFCB05] rounded-full transition-[width] duration-300" style={{ width: `${Math.round(progress * 100)}%` }} />
               </div>
             </div>
+            )}
           </motion.div>
         </div>
       </div>
@@ -704,6 +708,7 @@ function StageScreen({
   order,
   sponsors,
   onAdvance,
+  still = false,
 }: {
   sessions: LineupSession[];
   demo: boolean;
@@ -711,10 +716,11 @@ function StageScreen({
   order: OrderMap;
   sponsors: ConferenceSponsor[];
   onAdvance: (next: LineupSession[]) => void;
+  still?: boolean;
 }) {
   const session = sessions[0];
   // Coming from an outro, the "Up next" screen already introduced this session, so go straight to it
-  const [phase, setPhase] = useState<'intro' | 'live' | 'outro'>(skipIntro ? 'live' : 'intro');
+  const [phase, setPhase] = useState<'intro' | 'live' | 'outro'>(skipIntro || still ? 'live' : 'intro');
   // Memoized so the hand-off timers aren't reset by every clock tick
   const nextSessions = useMemo(() => nextSessionsAfter(session), [session]);
   const [target] = useState<number | null>(() =>
@@ -737,8 +743,8 @@ function StageScreen({
       sawTimeLeft.current = true;
       return;
     }
-    if (sawTimeLeft.current && phase === 'live' && nextSessions[0]) setPhase('outro');
-  }, [remaining, phase, nextSessions]);
+    if (sawTimeLeft.current && phase === 'live' && nextSessions[0] && !still) setPhase('outro');
+  }, [remaining, phase, nextSessions, still]);
 
   useEffect(() => {
     if (phase !== 'outro' || !nextSessions[0]) return;
@@ -749,14 +755,17 @@ function StageScreen({
   const ordered = sessions.map((s) => applySpeakerOrder(s, order[s.id]));
   const orderedNext = nextSessions.map((s) => applySpeakerOrder(s, order[s.id]));
   const Slide = session.speakers.length > 0 ? PanelSlide : HappeningNowSlide;
+  // Screenshots leave out the Up next bar and its countdown
+  const barNext = still ? [] : orderedNext;
+  const barRemaining = still ? null : remaining;
 
   return (
     <>
       {phase !== 'intro' &&
         (ordered.length > 1 ? (
-          <ConcurrentSlide sessions={ordered} next={orderedNext} remaining={remaining} sponsors={sponsors} />
+          <ConcurrentSlide sessions={ordered} next={barNext} remaining={barRemaining} sponsors={sponsors} />
         ) : (
-          <Slide session={ordered[0]} next={orderedNext} remaining={remaining} now={now} sponsors={sponsors} demo={demo} />
+          <Slide session={ordered[0]} next={barNext} remaining={barRemaining} now={now} sponsors={sponsors} demo={demo} still={still} />
         ))}
       <AnimatePresence>
         {phase === 'intro' && (
@@ -776,10 +785,12 @@ export default function ConferenceBackgroundClient({
   sessionId,
   demo = false,
   skipIntro = false,
+  shot = false,
 }: {
   sessionId?: string;
   demo?: boolean;
   skipIntro?: boolean;
+  shot?: boolean;
 }) {
   const router = useRouter();
   // "s" may list several ids separated by commas when sessions run at the same time
@@ -792,6 +803,19 @@ export default function ConferenceBackgroundClient({
   const [cursorHidden, setCursorHidden] = useState(false);
   const [order, setOrder] = useState<OrderMap>({});
   const [sponsors, setSponsors] = useState<ConferenceSponsor[]>([]);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const shotRef = useRef<HTMLDivElement>(null);
+  const [shotState, setShotState] = useState<'preparing' | 'capturing' | 'done' | 'error'>('preparing');
+
+  // Screenshots render everything in its final state, so a capture never catches a half-finished
+  // entrance animation (or a paused one if the tab is in the background). Set before children mount.
+  if (shot) MotionGlobalConfig.skipAnimations = true;
+  useEffect(() => {
+    if (!shot) return;
+    return () => {
+      MotionGlobalConfig.skipAnimations = false;
+    };
+  }, [shot]);
 
   // Speaker order and sponsors come from the admin conference page; poll so open screens update live
   useEffect(() => {
@@ -804,7 +828,8 @@ export default function ConferenceBackgroundClient({
           setOrder(data.backgroundSpeakerOrder || {});
           setSponsors([...(data.sponsors || [])].sort((a: ConferenceSponsor, b: ConferenceSponsor) => (a.order ?? 0) - (b.order ?? 0)));
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => !cancelled && setSettingsLoaded(true));
     load();
     const timer = setInterval(load, LIVE_POLL_MS);
     const onVisible = () => document.visibilityState === 'visible' && load();
@@ -845,6 +870,34 @@ export default function ConferenceBackgroundClient({
       window.removeEventListener('mousemove', onMove);
     };
   }, [session, index, demo, router]);
+
+  const shotFileName = `michigan-ai-conference-${sessions.map((s) => s.id).join('-') || 'slide'}.png`;
+
+  // Renders the 16:9 slide at 1920x1080 and downloads it
+  const captureShot = useCallback(async () => {
+    const node = shotRef.current;
+    if (!node) return;
+    setShotState('capturing');
+    try {
+      const { toPng } = await import('html-to-image');
+      const dataUrl = await toPng(node, { pixelRatio: 1920 / node.offsetWidth, cacheBust: true, backgroundColor: '#00274c' });
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = shotFileName;
+      link.click();
+      setShotState('done');
+    } catch (err) {
+      console.error('Screenshot failed:', err);
+      setShotState('error');
+    }
+  }, [shotFileName]);
+
+  // Wait for sponsors and speaker order, then for the entrance animations to finish
+  useEffect(() => {
+    if (!shot || !session || !settingsLoaded) return;
+    const timer = setTimeout(captureShot, 1200);
+    return () => clearTimeout(timer);
+  }, [shot, session, settingsLoaded, captureShot]);
 
   if (!session) {
     const indexRows = CONFERENCE_LINEUP.flatMap((s) => {
@@ -897,10 +950,62 @@ export default function ConferenceBackgroundClient({
                   >
                     Rehearse
                   </Link>
+                  <a
+                    href={`/conference/background?s=${ids}&shot=1`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-bold hover:border-white/50"
+                    title="Download a 1920×1080 image of this slide for slideshows"
+                  >
+                    Download PNG
+                  </a>
                 </div>
               </div>
             ))}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (shot) {
+    return (
+      <div className="min-h-screen bg-[#000d1a] text-white">
+        {/* The 16:9 slide that gets captured */}
+        <div
+          ref={shotRef}
+          className="relative w-screen overflow-hidden bg-gradient-to-br from-[#00274c] via-[#00264a] to-[#001a33]"
+          style={{ height: '56.25vw' }}
+        >
+          <FloatingShapes variant="dense" opacity={0.08} />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,203,5,0.08),transparent_55%)] pointer-events-none" />
+          <StageScreen
+            sessions={sessions}
+            demo={false}
+            skipIntro
+            still
+            order={order}
+            sponsors={sponsors}
+            onAdvance={() => {}}
+          />
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 px-4 py-6 text-sm">
+          <span className="text-white/70">
+            {shotState === 'preparing' && 'Preparing your image…'}
+            {shotState === 'capturing' && 'Creating the 1920×1080 image…'}
+            {shotState === 'done' && `Downloaded ${shotFileName}`}
+            {shotState === 'error' && 'Something went wrong creating the image.'}
+          </span>
+          <button
+            onClick={captureShot}
+            disabled={shotState === 'preparing' || shotState === 'capturing'}
+            className="rounded-lg bg-[#FFCB05] text-[#00274c] px-4 py-2 font-bold disabled:opacity-50"
+          >
+            Download again
+          </button>
+          <Link href="/conference/background" className="rounded-lg border border-white/20 px-4 py-2 font-bold hover:border-white/50">
+            All backgrounds
+          </Link>
         </div>
       </div>
     );
