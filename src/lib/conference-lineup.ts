@@ -42,6 +42,24 @@ const LOGO = '/conference/logos';
 
 const ABG_LOGO: LineupLogo = { src: `${LOGO}/abg.png`, alt: 'AI Business Group' };
 
+// ABG leadership hosting the opening and closing remarks
+const ABG_HOSTS: LineupSpeaker[] = [
+  {
+    name: 'Julia Lotz',
+    title: 'President',
+    company: 'AI Business Group',
+    photo: `${PHOTO}/julia-lotz.jpg`,
+    role: 'host',
+  },
+  {
+    name: 'Michael Koury',
+    title: 'VP of Conferences',
+    company: 'AI Business Group',
+    photo: `${PHOTO}/michael-koury.jpg`,
+    role: 'host',
+  },
+];
+
 export const CONFERENCE_DATE_LABEL = 'Friday, Oct 23';
 export const CONFERENCE_VENUE = 'Ross School of Business';
 
@@ -66,16 +84,8 @@ export const CONFERENCE_LINEUP: LineupSession[] = [
     headline: ['*Opening* Remarks'],
     room: 'Blau Colloquium',
     description:
-      'Opening remarks given by our president, Julia Lotz.',
-    speakers: [
-      {
-        name: 'Julia Lotz',
-        title: 'President',
-        company: 'AI Business Group',
-        photo: `${PHOTO}/julia-lotz.jpg`,
-        role: 'host',
-      },
-    ],
+      'Opening remarks given by our president, Julia Lotz, and our VP of Conferences, Michael Koury.',
+    speakers: ABG_HOSTS,
   },
   {
     id: 'banks-and-funds',
@@ -262,14 +272,15 @@ export const CONFERENCE_LINEUP: LineupSession[] = [
   },
   {
     id: 'closing',
-    kind: 'logistics',
+    kind: 'talk',
+    label: 'Closing remarks',
     start: '4:30 PM',
     end: '5:00 PM',
-    headline: ['Closing and networking'],
+    headline: ['*Closing* Remarks & Networking'],
     room: 'Robertson Auditorium',
     description:
       'Thank you so much for being part of our inaugural conference! Networking commences in the lobby, and we hope to see you next year.',
-    speakers: [],
+    speakers: ABG_HOSTS,
   },
 ];
 
@@ -280,7 +291,8 @@ export const SPEAKER_SESSIONS = CONFERENCE_LINEUP.filter((s) => s.speakers.lengt
 const FEATURED_SESSION_IDS = ['banks-and-funds', 'bitcoin-101', 'professional-brand', 'microsoft-keynote', 'pitch-to-portfolio'];
 export const FEATURED_SESSIONS = CONFERENCE_LINEUP.filter((s) => FEATURED_SESSION_IDS.includes(s.id));
 
-export const LINEUP_SPEAKER_COUNT = SPEAKER_SESSIONS.reduce((n, s) => n + s.speakers.length, 0);
+// Each person counted once, even if they appear in more than one session
+export const LINEUP_SPEAKER_COUNT = new Set(SPEAKER_SESSIONS.flatMap((s) => s.speakers.map((sp) => sp.name))).size;
 
 // Session times are Eastern (EDT, UTC-4) on the conference day
 const CONFERENCE_DAY = '2026-10-23';
