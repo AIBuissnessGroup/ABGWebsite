@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { MotionGlobalConfig, Transition, motion } from 'framer-motion';
+import { AnimatePresence, MotionGlobalConfig, Transition, motion } from 'framer-motion';
+import { CameraIcon, ChatBubbleLeftRightIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import FloatingShapes from '@/components/FloatingShapes';
 import {
   CONFERENCE_DATE_LABEL,
@@ -44,8 +45,12 @@ const DEMO_COUNTDOWN_MS = 15000;
 const LIVE_POLL_MS = 5000;
 // The live screen checks the stage remote this often
 const STAGE_POLL_MS = 1500;
+// The opening the remote's Start button plays (presented by, then the notices), before Arrival
+const OPENING_MS = 40000;
 
 interface LiveStageState {
+  started: boolean;
+  startedAt?: number;
   sessionIds: string[];
   timer: { status: 'idle' | 'running' | 'paused'; endsAt?: number; remainingMs?: number };
   showUpNext: boolean;
@@ -928,6 +933,173 @@ function TransitionScreen({ kicker, sessions }: { kicker: string; sessions: Line
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Opening (live screen only): plays on black when the remote taps Start
+// ─────────────────────────────────────────────────────────────────────────────
+
+const NOTICES = [
+  {
+    icon: CameraIcon,
+    title: 'This event is being photographed',
+    text: "By attending, you consent to AI Business Group using photos that may include you in our communications and promotion. If you'd prefer not to be photographed, let a member of our team know.",
+  },
+  {
+    icon: ChatBubbleLeftRightIcon,
+    title: "Speakers' views are their own",
+    text: 'Views expressed by speakers and panelists are their own and do not necessarily reflect those of the University of Michigan, the Ross School of Business, AI Business Group or our sponsors.',
+  },
+  {
+    icon: ShieldCheckIcon,
+    title: 'Conduct and safety',
+    text: 'Please treat speakers, staff and fellow attendees with respect. Note the nearest exits, follow staff instructions in an emergency, and find an ABG team member if you need anything.',
+  },
+];
+
+// Seconds into the opening: "presented by" until PART_B, the notices (one at a time) until END, then a
+// slow fade and BLACK_HOLD seconds of black before the sweep into Arrival
+const OPENING_PART_B = 13;
+const OPENING_END = 31;
+const OPENING_FADE_S = 3;
+const OPENING_BLACK_HOLD = 5;
+const OPENING_DONE = OPENING_END + OPENING_FADE_S + OPENING_BLACK_HOLD;
+const NOTICE_GAP_S = 4.5;
+
+function OpeningSequence({ sponsors, onDone }: { sponsors: ConferenceSponsor[]; onDone: () => void }) {
+  const [part, setPart] = useState<'presented' | 'notices' | 'black'>('presented');
+  const done = useRef(onDone);
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setPart('notices'), OPENING_PART_B * 1000),
+      setTimeout(() => setPart('black'), OPENING_END * 1000),
+      setTimeout(() => done.current(), OPENING_DONE * 1000),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center text-white">
+      <AnimatePresence mode="wait">
+        {part === 'presented' && (
+          <motion.div
+            key="presented"
+            className="flex flex-col items-center text-center"
+            exit={{ opacity: 0, y: '-1vw', transition: { duration: 1, ease: EASE } }}
+          >
+            <motion.div
+              className="font-extrabold uppercase text-[#FFCB05]"
+              style={{ fontSize: '1.1vw' }}
+              initial={{ opacity: 0, letterSpacing: '0.9em' }}
+              animate={{ opacity: 1, letterSpacing: '0.4em' }}
+              transition={{ duration: 1.2, delay: 0.6, ease: EASE }}
+            >
+              Presented by
+            </motion.div>
+            <motion.div
+              className="bg-white rounded-[0.7vw]"
+              style={{ padding: '0.8vw 1.4vw', marginTop: '2vw' }}
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 16, delay: 1.2 }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/conference/logos/abg.png" alt="AI Business Group" style={{ height: '4.2vw', width: 'auto' }} />
+            </motion.div>
+            <div className={`${conferenceDisplayFont.className} font-extrabold uppercase leading-none tracking-wide overflow-hidden`} style={{ fontSize: '5vw', marginTop: '1.6vw' }}>
+              <motion.div initial={{ y: '110%' }} animate={{ y: '0%' }} transition={{ duration: 0.9, delay: 1.8, ease: EASE }}>
+                AI Business Group
+              </motion.div>
+            </div>
+            <motion.div
+              className="font-bold uppercase text-white/60"
+              style={{ fontSize: '1.1vw', letterSpacing: '0.2em', marginTop: '0.8vw' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 2.4 }}
+            >
+              Michigan AI Business Conference · {CONFERENCE_DATE_LABEL}
+            </motion.div>
+            {sponsors.length > 0 && (
+              <>
+                <motion.div
+                  className="bg-[#FFCB05]"
+                  style={{ height: '0.2vw', margin: '2.6vw 0 1.6vw' }}
+                  initial={{ width: '0vw' }}
+                  animate={{ width: '6vw' }}
+                  transition={{ duration: 0.8, delay: 3.0, ease: EASE }}
+                />
+                <motion.div
+                  className="font-extrabold uppercase text-white/50"
+                  style={{ fontSize: '0.85vw', letterSpacing: '0.3em' }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 3.3 }}
+                >
+                  With thanks to our sponsors
+                </motion.div>
+                <div className="flex flex-wrap items-center justify-center" style={{ gap: '1.4vw 3vw', marginTop: '1.4vw', maxWidth: '76vw' }}>
+                  {sponsors.map((sp, i) => (
+                    <motion.div
+                      key={sp.id || sp.name}
+                      className="flex items-center justify-center"
+                      style={{ width: '10vw', height: '3vw' }}
+                      initial={{ opacity: 0, y: '1.2vw', filter: 'blur(6px)' }}
+                      animate={{ opacity: 1, y: '0vw', filter: 'blur(0px)' }}
+                      transition={{ duration: 0.6, delay: 3.6 + i * 0.15, ease: EASE }}
+                    >
+                      <SponsorMark sponsor={sp} />
+                    </motion.div>
+                  ))}
+                </div>
+              </>
+            )}
+          </motion.div>
+        )}
+
+        {part === 'notices' && (
+          <motion.div
+            key="notices"
+            className="flex flex-col items-center"
+            style={{ width: '78vw' }}
+            exit={{ opacity: 0, transition: { duration: OPENING_FADE_S, ease: 'easeInOut' } }}
+          >
+            <motion.div
+              className="font-extrabold uppercase text-[#FFCB05]"
+              style={{ fontSize: '1.1vw', letterSpacing: '0.4em' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1.2, delay: 0.4 }}
+            >
+              Before we begin
+            </motion.div>
+            <div className="w-full flex flex-col" style={{ gap: '1.4vw', marginTop: '2.4vw' }}>
+              {NOTICES.map((n, i) => (
+                <motion.div
+                  key={n.title}
+                  className="flex items-start border-l-[0.25vw] border-[#FFCB05] bg-white/[0.04]"
+                  style={{ gap: '1.8vw', padding: '1.4vw 2vw' }}
+                  initial={{ opacity: 0, x: '-2vw' }}
+                  animate={{ opacity: 1, x: '0vw' }}
+                  transition={{ duration: 1.6, delay: 1.5 + i * NOTICE_GAP_S, ease: EASE }}
+                >
+                  <n.icon className="flex-shrink-0 text-[#FFCB05]" style={{ width: '2.6vw', height: '2.6vw' }} />
+                  <div>
+                    <div className={`${conferenceDisplayFont.className} font-extrabold uppercase leading-none`} style={{ fontSize: '2.2vw' }}>
+                      {n.title}
+                    </div>
+                    <div className="text-white/75 leading-snug" style={{ fontSize: '1.25vw', marginTop: '0.6vw' }}>
+                      {n.text}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // One session's stage screen
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1063,14 +1235,30 @@ export default function ConferenceBackgroundClient({
     };
   }, [live]);
 
+  // Black until the remote taps Start; then the opening plays (unless it's already over, e.g. after a
+  // refresh) and the sweep brings in the stage
+  const [screenMode, setScreenMode] = useState<'standby' | 'opening' | 'stage' | null>(null);
+  useEffect(() => {
+    if (!live || !stage) return;
+    if (!stage.started) {
+      setScreenMode('standby');
+      return;
+    }
+    setScreenMode((mode) => {
+      if (mode === 'opening' || mode === 'stage') return mode;
+      return stage.serverNow - (stage.startedAt || 0) < OPENING_MS ? 'opening' : 'stage';
+    });
+  }, [live, stage]);
+
   // When the remote picks a new slide, a sweep covers the screen and the new one is underneath it
   const targetKey = stage ? stage.sessionIds.join(',') : null;
   const [shownKey, setShownKey] = useState<string | null>(null);
   const pendingKey = useRef<string | null>(null);
   useEffect(() => {
     if (!live || !targetKey) return;
-    if (shownKey === null) {
-      setShownKey(targetKey);
+    // Off stage (black or the opening), just keep up; there's nothing on screen to sweep away
+    if (shownKey === null || screenMode !== 'stage') {
+      if (targetKey !== shownKey) setShownKey(targetKey);
       return;
     }
     if (targetKey === shownKey) return;
@@ -1082,7 +1270,7 @@ export default function ConferenceBackgroundClient({
       setShownKey(pendingKey.current);
       pendingKey.current = null;
     });
-  }, [live, targetKey, shownKey, runSweep]);
+  }, [live, targetKey, shownKey, screenMode, runSweep]);
 
   const liveRemaining = (() => {
     if (!stage || liveNow === null) return null;
@@ -1216,7 +1404,7 @@ export default function ConferenceBackgroundClient({
       >
         <FloatingShapes variant="dense" opacity={0.08} />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,203,5,0.08),transparent_55%)] pointer-events-none" />
-        {stage && session && (
+        {stage && session && screenMode === 'stage' && (
           <StageScreen
             key={sessions.map((s) => s.id).join(',')}
             sessions={sessions}
@@ -1229,7 +1417,12 @@ export default function ConferenceBackgroundClient({
             manual={{ remaining: liveRemaining, showUpNext: stage.showUpNext }}
           />
         )}
-        {sweep}
+        {screenMode !== 'stage' && (
+          <div className="absolute inset-0 z-40 bg-black">
+            {screenMode === 'opening' && <OpeningSequence sponsors={sponsors} onDone={() => runSweep(() => setScreenMode('stage'))} />}
+          </div>
+        )}
+        {(screenMode === 'stage' || sweepId > 1) && sweep}
       </div>
     );
   }

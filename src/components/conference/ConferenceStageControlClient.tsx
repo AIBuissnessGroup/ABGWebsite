@@ -17,9 +17,13 @@ import { CONFERENCE_LINEUP, LineupSession, nextSessionsAfter, sessionStartTime }
 import ConferenceSignInButton from '@/components/conference/ConferenceSignInButton';
 
 const POLL_MS = 1500;
+// Matches the length of the opening on the live screen
+const OPENING_MS = 40000;
 const PRESET_MINUTES = [5, 10, 15, 30, 45];
 
 interface StageResponse {
+  started: boolean;
+  startedAt?: number;
   sessionIds: string[];
   timer: { status: 'idle' | 'running' | 'paused'; endsAt?: number; remainingMs?: number };
   showUpNext: boolean;
@@ -168,12 +172,40 @@ export default function ConferenceStageControlClient() {
           <div className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#FFCB05]">Michigan AI Business Conference</div>
           <h1 className="text-xl font-extrabold">Stage Remote</h1>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 border border-red-400/40 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider text-red-200">
-          <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" /> Live
-        </span>
+        {stage.started ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 border border-red-400/40 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider text-red-200">
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" /> Live
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider text-white/70">
+            Standby
+          </span>
+        )}
       </div>
 
       {error && <div className="mt-3 rounded-xl bg-red-500/15 border border-red-500/30 px-3 py-2 text-xs text-red-200">{error}</div>}
+
+      {/* Before the show the screens are black; Start plays the opening, then Arrival */}
+      {!stage.started && (
+        <div className="mt-4 rounded-2xl border border-[#FFCB05]/50 bg-[#FFCB05]/10 p-4">
+          <div className="text-sm font-bold">The stage screen is black and waiting</div>
+          <p className="mt-1 text-xs text-white/65">
+            Start plays the 40-second opening (presented by, then the notices, then black), then sweeps into Arrival.
+          </p>
+          <button
+            onClick={() => window.confirm('Start the conference opening on the stage screen?') && send({ action: 'start' })}
+            disabled={busy}
+            className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-[#FFCB05] text-[#00274c] py-3.5 text-base font-extrabold disabled:opacity-50"
+          >
+            <PlayIcon className="w-5 h-5" /> Start the conference
+          </button>
+        </div>
+      )}
+      {stage.started && stage.startedAt && serverNow - stage.startedAt < OPENING_MS && (
+        <div className="mt-4 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-xs text-white/75">
+          Opening is playing… Arrival comes up in {Math.ceil((OPENING_MS - (serverNow - stage.startedAt)) / 1000)}s.
+        </div>
+      )}
 
       {/* What the screens are showing right now */}
       <LivePreview />
@@ -338,6 +370,16 @@ export default function ConferenceStageControlClient() {
           })}
         </div>
       </div>
+
+      {stage.started && (
+        <button
+          onClick={() => window.confirm('Put the stage screen back on standby? It goes black until someone taps Start again.') && send({ action: 'standby' })}
+          disabled={busy}
+          className="mt-6 w-full rounded-xl border border-white/15 py-2.5 text-xs font-bold text-white/60 disabled:opacity-50"
+        >
+          Back to standby (black screen)
+        </button>
+      )}
 
       {stage.updatedBy && (
         <p className="mt-4 text-center text-[11px] text-white/40">

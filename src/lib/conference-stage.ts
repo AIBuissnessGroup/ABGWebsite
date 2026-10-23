@@ -12,6 +12,9 @@ export interface StageTimer {
 }
 
 export interface StageState {
+  // Until someone taps Start, the live screens stay black. Start plays the opening, then Arrival.
+  started: boolean;
+  startedAt?: number;
   sessionIds: string[]; // what's on screen (two ids when concurrent sessions share a slide)
   timer: StageTimer;
   showUpNext: boolean;
@@ -22,6 +25,7 @@ export interface StageState {
 const STAGE_DOC_ID = 'michigan-ai-conference-2026-stage';
 
 export const DEFAULT_STAGE_STATE: StageState = {
+  started: false,
   sessionIds: [CONFERENCE_LINEUP[0].id],
   timer: { status: 'idle' },
   showUpNext: false,
@@ -33,6 +37,8 @@ export async function getStageState(): Promise<StageState> {
   const doc = await db.collection('ConferenceStage').findOne({ id: STAGE_DOC_ID });
   if (!doc) return DEFAULT_STAGE_STATE;
   return {
+    started: doc.started ?? false,
+    startedAt: doc.startedAt,
     sessionIds: doc.sessionIds || DEFAULT_STAGE_STATE.sessionIds,
     timer: doc.timer || DEFAULT_STAGE_STATE.timer,
     showUpNext: doc.showUpNext ?? false,
@@ -54,7 +60,9 @@ export type StageAction =
   | { action: 'timer'; op: 'start'; ms: number }
   | { action: 'timer'; op: 'pause' | 'resume' | 'clear' }
   | { action: 'timer'; op: 'adjust'; ms: number }
-  | { action: 'upnext'; show: boolean };
+  | { action: 'upnext'; show: boolean }
+  | { action: 'start' }
+  | { action: 'standby' };
 
 const MAX_TIMER_MS = 12 * 60 * 60 * 1000;
 
@@ -93,6 +101,15 @@ export async function applyStageAction(action: StageAction, by: string): Promise
   } else if (action.action === 'timer') {
     next.timer = nextTimer(current.timer, action, now);
     if (next.timer.status === 'idle') next.showUpNext = false;
+  } else if (action.action === 'start') {
+    // Opening, then the first slide with a clean timer
+    next.started = true;
+    next.startedAt = now;
+    next.sessionIds = [CONFERENCE_LINEUP[0].id];
+    next.timer = { status: 'idle' };
+    next.showUpNext = false;
+  } else if (action.action === 'standby') {
+    next.started = false;
   } else if (action.action === 'upnext') {
     // The bar only goes on once there's a countdown to show
     next.showUpNext = action.show && next.timer.status !== 'idle';

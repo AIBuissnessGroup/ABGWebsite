@@ -17,7 +17,7 @@ export async function GET() {
   }
 }
 
-// Stage controllers only: switch slides, run the timer, toggle the Up next bar
+// Stage controllers only: start the show, switch slides, run the timer, toggle the Up next bar
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -35,6 +35,8 @@ export async function POST(req: Request) {
       action = { action: 'timer', op: body.op, ms: Number(body.ms) };
     } else if (body.action === 'upnext' && typeof body.show === 'boolean') {
       action = { action: 'upnext', show: body.show };
+    } else if (body.action === 'start' || body.action === 'standby') {
+      action = { action: body.action };
     } else {
       return NextResponse.json({ error: 'Invalid stage action' }, { status: 400 });
     }
