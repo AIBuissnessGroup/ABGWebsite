@@ -2,7 +2,7 @@ import type { Session } from 'next-auth';
 import { getDb } from './mongodb';
 import { isAdmin } from './roles';
 import { getConferenceData } from './site-content/conference';
-import { CONFERENCE_LINEUP } from './conference-lineup';
+import { CONFERENCE_LINEUP, findStageSession } from './conference-lineup';
 
 // Live stage state, set from the /conference/control remote and read by the live stage screens
 export interface StageTimer {
@@ -90,7 +90,7 @@ export async function applyStageAction(action: StageAction, by: string): Promise
   const next: StageState = { ...current, updatedAt: now, updatedBy: by };
 
   if (action.action === 'show') {
-    const valid = action.sessionIds.filter((id) => CONFERENCE_LINEUP.some((s) => s.id === id)).slice(0, 2);
+    const valid = action.sessionIds.filter((id) => Boolean(findStageSession(id))).slice(0, 2);
     if (valid.length === 0) throw new Error('Unknown session');
     // A new slide starts clean: the old countdown stops and the Up next bar hides until a new time is set
     if (valid.join(',') !== current.sessionIds.join(',')) {

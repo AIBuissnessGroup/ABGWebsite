@@ -13,7 +13,7 @@ import {
   StopIcon,
   XCircleIcon,
 } from '@heroicons/react/24/solid';
-import { CONFERENCE_LINEUP, LineupSession, nextSessionsAfter, sessionStartTime } from '@/lib/conference-lineup';
+import { CONFERENCE_LINEUP, LineupSession, STAGE_THANK_YOU, findStageSession, nextSessionsAfter, sessionStartTime } from '@/lib/conference-lineup';
 import ConferenceSignInButton from '@/components/conference/ConferenceSignInButton';
 
 const POLL_MS = 1500;
@@ -56,6 +56,8 @@ const STEPS: LineupSession[][] = (() => {
     group.forEach((g) => used.add(g.id));
     steps.push(group);
   }
+  // The thank-you slide closes out the day
+  steps.push([STAGE_THANK_YOU]);
   return steps;
 })();
 
@@ -115,12 +117,12 @@ export default function ConferenceStageControlClient() {
   }, []);
 
   const current = useMemo(
-    () => (stage?.sessionIds || []).map((id) => CONFERENCE_LINEUP.find((s) => s.id === id)).filter((s): s is LineupSession => Boolean(s)),
+    () => (stage?.sessionIds || []).map((id) => findStageSession(id)).filter((s): s is LineupSession => Boolean(s)),
     [stage?.sessionIds]
   );
   const currentKey = current.map((s) => s.id).join(',');
   const stepIndex = STEPS.findIndex((step) => step.some((s) => current[0]?.id === s.id));
-  const nextUp = current[0] ? nextSessionsAfter(current[0]) : [];
+  const nextUp = current[0] && current[0].id !== STAGE_THANK_YOU.id ? nextSessionsAfter(current[0]) : [];
 
   const serverNow = now + offset.current;
   const remaining =
@@ -358,7 +360,7 @@ export default function ConferenceStageControlClient() {
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-[#FFCB05]">{step[0].start}</span>
+                  <span className="text-xs font-bold text-[#FFCB05]">{step[0].id === STAGE_THANK_YOU.id ? 'After closing' : step[0].start}</span>
                   {active && <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#FFCB05]">Showing</span>}
                 </div>
                 <div className="text-sm font-bold leading-snug">

@@ -11,7 +11,9 @@ import {
   CONFERENCE_VENUE,
   LineupSession,
   LineupSpeaker,
+  STAGE_THANK_YOU,
   applySpeakerOrder,
+  findStageSession,
   nextSessionsAfter,
   parseHeadline,
   sessionDurationLabel,
@@ -49,6 +51,9 @@ const LIVE_POLL_MS = 5000;
 const STAGE_POLL_MS = 1500;
 // The opening the remote's Start button plays (presented by, then the notices), before Arrival
 const OPENING_MS = 40000;
+// Set inline rather than with a bg-gradient-* class: a site-wide rule forces every span inside an element
+// with that class to white, which would wipe out the maize words in headlines
+const STAGE_BACKGROUND = { background: 'linear-gradient(to bottom right, #00274c, #00264a, #001a33)' };
 
 interface LiveStageState {
   started: boolean;
@@ -524,6 +529,8 @@ function ConcurrentSlide({
 
 // Sessions without speakers (registration, coffee chats, closing): a "happening now" screen
 function HappeningNowSlide({ session, next, remaining, now, sponsors, demo, still = false, live = false }: SlideProps) {
+  // Arrival shows the whole day's lineup and a countdown to the first panel instead of the Up next bar
+  const arrival = session.id === CONFERENCE_LINEUP[0].id;
   const start = sessionStartTime(session).getTime();
   const end = sessionEndTime(session).getTime();
   // In rehearsal mode the session "runs" for the length of the demo countdown
@@ -631,7 +638,16 @@ function HappeningNowSlide({ session, next, remaining, now, sponsors, demo, stil
           </motion.div>
         </div>
       </div>
-      <UpNextBar next={next} remaining={remaining} allowNoTimer={live} />
+      {arrival ? (
+        <>
+          <div className="flex justify-end" style={{ padding: '0 5vw 1.4vw' }}>
+            <FirstPanelPopup now={now} still={still} delay={ENTER_DELAY.bar + 0.6} />
+          </div>
+          <LineupBar kicker="Today's" title="Lineup" delay={ENTER_DELAY.bar} />
+        </>
+      ) : (
+        <UpNextBar next={next} remaining={remaining} allowNoTimer={live} />
+      )}
     </div>
   );
 }
@@ -1238,6 +1254,235 @@ function OpeningSequence({ sponsors, onDone }: { sponsors: ConferenceSponsor[]; 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Thank-you screen: the last slide, after closing remarks
+// ─────────────────────────────────────────────────────────────────────────────
+
+// The whole day's lineup along the bottom of a slide, stepping to the next session every few seconds
+const LINEUP_STEP_MS = 5000;
+
+function LineupBar({ kicker, title, delay }: { kicker: string; title: string; delay: number }) {
+  const count = CONFERENCE_LINEUP.length;
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [offsets, setOffsets] = useState<number[]>([]);
+  const [step, setStep] = useState(0);
+  const [instant, setInstant] = useState(false);
+
+  // Where each session starts along the track (re-measured if the screen size changes)
+  useEffect(() => {
+    const measure = () => {
+      const items = Array.from(trackRef.current?.children || []) as HTMLElement[];
+      setOffsets(items.map((el) => el.offsetLeft - (items[0]?.offsetLeft || 0)));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setInstant(false);
+      setStep((n) => n + 1);
+    }, LINEUP_STEP_MS);
+    return () => clearInterval(timer);
+  }, []);
+
+  // The list is drawn twice; after gliding onto the second copy's first session, snap back to the
+  // identical first copy so it loops forever
+  useEffect(() => {
+    if (step < count) return;
+    const timer = setTimeout(() => {
+      setInstant(true);
+      setStep(0);
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [step, count]);
+
+  const items = [0, 1].flatMap((copy) =>
+    CONFERENCE_LINEUP.map((s) => (
+      <div key={`${copy}-${s.id}`} className="flex items-center flex-shrink-0" style={{ gap: '1.1vw', paddingLeft: '2.4vw', paddingRight: '1.4vw' }}>
+        <span className={`${conferenceDisplayFont.className} font-extrabold text-[#FFCB05] tabular-nums`} style={{ fontSize: '1.7vw' }}>
+          {s.start}
+        </span>
+        {s.speakers.length > 0 && <Avatars speakers={s.speakers} size="2.4vw" />}
+        <span className="flex flex-col">
+          <span className={`${conferenceDisplayFont.className} font-extrabold uppercase text-white leading-none`} style={{ fontSize: '1.6vw' }}>
+            <HeadlineText line={s.headline.join(' ')} />
+          </span>
+          <span className="text-white/60 font-bold" style={{ fontSize: '0.85vw', marginTop: '0.25vw' }}>
+            {s.room}
+            {s.speakers.length > 0 && <span className="text-white/45"> · {speakerNames(s)}</span>}
+          </span>
+        </span>
+        <span className="rotate-45 bg-[#FFCB05] flex-shrink-0" style={{ width: '0.5vw', height: '0.5vw', marginLeft: '1vw' }} />
+      </div>
+    ))
+  );
+
+  return (
+    <motion.div
+      className="flex items-stretch bg-[#001426]/90 border-t-[0.25vw] border-[#FFCB05]"
+      initial={{ x: '-100%' }}
+      animate={{ x: '0%' }}
+      transition={{ duration: 0.9, delay, ease: EASE }}
+    >
+      <div className="relative z-10 bg-[#FFCB05] text-[#00274c] flex flex-col justify-center flex-shrink-0" style={{ padding: '1vw 2vw', minWidth: '15vw' }}>
+        <div className="font-extrabold uppercase" style={{ fontSize: '0.85vw', letterSpacing: '0.2em' }}>
+          {kicker}
+        </div>
+        <div className={`${conferenceDisplayFont.className} font-extrabold uppercase leading-none`} style={{ fontSize: '2.6vw' }}>
+          {title}
+        </div>
+      </div>
+      <div className="flex-1 overflow-hidden flex items-center text-left" style={{ padding: '0.9vw 0' }}>
+        <motion.div
+          ref={trackRef}
+          className="flex whitespace-nowrap"
+          animate={{ x: -(offsets[step] || 0) }}
+          transition={instant ? { duration: 0 } : { duration: 0.8, ease: EASE }}
+        >
+          {items}
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
+// Arrival: a card above the lineup bar counting down to the first panel
+function FirstPanelPopup({ now, still, delay }: { now: number | null; still: boolean; delay: number }) {
+  const panel = CONFERENCE_LINEUP.find((s) => s.kind === 'panel');
+  if (!panel) return null;
+  const remaining = now === null ? null : sessionStartTime(panel).getTime() - now;
+  return (
+    <motion.div
+      className="flex items-center bg-[#001426]/90 border border-white/10 border-l-[0.3vw] border-l-[#FFCB05] rounded-r-[0.8vw]"
+      style={{ gap: '1.6vw', padding: '1vw 1.6vw' }}
+      initial={{ opacity: 0, y: '2vw', scale: 0.92 }}
+      animate={{ opacity: 1, y: '0vw', scale: 1 }}
+      transition={{ type: 'spring', stiffness: 220, damping: 18, delay }}
+    >
+      <div className="flex flex-col">
+        <span className="font-extrabold uppercase text-[#FFCB05]/80" style={{ fontSize: '0.75vw', letterSpacing: '0.2em' }}>
+          {still || remaining === null ? 'First panel' : remaining > 0 ? 'First panel in' : 'First panel'}
+        </span>
+        <span className={`${conferenceDisplayFont.className} font-extrabold text-[#FFCB05] tabular-nums leading-none`} style={{ fontSize: '3vw', marginTop: '0.3vw' }}>
+          {still || remaining === null ? panel.start : remaining > 0 ? clockText(remaining) : 'Now'}
+        </span>
+      </div>
+      <Avatars speakers={panel.speakers} size="3vw" />
+      <div className="flex flex-col text-left" style={{ maxWidth: '26vw' }}>
+        <span className={`${conferenceDisplayFont.className} font-extrabold uppercase text-white leading-[0.95]`} style={{ fontSize: '1.6vw' }}>
+          <HeadlineText line={panel.headline.join(' ')} />
+        </span>
+        <span className="text-white/60 font-bold" style={{ fontSize: '0.85vw', marginTop: '0.35vw' }}>
+          {panel.label} · {panel.start} · {panel.room}
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+function ThankYouScreen({ sponsors }: { sponsors: ConferenceSponsor[] }) {
+  const d = REVEAL_S;
+  return (
+    <div className="relative h-full w-full flex flex-col items-center justify-center text-center text-white" style={{ padding: '3vw 6vw 9vw' }}>
+      {/* The usual logo and conference name, top-left like every other slide */}
+      <motion.div
+        className="absolute"
+        style={{ top: '2.6vw', left: '5vw' }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8, delay: d + 0.1 }}
+      >
+        <HostedBy />
+      </motion.div>
+
+      <div
+        className={`${conferenceDisplayFont.className} font-extrabold uppercase leading-[0.95] tracking-wide flex flex-wrap justify-center`}
+        style={{ fontSize: '7vw', columnGap: '0.28em' }}
+      >
+        {['Thank', 'you', 'for', 'attending'].map((word, i) => (
+          <span key={word} className="inline-block overflow-hidden" style={{ paddingBottom: '0.06em' }}>
+            <motion.span
+              className={`inline-block ${i < 2 ? 'text-[#FFCB05]' : ''}`}
+              initial={{ y: '110%', rotate: 6 }}
+              animate={{ y: '0%', rotate: 0 }}
+              transition={{ duration: 0.8, delay: d + 0.3 + i * 0.08, ease: EASE }}
+            >
+              {word}
+            </motion.span>
+          </span>
+        ))}
+      </div>
+
+      <motion.div
+        className="font-bold uppercase text-white/60"
+        style={{ fontSize: '1.2vw', letterSpacing: '0.2em', marginTop: '1vw' }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8, delay: d + 0.8 }}
+      >
+        Michigan AI Business Conference · {CONFERENCE_DATE_LABEL}
+      </motion.div>
+
+      <motion.div
+        className="inline-flex items-center rounded-full border border-[#FFCB05]/60 bg-[#FFCB05]/10"
+        style={{ gap: '0.7vw', padding: '0.6vw 1.5vw', marginTop: '2vw' }}
+        initial={{ opacity: 0, y: '1vw' }}
+        animate={{ opacity: 1, y: '0vw' }}
+        transition={{ duration: 0.7, delay: d + 1.0, ease: EASE }}
+      >
+        <span className="relative flex" style={{ width: '0.8vw', height: '0.8vw' }}>
+          <span className="absolute inset-0 rounded-full bg-[#FFCB05] animate-ping opacity-70" />
+          <span className="relative rounded-full bg-[#FFCB05] w-full h-full" />
+        </span>
+        <span className="font-extrabold uppercase text-[#FFCB05]" style={{ fontSize: '1.3vw', letterSpacing: '0.2em' }}>
+          Open networking
+        </span>
+      </motion.div>
+
+      {sponsors.length > 0 && (
+        <>
+          <motion.div
+            className="bg-[#FFCB05]"
+            style={{ height: '0.2vw', margin: '2.8vw 0 1.6vw' }}
+            initial={{ width: '0vw' }}
+            animate={{ width: '7vw' }}
+            transition={{ duration: 0.8, delay: d + 1.2, ease: EASE }}
+          />
+          <motion.div
+            className="font-extrabold uppercase text-white/55"
+            style={{ fontSize: '0.95vw', letterSpacing: '0.3em' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: d + 1.3 }}
+          >
+            Thank you to our sponsors
+          </motion.div>
+          <div className="flex flex-wrap items-center justify-center" style={{ gap: '1.6vw 3.2vw', marginTop: '1.6vw', maxWidth: '80vw' }}>
+            {sponsors.map((sp, i) => (
+              <motion.div
+                key={sp.id || sp.name}
+                className="flex items-center justify-center"
+                style={{ width: '11vw', height: '3.4vw' }}
+                initial={{ opacity: 0, y: '1.2vw' }}
+                animate={{ opacity: 1, y: '0vw' }}
+                transition={{ duration: 0.6, delay: d + 1.4 + i * 0.1, ease: EASE }}
+              >
+                <SponsorMark sponsor={sp} />
+              </motion.div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className="absolute left-0 right-0 bottom-0">
+        <LineupBar kicker="Day" title="Recap" delay={d + 1.8} />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // One session's stage screen
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1264,8 +1509,9 @@ function StageScreen({
   manual?: { remaining: number | null; showUpNext: boolean };
 }) {
   const session = sessions[0];
+  const thankYou = session.id === STAGE_THANK_YOU.id;
   // Coming from an outro, the "Up next" screen already introduced this session, so go straight to it
-  const [phase, setPhase] = useState<'intro' | 'live' | 'outro'>(skipIntro || still ? 'live' : 'intro');
+  const [phase, setPhase] = useState<'intro' | 'live' | 'outro'>(skipIntro || still || thankYou ? 'live' : 'intro');
   // Memoized so the hand-off timers aren't reset by every clock tick
   const nextSessions = useMemo(() => nextSessionsAfter(session), [session]);
   const [target] = useState<number | null>(() =>
@@ -1311,6 +1557,7 @@ function StageScreen({
   const barRemaining = still ? null : remaining;
   const live = Boolean(manual);
 
+  if (thankYou) return <ThankYouScreen sponsors={sponsors} />;
   if (phase === 'intro') return <TransitionScreen kicker={ordered.length > 1 ? 'Concurrent sessions' : session.label || 'Now'} sessions={ordered} />;
   if (phase === 'outro' && orderedNext.length > 0) return <TransitionScreen kicker="Up next" sessions={orderedNext} />;
   return ordered.length > 1 ? (
@@ -1342,7 +1589,8 @@ export default function ConferenceBackgroundClient({
   // One sweep overlay for the whole page, so it carries on while the screen underneath changes
   // The first sweep is already covering when the page opens, then reveals the first screen
   const [sweepId, setSweepId] = useState(1);
-  const [sweepCard, setSweepCard] = useState(true);
+  // No title card on the way into the thank-you screen, which shows the same logo and sponsors
+  const [sweepCard, setSweepCard] = useState(sessionId !== STAGE_THANK_YOU.id);
   const [sweepAt, setSweepAt] = useState(() => (typeof performance === 'undefined' ? 0 : performance.now()));
   const onCovered = useRef<() => void>(() => {});
   const runSweep = useCallback((cb: () => void, opts?: { card?: boolean }) => {
@@ -1413,10 +1661,13 @@ export default function ConferenceBackgroundClient({
     const sweeping = pendingKey.current !== null;
     pendingKey.current = targetKey;
     if (sweeping) return;
-    runSweep(() => {
-      setShownKey(pendingKey.current);
-      pendingKey.current = null;
-    });
+    runSweep(
+      () => {
+        setShownKey(pendingKey.current);
+        pendingKey.current = null;
+      },
+      { card: targetKey !== STAGE_THANK_YOU.id }
+    );
   }, [live, targetKey, shownKey, screenMode, runSweep]);
 
   const liveRemaining = (() => {
@@ -1436,7 +1687,7 @@ export default function ConferenceBackgroundClient({
   // "s" may list several ids separated by commas when sessions run at the same time
   const sessions = ((live ? shownKey : activeId) || '')
     .split(',')
-    .map((id) => CONFERENCE_LINEUP.find((s) => s.id === id))
+    .map((id) => findStageSession(id))
     .filter((s): s is LineupSession => Boolean(s));
   const session = sessions[0] || null;
   const index = session ? CONFERENCE_LINEUP.indexOf(session) : -1;
@@ -1548,7 +1799,8 @@ export default function ConferenceBackgroundClient({
     return (
       <ShapeWave.Provider value={shapeWave}>
       <div
-        className={`fixed inset-0 overflow-hidden bg-gradient-to-br from-[#00274c] via-[#00264a] to-[#001a33] text-white ${cursorHidden ? 'cursor-none' : ''}`}
+        className={`fixed inset-0 overflow-hidden text-white ${cursorHidden ? 'cursor-none' : ''}`}
+        style={STAGE_BACKGROUND}
       >
         <StageShapes opacity={0.08} />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,203,5,0.08),transparent_55%)] pointer-events-none" />
@@ -1595,6 +1847,7 @@ export default function ConferenceBackgroundClient({
       }
       return [row];
     });
+    indexRows.push({ key: STAGE_THANK_YOU.id, ids: STAGE_THANK_YOU.id, start: 'After closing', title: 'Thank you for attending', note: 'Final screen: open networking and sponsors' });
     return (
       <div className="min-h-screen bg-[#00274c] text-white px-6 py-12">
         <div className="max-w-5xl mx-auto">
@@ -1666,8 +1919,8 @@ export default function ConferenceBackgroundClient({
         {/* The 16:9 slide that gets captured */}
         <div
           ref={shotRef}
-          className="relative w-screen overflow-hidden bg-gradient-to-br from-[#00274c] via-[#00264a] to-[#001a33]"
-          style={{ height: '56.25vw' }}
+          className="relative w-screen overflow-hidden"
+          style={{ ...STAGE_BACKGROUND, height: '56.25vw' }}
         >
           <StageShapes opacity={0.08} />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,203,5,0.08),transparent_55%)] pointer-events-none" />
@@ -1707,7 +1960,8 @@ export default function ConferenceBackgroundClient({
   return (
     <ShapeWave.Provider value={shapeWave}>
     <div
-      className={`fixed inset-0 overflow-hidden bg-gradient-to-br from-[#00274c] via-[#00264a] to-[#001a33] text-white ${cursorHidden ? 'cursor-none' : ''}`}
+      className={`fixed inset-0 overflow-hidden text-white ${cursorHidden ? 'cursor-none' : ''}`}
+      style={STAGE_BACKGROUND}
     >
       <StageShapes opacity={0.08} />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,203,5,0.08),transparent_55%)] pointer-events-none" />

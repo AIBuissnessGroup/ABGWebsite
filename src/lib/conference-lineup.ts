@@ -325,6 +325,22 @@ export function sessionDurationLabel(session: LineupSession): string {
 }
 
 // Reorders a session's speakers by name (from the admin stage background settings); unknown names are ignored
+// Stage screens only (not part of the agenda): the last slide, after closing remarks
+export const STAGE_THANK_YOU: LineupSession = {
+  id: 'thank-you',
+  kind: 'logistics',
+  start: '5:00 PM',
+  end: '5:00 PM',
+  headline: ['*Thank you* for attending'],
+  room: '',
+  speakers: [],
+};
+
+// Any slide the stage screens can show, agenda sessions plus the thank-you slide
+export function findStageSession(id: string): LineupSession | undefined {
+  return id === STAGE_THANK_YOU.id ? STAGE_THANK_YOU : CONFERENCE_LINEUP.find((s) => s.id === id);
+}
+
 export function applySpeakerOrder(session: LineupSession, order?: string[]): LineupSession {
   if (!order || order.length === 0) return session;
   const rank = (name: string) => {
