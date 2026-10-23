@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { MotionGlobalConfig, motion } from 'framer-motion';
+import { MotionGlobalConfig, Transition, motion } from 'framer-motion';
 import FloatingShapes from '@/components/FloatingShapes';
 import {
   CONFERENCE_DATE_LABEL,
@@ -24,15 +24,21 @@ import type { ConferenceSponsor } from '@/types/conference';
 const EASE = [0.22, 1, 0.36, 1] as const;
 // Every screen change is a sweep of maize and blue stripes: its solid middle covers the screen,
 // the content swaps underneath, and the trailing stripes reveal the new screen
-const SWEEP_S = 1.5;
-const SWEEP_TIMES = [0, 0.42, 0.58, 1];
-const SWEEP_COVER_MS = SWEEP_S * SWEEP_TIMES[1] * 1000 + 30;
+// While it covers the screen, the sweep holds long enough to read the conference title card
+const SWEEP_IN_S = 1.0;
+const SWEEP_HOLD_S = 2.6;
+const SWEEP_OUT_S = 1.1;
+const SWEEP_S = SWEEP_IN_S + SWEEP_HOLD_S + SWEEP_OUT_S;
+const SWEEP_TIMES = [0, SWEEP_IN_S / SWEEP_S, (SWEEP_IN_S + SWEEP_HOLD_S) / SWEEP_S, 1];
+const SWEEP_COVER_MS = SWEEP_IN_S * 1000 + 30;
+// A new screen mounts the moment the sweep covers; its entrances wait until the sweep starts to reveal it
+const REVEAL_S = SWEEP_HOLD_S;
 // Pieces glide in from the left behind the sweep: speakers, then title, then the bar
-const ENTER_DELAY = { speakers: 0.35, title: 0.75, meta: 0.95, bar: 1.15 };
+const ENTER_DELAY = { speakers: REVEAL_S + 0.2, title: REVEAL_S + 0.6, meta: REVEAL_S + 0.8, bar: REVEAL_S + 1.0 };
 const ENTER_FROM = { opacity: 0, x: '-3vw' };
 const ENTER_TO = { opacity: 1, x: '0vw' };
-const INTRO_MS = 6000;
-const OUTRO_MS = 5000;
+const INTRO_MS = 8000;
+const OUTRO_MS = 7000;
 const DEMO_COUNTDOWN_MS = 15000;
 // Admin changes (speaker order, sponsors) reach open screens within this interval
 const LIVE_POLL_MS = 5000;
@@ -130,6 +136,21 @@ const SPONSOR_LOGOS: { match: RegExp; src: string }[] = [
   { match: /service\s?now/i, src: '/conference/sponsors/servicenow.svg' },
 ];
 
+// One sponsor's logo in white, filling its cell
+function SponsorMark({ sponsor }: { sponsor: ConferenceSponsor }) {
+  const local = SPONSOR_LOGOS.find((l) => l.match.test(sponsor.name))?.src;
+  return local ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={local} alt={sponsor.name} className="max-h-full max-w-full object-contain opacity-90" style={{ filter: 'brightness(0) invert(1)' }} />
+  ) : (
+    // Unknown sponsor: show its uploaded logo on a white tile so it stays legible
+    <div className="bg-white rounded-[0.3vw] h-full flex items-center" style={{ padding: '0.3vw 0.5vw' }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={sponsor.logoUrl} alt={sponsor.name} className="max-h-full w-auto object-contain" />
+    </div>
+  );
+}
+
 // Sponsor logos in white, as a compact grid for the bottom-right corner
 function SponsorLogos({
   sponsors,
@@ -148,7 +169,7 @@ function SponsorLogos({
       className="flex-shrink-0"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.8, delay: 0.4 }}
+      transition={{ duration: 0.8, delay: REVEAL_S + 0.4 }}
     >
       <div className="text-right font-extrabold uppercase text-white/50" style={{ fontSize: compact ? '0.6vw' : '0.7vw', letterSpacing: '0.25em', marginBottom: compact ? '0.45vw' : '0.8vw' }}>
         Sponsored by
@@ -161,23 +182,11 @@ function SponsorLogos({
           rowGap: compact ? '0.5vw' : columns === 1 ? '1.8vw' : '1.2vw',
         }}
       >
-      {sponsors.map((sp) => {
-        const local = SPONSOR_LOGOS.find((l) => l.match.test(sp.name))?.src;
-        return (
-          <div key={sp.id || sp.name} className="flex items-center justify-center w-full" style={{ height: cellHeight }}>
-            {local ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={local} alt={sp.name} className="max-h-full max-w-full object-contain opacity-90" style={{ filter: 'brightness(0) invert(1)' }} />
-            ) : (
-              // Unknown sponsor: show its uploaded logo on a white tile so it stays legible
-              <div className="bg-white rounded-[0.3vw] h-full flex items-center" style={{ padding: '0.3vw 0.5vw' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={sp.logoUrl} alt={sp.name} className="max-h-full w-auto object-contain" />
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {sponsors.map((sp) => (
+        <div key={sp.id || sp.name} className="flex items-center justify-center w-full" style={{ height: cellHeight }}>
+          <SponsorMark sponsor={sp} />
+        </div>
+      ))}
       </div>
     </motion.div>
   );
@@ -550,7 +559,7 @@ function HappeningNowSlide({ session, next, remaining, now, sponsors, demo, stil
               style={{ gap: '0.6vw', padding: '0.4vw 1vw' }}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.5, delay: REVEAL_S }}
             >
               <span className="relative flex" style={{ width: '0.7vw', height: '0.7vw' }}>
                 {status === 'live' && !still && <span className="absolute inset-0 rounded-full bg-[#FFCB05] animate-ping opacity-70" />}
@@ -571,7 +580,7 @@ function HappeningNowSlide({ session, next, remaining, now, sponsors, demo, stil
                 style={{ fontSize: '1.5vw', marginTop: '1.6vw', maxWidth: '48vw' }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ duration: 0.7, delay: 0.3 }}
+                transition={{ duration: 0.7, delay: REVEAL_S + 0.3 }}
               >
                 {session.description}
               </motion.p>
@@ -634,28 +643,173 @@ const SWEEP_BANDS: [string, number][] = [
   ['#FFCB05', 12], [SWEEP_BLUE, 2], ['#FFCB05', 3], [SWEEP_LIGHT_BLUE, 2], ['#FFCB05', 1.5],
 ];
 const SWEEP_WIDTH = SWEEP_BANDS.reduce((sum, [, w]) => sum + w, 0);
-// Band position (vw from the left edge) where the blue middle covers the screen
-const SWEEP_COVER_X = -(SWEEP_BANDS.slice(0, 5).reduce((sum, [, w]) => sum + w, 0) + 20);
+// The band runs on a diagonal through the middle of the screen. Positions are along that diagonal,
+// in vw from the screen center: the blue middle (wider than the screen's diagonal) is centered to cover it
+const SWEEP_ANGLE = 30;
+const SWEEP_BODY = 5; // index of the blue middle in SWEEP_BANDS
+const SWEEP_COVER_X = -(SWEEP_BANDS.slice(0, SWEEP_BODY).reduce((sum, [, w]) => sum + w, 0) + SWEEP_BANDS[SWEEP_BODY][1] / 2);
+const SWEEP_OFF = 60; // past the screen's corners
 
-function Sweep({ onCovered }: { onCovered: () => void }) {
+// Shown on the sweep's blue middle. Builds in pieces once the screen is covered (logo springs in,
+// title words rise through masks, sponsors land one by one), then holds still while the sweep's
+// trailing edge wipes over it.
+const CARD_TITLE = ['Michigan', 'AI', 'Business', 'Conference'];
+
+function SweepCard({ sponsors }: { sponsors: ConferenceSponsor[] }) {
+  return (
+    <div className="flex flex-col items-center text-center text-white">
+      <motion.div
+        className="bg-white rounded-[0.6vw]"
+        style={{ padding: '0.6vw 1.1vw' }}
+        initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
+        animate={{ opacity: 1, scale: 1, rotate: 0, y: '0vw' }}
+        transition={{ type: 'spring', stiffness: 260, damping: 15 }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/conference/logos/abg.png" alt="AI Business Group" style={{ height: '3vw', width: 'auto' }} />
+      </motion.div>
+
+      <div
+        className={`${conferenceDisplayFont.className} font-extrabold uppercase leading-[0.95] tracking-wide flex flex-wrap justify-center`}
+        style={{ fontSize: '5.6vw', marginTop: '1.6vw', columnGap: '0.28em' }}
+      >
+        {CARD_TITLE.map((word, i) => (
+          <span key={word} className="inline-block overflow-hidden" style={{ paddingBottom: '0.06em' }}>
+            <motion.span
+              className={`inline-block ${word === 'AI' ? 'text-[#FFCB05]' : ''}`}
+              initial={{ y: '110%', rotate: 6 }}
+              animate={{ y: '0%', rotate: 0 }}
+              transition={{ duration: 0.75, delay: 0.12 + i * 0.07, ease: EASE }}
+            >
+              {word}
+            </motion.span>
+          </span>
+        ))}
+      </div>
+
+      <motion.div
+        className="font-extrabold uppercase text-white/75"
+        style={{ fontSize: '1.25vw', marginTop: '1vw' }}
+        initial={{ opacity: 0, letterSpacing: '0.9em' }}
+        animate={{ opacity: 1, letterSpacing: '0.3em', y: '0vw' }}
+        transition={{ duration: 0.9, delay: 0.4, ease: EASE }}
+      >
+        Hosted by AI Business Group
+      </motion.div>
+      <motion.div
+        className="font-bold uppercase text-[#FFCB05]"
+        style={{ fontSize: '1vw', letterSpacing: '0.18em', marginTop: '0.6vw' }}
+        initial={{ opacity: 0, y: '0.6vw' }}
+        animate={{ opacity: 1, y: '0vw' }}
+        transition={{ duration: 0.6, delay: 0.55, ease: EASE }}
+      >
+        {CONFERENCE_DATE_LABEL} · {CONFERENCE_VENUE}
+      </motion.div>
+
+      {sponsors.length > 0 && (
+        <>
+          <motion.div
+            className="bg-[#FFCB05]"
+            style={{ height: '0.2vw', margin: '2.2vw 0 1.4vw' }}
+            initial={{ width: '0vw' }}
+            animate={{ width: '6vw' }}
+            transition={{ duration: 0.7, delay: 0.6, ease: EASE }}
+          />
+          <motion.div
+            className="font-extrabold uppercase text-white/50"
+            style={{ fontSize: '0.8vw', letterSpacing: '0.3em' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, y: '0vw' }}
+            transition={{ duration: 0.5, delay: 0.7 }}
+          >
+            Sponsored by
+          </motion.div>
+          <div className="flex flex-wrap items-center justify-center" style={{ gap: '1.2vw 2.6vw', marginTop: '1.2vw', maxWidth: '72vw' }}>
+            {sponsors.map((sp, i) => (
+              <motion.div
+                key={sp.id || sp.name}
+                className="flex items-center justify-center"
+                style={{ width: '9vw', height: '2.6vw' }}
+                initial={{ opacity: 0, y: '1.2vw', filter: 'blur(6px)' }}
+                animate={{ opacity: 1, y: '0vw', filter: 'blur(0px)' }}
+                transition={{ duration: 0.55, delay: 0.75 + i * 0.07, ease: EASE }}
+              >
+                <SponsorMark sponsor={sp} />
+              </motion.div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// `startCovered`: the page opens under the sweep (title card showing) and it moves off to reveal the first screen
+function Sweep({ onCovered, sponsors, startCovered = false }: { onCovered: () => void; sponsors: ConferenceSponsor[]; startCovered?: boolean }) {
   const covered = useRef(onCovered);
   useEffect(() => {
+    if (startCovered) return;
     const timer = setTimeout(() => covered.current(), SWEEP_COVER_MS);
     return () => clearTimeout(timer);
-  }, []);
+  }, [startCovered]);
+
+  const startX = -SWEEP_WIDTH - SWEEP_OFF;
+  const start = `${startX}vw`;
+  const cover = `${SWEEP_COVER_X}vw`;
+  const end = `${SWEEP_OFF}vw`;
+  // The card moves exactly opposite to the band (same timing and easing), so it stays still on screen
+  // while the band's edge passes over it
+  const cardX = (bandX: number) => `${SWEEP_COVER_X - bandX}vw`;
+  const outEase = [0.7, 0, 0.8, 0.4] as const;
+  const lead = startCovered ? 0 : SWEEP_IN_S;
+  const duration = lead + SWEEP_HOLD_S + SWEEP_OUT_S;
+  const at = (sec: number) => Math.min(1, Math.max(0, sec / duration));
+  const moveTransition: Transition = startCovered
+    ? { duration, times: [0, at(SWEEP_HOLD_S), 1], ease: ['linear', outEase] }
+    : { duration, times: SWEEP_TIMES, ease: [[0.33, 0, 0.2, 1], 'linear', outEase] };
+
+  // The card builds as soon as the screen is covered
+  const [showCard, setShowCard] = useState(startCovered);
+  useEffect(() => {
+    if (startCovered) return;
+    const timer = setTimeout(() => setShowCard(true), (SWEEP_IN_S - 0.05) * 1000);
+    return () => clearTimeout(timer);
+  }, [startCovered]);
+
   return (
     <div className="absolute inset-0 z-[60] overflow-hidden pointer-events-none">
-      <motion.div
-        className="absolute flex -skew-x-[14deg]"
-        style={{ top: '-10%', height: '120%', width: `${SWEEP_WIDTH}vw` }}
-        initial={{ x: `${-SWEEP_WIDTH - 20}vw` }}
-        animate={{ x: [`${-SWEEP_WIDTH - 20}vw`, `${SWEEP_COVER_X}vw`, `${SWEEP_COVER_X}vw`, '120vw'] }}
-        transition={{ duration: SWEEP_S, times: SWEEP_TIMES, ease: [[0.33, 0, 0.2, 1], 'linear', [0.7, 0, 0.8, 0.4]] }}
-      >
-        {SWEEP_BANDS.map(([color, width], i) => (
-          <div key={i} className="h-full flex-shrink-0" style={{ width: `${width}vw`, background: color }} />
-        ))}
-      </motion.div>
+      <div className="absolute left-1/2 top-1/2" style={{ transform: `rotate(${SWEEP_ANGLE}deg)` }}>
+        <motion.div
+          className="absolute flex"
+          style={{ top: '-70vw', height: '140vw', width: `${SWEEP_WIDTH}vw` }}
+          initial={{ x: startCovered ? cover : start }}
+          animate={{ x: startCovered ? [cover, cover, end] : [start, cover, cover, end] }}
+          transition={moveTransition}
+        >
+          {SWEEP_BANDS.map(([color, width], i) =>
+            i === SWEEP_BODY ? (
+              // The blue middle clips the card, so the trailing stripes wipe it away
+              <div key={i} className="relative h-full flex-shrink-0 overflow-hidden" style={{ width: `${width}vw`, background: color }}>
+                {/* Starts moving with the band; the card itself mounts (and builds in) once the screen is covered */}
+                <motion.div
+                  className="absolute left-1/2 top-1/2"
+                  initial={{ x: startCovered ? '0vw' : cardX(startX) }}
+                  animate={{ x: startCovered ? ['0vw', '0vw', cardX(SWEEP_OFF)] : [cardX(startX), '0vw', '0vw', cardX(SWEEP_OFF)] }}
+                  transition={moveTransition}
+                >
+                  {showCard && (
+                    <div className="absolute left-0 top-0" style={{ width: '90vw', transform: `translate(-50%, -50%) rotate(${-SWEEP_ANGLE}deg)` }}>
+                      <SweepCard sponsors={sponsors} />
+                    </div>
+                  )}
+                </motion.div>
+              </div>
+            ) : (
+              <div key={i} className="h-full flex-shrink-0" style={{ width: `${width}vw`, background: color }} />
+            )
+          )}
+        </motion.div>
+      </div>
     </div>
   );
 }
@@ -674,7 +828,7 @@ function TransitionScreen({ kicker, sessions }: { kicker: string; sessions: Line
           style={{ gap: '1vw' }}
           initial={ENTER_FROM}
           animate={ENTER_TO}
-          transition={{ duration: 0.7, delay: 0.7, ease: EASE }}
+          transition={{ duration: 0.7, delay: REVEAL_S + 0.7, ease: EASE }}
         >
           <div className="bg-white rounded-[0.5vw]" style={{ padding: '0.5vw 0.9vw' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -693,7 +847,7 @@ function TransitionScreen({ kicker, sessions }: { kicker: string; sessions: Line
           style={{ fontSize: '1.4vw', letterSpacing: '0.35em', marginTop: '3vw' }}
           initial={{ opacity: 0, letterSpacing: '0.8em' }}
           animate={{ opacity: 1, letterSpacing: '0.35em' }}
-          transition={{ duration: 0.9, delay: 1.1, ease: EASE }}
+          transition={{ duration: 0.9, delay: REVEAL_S + 1.1, ease: EASE }}
         >
           {kicker}
         </motion.div>
@@ -709,7 +863,7 @@ function TransitionScreen({ kicker, sessions }: { kicker: string; sessions: Line
                 className="block"
                 initial={{ y: '105%' }}
                 animate={{ y: 0 }}
-                transition={{ duration: 0.8, delay: 1.4 + i * 0.15, ease: EASE }}
+                transition={{ duration: 0.8, delay: REVEAL_S + 1.4 + i * 0.15, ease: EASE }}
               >
                 <HeadlineText line={line} />
               </motion.span>
@@ -722,7 +876,7 @@ function TransitionScreen({ kicker, sessions }: { kicker: string; sessions: Line
           style={{ height: '0.3vw', marginTop: '2vw' }}
           initial={{ width: 0 }}
           animate={{ width: '20vw' }}
-          transition={{ duration: 0.9, delay: 2.0, ease: EASE }}
+          transition={{ duration: 0.9, delay: REVEAL_S + 2.0, ease: EASE }}
         />
 
         <motion.div
@@ -730,7 +884,7 @@ function TransitionScreen({ kicker, sessions }: { kicker: string; sessions: Line
           style={{ fontSize: '1.4vw', letterSpacing: '0.12em', marginTop: '1.4vw' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 2.3 }}
+          transition={{ duration: 0.6, delay: REVEAL_S + 2.3 }}
         >
           {session.start} · {sessions.map((s) => s.room).join(' & ')}
         </motion.div>
@@ -745,7 +899,7 @@ function TransitionScreen({ kicker, sessions }: { kicker: string; sessions: Line
                 style={{ width: '9vw' }}
                 initial={{ opacity: 0, scale: 0.3, y: 30 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ type: 'spring', stiffness: 320, damping: 18, delay: 2.2 + i * 0.12 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 18, delay: REVEAL_S + 2.2 + i * 0.12 }}
               >
                 <div className="relative -skew-x-12 overflow-hidden border-white/85" style={{ width: '7vw', height: '9vw', borderWidth: '0.15vw' }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -876,13 +1030,13 @@ export default function ConferenceBackgroundClient({
   const router = useRouter();
 
   // One sweep overlay for the whole page, so it carries on while the screen underneath changes
-  const [sweepId, setSweepId] = useState(0);
+  // The first sweep is already covering when the page opens, then reveals the first screen
+  const [sweepId, setSweepId] = useState(1);
   const onCovered = useRef<() => void>(() => {});
   const runSweep = useCallback((cb: () => void) => {
     onCovered.current = cb;
     setSweepId((n) => n + 1);
   }, []);
-  const sweep = sweepId > 0 && <Sweep key={sweepId} onCovered={() => onCovered.current()} />;
 
   // Live mode: what's on screen and the timer come from the /conference/control remote
   const [stage, setStage] = useState<LiveStageState | null>(null);
@@ -955,6 +1109,7 @@ export default function ConferenceBackgroundClient({
   const [order, setOrder] = useState<OrderMap>({});
   const [sponsors, setSponsors] = useState<ConferenceSponsor[]>([]);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const sweep = <Sweep key={sweepId} onCovered={() => onCovered.current()} sponsors={sponsors} startCovered={sweepId === 1} />;
   const shotRef = useRef<HTMLDivElement>(null);
   const [shotState, setShotState] = useState<'preparing' | 'capturing' | 'done' | 'error'>('preparing');
 

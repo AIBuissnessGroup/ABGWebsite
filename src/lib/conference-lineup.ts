@@ -79,10 +79,10 @@ export const CONFERENCE_LINEUP: LineupSession[] = [
     kind: 'logistics',
     start: '10:30 AM',
     end: '11:00 AM',
-    headline: ['Arrival, registration, coffee cart and red carpet photos'],
+    headline: ['Arrival, registration and red carpet photos'],
     room: 'Stewart Lobby',
     description:
-      'Come and get your badge, take a picture on our red carpet, and enjoy coffee from our sponsor Rambler!',
+      'Come and get your badge and take a picture on our red carpet!',
     speakers: [],
   },
   {
