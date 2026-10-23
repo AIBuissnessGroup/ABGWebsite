@@ -1,9 +1,9 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence, HTMLMotionProps, MotionGlobalConfig, motion, usePresence } from 'framer-motion';
+import { MotionGlobalConfig, motion } from 'framer-motion';
 import FloatingShapes from '@/components/FloatingShapes';
 import {
   CONFERENCE_DATE_LABEL,
@@ -22,21 +22,16 @@ import { conferenceDisplayFont } from '@/lib/conference-fonts';
 import type { ConferenceSponsor } from '@/types/conference';
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const EASE_IN = [0.4, 0, 1, 1] as const;
-// A slide breaks apart in stages before the next one comes in: bottom bar, then title, then speakers
-const EXIT_MS = 2100;
-const EXIT_DELAY = { bar: 0, title: 0.3, speakers: 0.6 };
-// ...and arrives in the reverse order: speakers, then title, then the bar
-const ENTER_DELAY = { speakers: 0.1, title: 0.55, meta: 0.75, bar: 1.0 };
+// Every screen change is a sweep of maize and blue stripes: its solid middle covers the screen,
+// the content swaps underneath, and the trailing stripes reveal the new screen
+const SWEEP_S = 1.5;
+const SWEEP_TIMES = [0, 0.42, 0.58, 1];
+const SWEEP_COVER_MS = SWEEP_S * SWEEP_TIMES[1] * 1000 + 30;
+// Pieces glide in from the left behind the sweep: speakers, then title, then the bar
+const ENTER_DELAY = { speakers: 0.35, title: 0.75, meta: 0.95, bar: 1.15 };
+const ENTER_FROM = { opacity: 0, x: '-3vw' };
+const ENTER_TO = { opacity: 1, x: '0vw' };
 const INTRO_MS = 6000;
-// Shards fly for SHARD_S; the ones farthest from the break point start up to SHARD_SPREAD later
-const SHARD_S = 0.85;
-const SHARD_SPREAD = 0.3;
-const SHARD_EASE = [0.5, 0, 0.9, 0.45] as const;
-const BREAK_MS = (SHARD_S + SHARD_SPREAD + 0.1) * 1000;
-// Pieces come in out of a blur instead of sliding
-const BLUR_IN = { opacity: 0, scale: 0.96, filter: 'blur(12px)' };
-const SHARP = { opacity: 1, scale: 1, filter: 'blur(0px)' };
 const OUTRO_MS = 5000;
 const DEMO_COUNTDOWN_MS = 15000;
 // Admin changes (speaker order, sponsors) reach open screens within this interval
@@ -64,165 +59,6 @@ type OrderMap = Record<string, string[]>;
 // Shared pieces (sized in vw so the slide scales to any screen or projector)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shatter: a piece of the slide breaks into glass-like shards that tumble away
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Copies of the content inside each shard skip their own entrance animations
-const ShardCopy = createContext(false);
-
-function seeded(seed: number) {
-  let a = seed * 9973 + 1;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-interface Shard {
-  clip: string;
-  origin: string;
-  order: number; // 0 at the break point, 1 farthest away
-  scatter: Record<string, number | string>;
-}
-
-const SHARD_WHOLE = { x: '0vw', y: '0vw', rotate: 0, rotateX: 0, scale: 1, opacity: 1 };
-
-// A jittered grid split into triangles, so the pieces tile the element exactly. `pad` reaches past
-// the edges to catch anything that overhangs (like the maize bars behind the speaker cards).
-function makeShards(cols: number, rows: number, seed: number, pad: number, force: number): Shard[] {
-  const rand = seeded(seed);
-  const span = 100 + pad * 2;
-  const cw = span / cols;
-  const ch = span / rows;
-  const pts: [number, number][][] = [];
-  for (let r = 0; r <= rows; r++) {
-    pts.push([]);
-    for (let c = 0; c <= cols; c++) {
-      let x = -pad + c * cw;
-      let y = -pad + r * ch;
-      if (c > 0 && c < cols) x += (rand() - 0.5) * cw * 0.7;
-      if (r > 0 && r < rows) y += (rand() - 0.5) * ch * 0.7;
-      pts[r].push([x, y]);
-    }
-  }
-  const ix = 35 + rand() * 30;
-  const iy = 30 + rand() * 30;
-  const shards: Shard[] = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const [a, b, d, e] = [pts[r][c], pts[r][c + 1], pts[r + 1][c], pts[r + 1][c + 1]];
-      const tris = (r + c) % 2 === 0 ? [[a, b, e], [a, e, d]] : [[a, b, d], [b, e, d]];
-      for (const tri of tris) {
-        const cx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3;
-        const cy = (tri[0][1] + tri[1][1] + tri[2][1]) / 3;
-        const dist = Math.hypot(cx - ix, cy - iy) || 1;
-        const ux = (cx - ix) / dist;
-        const uy = (cy - iy) / dist;
-        shards.push({
-          clip: `polygon(${tri.map(([x, y]) => `${x.toFixed(2)}% ${y.toFixed(2)}%`).join(', ')})`,
-          origin: `${cx.toFixed(2)}% ${cy.toFixed(2)}%`,
-          order: Math.min(1, dist / 80),
-          scatter: {
-            // Outward from the break point, then falling
-            x: `${(ux * (4 + rand() * 9) * force).toFixed(2)}vw`,
-            y: `${((uy * (3 + rand() * 6) + 6 + rand() * 10) * force).toFixed(2)}vw`,
-            rotate: (rand() - 0.5) * 150,
-            rotateX: (rand() - 0.5) * 100,
-            scale: 0.5 + rand() * 0.35,
-            opacity: 0,
-          },
-        });
-      }
-    }
-  }
-  return shards;
-}
-
-type ShatterProps = Omit<HTMLMotionProps<'div'>, 'children' | 'className' | 'style'> & {
-  broken: boolean;
-  delay?: number;
-  cols?: number;
-  rows?: number;
-  seed?: number;
-  pad?: number;
-  force?: number;
-  assemble?: boolean; // fly the pieces in and fit them together on mount
-  className?: string;
-  style?: React.CSSProperties;
-  children?: React.ReactNode;
-};
-
-// Renders normally; when broken, the element hides and copies of it, each clipped to one shard, fly apart
-function Shatter({
-  broken,
-  delay = 0,
-  cols = 4,
-  rows = 3,
-  seed = 1,
-  pad = 12,
-  force = 1,
-  assemble = false,
-  className = '',
-  style,
-  children,
-  ...motionProps
-}: ShatterProps) {
-  const shards = useMemo(() => makeShards(cols, rows, seed, pad, force), [cols, rows, seed, pad, force]);
-  const [assembling, setAssembling] = useState(assemble);
-  useEffect(() => {
-    if (!assembling) return;
-    const timer = setTimeout(() => setAssembling(false), BREAK_MS);
-    return () => clearTimeout(timer);
-  }, [assembling]);
-  const pieces = broken || assembling;
-  const positioned = /(^|\s)(absolute|relative|fixed|sticky)(\s|$)/.test(className);
-
-  return (
-    <motion.div
-      {...motionProps}
-      className={`${positioned ? '' : 'relative '}${className}`}
-      style={{ ...style, visibility: pieces ? 'hidden' : undefined }}
-    >
-      {children}
-      {pieces && (
-        <ShardCopy.Provider value={true}>
-          {shards.map((shard, i) => (
-            <motion.div
-              key={i}
-              aria-hidden
-              className={className}
-              style={{
-                ...style,
-                position: 'absolute',
-                inset: 0,
-                margin: 0,
-                visibility: 'visible',
-                pointerEvents: 'none',
-                clipPath: shard.clip,
-                transformOrigin: shard.origin,
-                transformPerspective: 900,
-                willChange: 'transform, opacity',
-              }}
-              initial={broken ? SHARD_WHOLE : shard.scatter}
-              animate={broken ? shard.scatter : SHARD_WHOLE}
-              transition={{
-                duration: SHARD_S,
-                delay: delay + (broken ? shard.order : 1 - shard.order) * SHARD_SPREAD,
-                ease: broken ? SHARD_EASE : EASE,
-              }}
-            >
-              {children}
-            </motion.div>
-          ))}
-        </ShardCopy.Provider>
-      )}
-    </motion.div>
-  );
-}
-
 function HeadlineText({ line }: { line: string }) {
   return (
     <>
@@ -236,7 +72,6 @@ function HeadlineText({ line }: { line: string }) {
 }
 
 function Headline({ lines, size, align = 'left', delay = 0.1 }: { lines: string[]; size: string; align?: 'left' | 'center'; delay?: number }) {
-  const copy = useContext(ShardCopy);
   return (
     <h1
       className={`${conferenceDisplayFont.className} font-extrabold uppercase leading-[0.92] tracking-wide text-white ${align === 'center' ? 'text-center' : ''}`}
@@ -246,8 +81,8 @@ function Headline({ lines, size, align = 'left', delay = 0.1 }: { lines: string[
         <motion.span
           key={i}
           className="block"
-          initial={copy ? false : { opacity: 0, y: 10, filter: 'blur(8px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+          initial={{ opacity: 0, x: '-2vw' }}
+          animate={{ opacity: 1, x: '0vw' }}
           transition={{ duration: 0.7, delay: delay + i * 0.1, ease: EASE }}
         >
           <HeadlineText line={line} />
@@ -370,39 +205,22 @@ function Eyebrow({ session }: { session: LineupSession }) {
   );
 }
 
-// Wraps the parts of a slide that enter and leave together (title group, meta row, info tiles)
+// Wraps the parts of a slide that come in together (title group, meta row)
 function Stage({
-  leaving,
   enterDelay,
-  exitDelay,
-  seed = 3,
   className,
   style,
   children,
 }: {
-  leaving: boolean;
   enterDelay: number;
-  exitDelay: number;
-  seed?: number;
   className?: string;
   style?: React.CSSProperties;
   children: React.ReactNode;
 }) {
   return (
-    <Shatter
-      broken={leaving}
-      delay={exitDelay}
-      cols={6}
-      rows={2}
-      seed={seed}
-      className={className}
-      style={style}
-      initial={BLUR_IN}
-      animate={SHARP}
-      transition={{ duration: 0.7, delay: enterDelay, ease: EASE }}
-    >
+    <motion.div className={className} style={style} initial={ENTER_FROM} animate={ENTER_TO} transition={{ duration: 0.7, delay: enterDelay, ease: EASE }}>
       {children}
-    </Shatter>
+    </motion.div>
   );
 }
 
@@ -466,7 +284,7 @@ function Avatars({ speakers, size }: { speakers: LineupSpeaker[]; size: string }
 // Flyer portrait cards
 // ─────────────────────────────────────────────────────────────────────────────
 
-function FlyerCard({ speaker, index, count, leaving = false }: { speaker: LineupSpeaker; index: number; count: number; leaving?: boolean }) {
+function FlyerCard({ speaker, index, count }: { speaker: LineupSpeaker; index: number; count: number }) {
   const width = (count >= 5 ? 11.5 : count >= 3 ? 13.5 : count === 2 ? 15 : 16) * 0.92;
   const height = width * 1.45 + (count > 2 && index % 2 === 1 ? 1.8 : 0);
   const bar = count > 1 ? (index === 0 ? 'left' : index === count - 1 ? 'right' : null) : null;
@@ -477,11 +295,10 @@ function FlyerCard({ speaker, index, count, leaving = false }: { speaker: Lineup
       layout
       className="relative flex-shrink-0"
       style={{ width: `${width}vw`, height: `${height}vw` }}
-      initial={{ opacity: 0, scale: 0.9, filter: 'blur(14px)' }}
-      animate={SHARP}
+      initial={{ opacity: 0, x: '-4vw' }}
+      animate={ENTER_TO}
       transition={{ duration: 0.7, delay: ENTER_DELAY.speakers + index * 0.08, ease: EASE, layout: { duration: 0.6, ease: EASE } }}
     >
-      <Shatter broken={leaving} delay={EXIT_DELAY.speakers + index * 0.08} cols={3} rows={4} seed={21 + index} pad={16} className="absolute inset-0">
       <div className="absolute inset-0 -skew-x-12">
         {bar && <div className="absolute bg-[#FFCB05] -z-10" style={{ top: '-1.1vw', [bar]: '-1.3vw', width: '70%', height: '46%' }} />}
         <div className="absolute inset-0 overflow-hidden border-white/85 bg-[#8d97a3]" style={{ borderWidth: '0.18vw' }}>
@@ -514,7 +331,6 @@ function FlyerCard({ speaker, index, count, leaving = false }: { speaker: Lineup
           </div>
         </div>
       </div>
-      </Shatter>
     </motion.div>
   );
 }
@@ -527,26 +343,18 @@ function UpNextBar({
   next,
   remaining,
   allowNoTimer = false,
-  leaving = false,
 }: {
   next: LineupSession[];
   remaining: number | null;
   allowNoTimer?: boolean;
-  leaving?: boolean;
 }) {
   if (next.length === 0 || (remaining === null && !allowNoTimer)) return null;
   return (
-    <Shatter
-      broken={leaving}
-      delay={EXIT_DELAY.bar}
-      cols={9}
-      rows={2}
-      seed={5}
-      pad={4}
+    <motion.div
       className="flex items-stretch bg-[#001426]/90 border-t-[0.25vw] border-[#FFCB05]"
-      initial={{ opacity: 0, filter: 'blur(10px)' }}
-      animate={{ opacity: 1, filter: 'blur(0px)' }}
-      transition={{ duration: 0.7, delay: ENTER_DELAY.bar, ease: EASE }}
+      initial={{ x: '-100%' }}
+      animate={{ x: '0%' }}
+      transition={{ duration: 0.8, delay: ENTER_DELAY.bar, ease: EASE }}
     >
       <div className="bg-[#FFCB05] text-[#00274c] flex flex-col justify-center" style={{ padding: '1vw 2vw', minWidth: '17vw' }}>
         <div className="font-extrabold uppercase" style={{ fontSize: '0.85vw', letterSpacing: '0.2em' }}>
@@ -576,7 +384,7 @@ function UpNextBar({
           </div>
         ))}
       </div>
-    </Shatter>
+    </motion.div>
   );
 }
 
@@ -593,18 +401,17 @@ interface SlideProps {
   demo: boolean;
   still?: boolean; // screenshot mode: leave out anything time-based
   live?: boolean; // remote-controlled: the Up next bar shows even with no timer running
-  leaving?: boolean; // playing the staged exit before the next slide
 }
 
 // Title above the speakers, date and location below, sponsors in the top-right corner
-function PanelSlide({ session, next, remaining, sponsors, live = false, leaving = false }: SlideProps) {
+function PanelSlide({ session, next, remaining, sponsors, live = false }: SlideProps) {
   return (
     <div className="relative h-full w-full flex flex-col">
       <div className="flex-1 flex min-h-0">
         <div className="flex-1 flex flex-col min-w-0" style={{ padding: '2.6vw 5vw 1.6vw' }}>
           <SlideHeader sponsors={sponsors} />
           <div className="flex-1 flex flex-col items-center justify-center text-center" style={{ gap: '1.6vw' }}>
-            <Stage leaving={leaving} enterDelay={ENTER_DELAY.title} exitDelay={EXIT_DELAY.title} className="flex flex-col items-center">
+            <Stage enterDelay={ENTER_DELAY.title} className="flex flex-col items-center">
               <Eyebrow session={session} />
               <div style={{ marginTop: '0.8vw' }}>
                 <Headline lines={session.headline} size={session.speakers.length >= 5 ? '3.6vw' : '4vw'} align="center" delay={ENTER_DELAY.title} />
@@ -613,11 +420,11 @@ function PanelSlide({ session, next, remaining, sponsors, live = false, leaving 
 
             <div className="flex justify-center items-end" style={{ gap: '1vw' }}>
               {session.speakers.map((sp, i) => (
-                <FlyerCard key={sp.name} speaker={sp} index={i} count={session.speakers.length} leaving={leaving} />
+                <FlyerCard key={sp.name} speaker={sp} index={i} count={session.speakers.length} />
               ))}
             </div>
 
-            <Stage leaving={leaving} enterDelay={ENTER_DELAY.meta} exitDelay={EXIT_DELAY.title} seed={9} className="flex flex-col items-center">
+            <Stage enterDelay={ENTER_DELAY.meta} className="flex flex-col items-center">
               <div className="bg-[#FFCB05]" style={{ height: '0.25vw', width: '8vw', marginBottom: '1vw' }} />
               <div className="flex flex-wrap items-center justify-center text-white/85 font-bold" style={{ gap: '1.4vw', fontSize: '1.3vw' }}>
                 <span className="text-[#FFCB05] uppercase font-extrabold">{CONFERENCE_DATE_LABEL}</span>
@@ -634,7 +441,7 @@ function PanelSlide({ session, next, remaining, sponsors, live = false, leaving 
         </div>
 
       </div>
-      <UpNextBar next={next} remaining={remaining} allowNoTimer={live} leaving={leaving} />
+      <UpNextBar next={next} remaining={remaining} allowNoTimer={live} />
     </div>
   );
 }
@@ -646,20 +453,18 @@ function ConcurrentSlide({
   remaining,
   sponsors,
   live = false,
-  leaving = false,
 }: {
   sessions: LineupSession[];
   next: LineupSession[];
   remaining: number | null;
   sponsors: ConferenceSponsor[];
   live?: boolean;
-  leaving?: boolean;
 }) {
   return (
     <div className="relative h-full w-full flex flex-col">
       <div className="flex-1 flex flex-col min-h-0" style={{ padding: '2.6vw 5vw 1.6vw' }}>
         <SlideHeader sponsors={sponsors} />
-        <Stage leaving={leaving} enterDelay={ENTER_DELAY.title} exitDelay={EXIT_DELAY.title} className="text-center" style={{ marginTop: '0.6vw' }}>
+        <Stage enterDelay={ENTER_DELAY.title} className="text-center" style={{ marginTop: '0.6vw' }}>
           <span
             className="inline-block bg-[#FFCB05] text-[#00274c] font-extrabold uppercase rounded-[0.25vw]"
             style={{ fontSize: '0.95vw', padding: '0.3vw 0.8vw', letterSpacing: '0.15em' }}
@@ -670,7 +475,7 @@ function ConcurrentSlide({
         <div className="flex-1 grid items-center" style={{ gridTemplateColumns: `repeat(${sessions.length}, 1fr)`, gap: '3vw' }}>
           {sessions.map((s, col) => (
             <div key={s.id} className={`flex flex-col items-center text-center ${col > 0 ? 'border-l border-white/10' : ''}`} style={{ gap: '1.4vw' }}>
-              <Stage leaving={leaving} enterDelay={ENTER_DELAY.title} exitDelay={EXIT_DELAY.title} className="flex flex-col items-center">
+              <Stage enterDelay={ENTER_DELAY.title} className="flex flex-col items-center">
                 <Eyebrow session={s} />
                 <div style={{ marginTop: '0.7vw' }}>
                   <Headline lines={[s.headline.join(' ')]} size="2.9vw" align="center" delay={ENTER_DELAY.title} />
@@ -678,13 +483,11 @@ function ConcurrentSlide({
               </Stage>
               <div className="flex justify-center items-end" style={{ gap: '1vw' }}>
                 {s.speakers.map((sp, i) => (
-                  <FlyerCard key={sp.name} speaker={sp} index={i + col * 2} count={Math.max(2, s.speakers.length)} leaving={leaving} />
+                  <FlyerCard key={sp.name} speaker={sp} index={i + col * 2} count={Math.max(2, s.speakers.length)} />
                 ))}
               </div>
               <Stage
-                leaving={leaving}
                 enterDelay={ENTER_DELAY.meta}
-                exitDelay={EXIT_DELAY.title}
                 className="flex flex-wrap items-center justify-center text-white/85 font-bold"
                 style={{ gap: '1vw', fontSize: '1.2vw' }}
               >
@@ -698,14 +501,13 @@ function ConcurrentSlide({
           ))}
         </div>
       </div>
-      <UpNextBar next={next} remaining={remaining} allowNoTimer={live} leaving={leaving} />
+      <UpNextBar next={next} remaining={remaining} allowNoTimer={live} />
     </div>
   );
 }
 
 // Sessions without speakers (registration, coffee chats, closing): a "happening now" screen
-function HappeningNowSlide({ session, next, remaining, now, sponsors, demo, still = false, live = false, leaving = false }: SlideProps) {
-  const copy = useContext(ShardCopy);
+function HappeningNowSlide({ session, next, remaining, now, sponsors, demo, still = false, live = false }: SlideProps) {
   const start = sessionStartTime(session).getTime();
   const end = sessionEndTime(session).getTime();
   // In rehearsal mode the session "runs" for the length of the demo countdown
@@ -742,11 +544,11 @@ function HappeningNowSlide({ session, next, remaining, now, sponsors, demo, stil
         <SlideHeader sponsors={sponsors} />
 
         <div className="flex-1 grid items-center" style={{ gridTemplateColumns: '1.35fr 1fr', gap: '4vw' }}>
-          <Stage leaving={leaving} enterDelay={ENTER_DELAY.title} exitDelay={EXIT_DELAY.title}>
+          <Stage enterDelay={ENTER_DELAY.title}>
             <motion.div
               className="inline-flex items-center rounded-full border border-[#FFCB05]/50 bg-[#FFCB05]/10"
               style={{ gap: '0.6vw', padding: '0.4vw 1vw' }}
-              initial={copy ? false : { opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
@@ -767,7 +569,7 @@ function HappeningNowSlide({ session, next, remaining, now, sponsors, demo, stil
               <motion.p
                 className="text-white/80 leading-relaxed"
                 style={{ fontSize: '1.5vw', marginTop: '1.6vw', maxWidth: '48vw' }}
-                initial={copy ? false : { opacity: 0 }}
+                initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.7, delay: 0.3 }}
               >
@@ -777,16 +579,11 @@ function HappeningNowSlide({ session, next, remaining, now, sponsors, demo, stil
           </Stage>
 
           {/* Info tiles play the role the speaker cards do on other slides */}
-          <Shatter
-            broken={leaving}
-            delay={EXIT_DELAY.speakers}
-            cols={3}
-            rows={4}
-            seed={13}
+          <motion.div
             className="flex flex-col"
             style={{ gap: '1vw' }}
-            initial={BLUR_IN}
-            animate={SHARP}
+            initial={{ opacity: 0, x: '-4vw' }}
+            animate={ENTER_TO}
             transition={{ duration: 0.7, delay: ENTER_DELAY.speakers, ease: EASE }}
           >
             {tiles.map((t) => (
@@ -815,76 +612,69 @@ function HappeningNowSlide({ session, next, remaining, now, sponsors, demo, stil
               </div>
             </div>
             )}
-          </Shatter>
+          </motion.div>
         </div>
       </div>
-      <UpNextBar next={next} remaining={remaining} allowNoTimer={live} leaving={leaving} />
+      <UpNextBar next={next} remaining={remaining} allowNoTimer={live} />
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Intro and outro (5–6 seconds each)
+// Sweep between screens, and the intro and outro screens
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TransitionScreen({
-  kicker,
-  sessions,
-  mode,
-  closing = false,
-  bare = false,
-}: {
-  kicker: string;
-  sessions: LineupSession[];
-  mode: 'intro' | 'outro';
-  closing?: boolean; // clears in stages (speakers, title, logo row) before the screen breaks apart
-  bare?: boolean; // just the navy panel, already whole: covers the hand-off from an outro, then breaks
-}) {
+const SWEEP_BLUE = '#00274c';
+const SWEEP_LIGHT_BLUE = '#2a5ea8';
+// Left to right across the band (it travels right): thin stripes, maize, a solid blue middle wide
+// enough to cover the whole screen, maize, thin stripes
+const SWEEP_BANDS: [string, number][] = [
+  ['#FFCB05', 1.5], [SWEEP_LIGHT_BLUE, 2], ['#FFCB05', 3], [SWEEP_BLUE, 2], ['#FFCB05', 12],
+  [SWEEP_BLUE, 140],
+  ['#FFCB05', 12], [SWEEP_BLUE, 2], ['#FFCB05', 3], [SWEEP_LIGHT_BLUE, 2], ['#FFCB05', 1.5],
+];
+const SWEEP_WIDTH = SWEEP_BANDS.reduce((sum, [, w]) => sum + w, 0);
+// Band position (vw from the left edge) where the blue middle covers the screen
+const SWEEP_COVER_X = -(SWEEP_BANDS.slice(0, 5).reduce((sum, [, w]) => sum + w, 0) + 20);
+
+function Sweep({ onCovered }: { onCovered: () => void }) {
+  const covered = useRef(onCovered);
+  useEffect(() => {
+    const timer = setTimeout(() => covered.current(), SWEEP_COVER_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <div className="absolute inset-0 z-[60] overflow-hidden pointer-events-none">
+      <motion.div
+        className="absolute flex -skew-x-[14deg]"
+        style={{ top: '-10%', height: '120%', width: `${SWEEP_WIDTH}vw` }}
+        initial={{ x: `${-SWEEP_WIDTH - 20}vw` }}
+        animate={{ x: [`${-SWEEP_WIDTH - 20}vw`, `${SWEEP_COVER_X}vw`, `${SWEEP_COVER_X}vw`, '120vw'] }}
+        transition={{ duration: SWEEP_S, times: SWEEP_TIMES, ease: [[0.33, 0, 0.2, 1], 'linear', [0.7, 0, 0.8, 0.4]] }}
+      >
+        {SWEEP_BANDS.map(([color, width], i) => (
+          <div key={i} className="h-full flex-shrink-0" style={{ width: `${width}vw`, background: color }} />
+        ))}
+      </motion.div>
+    </div>
+  );
+}
+
+function TransitionScreen({ kicker, sessions }: { kicker: string; sessions: LineupSession[] }) {
   const session = sessions[0];
   const concurrent = sessions.length > 1;
   const speakers = sessions.flatMap((s) => s.speakers);
-  // Stay mounted after removal long enough for the panel to shatter and reveal the slide underneath
-  const [isPresent, safeToRemove] = usePresence();
-  useEffect(() => {
-    if (isPresent) return;
-    const timer = setTimeout(() => safeToRemove?.(), BREAK_MS);
-    return () => clearTimeout(timer);
-  }, [isPresent, safeToRemove]);
-
   return (
-    <div className="absolute inset-0 z-50 overflow-hidden flex items-center justify-center pointer-events-none">
-      {/* The panel flies together out of shards, then breaks apart into them on the way out */}
-      <Shatter broken={!isPresent} assemble={!bare} cols={8} rows={5} seed={mode === 'intro' ? 11 : 17} pad={1} force={1.5} className="absolute inset-0 bg-[#00274c]" />
-      {bare ? null : (
-      <>
-      <motion.div
-        className="absolute inset-0"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: closing || !isPresent ? 0 : 1 }}
-        transition={{ duration: 0.5, delay: closing || !isPresent ? 0 : 0.8 }}
-      >
-        <FloatingShapes variant="dense" opacity={0.08} />
-      </motion.div>
-
-      {/* Maize stripes sweeping across */}
-      {[0, 1, 2].map((i) => (
-        <motion.div
-          key={i}
-          className="absolute -skew-x-12 bg-[#FFCB05]"
-          style={{ top: `${18 + i * 26}%`, height: i === 1 ? '1.2vw' : '0.5vw', width: '70vw', opacity: i === 1 ? 1 : 0.5 }}
-          initial={{ x: '-120vw' }}
-          animate={{ x: '140vw' }}
-          transition={{ duration: 1.6, delay: 0.5 + i * 0.15, ease: [0.65, 0, 0.35, 1] }}
-        />
-      ))}
+    <div className="absolute inset-0 z-50 overflow-hidden bg-[#00274c] flex items-center justify-center">
+      <FloatingShapes variant="dense" opacity={0.08} />
 
       <div className="relative text-center" style={{ padding: '0 8vw' }}>
         <motion.div
           className="inline-flex items-center"
           style={{ gap: '1vw' }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={closing ? { opacity: 0, y: -20 } : { opacity: 1, y: 0 }}
-          transition={closing ? { duration: 0.35, delay: 0.5, ease: EASE_IN } : { duration: 0.6, delay: 0.7 }}
+          initial={ENTER_FROM}
+          animate={ENTER_TO}
+          transition={{ duration: 0.7, delay: 0.7, ease: EASE }}
         >
           <div className="bg-white rounded-[0.5vw]" style={{ padding: '0.5vw 0.9vw' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -902,17 +692,15 @@ function TransitionScreen({
           className="font-extrabold uppercase text-[#FFCB05]"
           style={{ fontSize: '1.4vw', letterSpacing: '0.35em', marginTop: '3vw' }}
           initial={{ opacity: 0, letterSpacing: '0.8em' }}
-          animate={closing ? { opacity: 0, letterSpacing: '0.35em' } : { opacity: 1, letterSpacing: '0.35em' }}
-          transition={closing ? { duration: 0.3, delay: 0.35, ease: EASE_IN } : { duration: 0.9, delay: 1.3, ease: EASE }}
+          animate={{ opacity: 1, letterSpacing: '0.35em' }}
+          transition={{ duration: 0.9, delay: 1.1, ease: EASE }}
         >
           {kicker}
         </motion.div>
 
-        <motion.h2
+        <h2
           className={`${conferenceDisplayFont.className} font-extrabold uppercase leading-[0.92] text-white`}
           style={{ fontSize: concurrent ? '3.6vw' : speakers.length > 0 ? '4.8vw' : '6vw', marginTop: '1.2vw' }}
-          animate={closing ? { opacity: 0, y: -24 } : { opacity: 1, y: 0 }}
-          transition={closing ? { duration: 0.35, delay: 0.25, ease: EASE_IN } : { duration: 0 }}
         >
           {/* Concurrent sessions get one line each */}
           {(concurrent ? sessions.map((s) => s.headline.join(' ')) : session.headline).map((line, i) => (
@@ -921,28 +709,28 @@ function TransitionScreen({
                 className="block"
                 initial={{ y: '105%' }}
                 animate={{ y: 0 }}
-                transition={{ duration: 0.8, delay: 1.7 + i * 0.15, ease: EASE }}
+                transition={{ duration: 0.8, delay: 1.4 + i * 0.15, ease: EASE }}
               >
                 <HeadlineText line={line} />
               </motion.span>
             </span>
           ))}
-        </motion.h2>
+        </h2>
 
         <motion.div
           className="mx-auto bg-[#FFCB05]"
           style={{ height: '0.3vw', marginTop: '2vw' }}
           initial={{ width: 0 }}
-          animate={{ width: closing ? 0 : '20vw' }}
-          transition={closing ? { duration: 0.35, delay: 0.2, ease: EASE_IN } : { duration: 0.9, delay: 2.3, ease: EASE }}
+          animate={{ width: '20vw' }}
+          transition={{ duration: 0.9, delay: 2.0, ease: EASE }}
         />
 
         <motion.div
           className="text-white/80 font-bold uppercase"
           style={{ fontSize: '1.4vw', letterSpacing: '0.12em', marginTop: '1.4vw' }}
           initial={{ opacity: 0 }}
-          animate={{ opacity: closing ? 0 : 1 }}
-          transition={closing ? { duration: 0.3, delay: 0.15 } : { duration: 0.6, delay: 2.6 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 2.3 }}
         >
           {session.start} · {sessions.map((s) => s.room).join(' & ')}
         </motion.div>
@@ -956,12 +744,8 @@ function TransitionScreen({
                 className="flex flex-col items-center"
                 style={{ width: '9vw' }}
                 initial={{ opacity: 0, scale: 0.3, y: 30 }}
-                animate={closing ? { opacity: 0, scale: 0.6, y: 20 } : { opacity: 1, scale: 1, y: 0 }}
-                transition={
-                  closing
-                    ? { duration: 0.3, delay: i * 0.05, ease: EASE_IN }
-                    : { type: 'spring', stiffness: 320, damping: 18, delay: 2.5 + i * 0.12 }
-                }
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 18, delay: 2.2 + i * 0.12 }}
               >
                 <div className="relative -skew-x-12 overflow-hidden border-white/85" style={{ width: '7vw', height: '9vw', borderWidth: '0.15vw' }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -985,8 +769,6 @@ function TransitionScreen({
           </div>
         )}
       </div>
-      </>
-      )}
     </div>
   );
 }
@@ -1002,9 +784,9 @@ function StageScreen({
   order,
   sponsors,
   onAdvance,
+  runSweep,
   still = false,
   manual,
-  leaving: leavingProp = false,
 }: {
   sessions: LineupSession[];
   demo: boolean;
@@ -1012,14 +794,14 @@ function StageScreen({
   order: OrderMap;
   sponsors: ConferenceSponsor[];
   onAdvance: (next: LineupSession[]) => void;
+  runSweep: (onCovered: () => void) => void; // the page-level sweep; the change happens while it covers the screen
   still?: boolean;
   // Remote-controlled: the timer and Up next bar come from the stage remote, and nothing advances on its own
   manual?: { remaining: number | null; showUpNext: boolean };
-  leaving?: boolean; // live mode: the remote switched slides, so play the staged exit
 }) {
   const session = sessions[0];
   // Coming from an outro, the "Up next" screen already introduced this session, so go straight to it
-  const [phase, setPhase] = useState<'intro' | 'live' | 'leaving' | 'outro'>(skipIntro || still ? 'live' : 'intro');
+  const [phase, setPhase] = useState<'intro' | 'live' | 'outro'>(skipIntro || still ? 'live' : 'intro');
   // Memoized so the hand-off timers aren't reset by every clock tick
   const nextSessions = useMemo(() => nextSessionsAfter(session), [session]);
   const [target] = useState<number | null>(() =>
@@ -1028,55 +810,34 @@ function StageScreen({
   const now = useNow();
   const remaining = manual ? manual.remaining : target === null || now === null ? null : Math.max(0, target - now);
 
-  // Intro timeline: content builds in, then clears (speakers, title, logo) and the screen wipes up to the slide
-  const [introClosing, setIntroClosing] = useState(false);
+  // Intro: sweep to the slide once it has played
   useEffect(() => {
     if (phase !== 'intro') return;
-    const close = setTimeout(() => setIntroClosing(true), INTRO_MS - 1700);
-    const reveal = setTimeout(() => setPhase('live'), INTRO_MS - 800);
-    return () => {
-      clearTimeout(close);
-      clearTimeout(reveal);
-    };
-  }, [phase]);
+    const timer = setTimeout(() => runSweep(() => setPhase('live')), INTRO_MS - SWEEP_COVER_MS);
+    return () => clearTimeout(timer);
+  }, [phase, runSweep]);
 
   // Only hand off if the countdown actually ran out while this screen was up (a screen opened late stays put)
   const sawTimeLeft = useRef(false);
+  const handingOff = useRef(false);
   useEffect(() => {
     if (remaining === null) return;
     if (remaining > 0) {
       sawTimeLeft.current = true;
       return;
     }
-    if (sawTimeLeft.current && phase === 'live' && nextSessions[0] && !still && !manual) setPhase('leaving');
-  }, [remaining, phase, nextSessions, still, manual]);
+    if (sawTimeLeft.current && phase === 'live' && nextSessions[0] && !still && !manual && !handingOff.current) {
+      handingOff.current = true;
+      runSweep(() => setPhase('outro'));
+    }
+  }, [remaining, phase, nextSessions, still, manual, runSweep]);
 
-  // The slide clears itself (bar, title, speakers) before the "Up next" outro covers it
-  useEffect(() => {
-    if (phase !== 'leaving') return;
-    const timer = setTimeout(() => setPhase('outro'), EXIT_MS);
-    return () => clearTimeout(timer);
-  }, [phase]);
-
-  // The outro clears its content just before handing off, so the next page opens on a bare panel
-  const [outroClosing, setOutroClosing] = useState(false);
+  // Outro: sweep to the next session
   useEffect(() => {
     if (phase !== 'outro' || !nextSessions[0]) return;
-    const close = setTimeout(() => setOutroClosing(true), OUTRO_MS - 1000);
-    const timer = setTimeout(() => onAdvance(nextSessions), OUTRO_MS);
-    return () => {
-      clearTimeout(close);
-      clearTimeout(timer);
-    };
-  }, [phase, nextSessions, onAdvance]);
-
-  // Arriving from an outro: start under that same bare panel and break it to reveal this slide
-  const [cover, setCover] = useState(skipIntro && !still && !manual);
-  useEffect(() => {
-    if (!cover) return;
-    const timer = setTimeout(() => setCover(false), 60);
+    const timer = setTimeout(() => runSweep(() => onAdvance(nextSessions)), OUTRO_MS - SWEEP_COVER_MS);
     return () => clearTimeout(timer);
-  }, [cover]);
+  }, [phase, nextSessions, onAdvance, runSweep]);
 
   const ordered = sessions.map((s) => applySpeakerOrder(s, order[s.id]));
   const orderedNext = nextSessions.map((s) => applySpeakerOrder(s, order[s.id]));
@@ -1085,42 +846,13 @@ function StageScreen({
   const barNext = still || (manual && !manual.showUpNext) ? [] : orderedNext;
   const barRemaining = still ? null : remaining;
   const live = Boolean(manual);
-  const leaving = leavingProp || phase === 'leaving' || phase === 'outro';
 
-  return (
-    <>
-      {phase !== 'intro' &&
-        (ordered.length > 1 ? (
-          <ConcurrentSlide sessions={ordered} next={barNext} remaining={barRemaining} sponsors={sponsors} live={live} leaving={leaving} />
-        ) : (
-          <Slide
-            session={ordered[0]}
-            next={barNext}
-            remaining={barRemaining}
-            now={now}
-            sponsors={sponsors}
-            demo={demo}
-            still={still}
-            live={live}
-            leaving={leaving}
-          />
-        ))}
-      <AnimatePresence>
-        {phase === 'intro' && (
-          <TransitionScreen
-            key="intro"
-            mode="intro"
-            kicker={ordered.length > 1 ? 'Concurrent sessions' : session.label || 'Now'}
-            sessions={ordered}
-            closing={introClosing}
-          />
-        )}
-        {phase === 'outro' && orderedNext.length > 0 && (
-          <TransitionScreen key="outro" mode="outro" kicker="Up next" sessions={orderedNext} closing={outroClosing} />
-        )}
-        {cover && <TransitionScreen key="cover" mode="intro" kicker="" sessions={ordered} bare />}
-      </AnimatePresence>
-    </>
+  if (phase === 'intro') return <TransitionScreen kicker={ordered.length > 1 ? 'Concurrent sessions' : session.label || 'Now'} sessions={ordered} />;
+  if (phase === 'outro' && orderedNext.length > 0) return <TransitionScreen kicker="Up next" sessions={orderedNext} />;
+  return ordered.length > 1 ? (
+    <ConcurrentSlide sessions={ordered} next={barNext} remaining={barRemaining} sponsors={sponsors} live={live} />
+  ) : (
+    <Slide session={ordered[0]} next={barNext} remaining={barRemaining} now={now} sponsors={sponsors} demo={demo} still={still} live={live} />
   );
 }
 
@@ -1142,6 +874,15 @@ export default function ConferenceBackgroundClient({
   live?: boolean;
 }) {
   const router = useRouter();
+
+  // One sweep overlay for the whole page, so it carries on while the screen underneath changes
+  const [sweepId, setSweepId] = useState(0);
+  const onCovered = useRef<() => void>(() => {});
+  const runSweep = useCallback((cb: () => void) => {
+    onCovered.current = cb;
+    setSweepId((n) => n + 1);
+  }, []);
+  const sweep = sweepId > 0 && <Sweep key={sweepId} onCovered={() => onCovered.current()} />;
 
   // Live mode: what's on screen and the timer come from the /conference/control remote
   const [stage, setStage] = useState<LiveStageState | null>(null);
@@ -1168,27 +909,26 @@ export default function ConferenceBackgroundClient({
     };
   }, [live]);
 
-  // When the remote picks a new slide, the current one plays its exit first, then the new one comes in
+  // When the remote picks a new slide, a sweep covers the screen and the new one is underneath it
   const targetKey = stage ? stage.sessionIds.join(',') : null;
   const [shownKey, setShownKey] = useState<string | null>(null);
-  const [liveLeaving, setLiveLeaving] = useState(false);
+  const pendingKey = useRef<string | null>(null);
   useEffect(() => {
     if (!live || !targetKey) return;
     if (shownKey === null) {
       setShownKey(targetKey);
       return;
     }
-    if (targetKey === shownKey) {
-      setLiveLeaving(false);
-      return;
-    }
-    setLiveLeaving(true);
-    const timer = setTimeout(() => {
-      setShownKey(targetKey);
-      setLiveLeaving(false);
-    }, EXIT_MS);
-    return () => clearTimeout(timer);
-  }, [live, targetKey, shownKey]);
+    if (targetKey === shownKey) return;
+    // Mid-sweep picks just retarget it
+    const sweeping = pendingKey.current !== null;
+    pendingKey.current = targetKey;
+    if (sweeping) return;
+    runSweep(() => {
+      setShownKey(pendingKey.current);
+      pendingKey.current = null;
+    });
+  }, [live, targetKey, shownKey, runSweep]);
 
   const liveRemaining = (() => {
     if (!stage || liveNow === null) return null;
@@ -1197,8 +937,15 @@ export default function ConferenceBackgroundClient({
     return null;
   })();
 
+  // After an outro the next session is swapped in here under the sweep (and the URL updated) rather than
+  // waiting on a page navigation, so the swap always lands while the screen is covered
+  const [advanced, setAdvanced] = useState<{ from?: string; ids: string } | null>(null);
+  const activeAdvance = advanced && advanced.from === sessionId ? advanced : null;
+  const activeId = activeAdvance ? activeAdvance.ids : sessionId;
+  const activeSkipIntro = activeAdvance ? true : skipIntro;
+
   // "s" may list several ids separated by commas when sessions run at the same time
-  const sessions = ((live ? shownKey : sessionId) || '')
+  const sessions = ((live ? shownKey : activeId) || '')
     .split(',')
     .map((id) => CONFERENCE_LINEUP.find((s) => s.id === id))
     .filter((s): s is LineupSession => Boolean(s));
@@ -1246,8 +993,12 @@ export default function ConferenceBackgroundClient({
   }, []);
 
   const onAdvance = useCallback(
-    (next: LineupSession[]) => router.replace(`/conference/background?s=${next.map((s) => s.id).join(',')}${demo ? '&demo=1' : ''}&from=outro`),
-    [router, demo]
+    (next: LineupSession[]) => {
+      const ids = next.map((s) => s.id).join(',');
+      setAdvanced({ from: sessionId, ids });
+      window.history.replaceState(null, '', `/conference/background?s=${ids}${demo ? '&demo=1' : ''}&from=outro`);
+    },
+    [sessionId, demo]
   );
 
   // Arrow keys step through sessions; the cursor hides when idle so it doesn't sit on the projector
@@ -1319,10 +1070,11 @@ export default function ConferenceBackgroundClient({
             order={order}
             sponsors={sponsors}
             onAdvance={() => {}}
+            runSweep={runSweep}
             manual={{ remaining: liveRemaining, showUpNext: stage.showUpNext }}
-            leaving={liveLeaving}
           />
         )}
+        {sweep}
       </div>
     );
   }
@@ -1430,6 +1182,7 @@ export default function ConferenceBackgroundClient({
             order={order}
             sponsors={sponsors}
             onAdvance={() => {}}
+            runSweep={() => {}}
           />
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3 px-4 py-6 text-sm">
@@ -1464,11 +1217,13 @@ export default function ConferenceBackgroundClient({
         key={`${sessions.map((s) => s.id).join(',')}-${demo}`}
         sessions={sessions}
         demo={demo}
-        skipIntro={skipIntro}
+        skipIntro={activeSkipIntro}
         order={order}
         sponsors={sponsors}
         onAdvance={onAdvance}
+        runSweep={runSweep}
       />
+      {sweep}
     </div>
   );
 }

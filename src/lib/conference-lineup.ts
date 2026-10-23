@@ -63,6 +63,16 @@ const ABG_HOSTS: LineupSpeaker[] = [
 export const CONFERENCE_DATE_LABEL = 'Friday, Oct 23';
 export const CONFERENCE_VENUE = 'Ross School of Business';
 
+// Moderates both Panel 1 and the Bitcoin 101 lunch and learn
+const SLOAN_SPIEWAK: LineupSpeaker = {
+  name: 'Sloan Spiewak',
+  title: 'Portfolio Manager',
+  company: 'AI Business Group',
+  photo: `${PHOTO}/sloan-spiewak.jpg`,
+  role: 'moderator',
+  logo: ABG_LOGO,
+};
+
 export const CONFERENCE_LINEUP: LineupSession[] = [
   {
     id: 'arrival',
@@ -122,6 +132,7 @@ export const CONFERENCE_LINEUP: LineupSession[] = [
         role: 'speaker',
         logo: { src: `${LOGO}/bofa.svg`, alt: 'Bank of America' },
       },
+      SLOAN_SPIEWAK,
     ],
   },
   {
@@ -144,14 +155,7 @@ export const CONFERENCE_LINEUP: LineupSession[] = [
         role: 'speaker',
         logo: { src: `${LOGO}/northstar.png`, alt: 'NorthStar Advisory Group', dark: true },
       },
-      {
-        name: 'Sloan Spiewak',
-        title: 'Portfolio Manager',
-        company: 'AI Business Group',
-        photo: `${PHOTO}/sloan-spiewak.jpg`,
-        role: 'moderator',
-        logo: ABG_LOGO,
-      },
+      SLOAN_SPIEWAK,
     ],
   },
   {

@@ -290,13 +290,20 @@ export default function ConferenceStageControlClient() {
           </div>
         )}
 
-        <label className="mt-4 flex items-center justify-between rounded-xl bg-white/5 border border-white/10 px-3 py-2.5">
-          <span className="text-sm font-bold">Show Up next bar</span>
+        <label
+          className={`mt-4 flex items-center justify-between rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 ${stage.timer.status === 'idle' ? 'opacity-50' : ''}`}
+        >
+          <span>
+            <span className="block text-sm font-bold">Show Up next bar</span>
+            <span className="block text-[11px] text-white/50">
+              {stage.timer.status === 'idle' ? 'Start a countdown first' : 'Hidden again when you change slides'}
+            </span>
+          </span>
           <input
             type="checkbox"
             checked={stage.showUpNext}
             onChange={(e) => send({ action: 'upnext', show: e.target.checked })}
-            disabled={busy}
+            disabled={busy || stage.timer.status === 'idle'}
             className="w-5 h-5 accent-[#FFCB05]"
           />
         </label>

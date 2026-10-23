@@ -24,7 +24,7 @@ const STAGE_DOC_ID = 'michigan-ai-conference-2026-stage';
 export const DEFAULT_STAGE_STATE: StageState = {
   sessionIds: [CONFERENCE_LINEUP[0].id],
   timer: { status: 'idle' },
-  showUpNext: true,
+  showUpNext: false,
   updatedAt: 0,
 };
 
@@ -35,7 +35,7 @@ export async function getStageState(): Promise<StageState> {
   return {
     sessionIds: doc.sessionIds || DEFAULT_STAGE_STATE.sessionIds,
     timer: doc.timer || DEFAULT_STAGE_STATE.timer,
-    showUpNext: doc.showUpNext ?? true,
+    showUpNext: doc.showUpNext ?? false,
     updatedAt: doc.updatedAt || 0,
     updatedBy: doc.updatedBy,
   };
@@ -84,11 +84,18 @@ export async function applyStageAction(action: StageAction, by: string): Promise
   if (action.action === 'show') {
     const valid = action.sessionIds.filter((id) => CONFERENCE_LINEUP.some((s) => s.id === id)).slice(0, 2);
     if (valid.length === 0) throw new Error('Unknown session');
+    // A new slide starts clean: the old countdown stops and the Up next bar hides until a new time is set
+    if (valid.join(',') !== current.sessionIds.join(',')) {
+      next.timer = { status: 'idle' };
+      next.showUpNext = false;
+    }
     next.sessionIds = valid;
   } else if (action.action === 'timer') {
     next.timer = nextTimer(current.timer, action, now);
+    if (next.timer.status === 'idle') next.showUpNext = false;
   } else if (action.action === 'upnext') {
-    next.showUpNext = action.show;
+    // The bar only goes on once there's a countdown to show
+    next.showUpNext = action.show && next.timer.status !== 'idle';
   }
 
   const db = await getDb();
