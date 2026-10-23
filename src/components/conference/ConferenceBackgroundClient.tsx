@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, MotionGlobalConfig, Transition, motion } from 'framer-motion';
 import { CameraIcon, ChatBubbleLeftRightIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
-import FloatingShapes from '@/components/FloatingShapes';
 import {
   CONFERENCE_DATE_LABEL,
   CONFERENCE_LINEUP,
@@ -31,7 +30,10 @@ const SWEEP_HOLD_S = 2.6;
 const SWEEP_OUT_S = 1.1;
 const SWEEP_S = SWEEP_IN_S + SWEEP_HOLD_S + SWEEP_OUT_S;
 const SWEEP_TIMES = [0, SWEEP_IN_S / SWEEP_S, (SWEEP_IN_S + SWEEP_HOLD_S) / SWEEP_S, 1];
-const SWEEP_COVER_MS = SWEEP_IN_S * 1000 + 30;
+// Before each sweep the background shapes blink out
+const BLINK_S = 0.6;
+// From asking for a sweep to the screen being covered (callers time their changes with this)
+const SWEEP_COVER_MS = (BLINK_S + SWEEP_IN_S) * 1000 + 30;
 // A new screen mounts the moment the sweep covers; its entrances wait until the sweep starts to reveal it
 const REVEAL_S = SWEEP_HOLD_S;
 // Pieces glide in from the left behind the sweep: speakers, then title, then the bar
@@ -654,6 +656,130 @@ const SWEEP_ANGLE = 30;
 const SWEEP_BODY = 5; // index of the blue middle in SWEEP_BANDS
 const SWEEP_COVER_X = -(SWEEP_BANDS.slice(0, SWEEP_BODY).reduce((sum, [, w]) => sum + w, 0) + SWEEP_BANDS[SWEEP_BODY][1] / 2);
 const SWEEP_OFF = 60; // past the screen's corners
+const SWEEP_IN_EASE: [number, number, number, number] = [0.33, 0, 0.2, 1];
+const SWEEP_OUT_EASE: [number, number, number, number] = [0.7, 0, 0.8, 0.4];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Background shapes: the site's floating outline shapes. They blink out just before a sweep, then blink
+// back in as the trailing stripes reveal them
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ShapeWaveState {
+  id: number;
+  startCovered: boolean; // the sweep opened already covering, so there's no leading edge
+  at: number; // performance.now() when the sweep started
+}
+const ShapeWave = createContext<ShapeWaveState | null>(null);
+
+function seededRandom(seed: number) {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+type ShapeKind = 'circle' | 'square' | 'triangle' | 'diamond';
+// Same layout as the site's FloatingShapes (dense)
+const STAGE_SHAPES = Array.from({ length: 12 }, (_, i) => ({
+  kind: (['circle', 'square', 'triangle', 'diamond'] as ShapeKind[])[i % 4],
+  animation: ['float-slow', 'float-medium', 'float-fast', 'pulse-shape'][i % 4],
+  delay: ['delay-1', 'delay-2', 'delay-3', 'delay-4', 'delay-5'][i % 5],
+  top: seededRandom(i * 1000 + 1) * 80 + 10,
+  left: seededRandom(i * 1000 + 2) * 80 + 10,
+  size: seededRandom(i * 1000 + 3) * 60 + 20,
+}));
+type StageShape = (typeof STAGE_SHAPES)[number];
+
+// Time fraction at which a cubic-bezier easing reaches `progress`
+function easeTimeAt([x1, y1, x2, y2]: [number, number, number, number], progress: number) {
+  const p = Math.min(1, Math.max(0, progress));
+  for (let i = 0; i <= 200; i++) {
+    const u = i / 200;
+    const y = 3 * (1 - u) ** 2 * u * y1 + 3 * (1 - u) * u ** 2 * y2 + u ** 3;
+    if (y >= p) return 3 * (1 - u) ** 2 * u * x1 + 3 * (1 - u) * u ** 2 * x2 + u ** 3;
+  }
+  return 1;
+}
+
+// Seconds after the band starts moving when the trailing stripes uncover the shape
+function shapeRevealAt(shape: StageShape, startCovered: boolean) {
+  const angle = (SWEEP_ANGLE * Math.PI) / 180;
+  // Position along the sweep's direction, in vw from the screen center (the screen is 56.25vw tall)
+  const along = (shape.left - 50) * Math.cos(angle) + (shape.top - 50) * 0.5625 * Math.sin(angle);
+  const lead = startCovered ? 0 : SWEEP_IN_S;
+  return lead + SWEEP_HOLD_S + SWEEP_OUT_S * easeTimeAt(SWEEP_OUT_EASE, (along - SWEEP_COVER_X) / (SWEEP_OFF - SWEEP_COVER_X));
+}
+
+function ShapeOutline({ kind, size, color }: { kind: ShapeKind; size: number; color: string }) {
+  if (kind === 'triangle') {
+    return <div style={{ width: 0, height: 0, borderLeft: `${size / 2}px solid transparent`, borderRight: `${size / 2}px solid transparent`, borderBottom: `${size}px solid ${color}` }} />;
+  }
+  return (
+    <div
+      className={kind === 'circle' ? 'rounded-full' : kind === 'square' ? 'rounded-lg' : 'rotate-45'}
+      style={{ width: size, height: size, border: `2px solid ${color}` }}
+    />
+  );
+}
+
+// Blink patterns (opacity steps). The shapes keep floating while they flicker out, and flicker back in
+const BLINK_OUT = [1, 0.15, 1, 0, 0.85, 0, 0.5, 0];
+const BLINK_IN_S = 0.45;
+const BLINK_IN = [0, 0.8, 0, 0.6, 0, 1];
+
+// One shape's blinks for the current sweep (remounted per sweep, so the timeline starts fresh)
+function ShapeBlink({ shape, index, wave, opacity }: { shape: StageShape; index: number; wave: ShapeWaveState | null; opacity: number }) {
+  const [timeline] = useState(() => {
+    if (!wave) return null;
+    const elapsed = (performance.now() - wave.at) / 1000;
+    // A little stagger so they don't all blink in lockstep
+    const outStart = wave.startCovered ? null : seededRandom(index * 7 + wave.id) * 0.12 - elapsed;
+    const inStart = (wave.startCovered ? 0 : BLINK_S) + shapeRevealAt(shape, wave.startCovered) - elapsed;
+    if (inStart < 0) return null; // mounted after it blinked back in: just show it
+
+    const points: { t: number; o: number }[] = [];
+    if (outStart !== null && outStart >= 0) {
+      const step = (BLINK_S - 0.12) / (BLINK_OUT.length - 1);
+      BLINK_OUT.forEach((o, i) => points.push({ t: outStart + i * step, o }));
+    }
+    const step = BLINK_IN_S / (BLINK_IN.length - 1);
+    BLINK_IN.forEach((o, i) => points.push({ t: inStart + i * step, o }));
+    // Shapes that missed the blink-out (the screen was already covered) start hidden
+    if (points[0].t > 0) points.unshift({ t: 0, o: points[0].o });
+    const duration = points[points.length - 1].t;
+    return {
+      initial: points[0].o,
+      opacity: points.map((p) => p.o),
+      transition: { duration, times: points.map((p) => p.t / duration), ease: 'linear' as const },
+    };
+  });
+  return (
+    <motion.div
+      initial={timeline ? { opacity: timeline.initial } : false}
+      animate={timeline ? { opacity: timeline.opacity } : undefined}
+      transition={timeline?.transition}
+    >
+      <ShapeOutline kind={shape.kind} size={shape.size} color={`rgba(255, 255, 255, ${opacity})`} />
+    </motion.div>
+  );
+}
+
+function StageShapes({ opacity = 0.08 }: { opacity?: number }) {
+  const wave = useContext(ShapeWave);
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {STAGE_SHAPES.map((shape, i) => (
+        <div key={i} className={`floating-shape ${shape.animation} ${shape.delay}`} style={{ top: `${shape.top}%`, left: `${shape.left}%` }}>
+          <ShapeBlink key={wave?.id ?? 0} shape={shape} index={i} wave={wave} opacity={opacity} />
+        </div>
+      ))}
+      <div className="floating-shape orbit-shape delay-1" style={{ top: '20%', left: '80%' }}>
+        <div className="w-4 h-4 bg-white rounded-full" style={{ opacity: opacity * 2 }} />
+      </div>
+      <div className="floating-shape orbit-shape delay-3" style={{ top: '70%', left: '15%' }}>
+        <div className="w-6 h-6 border-2 rounded-full" style={{ borderColor: `rgba(255, 255, 255, ${opacity})` }} />
+      </div>
+    </div>
+  );
+}
 
 // Shown on the sweep's blue middle. Builds in pieces once the screen is covered (logo springs in,
 // title words rise through masks, sponsors land one by one), then holds still while the sweep's
@@ -750,13 +876,25 @@ function SweepCard({ sponsors }: { sponsors: ConferenceSponsor[] }) {
 }
 
 // `startCovered`: the page opens under the sweep (title card showing) and it moves off to reveal the first screen
-function Sweep({ onCovered, sponsors, startCovered = false }: { onCovered: () => void; sponsors: ConferenceSponsor[]; startCovered?: boolean }) {
+function Sweep({
+  onCovered,
+  sponsors,
+  startCovered = false,
+  withCard = true,
+}: {
+  onCovered: () => void;
+  sponsors: ConferenceSponsor[];
+  startCovered?: boolean;
+  withCard?: boolean; // off right after the opening, which just showed the same logo and sponsors
+}) {
   const covered = useRef(onCovered);
   useEffect(() => {
     if (startCovered) return;
     const timer = setTimeout(() => covered.current(), SWEEP_COVER_MS);
     return () => clearTimeout(timer);
   }, [startCovered]);
+  // The band waits while the background shapes blink out (not when the page opens already covered)
+  const wait = startCovered ? 0 : BLINK_S;
 
   const startX = -SWEEP_WIDTH - SWEEP_OFF;
   const start = `${startX}vw`;
@@ -765,19 +903,19 @@ function Sweep({ onCovered, sponsors, startCovered = false }: { onCovered: () =>
   // The card moves exactly opposite to the band (same timing and easing), so it stays still on screen
   // while the band's edge passes over it
   const cardX = (bandX: number) => `${SWEEP_COVER_X - bandX}vw`;
-  const outEase = [0.7, 0, 0.8, 0.4] as const;
+  const outEase = SWEEP_OUT_EASE;
   const lead = startCovered ? 0 : SWEEP_IN_S;
   const duration = lead + SWEEP_HOLD_S + SWEEP_OUT_S;
   const at = (sec: number) => Math.min(1, Math.max(0, sec / duration));
   const moveTransition: Transition = startCovered
     ? { duration, times: [0, at(SWEEP_HOLD_S), 1], ease: ['linear', outEase] }
-    : { duration, times: SWEEP_TIMES, ease: [[0.33, 0, 0.2, 1], 'linear', outEase] };
+    : { duration, times: SWEEP_TIMES, ease: [SWEEP_IN_EASE, 'linear', outEase], delay: wait };
 
   // The card builds as soon as the screen is covered
   const [showCard, setShowCard] = useState(startCovered);
   useEffect(() => {
     if (startCovered) return;
-    const timer = setTimeout(() => setShowCard(true), (SWEEP_IN_S - 0.05) * 1000);
+    const timer = setTimeout(() => setShowCard(true), (BLINK_S + SWEEP_IN_S - 0.05) * 1000);
     return () => clearTimeout(timer);
   }, [startCovered]);
 
@@ -802,7 +940,7 @@ function Sweep({ onCovered, sponsors, startCovered = false }: { onCovered: () =>
                   animate={{ x: startCovered ? ['0vw', '0vw', cardX(SWEEP_OFF)] : [cardX(startX), '0vw', '0vw', cardX(SWEEP_OFF)] }}
                   transition={moveTransition}
                 >
-                  {showCard && (
+                  {showCard && withCard && (
                     <div className="absolute left-0 top-0" style={{ width: '90vw', transform: `translate(-50%, -50%) rotate(${-SWEEP_ANGLE}deg)` }}>
                       <SweepCard sponsors={sponsors} />
                     </div>
@@ -825,7 +963,7 @@ function TransitionScreen({ kicker, sessions }: { kicker: string; sessions: Line
   const speakers = sessions.flatMap((s) => s.speakers);
   return (
     <div className="absolute inset-0 z-50 overflow-hidden bg-[#00274c] flex items-center justify-center">
-      <FloatingShapes variant="dense" opacity={0.08} />
+      <StageShapes opacity={0.08} />
 
       <div className="relative text-center" style={{ padding: '0 8vw' }}>
         <motion.div
@@ -1204,11 +1342,20 @@ export default function ConferenceBackgroundClient({
   // One sweep overlay for the whole page, so it carries on while the screen underneath changes
   // The first sweep is already covering when the page opens, then reveals the first screen
   const [sweepId, setSweepId] = useState(1);
+  const [sweepCard, setSweepCard] = useState(true);
+  const [sweepAt, setSweepAt] = useState(() => (typeof performance === 'undefined' ? 0 : performance.now()));
   const onCovered = useRef<() => void>(() => {});
-  const runSweep = useCallback((cb: () => void) => {
+  const runSweep = useCallback((cb: () => void, opts?: { card?: boolean }) => {
     onCovered.current = cb;
+    setSweepCard(opts?.card ?? true);
+    setSweepAt(performance.now());
     setSweepId((n) => n + 1);
   }, []);
+  // The background shapes flip as the sweep passes (the live screen's first sweep starts later, after Start)
+  const shapeWave = useMemo<ShapeWaveState | null>(
+    () => (shot || (live && sweepId === 1) ? null : { id: sweepId, startCovered: sweepId === 1, at: sweepAt }),
+    [shot, live, sweepId, sweepAt]
+  );
 
   // Live mode: what's on screen and the timer come from the /conference/control remote
   const [stage, setStage] = useState<LiveStageState | null>(null);
@@ -1297,7 +1444,7 @@ export default function ConferenceBackgroundClient({
   const [order, setOrder] = useState<OrderMap>({});
   const [sponsors, setSponsors] = useState<ConferenceSponsor[]>([]);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const sweep = <Sweep key={sweepId} onCovered={() => onCovered.current()} sponsors={sponsors} startCovered={sweepId === 1} />;
+  const sweep = <Sweep key={sweepId} onCovered={() => onCovered.current()} sponsors={sponsors} startCovered={sweepId === 1} withCard={sweepCard} />;
   const shotRef = useRef<HTMLDivElement>(null);
   const [shotState, setShotState] = useState<'preparing' | 'capturing' | 'done' | 'error'>('preparing');
 
@@ -1399,10 +1546,11 @@ export default function ConferenceBackgroundClient({
 
   if (live) {
     return (
+      <ShapeWave.Provider value={shapeWave}>
       <div
         className={`fixed inset-0 overflow-hidden bg-gradient-to-br from-[#00274c] via-[#00264a] to-[#001a33] text-white ${cursorHidden ? 'cursor-none' : ''}`}
       >
-        <FloatingShapes variant="dense" opacity={0.08} />
+        <StageShapes opacity={0.08} />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,203,5,0.08),transparent_55%)] pointer-events-none" />
         {stage && session && screenMode === 'stage' && (
           <StageScreen
@@ -1419,11 +1567,12 @@ export default function ConferenceBackgroundClient({
         )}
         {screenMode !== 'stage' && (
           <div className="absolute inset-0 z-40 bg-black">
-            {screenMode === 'opening' && <OpeningSequence sponsors={sponsors} onDone={() => runSweep(() => setScreenMode('stage'))} />}
+            {screenMode === 'opening' && <OpeningSequence sponsors={sponsors} onDone={() => runSweep(() => setScreenMode('stage'), { card: false })} />}
           </div>
         )}
         {(screenMode === 'stage' || sweepId > 1) && sweep}
       </div>
+      </ShapeWave.Provider>
     );
   }
 
@@ -1520,7 +1669,7 @@ export default function ConferenceBackgroundClient({
           className="relative w-screen overflow-hidden bg-gradient-to-br from-[#00274c] via-[#00264a] to-[#001a33]"
           style={{ height: '56.25vw' }}
         >
-          <FloatingShapes variant="dense" opacity={0.08} />
+          <StageShapes opacity={0.08} />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,203,5,0.08),transparent_55%)] pointer-events-none" />
           <StageScreen
             sessions={sessions}
@@ -1556,10 +1705,11 @@ export default function ConferenceBackgroundClient({
   }
 
   return (
+    <ShapeWave.Provider value={shapeWave}>
     <div
       className={`fixed inset-0 overflow-hidden bg-gradient-to-br from-[#00274c] via-[#00264a] to-[#001a33] text-white ${cursorHidden ? 'cursor-none' : ''}`}
     >
-      <FloatingShapes variant="dense" opacity={0.08} />
+      <StageShapes opacity={0.08} />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,203,5,0.08),transparent_55%)] pointer-events-none" />
       <StageScreen
         key={`${sessions.map((s) => s.id).join(',')}-${demo}`}
@@ -1573,5 +1723,6 @@ export default function ConferenceBackgroundClient({
       />
       {sweep}
     </div>
+    </ShapeWave.Provider>
   );
 }
