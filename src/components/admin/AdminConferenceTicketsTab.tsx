@@ -20,11 +20,13 @@ import {
   DocumentArrowDownIcon,
   DocumentTextIcon,
   XMarkIcon,
-  EnvelopeIcon
+  EnvelopeIcon,
+  CalendarDaysIcon
 } from '@heroicons/react/24/outline';
 import { ConferenceTicket, AdminTicketStats, TicketPricingStatus } from '@/types/conference-ticket';
 import { getConferenceTicketStatus } from '@/lib/conference-pricing';
 import ConferenceReminderModal from '@/components/admin/ConferenceReminderModal';
+import ConferenceCalendarModal from '@/components/admin/ConferenceCalendarModal';
 
 export default function AdminConferenceTicketsTab() {
   const [tickets, setTickets] = useState<ConferenceTicket[]>([]);
@@ -49,6 +51,7 @@ export default function AdminConferenceTicketsTab() {
   const [bulkResults, setBulkResults] = useState<{ name: string; outcome: 'added' | 'exists' | 'failed'; detail: string }[]>([]);
   const [issuingComp, setIssuingComp] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvEntries, setCsvEntries] = useState<Array<{ first: string; last: string; email: string }>>([]);
@@ -443,6 +446,15 @@ export default function AdminConferenceTicketsTab() {
           >
             <EnvelopeIcon className="w-4 h-4" />
             <span>Send Reminder</span>
+          </button>
+
+          <button
+            onClick={() => setShowCalendarModal(true)}
+            className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#00274c] hover:bg-[#003875] text-white text-sm font-bold shadow-sm transition-all"
+            title="Send Google Calendar invites for the 7 conference sessions"
+          >
+            <CalendarDaysIcon className="w-4 h-4 text-[#FFCB05]" />
+            <span>Calendar Invites</span>
           </button>
 
           <button
@@ -1025,6 +1037,12 @@ export default function AdminConferenceTicketsTab() {
         isOpen={showReminderModal}
         onClose={() => setShowReminderModal(false)}
         tickets={tickets}
+      />
+
+      {/* ── GOOGLE CALENDAR INVITES MODAL ── */}
+      <ConferenceCalendarModal
+        isOpen={showCalendarModal}
+        onClose={() => setShowCalendarModal(false)}
       />
     </div>
   );
