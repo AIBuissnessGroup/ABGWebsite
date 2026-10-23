@@ -84,9 +84,6 @@ export default function ConferenceCheckinClient() {
     return () => clearInterval(timer);
   }, [session, loadTickets]);
 
-  const valid = tickets.filter((t) => t.status === 'confirmed');
-  const checkedInCount = valid.filter((t) => t.checkedIn).length;
-
   const setCheckedIn = useCallback(async (ticket: ConferenceTicket, checkedIn: boolean) => {
     setBusyId(ticket.id);
     try {
@@ -262,24 +259,11 @@ export default function ConferenceCheckinClient() {
 
   return (
     <Screen>
-      {/* Header with live count */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#FFCB05]">Michigan AI Business Conference</div>
-          <h1 className="text-xl font-extrabold">
-            Check-in{access.role === 'staff' && <span className="ml-2 align-middle text-[10px] font-bold uppercase tracking-wider text-white/50">Staff</span>}
-          </h1>
-        </div>
-        <div className="text-right">
-          <div className="text-2xl font-extrabold tabular-nums">
-            {checkedInCount}
-            <span className="text-white/40 text-base font-bold"> / {valid.length}</span>
-          </div>
-          <div className="text-[11px] text-white/50 font-bold uppercase tracking-wider">Checked in</div>
-        </div>
-      </div>
-      <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">
-        <div className="h-full bg-[#FFCB05] transition-all" style={{ width: `${valid.length ? (checkedInCount / valid.length) * 100 : 0}%` }} />
+      <div>
+        <div className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#FFCB05]">Michigan AI Business Conference</div>
+        <h1 className="text-xl font-extrabold">
+          Check-in{access.role === 'staff' && <span className="ml-2 align-middle text-[10px] font-bold uppercase tracking-wider text-white/50">Staff</span>}
+        </h1>
       </div>
       {loadError && (
         <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-red-500/15 border border-red-500/30 px-3 py-2 text-xs text-red-200">

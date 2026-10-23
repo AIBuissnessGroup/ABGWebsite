@@ -3,14 +3,12 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import {
-  TicketIcon,
   CheckIcon,
   ArrowDownTrayIcon,
   MagnifyingGlassIcon,
   ArrowPathIcon,
   CheckCircleIcon,
   XCircleIcon,
-  SparklesIcon,
   ClockIcon,
   ShieldCheckIcon,
   GiftIcon,
@@ -22,22 +20,13 @@ import {
   EnvelopeIcon,
   CalendarDaysIcon
 } from '@heroicons/react/24/outline';
-import { ConferenceTicket, AdminTicketStats, TicketPricingStatus } from '@/types/conference-ticket';
+import { ConferenceTicket, TicketPricingStatus } from '@/types/conference-ticket';
 import { getConferenceTicketStatus } from '@/lib/conference-pricing';
 import ConferenceReminderModal from '@/components/admin/ConferenceReminderModal';
 import ConferenceCalendarModal from '@/components/admin/ConferenceCalendarModal';
 
 export default function AdminConferenceTicketsTab() {
   const [tickets, setTickets] = useState<ConferenceTicket[]>([]);
-  const [stats, setStats] = useState<AdminTicketStats>({
-    totalTickets: 0,
-    grossRevenue: 0,
-    earlyBirdCount: 0,
-    generalCount: 0,
-    compCount: 0,
-    checkedInCount: 0,
-    pendingCheckInCount: 0,
-  });
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [pricingStatus, setPricingStatus] = useState<TicketPricingStatus>(getConferenceTicketStatus());
@@ -223,17 +212,6 @@ export default function AdminConferenceTicketsTab() {
       const data = await res.json();
       if (res.ok) {
         setTickets(data.tickets || []);
-        setStats(
-          data.stats || {
-            totalTickets: 0,
-            grossRevenue: 0,
-            earlyBirdCount: 0,
-            generalCount: 0,
-            compCount: 0,
-            checkedInCount: 0,
-            pendingCheckInCount: 0,
-          }
-        );
       } else {
         toast.error(data.error || 'Failed to fetch tickets');
       }
@@ -279,11 +257,6 @@ export default function AdminConferenceTicketsTab() {
         setTickets((prev) =>
           prev.map((t) => (t.id === ticket.id ? { ...t, checkedIn: newCheckedIn, checkedInAt: newCheckedIn ? Date.now() : undefined } : t))
         );
-        setStats((prev) => ({
-          ...prev,
-          checkedInCount: newCheckedIn ? prev.checkedInCount + 1 : prev.checkedInCount - 1,
-          pendingCheckInCount: newCheckedIn ? prev.pendingCheckInCount - 1 : prev.pendingCheckInCount + 1,
-        }));
         toast.success(newCheckedIn ? `Checked in ${ticket.attendeeName}` : `Unchecked ${ticket.attendeeName}`);
       } else {
         toast.error(data.error || 'Failed to update check-in status');
@@ -608,40 +581,6 @@ export default function AdminConferenceTicketsTab() {
           )}
         </div>
       )}
-
-      {/* ── METRICS TILES ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#00274c] flex items-center justify-center mb-3">
-            <TicketIcon className="w-5 h-5" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-gray-900">{stats.totalTickets}</div>
-          <div className="text-xs font-semibold text-gray-500 mt-1">Total Passes Issued</div>
-          <div className="text-[11px] text-gray-400 mt-2">Target: 300 Attendees</div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm">
-          <div className="w-10 h-10 rounded-xl bg-orange-50 text-[#FF6700] flex items-center justify-center mb-3">
-            <SparklesIcon className="w-5 h-5" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-gray-900">{stats.earlyBirdCount} / {stats.generalCount}</div>
-          <div className="text-xs font-semibold text-gray-500 mt-1">Early Bird / General</div>
-          <div className="text-[11px] text-gray-400 mt-2">$13 vs $17 distribution · {stats.compCount} complimentary</div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
-            <CheckCircleIcon className="w-5 h-5" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-gray-900">
-            {stats.checkedInCount} <span className="text-sm font-normal text-gray-400">/ {stats.totalTickets}</span>
-          </div>
-          <div className="text-xs font-semibold text-gray-500 mt-1">Checked In at Ross</div>
-          <div className="text-[11px] text-gray-400 mt-2">
-            {stats.totalTickets > 0 ? `${Math.round((stats.checkedInCount / stats.totalTickets) * 100)}% attendance rate` : '0%'}
-          </div>
-        </div>
-      </div>
 
       {/* ── ATTENDEE SEARCH & ROSTER TABLE ── */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
