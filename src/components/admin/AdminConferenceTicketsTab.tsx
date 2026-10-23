@@ -394,7 +394,7 @@ export default function AdminConferenceTicketsTab() {
             {pricingStatus.phase === 'EARLY_BIRD'
               ? 'Early Bird ($13) active until Sun, Sep 20 at 11:59 PM EDT. Automatically switches to General Admission ($17) on Mon, Sep 21.'
               : pricingStatus.phase === 'GENERAL'
-              ? 'General Admission ($17) active until Thu, Oct 22 at 10:00 PM EDT.'
+              ? 'General Admission ($17) active until Fri, Oct 23 at 10:30 AM EDT.'
               : 'Ticket sales have concluded.'}
           </p>
         </div>
