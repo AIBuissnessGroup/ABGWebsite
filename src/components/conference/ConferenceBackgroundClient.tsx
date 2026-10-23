@@ -77,11 +77,12 @@ type OrderMap = Record<string, string[]>;
 // Shared pieces (sized in vw so the slide scales to any screen or projector)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function HeadlineText({ line }: { line: string }) {
+// `plain`: all white (the big titles); otherwise words marked in the lineup show in maize
+function HeadlineText({ line, plain = false }: { line: string; plain?: boolean }) {
   return (
     <>
       {parseHeadline(line).map((seg, j) => (
-        <span key={j} className={seg.maize ? 'text-[#FFCB05]' : undefined}>
+        <span key={j} className={seg.maize && !plain ? 'text-[#FFCB05]' : undefined}>
           {seg.text}
         </span>
       ))}
@@ -103,7 +104,7 @@ function Headline({ lines, size, align = 'left', delay = 0.1 }: { lines: string[
           animate={{ opacity: 1, x: '0vw' }}
           transition={{ duration: 0.7, delay: delay + i * 0.1, ease: EASE }}
         >
-          <HeadlineText line={line} />
+          <HeadlineText line={line} plain />
         </motion.span>
       ))}
     </h1>
@@ -823,7 +824,7 @@ function SweepCard({ sponsors }: { sponsors: ConferenceSponsor[] }) {
         {CARD_TITLE.map((word, i) => (
           <span key={word} className="inline-block overflow-hidden" style={{ paddingBottom: '0.06em' }}>
             <motion.span
-              className={`inline-block ${word === 'AI' ? 'text-[#FFCB05]' : ''}`}
+              className="inline-block"
               initial={{ y: '110%', rotate: 6 }}
               animate={{ y: '0%', rotate: 0 }}
               transition={{ duration: 0.75, delay: 0.12 + i * 0.07, ease: EASE }}
@@ -1024,7 +1025,7 @@ function TransitionScreen({ kicker, sessions }: { kicker: string; sessions: Line
                 animate={{ y: 0 }}
                 transition={{ duration: 0.8, delay: REVEAL_S + 1.4 + i * 0.15, ease: EASE }}
               >
-                <HeadlineText line={line} />
+                <HeadlineText line={line} plain />
               </motion.span>
             </span>
           ))}
@@ -1384,7 +1385,9 @@ function FirstPanelPopup({ now, still, delay }: { now: number | null; still: boo
 function ThankYouScreen({ sponsors }: { sponsors: ConferenceSponsor[] }) {
   const d = REVEAL_S;
   return (
+    // Title, Open networking and sponsors are centered together in the space above the Day Recap bar
     <div className="relative h-full w-full flex flex-col items-center justify-center text-center text-white" style={{ padding: '3vw 6vw 9vw' }}>
+      <div className="flex flex-col items-center">
       {/* The usual logo and conference name, top-left like every other slide */}
       <motion.div
         className="absolute"
@@ -1403,7 +1406,7 @@ function ThankYouScreen({ sponsors }: { sponsors: ConferenceSponsor[] }) {
         {['Thank', 'you', 'for', 'attending'].map((word, i) => (
           <span key={word} className="inline-block overflow-hidden" style={{ paddingBottom: '0.06em' }}>
             <motion.span
-              className={`inline-block ${i < 2 ? 'text-[#FFCB05]' : ''}`}
+              className="inline-block"
               initial={{ y: '110%', rotate: 6 }}
               animate={{ y: '0%', rotate: 0 }}
               transition={{ duration: 0.8, delay: d + 0.3 + i * 0.08, ease: EASE }}
@@ -1415,36 +1418,28 @@ function ThankYouScreen({ sponsors }: { sponsors: ConferenceSponsor[] }) {
       </div>
 
       <motion.div
-        className="font-bold uppercase text-white/60"
-        style={{ fontSize: '1.2vw', letterSpacing: '0.2em', marginTop: '1vw' }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: d + 0.8 }}
-      >
-        Michigan AI Business Conference · {CONFERENCE_DATE_LABEL}
-      </motion.div>
-
-      <motion.div
         className="inline-flex items-center rounded-full border border-[#FFCB05]/60 bg-[#FFCB05]/10"
-        style={{ gap: '0.7vw', padding: '0.6vw 1.5vw', marginTop: '2vw' }}
+        style={{ gap: '0.5vw', padding: '0.4vw 1.1vw', marginTop: '1.4vw' }}
         initial={{ opacity: 0, y: '1vw' }}
         animate={{ opacity: 1, y: '0vw' }}
         transition={{ duration: 0.7, delay: d + 1.0, ease: EASE }}
       >
-        <span className="relative flex" style={{ width: '0.8vw', height: '0.8vw' }}>
+        <span className="relative flex" style={{ width: '0.6vw', height: '0.6vw' }}>
           <span className="absolute inset-0 rounded-full bg-[#FFCB05] animate-ping opacity-70" />
           <span className="relative rounded-full bg-[#FFCB05] w-full h-full" />
         </span>
-        <span className="font-extrabold uppercase text-[#FFCB05]" style={{ fontSize: '1.3vw', letterSpacing: '0.2em' }}>
+        <span className="font-extrabold uppercase text-[#FFCB05]" style={{ fontSize: '0.95vw', letterSpacing: '0.2em' }}>
           Open networking
         </span>
       </motion.div>
+      </div>
 
+      <div className="flex flex-col items-center justify-start">
       {sponsors.length > 0 && (
         <>
           <motion.div
             className="bg-[#FFCB05]"
-            style={{ height: '0.2vw', margin: '2.8vw 0 1.6vw' }}
+            style={{ height: '0.2vw', margin: '2.2vw 0 1.4vw' }}
             initial={{ width: '0vw' }}
             animate={{ width: '7vw' }}
             transition={{ duration: 0.8, delay: d + 1.2, ease: EASE }}
@@ -1458,7 +1453,11 @@ function ThankYouScreen({ sponsors }: { sponsors: ConferenceSponsor[] }) {
           >
             Thank you to our sponsors
           </motion.div>
-          <div className="flex flex-wrap items-center justify-center" style={{ gap: '1.6vw 3.2vw', marginTop: '1.6vw', maxWidth: '80vw' }}>
+          {/* Three per row (two rows of three for six sponsors) */}
+          <div
+            className="grid items-center justify-items-center"
+            style={{ gridTemplateColumns: `repeat(${Math.min(3, sponsors.length)}, 11vw)`, gap: '1.6vw 3.2vw', marginTop: '1.6vw' }}
+          >
             {sponsors.map((sp, i) => (
               <motion.div
                 key={sp.id || sp.name}
@@ -1474,6 +1473,7 @@ function ThankYouScreen({ sponsors }: { sponsors: ConferenceSponsor[] }) {
           </div>
         </>
       )}
+      </div>
 
       <div className="absolute left-0 right-0 bottom-0">
         <LineupBar kicker="Day" title="Recap" delay={d + 1.8} />
