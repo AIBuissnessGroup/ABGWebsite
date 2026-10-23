@@ -34,6 +34,7 @@ import { isAdmin } from '@/lib/roles';
 import AdminConferenceTicketsTab from '@/components/admin/AdminConferenceTicketsTab';
 import AdminStageBackgroundsTab from '@/components/admin/AdminStageBackgroundsTab';
 import AdminCheckinStaffTab from '@/components/admin/AdminCheckinStaffTab';
+import AdminStageControllersSection from '@/components/admin/AdminStageControllersSection';
 
 export default function AdminConferencePage() {
   const { data: session, status } = useSession();
@@ -1239,11 +1240,18 @@ export default function AdminConferencePage() {
       )}
 
       {activeTab === 'backgrounds' && (
-        <AdminStageBackgroundsTab
-          value={data.backgroundSpeakerOrder}
-          saving={saving}
-          onSave={(order) => handleSave({ backgroundSpeakerOrder: order })}
-        />
+        <div className="space-y-6">
+          <AdminStageControllersSection
+            value={data.stageControllers}
+            saving={saving}
+            onSave={(controllers) => handleSave({ stageControllers: controllers })}
+          />
+          <AdminStageBackgroundsTab
+            value={data.backgroundSpeakerOrder}
+            saving={saving}
+            onSave={(order) => handleSave({ backgroundSpeakerOrder: order })}
+          />
+        </div>
       )}
 
       {/* ─────────────────────────────────────────────────────────────────────────────

@@ -72,6 +72,9 @@ export interface ConferenceData {
   // People (besides admins) allowed to use /conference/checkin on conference day
   checkinStaff?: ConferenceCheckinStaff[];
 
+  // Admins allowed to drive the live stage screens from /conference/control (empty = any admin)
+  stageControllers?: ConferenceCheckinStaff[];
+
   // Visibility / Temporary toggle
   isVisible: boolean;
   updatedAt: number;
