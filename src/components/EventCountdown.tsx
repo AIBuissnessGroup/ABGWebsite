@@ -84,11 +84,11 @@ interface EventCountdownProps {
 }
 
 export default function EventCountdown({ 
-  eventName = "AI in Business Symposium",
-  eventDate = "2025-02-15T18:00:00",
-  eventLocation = "Michigan Ross School of Business",
-  eventDescription = "Join us for an exclusive evening exploring the future of AI in business"
-}: EventCountdownProps) {
+  eventName,
+  eventDate,
+  eventLocation,
+  eventDescription
+}: EventCountdownProps = {}) {
   const router = useRouter();
   const conferenceAngleRef = useRef(140);
   const conferenceCardRef = useRef<HTMLDivElement>(null);
@@ -171,6 +171,10 @@ export default function EventCountdown({
     
     const calculateTimeLeft = () => {
       const targetDate = nextEvent?.eventDate || eventDate;
+      if (!targetDate) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
       
       // Create date object and ensure we're working with proper timezone
       let eventDateTime;
@@ -232,11 +236,102 @@ export default function EventCountdown({
     };
   }, [isClient, nextEvent]);
 
-  if (!isClient) {
+  if (!isClient || loadingEvent) {
     return (
       <div className="w-full max-w-sm mx-auto lg:max-w-none">
         <div className="glass-card p-4 sm:p-6 lg:p-8 min-h-[400px] sm:min-h-[500px] lg:min-h-[600px] flex items-center justify-center">
           <div className="animate-pulse text-muted">Loading event...</div>
+        </div>
+      </div>
+    );
+  }
+
+  const hasActiveEvent = Boolean(nextEvent || eventDate);
+
+  // If no upcoming event is scheduled, display the "No Upcoming Events" state
+  if (!hasActiveEvent) {
+    return (
+      <div className="w-full max-w-sm mx-auto lg:max-w-none">
+        <div className="glass-card p-4 sm:p-6 lg:p-8 min-h-[400px] sm:min-h-[480px] lg:min-h-[600px] flex flex-col justify-between relative overflow-hidden text-center">
+          {/* Background decorative elements */}
+          <div className="absolute top-2 sm:top-3 right-2 sm:right-3 w-3 sm:w-4 h-3 sm:h-4 border border-white/20 rounded-full" />
+          <div className="absolute bottom-2 sm:bottom-3 left-2 sm:left-3 w-2 sm:w-3 h-2 sm:h-3 border border-white/10 rounded-full" />
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-20 sm:w-28 lg:w-36 h-20 sm:h-28 lg:h-36 border border-white/5 rounded-full pointer-events-none" />
+
+          {/* Header */}
+          <div className="text-center space-y-1 relative z-10">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="flex items-center justify-center gap-2 text-xs sm:text-sm text-muted"
+            >
+              <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="uppercase tracking-wider">Upcoming Events</span>
+            </motion.div>
+          </div>
+
+          {/* Center Info */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="my-auto py-6 space-y-4 relative z-10"
+          >
+            <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/60 shadow-inner">
+              <CalendarIcon className="w-7 h-7 sm:w-8 sm:h-8 text-[#BBBBBB]" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-white text-base sm:text-lg lg:text-xl font-bold leading-tight px-2">
+                No Upcoming Events
+              </h3>
+              <p className="text-muted text-xs sm:text-sm leading-relaxed max-w-xs mx-auto px-2">
+                We currently do not have any upcoming events scheduled. Stay tuned for announcements regarding future workshops, panels, and meetings.
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-muted">
+                <span className="w-2 h-2 rounded-full bg-[#FFCB05] animate-pulse" />
+                <span>Check back soon for updates</span>
+              </span>
+            </div>
+          </motion.div>
+
+          {/* Bottom Actions */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="pt-4 border-t border-white/10 relative z-10 space-y-2"
+          >
+            <a
+              href="/events"
+              className="block w-full bg-brand hover-brand backdrop-blur-sm border border-white/20 rounded px-4 py-2.5 text-white text-xs sm:text-sm font-medium transition-all duration-300 text-center"
+            >
+              View Past Events →
+            </a>
+            <div className="flex items-center justify-center gap-3 text-[11px] text-muted pt-1">
+              <a
+                href="https://www.instagram.com/aibusinessgroup_"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition-colors"
+              >
+                Instagram
+              </a>
+              <span>•</span>
+              <a
+                href="https://www.linkedin.com/company/abgumich/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition-colors"
+              >
+                LinkedIn
+              </a>
+            </div>
+          </motion.div>
         </div>
       </div>
     );
