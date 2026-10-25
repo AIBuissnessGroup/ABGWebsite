@@ -167,6 +167,6 @@ export const DEFAULT_CONFERENCE_DATA: ConferenceData = {
     },
   ],
 
-  isVisible: true,
+  isVisible: false,
   updatedAt: Date.now(),
 };

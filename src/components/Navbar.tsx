@@ -55,7 +55,6 @@ export default function Navbar() {
   const userIsAdmin = isAdmin(session?.user?.roles || []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [f1ThemeEnabled, setF1ThemeEnabled] = useState(false);
-  const [conferenceVisible, setConferenceVisible] = useState(true);
 
   useEffect(() => {
     fetch('/api/theme')
@@ -64,16 +63,6 @@ export default function Navbar() {
         // Only override the default if an explicit value is stored in the DB
         if (data.f1_2026_fall !== null) {
           setF1ThemeEnabled(!!data.f1_2026_fall);
-        }
-      })
-      .catch(() => {});
-
-    // Fetch conference visibility
-    fetch('/api/conference')
-      .then((r) => r.json())
-      .then((data) => {
-        if (typeof data.isVisible === 'boolean') {
-          setConferenceVisible(data.isVisible);
         }
       })
       .catch(() => {});
@@ -106,15 +95,6 @@ export default function Navbar() {
     { href: "/portal", label: "Apply" },
     { href: "/team", label: "Team" },
   ];
-
-  // Listed after Team, matching how SXSW was listed with glow: true
-  if (conferenceVisible || userIsAdmin) {
-    navigationItems.push({
-      href: "/conference",
-      label: "AI Conference",
-      glow: true,
-    });
-  }
 
   navigationItems.push(
     { 
