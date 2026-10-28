@@ -1,19 +1,26 @@
 'use client';
 import { signIn, getSession } from 'next-auth/react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { FaGoogle } from 'react-icons/fa';
 
 function SignInContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams?.get('callbackUrl') || '/';
+  const [devLoadingRole, setDevLoadingRole] = useState<string | null>(null);
   console.log('SignIn page callbackUrl:', callbackUrl);
 
   useEffect(() => {
     // Check if user is already signed in
     getSession().then((session) => {
-      if (session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') {
+      const roles = Array.isArray(session?.user?.roles) ? session.user.roles : [];
+      if (
+        roles.includes('ADMIN') ||
+        roles.includes('PROJECT_TEAM_MEMBER') ||
+        (session?.user as any)?.role === 'ADMIN' ||
+        (session?.user as any)?.role === 'SUPER_ADMIN'
+      ) {
         router.push(callbackUrl);
       }
     });
@@ -32,6 +39,27 @@ function SignInContent() {
         window.location.href = result.url;
       }
     });
+  };
+
+  const handleDevSignIn = async (role: string) => {
+    try {
+      setDevLoadingRole(role);
+      const result = await signIn('dev-login', {
+        role,
+        callbackUrl,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        console.error('Dev sign in error:', result.error);
+        setDevLoadingRole(null);
+      } else if (result?.url) {
+        window.location.href = result.url;
+      }
+    } catch (err) {
+      console.error('Dev sign in exception:', err);
+      setDevLoadingRole(null);
+    }
   };
 
   return (
@@ -65,6 +93,53 @@ function SignInContent() {
               Only University of Michigan (@umich.edu) accounts are allowed
             </p>
           </div>
+
+          {/* Dev Fast-Login (Tree-shaken and excluded in production builds) */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-6 pt-6 border-t border-white/15">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FFCB05]/20 text-[#FFCB05] border border-[#FFCB05]/30">
+                  🛠️ Local Dev Fast-Login
+                </span>
+              </div>
+              <p className="text-white/60 text-xs text-center mb-4 leading-relaxed">
+                Committee bypass for local development. Skips Google OAuth & connects directly.
+              </p>
+
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  disabled={devLoadingRole !== null}
+                  onClick={() => handleDevSignIn('PROJECT_TEAM_MEMBER')}
+                  className="w-full flex items-center justify-center gap-2 bg-[#FFCB05] hover:bg-[#FFE380] text-[#00274c] font-bold py-2.5 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 text-sm cursor-pointer"
+                >
+                  {devLoadingRole === 'PROJECT_TEAM_MEMBER' ? (
+                    'Connecting...'
+                  ) : (
+                    <span>🔑 Sign in as Project Team Member</span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={devLoadingRole !== null}
+                  onClick={() => handleDevSignIn('ADMIN')}
+                  className="w-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold py-2.5 px-4 rounded-lg border border-white/20 transition-all duration-200 disabled:opacity-50 text-sm cursor-pointer"
+                >
+                  {devLoadingRole === 'ADMIN' ? 'Connecting...' : '🛡️ Sign in as Admin'}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={devLoadingRole !== null}
+                  onClick={() => handleDevSignIn('USER')}
+                  className="w-full flex items-center justify-center gap-2 bg-black/30 hover:bg-black/50 text-white/70 hover:text-white py-2 px-3 rounded-lg border border-white/10 transition-all duration-200 disabled:opacity-50 text-xs cursor-pointer"
+                >
+                  {devLoadingRole === 'USER' ? 'Connecting...' : '👤 Sign in as Regular User (Test Unauthorized)'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

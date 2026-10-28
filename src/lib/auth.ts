@@ -1,15 +1,24 @@
 import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
+import CredentialsProvider from 'next-auth/providers/credentials';
 import { MongoClient } from 'mongodb';
 import { isAdminEmail } from './admin';
 import { getDb, getClient } from './mongodb';
+import { UserRole } from '@/types/next-auth';
+
+// Dev Fast-Login is strictly restricted to local development environments
+// It can NEVER be enabled in production or under the production domain
+const isDevAuthEnabled =
+  process.env.NODE_ENV === 'development' &&
+  process.env.NODE_ENV !== 'production' &&
+  !process.env.NEXTAUTH_URL?.includes('abgumich.org');
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
       authorization: {
         params: {
           prompt: "consent",
@@ -25,9 +34,66 @@ export const authOptions: NextAuthOptions = {
         timeout: 10000,
       }
     }),
+    ...(isDevAuthEnabled
+      ? [
+          CredentialsProvider({
+            id: 'dev-login',
+            name: 'Dev Fast Login',
+            credentials: {
+              role: { label: 'Role', type: 'text' },
+            },
+            async authorize(credentials) {
+              // Fail-closed defense: Strictly reject if executed in production or under production domain
+              if (
+                process.env.NODE_ENV !== 'development' ||
+                process.env.NODE_ENV === 'production' ||
+                process.env.NEXTAUTH_URL?.includes('abgumich.org')
+              ) {
+                console.error('[SECURITY ALERT] dev-login provider attempted outside development mode');
+                return null;
+              }
+
+              const role = (credentials?.role as UserRole) || 'PROJECT_TEAM_MEMBER';
+              const roleDisplay =
+                role === 'ADMIN'
+                  ? 'Admin'
+                  : role === 'PROJECT_TEAM_MEMBER'
+                  ? 'Project Team Member'
+                  : role === 'GENERAL_MEMBER'
+                  ? 'General Member'
+                  : 'User';
+
+              return {
+                id: `dev-${role.toLowerCase().replace(/_/g, '-')}-id`,
+                name: `Dev ${roleDisplay}`,
+                email: `dev-${role.toLowerCase().replace(/_/g, '-')}@umich.edu`,
+                roles: [role],
+              };
+            },
+          }),
+        ]
+      : []),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
+      // Dev Fast-Login bypass for local committee development
+      if (account?.provider === 'dev-login') {
+        if (
+          process.env.NODE_ENV !== 'development' ||
+          process.env.NODE_ENV === 'production' ||
+          process.env.NEXTAUTH_URL?.includes('abgumich.org')
+        ) {
+          console.error('[SECURITY ALERT] dev-login attempted outside development mode');
+          return false;
+        }
+        console.log('DEV FAST-LOGIN SUCCESS:', {
+          roles: (user as any)?.roles,
+          email: user?.email,
+          timestamp: new Date().toISOString(),
+        });
+        return true;
+      }
+
       // Only allow UofM email addresses
       if (user.email && user.email.endsWith('@umich.edu')) {
         try {
@@ -246,8 +312,12 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session?.user && token) {
         // Add user ID and roles to session from token
-        session.user.id = token.sub || '';
+        session.user.id = token.sub || (token.id as string) || '';
         session.user.roles = token.roles || ['USER'];
+        if (token.isDevUser) {
+          session.user.name = token.name || session.user.name;
+          session.user.email = token.email || session.user.email;
+        }
         // Add access token for Google API calls
         session.accessToken = token.accessToken as string;
       }
@@ -257,6 +327,24 @@ export const authOptions: NextAuthOptions = {
       if (user && account) {
         // Store the access token for Google API calls
         token.accessToken = account.access_token;
+      }
+
+      // Preserve Dev Fast-Login state without database override
+      if (account?.provider === 'dev-login' || token.isDevUser) {
+        if (
+          process.env.NODE_ENV !== 'development' ||
+          process.env.NODE_ENV === 'production' ||
+          process.env.NEXTAUTH_URL?.includes('abgumich.org')
+        ) {
+          return {}; // Fail closed if somehow in production
+        }
+        if (user) {
+          token.roles = (user as any).roles || ['PROJECT_TEAM_MEMBER'];
+          token.isDevUser = true;
+          token.name = user.name || 'Dev User';
+          token.email = user.email || 'dev@umich.edu';
+        }
+        return token;
       }
       
       // Always fetch the latest roles from database (both for new logins and existing tokens)
