@@ -30,6 +30,9 @@ export default function Footer() {
             <a href="/events" className="text-[#BBBBBB] hover:text-white transition text-sm">
               Events
             </a>
+            <a href="/general-membership" className="text-[#BBBBBB] hover:text-white transition text-sm">
+              General Membership
+            </a>
             <a href="/team" className="text-[#BBBBBB] hover:text-white transition text-sm">
               Team
             </a>

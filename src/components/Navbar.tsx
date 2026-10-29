@@ -92,6 +92,7 @@ export default function Navbar() {
     { href: "/projects", label: "Projects" },
     { href: "/highlights", label: "Highlights" },
     { href: "/events", label: "Events" },
+    { href: "/general-membership", label: "General Membership" },
     { href: "/portal", label: "Apply" },
     { href: "/team", label: "Team" },
   ];
@@ -189,17 +190,19 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-4 lg:gap-5">
+          <div className="hidden md:flex items-center gap-3 lg:gap-4 xl:gap-5">
             {/* Text navigation items */}
-            <div className="flex items-center gap-6 lg:gap-8">
+            <div className="flex items-center gap-3 lg:gap-4 xl:gap-6 2xl:gap-8">
               {navigationItems
                 .filter(item => !item.icon)
                 .map((item) => (
                   <Link
                     key={item.label}
                     href={item.href}
-                    className={`border-b-2 border-transparent hover:border-white/60 transition-all duration-300 pb-1 text-xs lg:text-sm font-bold ${
-                      item.label === "Admin" 
+                    className={`whitespace-nowrap border-b-2 border-transparent hover:border-white/60 transition-all duration-300 pb-1 text-xs xl:text-sm font-bold ${
+                      pathname === item.href
+                        ? "text-white border-white/80"
+                        : item.label === "Admin" 
                         ? "text-yellow-300 hover:text-yellow-100 hover:border-yellow-300/60" 
                         : item.label === "Member Hub"
                         ? "text-[#FFCB05] hover:text-[#FFE380] hover:border-[#FFCB05]/60 font-extrabold"
