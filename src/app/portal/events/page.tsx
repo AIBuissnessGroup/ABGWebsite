@@ -10,6 +10,8 @@ import {
   CameraIcon,
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
+import EventCalendar from '@/components/EventCalendar';
+import type { CalendarItem } from '@/lib/calendar-links';
 import type { RecruitmentEvent, EventRsvp, PortalDashboard } from '@/types/recruitment';
 
 export default function PortalEventsPage() {
@@ -19,6 +21,7 @@ export default function PortalEventsPage() {
   const [myRsvps, setMyRsvps] = useState<string[]>([]);
   const [checkedInEvents, setCheckedInEvents] = useState<string[]>([]);
   const [rsvpLoading, setRsvpLoading] = useState<string | null>(null);
+  const [view, setView] = useState<'list' | 'calendar'>('list');
   
   // Check-in modal state
   const [checkInEvent, setCheckInEvent] = useState<RecruitmentEvent | null>(null);
@@ -314,14 +317,44 @@ export default function PortalEventsPage() {
   const pastEvents = events.filter(e => isEventPast(e))
     .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
 
+  const calendarItems: CalendarItem[] = events.map((e) => ({
+    id: e._id!,
+    title: e.title,
+    start: new Date(e.startAt),
+    end: new Date(e.endAt),
+    description: e.description,
+    location: [e.venue, e.location].filter(Boolean).join(', ') || undefined,
+    type: e.eventType,
+  }));
+
   return (
     <div className="space-y-8">
-      <div style={{ color: '#111827' }}>
-        <h1 className="text-2xl font-bold mb-2" style={{ color: '#111827' }}>Recruitment Events</h1>
-        <p className="text-gray-600">
-          RSVP to events to learn more about ABG and meet our members
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4" style={{ color: '#111827' }}>
+        <div>
+          <h1 className="text-2xl font-bold mb-2" style={{ color: '#111827' }}>Recruitment Events</h1>
+          <p className="text-gray-600">
+            RSVP to events to learn more about ABG and meet our members
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {(['list', 'calendar'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium capitalize ${
+                view === v ? 'bg-[#00274c] text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+              }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {view === 'calendar' ? (
+        <EventCalendar items={calendarItems} theme="light" />
+      ) : (
+      <>
 
       {/* Ongoing Events - Happening Now */}
       {ongoingEvents.length > 0 && (
@@ -625,6 +658,9 @@ export default function PortalEventsPage() {
             })}
           </div>
         </div>
+      )}
+
+      </>
       )}
 
       {/* Check-In Modal */}
