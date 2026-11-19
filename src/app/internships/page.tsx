@@ -1,345 +1,317 @@
 'use client';
-import { motion } from 'framer-motion';
-import { useRef, useState, useEffect } from 'react';
-import { useInView } from 'framer-motion';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { BriefcaseIcon } from '@heroicons/react/24/outline';
 import FloatingShapes from '@/components/FloatingShapes';
-import {
-  BriefcaseIcon,
-  SparklesIcon,
-} from '@heroicons/react/24/outline';
+import { companyLogo, memberHeadshot } from '@/lib/internshipSpotlightAssets';
+import styles from './spotlight.module.css';
+
+type Placement = {
+  _id?: string;
+  name?: string;
+  company?: string;
+  role?: string;
+  term?: string;
+  linkedin?: string;
+  memberImageUrl?: string;
+  companyLogoUrl?: string;
+};
+
+type Spotlight = {
+  key: string;
+  name: string;
+  roles: string[];
+  companies: { name: string; logo: { src: string; tall: boolean } | null }[];
+  photo: string;
+  linkedin?: string;
+};
+
+type Group = { year: string; label: string; people: Spotlight[] };
+
+// One card per member per year; a member with two internships that year
+// (e.g. a winter and a summer role) gets both company logos on one card.
+function groupPlacements(placements: Placement[]): Group[] {
+  const byYear = new Map<string, Map<string, Spotlight>>();
+  for (const p of placements) {
+    if (!p.name) continue;
+    const year = p.term?.match(/\d{4}/)?.[0] ?? 'Other';
+    if (!byYear.has(year)) byYear.set(year, new Map());
+    const people = byYear.get(year)!;
+    const key = (p.linkedin || p.name).toLowerCase().replace(/\/+$/, '');
+    const existing = people.get(key);
+    const company = { name: p.company || '', logo: companyLogo(p.company, p.companyLogoUrl) };
+    if (existing) {
+      if (p.role && !existing.roles.includes(p.role)) existing.roles.push(p.role);
+      if (!existing.companies.some(c => c.name === company.name)) existing.companies.push(company);
+      if (!existing.photo) existing.photo = memberHeadshot(p.name, p.memberImageUrl);
+    } else {
+      people.set(key, {
+        key: `${year}-${key}`,
+        name: p.name,
+        roles: p.role ? [p.role] : [],
+        companies: [company],
+        photo: memberHeadshot(p.name, p.memberImageUrl),
+        linkedin: p.linkedin,
+      });
+    }
+  }
+  return [...byYear.entries()]
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([year, people]) => ({
+      year,
+      label: year === 'Other' ? 'More Placements' : `Summer ${year}`,
+      people: [...people.values()],
+    }));
+}
+
+const LinkedInIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z" />
+  </svg>
+);
+
+// Fades each card up once as it scrolls into view.
+function Reveal({ delay, children }: { delay: number; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting)) { setShown(true); io.disconnect(); }
+    }, { threshold: 0.12 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className={`${styles.item} ${shown ? styles.in : ''}`} style={{ '--d': `${delay}s` } as CSSProperties}>
+      {children}
+    </div>
+  );
+}
+
+function SpotlightCard({ person }: { person: Spotlight }) {
+  const logos = person.companies.filter(c => c.logo);
+  return (
+    <article className={styles.card}>
+      <div className={`${styles.logoArea} ${logos.length > 1 ? styles.two : ''}`}>
+        {logos.map(c => (
+          <img key={c.name} className={c.logo!.tall ? styles.tall : ''} src={c.logo!.src} alt={c.name} />
+        ))}
+      </div>
+      <div className={styles.photo}>
+        {person.photo ? (
+          <img src={person.photo} alt={person.name} loading="lazy" />
+        ) : (
+          <span className={styles.initial}>{person.name.charAt(0)}</span>
+        )}
+      </div>
+      <div className={styles.body}>
+        <div className={styles.name}>{person.name}</div>
+        <div className={styles.role}>{person.roles.join(' · ')}</div>
+        <div className={styles.foot}>
+          <div className={styles.company}>{person.companies.map(c => c.name).join(' · ')}</div>
+          {person.linkedin && (
+            <a className={styles.li} href={person.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${person.name} on LinkedIn`}>
+              <LinkedInIcon />
+            </a>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
 
 export default function InternshipsPage() {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true });
-  
-  // Dynamic content state
   const [pageContent, setPageContent] = useState<any>(null);
   const [projects, setProjects] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
-  const [placements, setPlacements] = useState<any[]>([]);
+  const [placements, setPlacements] = useState<Placement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
-    loadContent();
+    const load = async () => {
+      try {
+        const [contentRes, projectsRes, companiesRes, placementsRes] = await Promise.all([
+          fetch('/api/public/internships/content'),
+          fetch('/api/public/internships/projects'),
+          fetch('/api/public/internships/companies'),
+          fetch('/api/public/internships/placements'),
+        ]);
+        const [contentData, projectsData, companiesData, placementsData] = await Promise.all([
+          contentRes.json(), projectsRes.json(), companiesRes.json(), placementsRes.json(),
+        ]);
+        if (contentData && !contentData.error) setPageContent(contentData);
+        if (Array.isArray(projectsData)) setProjects(projectsData.filter((p: any) => p.active));
+        if (Array.isArray(companiesData)) setCompanies(companiesData);
+        if (Array.isArray(placementsData)) setPlacements(placementsData);
+      } catch (error) {
+        console.error('Error loading content:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, []);
 
-  const loadContent = async () => {
-    try {
-      // Load page content
-      const contentRes = await fetch('/api/public/internships/content');
-      const contentData = await contentRes.json();
-      if (contentData && !contentData.error) {
-        setPageContent(contentData);
-      }
-
-      // Load projects
-      const projectsRes = await fetch('/api/public/internships/projects');
-      const projectsData = await projectsRes.json();
-      if (projectsData && !projectsData.error) {
-        setProjects(projectsData.filter((p: any) => p.active));
-      }
-
-      // Load companies
-      const companiesRes = await fetch('/api/public/internships/companies');
-      const companiesData = await companiesRes.json();
-      if (companiesData && !companiesData.error) {
-        setCompanies(companiesData);
-      }
-
-      // Load member internship placements
-      const placementsRes = await fetch('/api/public/internships/placements');
-      const placementsData = await placementsRes.json();
-      if (Array.isArray(placementsData)) {
-        setPlacements(placementsData);
-      }
-    } catch (error) {
-      console.error('Error loading content:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Always use fallback content to ensure something renders
   const content = pageContent || {
-    badgeText: 'AI Business Group Applied AI Internship Program',
     opportunitiesTitle: 'Current Opportunities',
     opportunitiesSubtitle: 'Explore available internship positions with our partner companies',
     ctaTitle: 'Ready to Join the Program?',
     ctaSubtitle: 'Get involved with AI Business Group projects to qualify for our internship program.',
-    published: true
   };
 
+  const groups = useMemo(() => groupPlacements(placements), [placements]);
+  const visibleGroups = filter === 'all' ? groups : groups.filter(g => g.year === filter);
+
+  // Every company once, for the scrolling logo strip.
+  const stripLogos = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { name: string; src: string }[] = [];
+    groups.forEach(g => g.people.forEach(p => p.companies.forEach(c => {
+      if (c.logo && !seen.has(c.logo.src)) { seen.add(c.logo.src); out.push({ name: c.name, src: c.logo.src }); }
+    })));
+    return out;
+  }, [groups]);
+
   return (
-    <div className="main-page min-h-screen bg-gradient-to-br from-[#1a2c45] via-[#00274c] to-[#0d1d35]">
-      {/* Hero Section */}
-      <section ref={ref} className="relative pt-16 sm:pt-20 lg:pt-24 pb-6 px-4 sm:px-6 lg:px-12 overflow-hidden">
-        <FloatingShapes variant="dense" opacity={0.05} />
+    <div className={`main-page ${styles.page}`}>
+      <FloatingShapes variant="dense" opacity={0.07} />
 
-        <div className="max-w-7xl mx-auto relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.8 }}
-            className="text-center"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-sm mb-6" style={{color: 'white'}}>
-              <SparklesIcon className="w-4 h-4" style={{color: 'white'}} />
-              <span style={{color: 'white'}}>{content.badgeText}</span>
-            </div>
-            
-            <h1 className="heading-primary text-4xl sm:text-5xl lg:text-6xl xl:text-7xl mb-6" style={{color: 'white'}}>
-              WHERE WE'VE GONE
-            </h1>
-
-            <motion.div
-              initial={{ width: 0 }}
-              animate={isInView ? { width: "200px" } : {}}
-              transition={{ duration: 0.8, delay: 0.3 }}
-              className="h-1 bg-gradient-to-r from-white to-gray-300 mx-auto mb-8"
-            />
-
-            <p className="body-text text-lg sm:text-xl lg:text-2xl max-w-4xl mx-auto leading-relaxed" style={{color: 'white'}}>
-              ABG members have gone on to intern at some of the world's most innovative companies.
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* WHERE WE'VE GONE */}
-      {placements.length > 0 && (
-      <section className="pt-0 pb-16 sm:pb-20 px-4 sm:px-6 lg:px-12">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {placements.map((placement: any, index: number) => (
-              <motion.div
-                key={String(placement._id) || index}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.08 }}
-                viewport={{ once: true }}
-                className="glass-card p-6 flex flex-col gap-3"
-              >
-                <div className="flex items-start gap-3">
-                  {placement.memberImageUrl ? (
-                    <img
-                      src={placement.memberImageUrl}
-                      alt={placement.name}
-                      className="w-12 h-12 rounded-full object-cover flex-shrink-0"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                      {placement.name?.charAt(0) || '?'}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-base leading-snug">{placement.name}</p>
-                    <p className="text-sm mt-0.5" style={{color: '#BBBBBB'}}>{placement.role} @ {placement.company}</p>
-                    {placement.industry && (
-                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20">
-                        {placement.industry}
-                      </span>
-                    )}
-                  </div>
-                  {placement.companyLogoUrl && (
-                    <img
-                      src={placement.companyLogoUrl}
-                      alt={placement.company}
-                      className="w-14 h-14 object-contain flex-shrink-0"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
-                  )}
-                </div>
-                {placement.bio && (
-                  <p className="text-sm" style={{color: '#BBBBBB'}}>{placement.bio}</p>
-                )}
-                <div className="flex items-center justify-between pt-1 border-t border-white/10">
-                  <div className="flex items-center gap-2">
-                    <BriefcaseIcon className="w-4 h-4 shrink-0" style={{color: '#BBBBBB'}} />
-                    <p className="text-sm font-semibold" style={{color: '#BBBBBB'}}>{placement.company}</p>
-                    {placement.term && (
-                      <span className="text-xs" style={{color: '#888888'}}>· {placement.term}</span>
-                    )}
-                  </div>
-                  {placement.linkedin && (
-                    <a
-                      href={placement.linkedin}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-300 hover:text-blue-200 underline"
-                    >
-                      LinkedIn
-                    </a>
-                  )}
-                </div>
-              </motion.div>
-            ))}
+      <div className={styles.inner}>
+        <header className={styles.hero}>
+          <div className={`${styles.eyebrow} ${styles.reveal}`} style={{ '--t': '0.05s' } as CSSProperties}>
+            AI Business Group · University of Michigan
           </div>
-        </div>
-      </section>
-      )}
+          <h1 className={`${styles.title} ${styles.reveal}`} style={{ '--t': '0.15s' } as CSSProperties}>
+            Internship Spotlight
+          </h1>
+          <div className={`${styles.rule} ${styles.reveal}`} style={{ '--t': '0.3s' } as CSSProperties} />
+          <p className={`${styles.lead} ${styles.reveal}`} style={{ '--t': '0.4s' } as CSSProperties}>
+            ABG members have gone on to intern at some of the world&apos;s most innovative companies.
+          </p>
+        </header>
 
-      {/* Available Opportunities */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-12 bg-black/20">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="heading-secondary text-2xl sm:text-3xl lg:text-4xl mb-6" style={{color: 'white'}}>
-              {content.opportunitiesTitle}
-            </h2>
-            <p className="body-text text-lg max-w-3xl mx-auto" style={{color: '#BBBBBB'}}>
-              {content.opportunitiesSubtitle}
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 gap-8 mb-12">
-            {projects.length === 0 ? (
-              <div className="col-span-2 text-center py-12">
-                <BriefcaseIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2" style={{color: 'white'}}>No Open Opportunities</h3>
-                <p style={{color: '#BBBBBB'}}>Check back soon for new internship opportunities!</p>
+        {stripLogos.length > 0 && (
+          <div className={`${styles.strip} ${styles.reveal}`} style={{ '--t': '0.55s' } as CSSProperties}>
+            <div className={styles.stripLabel}>Where our members have interned</div>
+            <div className={styles.marquee}>
+              <div className={styles.track}>
+                {[...stripLogos, ...stripLogos].map((logo, i) => (
+                  <img key={`${logo.src}-${i}`} src={logo.src} alt={i < stripLogos.length ? logo.name : ''} aria-hidden={i >= stripLogos.length} />
+                ))}
               </div>
-            ) : (
-              projects.map((project: any, index: number) => {
+            </div>
+          </div>
+        )}
+
+        {groups.length > 1 && (
+          <div className={`${styles.toolbar} ${styles.reveal}`} style={{ '--t': '0.65s' } as CSSProperties}>
+            <div className={styles.seg}>
+              {[{ year: 'all', label: 'All' }, ...groups].map(g => (
+                <button
+                  key={g.year}
+                  type="button"
+                  className={filter === g.year ? styles.on : ''}
+                  onClick={() => setFilter(g.year)}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!loading && groups.length === 0 && (
+          <p className={styles.empty}>Member placements are coming soon.</p>
+        )}
+
+        {visibleGroups.map(group => (
+          <section key={group.year} className={styles.section}>
+            <div className={styles.sectionHead}>
+              <h2>{group.label}</h2>
+              <span>{group.people.length} {group.people.length === 1 ? 'member' : 'members'}</span>
+            </div>
+            <div className={styles.grid}>
+              {group.people.map((person, i) => (
+                <Reveal key={person.key} delay={(i % 4) * 0.08}>
+                  <SpotlightCard person={person} />
+                </Reveal>
+              ))}
+            </div>
+          </section>
+        ))}
+
+        {/* Open positions */}
+        <section className={styles.section}>
+          <div className={styles.sectionHead}>
+            <h2>{content.opportunitiesTitle}</h2>
+          </div>
+          {projects.length === 0 ? (
+            <div className={`${styles.panel} text-center`}>
+              <BriefcaseIcon className="w-10 h-10 mx-auto mb-3" style={{ color: '#8fa9c6' }} />
+              <p className="font-semibold" style={{ color: 'white' }}>No open opportunities right now</p>
+              <p className="text-sm mt-1" style={{ color: '#b9cce2' }}>{content.opportunitiesSubtitle}. Check back soon.</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-6">
+              {projects.map((project: any) => {
                 const company = companies.find(c => c.id === project.companyId);
-                const skills = project.skills ? JSON.parse(project.skills) : [];
-                
+                const skills: string[] = project.skills ? JSON.parse(project.skills) : [];
                 return (
-                  <motion.div
-                    key={project.id}
-                    initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.8, delay: index * 0.2 }}
-                    viewport={{ once: true }}
-                    className="glass-card p-6"
-                  >
-                    <div className="flex justify-between items-start mb-4">
+                  <div key={project.id} className={styles.panel}>
+                    <div className="flex justify-between items-start gap-4 mb-3">
                       <div>
-                        <h3 className="font-bold text-lg mb-1" style={{color: 'white'}}>{project.title}</h3>
-                        <p className="text-sm" style={{color: '#BBBBBB'}}>{company?.name || 'Unknown Company'}</p>
+                        <h3 className="font-bold text-lg" style={{ color: 'white' }}>{project.title}</h3>
+                        <p className="text-sm" style={{ color: '#b9cce2' }}>{company?.name || 'Partner Company'}</p>
                       </div>
-                      <span 
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          project.status === 'OPEN' ? 'bg-green-600' : 
-                          project.status === 'CLOSED' ? 'bg-red-600' : 
-                          project.status === 'FILLED' ? 'bg-yellow-600' : 'bg-gray-600'
-                        }`}
-                        style={{color: 'white'}}
-                      >
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-white/10 border border-white/20" style={{ color: 'white' }}>
                         {project.status}
                       </span>
                     </div>
-                    
-                    <p className="text-sm mb-4" style={{color: '#BBBBBB'}}>
-                      {project.description}
-                    </p>
-                    
+                    <p className="text-sm mb-4" style={{ color: '#b9cce2' }}>{project.description}</p>
                     <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                       <div>
-                        <span className="font-medium" style={{color: 'white'}}>Duration:</span>
-                        <p style={{color: '#BBBBBB'}}>{project.duration || 'N/A'}</p>
+                        <span className="font-medium" style={{ color: 'white' }}>Duration</span>
+                        <p style={{ color: '#b9cce2' }}>{project.duration || 'N/A'}</p>
                       </div>
                       <div>
-                        <span className="font-medium" style={{color: 'white'}}>Location:</span>
-                        <p style={{color: '#BBBBBB'}}>{project.location || 'N/A'}</p>
+                        <span className="font-medium" style={{ color: 'white' }}>Location</span>
+                        <p style={{ color: '#b9cce2' }}>{project.location || 'N/A'}</p>
                       </div>
                     </div>
-                    
                     {skills.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-4">
-                        {skills.slice(0, 3).map((skill: string, idx: number) => (
-                          <span key={idx} className="px-2 py-1 bg-blue-600 text-xs rounded-full" style={{color: 'white'}}>
-                            {skill}
-                          </span>
+                        {skills.slice(0, 4).map(skill => (
+                          <span key={skill} className="px-2 py-1 text-xs rounded-full bg-white/10" style={{ color: 'white' }}>{skill}</span>
                         ))}
-                        {skills.length > 3 && (
-                          <span className="px-2 py-1 bg-gray-600 text-xs rounded-full" style={{color: 'white'}}>
-                            +{skills.length - 3} more
-                          </span>
-                        )}
                       </div>
                     )}
-                    
                     {project.status === 'OPEN' && project.linkedForm ? (
-                      <a
-                        href={`/forms/${project.linkedForm}`}
-                        className="block w-full bg-white hover:bg-gray-100 py-2 rounded-lg transition-colors text-center font-medium"
-                        style={{color: '#00274c'}}
-                      >
-                        Apply Now
-                      </a>
-                    ) : project.status === 'FILLED' ? (
-                      <button disabled className="w-full bg-gray-500 py-2 rounded-lg opacity-50 cursor-not-allowed" style={{color: 'white'}}>
-                        Position Filled
-                      </button>
-                    ) : project.status === 'CLOSED' ? (
-                      <button disabled className="w-full bg-gray-500 py-2 rounded-lg opacity-50 cursor-not-allowed" style={{color: 'white'}}>
-                        Applications Closed
-                      </button>
+                      <a href={`/forms/${project.linkedForm}`} className={`${styles.btn} ${styles.primary} w-full`}>Apply Now</a>
                     ) : (
-                      <button disabled className="w-full bg-gray-500 py-2 rounded-lg opacity-50 cursor-not-allowed" style={{color: 'white'}}>
-                        Application Coming Soon
-                      </button>
+                      <span className={`${styles.btn} ${styles.ghost} w-full opacity-60`}>
+                        {project.status === 'FILLED' ? 'Position Filled' : project.status === 'CLOSED' ? 'Applications Closed' : 'Application Coming Soon'}
+                      </span>
                     )}
-                  </motion.div>
+                  </div>
                 );
-              })
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-12">
-        <div className="max-w-4xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="glass-card p-8 text-center"
-          >
-            <h2 className="heading-secondary text-2xl sm:text-3xl mb-6" style={{color: 'white'}}>
-              {content.ctaTitle}
-            </h2>
-            <p className="body-text text-lg mb-8 leading-relaxed" style={{color: '#BBBBBB'}}>
-              {content.ctaSubtitle}
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a 
-                href="/#join" 
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: '#ffffff',
-                  color: '#000000',
-                  fontWeight: '700',
-                  padding: '12px 32px',
-                  borderRadius: '50px',
-                  textDecoration: 'none',
-                  border: '2px solid #00274c',
-                  boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
-                }}
-              >
-
-              </a>
-              <a 
-                href="mailto:ABGContact@umich.edu" 
-                className="btn-secondary inline-flex items-center justify-center"
-                style={{color: 'white'}}
-              >
-                <span>Contact Us</span>
-              </a>
+              })}
             </div>
-          </motion.div>
-        </div>
-      </section>
+          )}
+        </section>
+
+        <Reveal delay={0}>
+          <section className={`${styles.panel} ${styles.cta}`}>
+            <h3>{content.ctaTitle}</h3>
+            <p>{content.ctaSubtitle}</p>
+            <div className={styles.btns}>
+              <a className={`${styles.btn} ${styles.primary}`} href="/#join">Join ABG</a>
+              <a className={`${styles.btn} ${styles.ghost}`} href="mailto:ABGContact@umich.edu">Contact Us</a>
+            </div>
+          </section>
+        </Reveal>
+      </div>
     </div>
   );
-} 
+}
