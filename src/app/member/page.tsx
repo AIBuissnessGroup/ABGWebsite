@@ -11,6 +11,7 @@ import {
   CalendarDaysIcon,
   DocumentTextIcon,
   ArrowTopRightOnSquareIcon,
+  ArrowRightIcon,
   ChatBubbleLeftRightIcon,
   CodeBracketIcon,
   CheckBadgeIcon,
@@ -305,6 +306,16 @@ export default function MemberDashboardPage() {
                 </span>
                 <ArrowTopRightOnSquareIcon className="w-4 h-4 text-white/40 group-hover:text-white" />
               </a>
+
+              <Link
+                href="/member/reimbursements"
+                className="flex items-center justify-between p-3 rounded-xl bg-black/25 hover:bg-black/40 border border-white/10 hover:border-white/20 transition-all text-xs font-medium text-white/90 group"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="text-base">💸</span> Request Reimbursement
+                </span>
+                <ArrowRightIcon className="w-4 h-4 text-white/40 group-hover:text-white" />
+              </Link>
             </div>
           </div>
 
