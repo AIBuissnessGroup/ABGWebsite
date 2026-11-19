@@ -222,7 +222,7 @@ html {
 }
 
 body {
-  font-family: var(--font-roboto), 'Roboto', sans-serif;
+  font-family: var(--font-oswald), 'Oswald', sans-serif;
   font-weight: 700;
   background: linear-gradient(135deg, var(--deep-blue) 0%, var(--blue-gradient) 100%);
   color: var(--white);
@@ -423,7 +423,7 @@ body.profile-page .text-white {
 
 /* Typography Hierarchy */
 .heading-primary {
-  font-family: 'Roboto', sans-serif;
+  font-family: var(--font-oswald), 'Oswald', sans-serif;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -431,7 +431,7 @@ body.profile-page .text-white {
 }
 
 .heading-secondary {
-  font-family: 'Roboto', sans-serif;
+  font-family: var(--font-oswald), 'Oswald', sans-serif;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -439,7 +439,7 @@ body.profile-page .text-white {
 }
 
 .body-text {
-  font-family: 'Roboto', sans-serif;
+  font-family: var(--font-oswald), 'Oswald', sans-serif;
   font-weight: 700;
   line-height: 1.6;
 }
@@ -1503,7 +1503,7 @@ body.profile-page .text-white {
 
 /* SXSW section headings */
 .sxsw-heading {
-  font-family: 'Roboto', sans-serif;
+  font-family: var(--font-oswald), 'Oswald', sans-serif;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.05em;
