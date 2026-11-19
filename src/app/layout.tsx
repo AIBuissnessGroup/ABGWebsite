@@ -11,7 +11,7 @@ import "@/lib/production-logging";
 
 const roboto = Roboto({
   subsets: ['latin'],
-  weight: '700', // This loads Roboto Bold
+  weight: ['400', '500', '700'],
   variable: '--font-roboto',
 });
 
