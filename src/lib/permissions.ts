@@ -32,7 +32,8 @@ export type AdminPage =
   | 'newsroom'
   | 'internships'
   | 'companies'
-  | 'changelog';
+  | 'changelog'
+  | 'reimbursements';
 
 /**
  * Permission map: which roles can access which admin pages
@@ -84,6 +85,9 @@ export const PAGE_PERMISSIONS: Record<AdminPage, UserRole[]> = {
   
   // Changelog - VP Technology, VP Operations
   'changelog': ['ADMIN', 'PRESIDENT', 'VP_TECHNOLOGY', 'VP_OPERATIONS'],
+
+  // Reimbursements - finance and executive leadership
+  'reimbursements': ['ADMIN', 'PRESIDENT', 'VP_OPERATIONS', 'VP_FINANCE'],
 };
 
 /**

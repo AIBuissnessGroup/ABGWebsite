@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { 
   HomeIcon,
   InformationCircleIcon,
@@ -17,9 +18,20 @@ import {
   CalendarIcon,
   EyeIcon,
   ChartBarIcon,
-  CalendarDaysIcon
+  CalendarDaysIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline';
 import AnalyticsWidget from '@/components/admin/AnalyticsWidget';
+import type { UserRole } from '@/types/next-auth';
+
+type QuickAction = {
+  title: string;
+  description: string;
+  icon: typeof BanknotesIcon;
+  color: string;
+  href: string;
+  allowedRoles?: UserRole[];
+};
 
 interface AuditLog {
   _id: string;
@@ -35,6 +47,7 @@ interface AuditLog {
 }
 
 export default function AdminDashboard() {
+  const { data: session } = useSession();
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [themeF1Enabled, setThemeF1Enabled] = useState(false);
@@ -129,7 +142,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const quickActions = [
+  const quickActions: QuickAction[] = [
     {
       title: 'Meeting Attendance',
       description: 'Track meetings & QR code check-in',
@@ -249,7 +262,19 @@ export default function AdminDashboard() {
       color: 'bg-slate-500',
       href: '/admin/changelog',
     },
+    {
+      title: 'Reimbursements',
+      description: 'Manage reimbursement requests',
+      icon: BanknotesIcon,
+      color: 'bg-emerald-600',
+      href: '/admin/reimbursements',
+      allowedRoles: ['ADMIN', 'PRESIDENT', 'VP_OPERATIONS', 'VP_FINANCE'],
+    },
   ];
+  const dashboardRoles = session?.user?.roles || [];
+  const visibleQuickActions = quickActions.filter((action) =>
+    !action.allowedRoles || action.allowedRoles.some((role) => dashboardRoles.includes(role))
+  );
 
   return (
     <div className="space-y-6">
@@ -282,7 +307,7 @@ export default function AdminDashboard() {
         </div>
         <div className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {quickActions.map((action) => (
+            {visibleQuickActions.map((action) => (
               <Link
                 key={action.title}
                 href={action.href}
